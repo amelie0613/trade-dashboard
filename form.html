@@ -552,6 +552,9 @@ async function readAllFirebase(){
 
 // ── GAS 非同步備份（fire-and-forget，失敗不影響主流程）─
 function backupToGAS(payload){
+  console.log('📤 GAS payload transferEmail:', payload.transferEmail);
+  console.log('📤 GAS payload transferTo:', payload.transferTo);
+  console.log('📤 GAS payload action:', payload.action);
   fetch(SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -945,7 +948,9 @@ async function submitForm(){
       var val = sel ? sel.value : '';
       var builtIn = (val && val !== '其他') ? (STAFF_EMAILS[val] || '') : '';
       var manual = (document.getElementById('transfer-email-input') || {}).value || '';
-      return (builtIn || manual.trim());
+      var result = builtIn || manual.trim();
+      console.log('📧 transferEmail 計算：builtIn=', builtIn, 'manual=', manual, '→', result);
+      return result;
     })(),
     transferMsg: (function(){ var el=document.getElementById('transfer-msg'); return el?el.value:''; })(),
     buyConfirmAmt:  parseFloat((document.getElementById('buy-confirm-amt')||{}).value)||0,
