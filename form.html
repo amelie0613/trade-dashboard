@@ -524,7 +524,9 @@ function sanitizeForFirebase(obj){
 async function updateFirebase(formId, fields){
   var db = getFirebaseDb();
   if(!db) throw new Error('Firebase 未初始化');
-  await db.ref('contracts/' + formId).update(fields);
+  var clean = sanitizeForFirebase(fields);
+  console.log('✅ Firebase update 準備寫入 formId:', formId, '欄位數:', Object.keys(clean).length);
+  await db.ref('contracts/' + formId).update(clean);
   console.log('✅ Firebase update 成功：' + formId);
 }
 
@@ -1919,6 +1921,7 @@ function submitSellPart(){
       var s=document.querySelector('.ss2'); if(s) s.textContent='老闆將收到審核通知，感謝您的填寫。';
     })
     .catch(function(e){
+      console.error('❌ Firebase 補填失敗，錯誤內容：', e.message || e, '| formId:', FILL_FORMID);
       console.error('Firebase 補填失敗，降級走 GAS：', e);
       // Firebase 失敗時降級
       fetch(SCRIPT_URL, {
