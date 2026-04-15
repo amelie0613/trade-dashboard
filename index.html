@@ -213,7 +213,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .sec-lbl{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -465,7 +465,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 </div>
 
 <script>
-var SCRIPT='https://script.google.com/macros/s/AKfycbxMAdnVIyGDuG3wbdxg2rKS_PnPyTR0ZUjkhrMKDskgFBOCi5jtIFx4ILvyHpXEq3cn/exec';
+var SCRIPT='https://script.google.com/macros/s/AKfycbxzviHF0P8eIwBT9EOC66Bt1H6TFc8EF3H5m6QDo4AszaqiF7PDSwB5FShlSnOkRJHYGA/exec';
 var CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vTJ6nBKr5P1RFidrD6V_7MRLRraKBrrf3CmT8StmKm4uPYL19HCE0zYHjJmY1E0TI-NYWR7AvJFu8RQ/pub?gid=357150087&single=true&output=csv';
 
 // ══════════════════════════════════════════════════════
@@ -483,27 +483,29 @@ var FIREBASE_CONFIG = {
 };
 // ══════════════════════════════════════════════════════
 
-// ── Firebase 初始化 ────────────────────────────────────
+// ── Firebase 初始化（Firestore）────────────────────────
 var _fbApp = null;
 var _fbDb  = null;
 function getFirebaseDb(){
   if(_fbDb) return _fbDb;
   if(!window.firebase) return null;
-  if(!_fbApp){ _fbApp = firebase.initializeApp(FIREBASE_CONFIG); }
-  _fbDb = firebase.database();
+  if(!_fbApp){
+    try { _fbApp = firebase.app(); } catch(e) { _fbApp = firebase.initializeApp(FIREBASE_CONFIG); }
+  }
+  _fbDb = firebase.firestore();
   return _fbDb;
 }
 
 // ── Firebase 操作封裝 ──────────────────────────────────
 function readAllFirebase(cb){
   var db = getFirebaseDb();
-  if(!db){ cb(null, 'Firebase 未初始化'); return; }
-  db.ref('contracts').once('value')
+  if(!db){ cb(null, 'Firestore 未初始化'); return; }
+  db.collection('cases').get()
     .then(function(snap){
       var result = [];
-      snap.forEach(function(child){
-        var val = child.val();
-        if(val) result.push(Object.assign({ _firebaseKey: child.key }, val));
+      snap.forEach(function(doc){
+        var val = doc.data();
+        if(val) result.push(Object.assign({ _firebaseKey: doc.id }, val));
       });
       cb(result, null);
     })
@@ -513,17 +515,17 @@ function readAllFirebase(cb){
 function updateFirebase(formId, fields, cb){
   var db = getFirebaseDb();
   if(!db){ if(cb) cb(false); return; }
-  db.ref('contracts/' + formId).update(fields)
+  db.collection('cases').doc(formId).update(fields)
     .then(function(){ if(cb) cb(true); })
-    .catch(function(e){ console.error('Firebase update 失敗：', e); if(cb) cb(false); });
+    .catch(function(e){ console.error('Firestore update 失敗：', e); if(cb) cb(false); });
 }
 
 function deleteFirebase(formId, cb){
   var db = getFirebaseDb();
   if(!db){ if(cb) cb(false); return; }
-  db.ref('contracts/' + formId).remove()
+  db.collection('cases').doc(formId).delete()
     .then(function(){ if(cb) cb(true); })
-    .catch(function(e){ console.error('Firebase delete 失敗：', e); if(cb) cb(false); });
+    .catch(function(e){ console.error('Firestore delete 失敗：', e); if(cb) cb(false); });
 }
 
 // ── GAS 非同步備份 ─────────────────────────────────────
@@ -909,65 +911,102 @@ function load(){
   });
 }
 
-// Firebase row 欄位正規化（確保中文欄位名稱存在，向下相容 Sheets 格式）
+// Firestore row 欄位正規化（把巢狀結構展平成中文欄位，向下相容）
 function normalizeRow(r){
   var mapped = Object.assign({}, r);
-  // _row 統一用 formId（Firebase 沒有列號）
-  var fid = r['formId']||r['表單編號']||r._firebaseKey||'';
+  // _row 統一用 formId
+  var fid = (r.meta && r.meta.formId) || r['formId'] || r['表單編號'] || r._firebaseKey || '';
   mapped._row = fid;
   mapped['表單編號'] = fid;
-  // 若已有中文欄位（從 Sheets 遷移過來的資料），補完後直接返回
+
+  // 若是舊格式（已有中文欄位），補 _row 後直接返回
   if(r['業務名稱'] || r['案件名稱']){
-    // 修正時間戳記格式（數字毫秒 → 字串）
-    ['ETD 出貨日','ETA 到貨日','採購期1預計日','採購期2預計日','採購期3預計日',
-     '銷售期1預計日','銷售期2預計日','銷售期3預計日'].forEach(function(k){
-      var v = mapped[k];
-      if(v && !isNaN(v) && String(v).length >= 10){
-        var d = new Date(typeof v==='number'?v:parseInt(v));
-        if(!isNaN(d.getTime())) mapped[k] = d.toISOString().slice(0,10);
-      }
-    });
     return mapped;
   }
-  // 否則把英文 key 對應成中文欄位（新的 Firebase 資料）
-  var keyMap = {
-    'staff':'業務名稱', 'type':'案件屬性', 'caseName':'案件名稱', 'asst':'承辦業助',
-    'supplier':'供應商（賣方）', 'buyPay':'付款條件（採購）',
-    'buyer':'客戶（買方）', 'sellPay':'收款條件（銷售）',
-    'buyNote':'備註（採購）', 'sellNote':'備註（銷售）',
-    'sellCostAmt':'銷售成本金額', 'sellCostCur':'銷售成本幣別',
-    'buyCon':'賣方合約（採購）', 'sellCon':'買方合約（銷售）',
-    'trade':'貿易條件', 'etd':'ETD 出貨日', 'eta':'ETA 到貨日',
-    'origin':'出貨地/發貨港口', 'dest':'目的地/收貨港口',
-    'extra':'其他費用', 'freight':'運費', 'tax':'規費',
-    'insure':'保險費', 'comm':'佣金',
-    'transferTo':'轉交銷售業務', 'transferMsg':'轉交備註',
-    'formId':'表單編號',
-    '銷售補填狀態':'銷售補填狀態',
-    '老闆已同意':'老闆已同意', '老闆備註':'老闆備註',
-    '簽核時間':'簽核時間', '會計確認':'會計確認',
-  };
-  Object.keys(keyMap).forEach(function(en){
-    var zh = keyMap[en];
-    if(r[en] !== undefined && r[en] !== null && !mapped[zh]){
-      mapped[zh] = r[en];
-    }
-  });
-  // 分期欄位（periods array → 期1/期2/期3）
-  if(r.periods && Array.isArray(r.periods)){
-    var buyI=1, sellI=1;
-    r.periods.forEach(function(p){
-      if(p.type==='採購' && buyI<=3){
-        mapped['採購期'+buyI+'名稱']=p.name||''; mapped['採購期'+buyI+'幣別']=p.cur||'TWD';
-        mapped['採購期'+buyI+'金額']=p.amt||0;   mapped['採購期'+buyI+'預計日']=p.date||'';
-        mapped['採購期'+buyI+'備註']=p.note||''; buyI++;
-      } else if(p.type==='銷售' && sellI<=3){
-        mapped['銷售期'+sellI+'名稱']=p.name||''; mapped['銷售期'+sellI+'幣別']=p.cur||'TWD';
-        mapped['銷售期'+sellI+'金額']=p.amt||0;   mapped['銷售期'+sellI+'預計日']=p.date||'';
-        mapped['銷售期'+sellI+'備註']=p.note||''; sellI++;
-      }
-    });
+
+  // ── 新格式：Firestore 巢狀結構展平 ──────────────────
+  var meta     = r.meta     || {};
+  var purchase = r.purchase || {};
+  var sales    = r.sales    || {};
+  var logistics= r.logistics|| {};
+  var fees     = r.fees     || {};
+  var approval = r.approval || {};
+  var transfer = r.transfer || {};
+
+  // meta
+  mapped['時間戳記']  = meta.timestamp  || '';
+  mapped['業務名稱']  = meta.staff      || '';
+  mapped['案件屬性']  = meta.caseType   || '';
+  mapped['案件名稱']  = meta.caseName   || '';
+  mapped['承辦業助']  = meta.assistant  || '';
+  mapped['建立時間']  = meta.createdAt  || '';
+
+  // purchase
+  mapped['供應商（賣方）']   = purchase.supplier     || '';
+  mapped['付款條件（採購）'] = purchase.paymentTerms || '';
+  mapped['備註（採購）']     = purchase.note         || '';
+  mapped['賣方合約（採購）'] = purchase.contract     || '';
+
+  // purchase periods → 採購期1~3
+  var buyPeriods = purchase.periods || [];
+  for(var bi=0; bi<3; bi++){
+    var bp = buyPeriods[bi] || {};
+    var n = bi+1;
+    mapped['採購期'+n+'名稱']  = bp.name         || '';
+    mapped['採購期'+n+'幣別']  = bp.currency      || (bi===0?'TWD':'');
+    mapped['採購期'+n+'金額']  = bp.amount        || 0;
+    mapped['採購期'+n+'預計日']= bp.expectedDate  || '';
+    mapped['採購期'+n+'備註']  = bp.note          || '';
   }
+
+  // sales
+  mapped['客戶（買方）']     = sales.customer     || '';
+  mapped['收款條件（銷售）'] = sales.paymentTerms || '';
+  mapped['備註（銷售）']     = sales.note         || '';
+  mapped['買方合約（銷售）'] = sales.contract     || '';
+  mapped['銷售成本金額']     = sales.costAmount   || 0;
+  mapped['銷售成本幣別']     = sales.costCurrency || 'TWD';
+
+  // sales periods → 銷售期1~3
+  var sellPeriods = sales.periods || [];
+  for(var si=0; si<3; si++){
+    var sp = sellPeriods[si] || {};
+    var sn = si+1;
+    mapped['銷售期'+sn+'名稱']  = sp.name         || '';
+    mapped['銷售期'+sn+'幣別']  = sp.currency      || (si===0?'TWD':'');
+    mapped['銷售期'+sn+'金額']  = sp.amount        || 0;
+    mapped['銷售期'+sn+'預計日']= sp.expectedDate  || '';
+    mapped['銷售期'+sn+'備註']  = sp.note          || '';
+  }
+
+  // logistics
+  mapped['貿易條件']         = logistics.tradeTerms  || '';
+  mapped['ETD 出貨日']       = logistics.etd          || '';
+  mapped['ETA 到貨日']       = logistics.eta          || '';
+  mapped['出貨地/發貨港口']  = logistics.origin       || '';
+  mapped['目的地/收貨港口']  = logistics.destination  || '';
+
+  // fees
+  mapped['運費']   = fees.freight    || 0;
+  mapped['規費']   = fees.tax        || 0;
+  mapped['保險費'] = fees.insurance  || 0;
+  mapped['佣金']   = fees.commission || 0;
+  mapped['其他費用']= fees.other     || 0;
+
+  // approval
+  mapped['老闆已同意'] = approval.bossApproved        || '';
+  mapped['老闆備註']   = approval.bossNote             || '';
+  mapped['簽核時間']   = approval.approvedAt           || '';
+  mapped['會計確認']   = approval.accountingConfirmed  || '';
+  mapped['採購確認金額']= approval.buyConfirmAmt       || 0;
+  mapped['銷售確認金額']= approval.sellConfirmAmt      || 0;
+
+  // transfer
+  mapped['轉交銷售業務'] = transfer.transferTo    || '';
+  mapped['轉交信箱']     = transfer.transferEmail  || '';
+  mapped['轉交備註']     = transfer.transferNote   || '';
+  mapped['銷售補填狀態'] = transfer.fillStatus     || '';
+
   return mapped;
 }
 function loadViaJSONP(){
@@ -2066,31 +2105,57 @@ function doApp(rowNum,status){
   if(b2)b2.disabled=true;
 
   var tsNow = now();
-  var firebaseFields = { '老闆已同意': status, '老闆備註': note, '簽核時間': tsNow };
+
+  // Firestore dot notation 更新 approval 區塊
+  var firestoreFields = {
+    'approval.bossApproved': status,
+    'approval.bossNote':     note,
+    'approval.approvedAt':   tsNow,
+  };
 
   function onDone(){
-    if(r){r[F.status]=status;r[F.bossNote]=note;}
+    if(r){r[F.status]=status;r[F.bossNote]=note;r[F.signTime]=tsNow;}
     addLog(status==='是'?'同意簽核':'退回修改',curUser.name,name,note);
     if(status==='是'){
+      // 發簽核通過通知（寄給會計）
+      backupActionToGAS({
+        action:   'approved',
+        caseName: g(r,'name'),
+        staff:    g(r,'staff'),
+        formId:   formId,
+        type:     g(r,'type'),
+        supplier: g(r,'supp'),
+        buyer:    g(r,'buyer'),
+        buyPay:   g(r,'buyPay'),
+        sellPay:  g(r,'sellPay'),
+        buyPeriods:  getPeriods01(r,'buy').map(function(p){return{name:p.name,cur:p.cur,amt:p.amt,date:p.date,note:p.note};}),
+        sellPeriods: getPeriods01(r,'sell').map(function(p){return{name:p.name,cur:p.cur,amt:p.amt,date:p.date,note:p.note};}),
+        signTime: tsNow,
+        bossNote: note,
+      });
       toast('✅ 已簽核！等待會計確認轉入款項','#16a34a');
       if(r) r['_pendingPayment']=true;
     } else {
+      // 發退回通知（寄給業務）
+      backupActionToGAS({
+        action:     'rejected',
+        caseName:   g(r,'name'),
+        formId:     formId,
+        bossNote:   note,
+        staffEmail: '', // 可從 STAFF_EMAILS 補上
+      });
       toast('❌ 已退回','#dc2626');
     }
     closeD();onLoad();
   }
 
-  // ① Firebase 更新（有 formId 才更新）
+  // Firestore 更新（有 formId 才更新）
   if(formId){
-    updateFirebase(formId, firebaseFields, function(){
-      // ② GAS 備份（含發財務通知 email）
-      backupActionToGAS({action:'approve',row:rowNum,status:status,note:note,approver:curUser.name,time:tsNow});
+    updateFirebase(formId, firestoreFields, function(ok){
       onDone();
     });
   } else {
-    // 沒有 formId（舊資料）直接走 GAS
-    fetch(SCRIPT,{method:'POST',body:JSON.stringify({action:'approve',row:rowNum,status:status,note:note,approver:curUser.name,time:tsNow}),mode:'no-cors'})
-      .finally(onDone);
+    onDone();
   }
 }
 
@@ -2110,40 +2175,35 @@ function doAccountingConfirm(rowNum){
   var formId   = (r[F.formId]||'')||g(r,'表單編號')||'';
   var caseName = (r[F.name]||'')||'';
   var staff    = (r[F.staff]||'')||'';
-  // 從 Payments 查是否已有資料（重複確認防呆）
   toast('轉入款項中...','#0369a1');
-  fetch(SCRIPT,{
-    method:'POST',
-    mode:'no-cors',
-    body:JSON.stringify({
-      action:'savePayments',
-      formId:formId,
-      caseName:caseName,
-      staffName:staff,
-      periods:buildPeriodsFromRow(r)
-    }),
-    mode:'no-cors'
-  }).finally(function(){
+
+  var tsNow = now();
+  var firestoreFields = {
+    'approval.accountingConfirmed': '是',
+    'approval.accountingAt':        tsNow,
+  };
+
+  function onDone(){
     addLog('會計確認轉入',curUser.name,caseName,'');
-    toast('✅ 款項已轉入 Payments 分頁','#16a34a');
-    // 更新會計審核欄位
-    fetch(SCRIPT,{
-      method:'POST',
-      body:JSON.stringify({action:'update',row:rowNum,
-        fields:{'會計審核':'是','會計審核時間':now()},
-        editor:curUser.name}),
-      mode:'no-cors'
+    toast('✅ 款項已轉入','#16a34a');
+    // 通知業務會計已確認
+    backupActionToGAS({
+      action:        'accounting',
+      caseName:      caseName,
+      formId:        formId,
+      staff:         staff,
+      staffEmail:    '',
+      buyConfirmAmt: r['採購確認金額']||0,
+      sellConfirmAmt:r['銷售確認金額']||0,
     });
-    // 重新載入資料後重新渲染
-    loadPayments(function(){
-      onLoad();
-      // 只在 transfer 頁面才渲染待轉入
-      if(document.getElementById('s-transfer') &&
-         document.getElementById('s-transfer').classList.contains('on')){
-        loadTransfer();
-      }
-    });
-  });
+    loadPayments(function(){ onLoad(); });
+  }
+
+  if(formId){
+    updateFirebase(formId, firestoreFields, function(){ onDone(); });
+  } else {
+    onDone();
+  }
 }
 
 // 從 FormResponses01 分期欄位建立 periods（財務轉入 Payments 用）
@@ -2213,75 +2273,92 @@ function notifyBossEdit(r, editorName, changes){
 function doEdit(rowNum){
   var btn=document.getElementById('ebtn-'+rowNum);
   if(btn){btn.disabled=true;btn.textContent='儲存中...';}
-  var map=[
-    ['e-staff-','業務名稱'],['e-type-','案件屬性'],['e-name-','案件名稱'],['e-asst-','承辦業助'],
-    ['e-supp-',   F.supp],   ['e-buycur-', F.buyCur], ['e-buyamt-',  F.buyAmt],
-    ['e-buydate-',F.buyDate],['e-buyer-',  F.buyer],  ['e-sellcur-', F.sellCur],
-    ['e-sellamt-',F.sellAmt],['e-selldate-',F.sellDate],['e-trade-', F.trade],
-    ['e-etd-',    F.etd],    ['e-eta-',    F.eta],    ['e-origin-',  F.origin],
-    ['e-dest-',   F.dest],   ['e-freight-',F.freight],['e-insure-',  F.insure],
-    ['e-tax-',    F.tax],    ['e-comm-',   F.comm],   ['e-extra-',   F.extra],
-    ['e-profit-', F.profit], ['e-buyrem-', F.buyRem], ['e-sellrem-', F.sellRem],
-    ['e-buypay-', F.buyPay], ['e-sellpay-',F.sellPay],
-  ];
-  var fields={};
   var r=rows.find(function(x){return x._row===rowNum;});
+  var formId = r ? (r[F.formId]||r['表單編號']||r._firebaseKey||'') : '';
+  var caseName = r ? g(r,'name') : 'Row'+rowNum;
 
-  // ★ 比較修改前後，只記錄有變動的欄位
-  var changes=[];
-  map.forEach(function(m){
-    var el=document.getElementById(m[0]+rowNum);
+  // 收集編輯欄位的新值
+  var editMap=[
+    ['e-staff-',   'meta.staff'],
+    ['e-type-',    'meta.caseType'],
+    ['e-name-',    'meta.caseName'],
+    ['e-asst-',    'meta.assistant'],
+    ['e-supp-',    'purchase.supplier'],
+    ['e-buyrem-',  'purchase.note'],
+    ['e-buyer-',   'sales.customer'],
+    ['e-sellrem-', 'sales.note'],
+    ['e-trade-',   'logistics.tradeTerms'],
+    ['e-etd-',     'logistics.etd'],
+    ['e-eta-',     'logistics.eta'],
+    ['e-origin-',  'logistics.origin'],
+    ['e-dest-',    'logistics.destination'],
+    ['e-freight-', 'fees.freight'],
+    ['e-insure-',  'fees.insurance'],
+    ['e-tax-',     'fees.tax'],
+    ['e-comm-',    'fees.commission'],
+    ['e-extra-',   'fees.other'],
+  ];
+
+  var firestoreFields = {
+    // 重置簽核狀態（讓老闆重新審核）
+    'approval.bossApproved': '',
+    'approval.bossNote':     '',
+    'approval.approvedAt':   '',
+  };
+  var localFields = { '老闆已同意':'', '老闆備註':'', '簽核時間':'' };
+  var changes = [];
+
+  editMap.forEach(function(m){
+    var el = document.getElementById(m[0]+rowNum);
     if(!el) return;
-    var newVal=el.value.trim();
-    var oldVal=(r ? (r[m[1]]||'') : '').toString().trim();
-    fields[m[1]]=newVal;
-    if(newVal !== oldVal){
-      changes.push(m[1]+' 「'+oldVal+'」→「'+newVal+'」');
+    var newVal = el.value.trim();
+    // 比對舊值（從 normalizeRow 展平後的 r）
+    var zhKey = m[1].split('.').pop(); // 取最後一段做粗略比對
+    firestoreFields[m[1]] = newVal;
+    // 同步更新本地 r
+    if(r){
+      // 對應中文欄位
+      var zhMap = {
+        'meta.staff':'業務名稱','meta.caseType':'案件屬性','meta.caseName':'案件名稱','meta.assistant':'承辦業助',
+        'purchase.supplier':'供應商（賣方）','purchase.note':'備註（採購）',
+        'sales.customer':'客戶（買方）','sales.note':'備註（銷售）',
+        'logistics.tradeTerms':'貿易條件','logistics.etd':'ETD 出貨日','logistics.eta':'ETA 到貨日',
+        'logistics.origin':'出貨地/發貨港口','logistics.destination':'目的地/收貨港口',
+        'fees.freight':'運費','fees.insurance':'保險費','fees.tax':'規費',
+        'fees.commission':'佣金','fees.other':'其他費用',
+      };
+      var zh = zhMap[m[1]];
+      if(zh){
+        var oldVal = (r[zh]||'').toString().trim();
+        if(oldVal !== newVal) changes.push(zh+' 「'+oldVal+'」→「'+newVal+'」');
+        r[zh] = newVal;
+        localFields[zh] = newVal;
+      }
     }
   });
 
-  var caseName = r ? g(r,'name') : 'Row'+rowNum;
-  var changeLog = changes.length > 0 ? changes.join(' / ') : '無變動';
-
-  // 重置簽核狀態（讓老闆重新審核）
-  fields[F.status]   = '';   // 老闆已同意 → 清空
-  fields[F.bossNote] = '';   // 老闆備註 → 清空
-  fields[F.signTime] = '';   // 簽核時間 → 清空
-
-  var formId = r ? (r[F.formId]||r['表單編號']||r._firebaseKey||'') : '';
-
   function onEditDone(){
     if(r){
-      Object.keys(fields).forEach(function(k){r[k]=fields[k];});
-      // 同步更新本地 rows 的簽核狀態
       r[F.status]   = '';
       r[F.bossNote] = '';
       r[F.signTime] = '';
     }
-    addLog('修改案件',curUser.name, caseName, changeLog);
+    addLog('修改案件', curUser.name, caseName, changes.join(' / '));
     if(changes.length > 0){
       notifyBossEdit(r, curUser.name, changes);
     }
-    closeD();onLoad();
+    closeD(); onLoad();
     toast('💾 修改已儲存，老闆需重新審核','#0369a1');
-    if(btn){btn.disabled=false;btn.textContent='💾 儲存修改至 Sheets';}
+    if(btn){btn.disabled=false;btn.textContent='💾 儲存修改至 Firestore';}
   }
 
   if(formId){
-    // ① 先寫回 Firebase
-    updateFirebase(formId, fields, function(ok){
-      if(!ok) console.warn('Firebase 寫入失敗，仍嘗試 GAS 備份');
-      // ② 再備份到 GAS
-      backupActionToGAS({action:'update',row:rowNum,fields:fields,editor:curUser.name});
+    updateFirebase(formId, firestoreFields, function(ok){
+      if(!ok) console.warn('Firestore 寫入失敗');
       onEditDone();
     });
   } else {
-    // 沒有 formId（舊資料）直接走 GAS
-    fetch(SCRIPT,{
-      method:'POST',
-      body:JSON.stringify({action:'update',row:rowNum,fields:fields,editor:curUser.name}),
-      mode:'no-cors'
-    }).finally(onEditDone);
+    onEditDone();
   }
 }
 // 刪除
