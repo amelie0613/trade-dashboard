@@ -2027,9 +2027,9 @@ function showD(rowNum){
       +'<textarea id="e-buyrem-'+rowNum+'" class="ef-ta">'+g(r,'buyRem')+'</textarea></div>'
       +'<div style="margin-bottom:8px;"><label class="ef-lbl">備註（銷售）</label>'
       +'<textarea id="e-sellrem-'+rowNum+'" class="ef-ta">'+g(r,'sellRem')+'</textarea></div>'
-      +'<button class="btn-edit-save" id="ebtn-'+rowNum+'" onclick="doEdit('+rowNum+')">💾 儲存修改至 Sheets</button>'
+      +'<button class="btn-edit-save" id="ebtn-'+rowNum+'" onclick="doEdit('+rq+')">💾 儲存修改至 Sheets</button>'
       // 刪除按鈕
-      +'<button onclick="confirmDel('+rowNum+')" style="width:100%;padding:11px;border-radius:9px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">🗑️ 刪除此案件</button>'
+      +'<button onclick="confirmDel('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">🗑️ 刪除此案件</button>'
       +'</div>';
   }
 
