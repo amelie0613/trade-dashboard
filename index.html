@@ -2246,11 +2246,9 @@ function doEdit(rowNum){
   fields[F.bossNote] = '';   // 老闆備註 → 清空
   fields[F.signTime] = '';   // 簽核時間 → 清空
 
-  fetch(SCRIPT,{
-    method:'POST',
-    body:JSON.stringify({action:'update',row:rowNum,fields:fields,editor:curUser.name}),
-    mode:'no-cors'
-  }).finally(function(){
+  var formId = r ? (r[F.formId]||r['表單編號']||r._firebaseKey||'') : '';
+
+  function onEditDone(){
     if(r){
       Object.keys(fields).forEach(function(k){r[k]=fields[k];});
       // 同步更新本地 rows 的簽核狀態
@@ -2265,7 +2263,24 @@ function doEdit(rowNum){
     closeD();onLoad();
     toast('💾 修改已儲存，老闆需重新審核','#0369a1');
     if(btn){btn.disabled=false;btn.textContent='💾 儲存修改至 Sheets';}
-  });
+  }
+
+  if(formId){
+    // ① 先寫回 Firebase
+    updateFirebase(formId, fields, function(ok){
+      if(!ok) console.warn('Firebase 寫入失敗，仍嘗試 GAS 備份');
+      // ② 再備份到 GAS
+      backupActionToGAS({action:'update',row:rowNum,fields:fields,editor:curUser.name});
+      onEditDone();
+    });
+  } else {
+    // 沒有 formId（舊資料）直接走 GAS
+    fetch(SCRIPT,{
+      method:'POST',
+      body:JSON.stringify({action:'update',row:rowNum,fields:fields,editor:curUser.name}),
+      mode:'no-cors'
+    }).finally(onEditDone);
+  }
 }
 // 刪除
 function confirmDel(rowNum){
