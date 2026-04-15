@@ -102,7 +102,7 @@ textarea{height:72px;resize:none;line-height:1.6;}
 .bnew{padding:14px 32px;border-radius:12px;background:linear-gradient(135deg,#0369a1,var(--teal));color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -480,11 +480,11 @@ const FIREBASE_CONFIG = {
 // ══════════════════════════════════════════════════════
 // ★ GAS 備份 URL（保持原有，不需修改）★
 // ══════════════════════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxMAdnVIyGDuG3wbdxg2rKS_PnPyTR0ZUjkhrMKDskgFBOCi5jtIFx4ILvyHpXEq3cn/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzviHF0P8eIwBT9EOC66Bt1H6TFc8EF3H5m6QDo4AszaqiF7PDSwB5FShlSnOkRJHYGA/exec';
 const RATE = { USD:30.5, JPY:0.205, EUR:33.5, TWD:1 };
 const fd = {};
 
-// ── Firebase 初始化（Realtime Database）────────────────
+// ── Firebase 初始化（Firestore）────────────────────────
 var _fbApp = null;
 var _fbDb  = null;
 function getFirebaseDb(){
@@ -494,25 +494,13 @@ function getFirebaseDb(){
     return null;
   }
   if(!_fbApp){
-    _fbApp = firebase.initializeApp(FIREBASE_CONFIG);
+    try { _fbApp = firebase.app(); } catch(e) { _fbApp = firebase.initializeApp(FIREBASE_CONFIG); }
   }
-  _fbDb = firebase.database();
+  _fbDb = firebase.firestore();
   return _fbDb;
 }
 
-// ── 寫入 Firebase（contracts/{formId}）─────────────────
-async function writeFirebase(payload){
-  var db = getFirebaseDb();
-  if(!db) throw new Error('Firebase 未初始化');
-  // Firebase 不接受 undefined，全部轉成 null 或空字串
-  var clean = sanitizeForFirebase(payload);
-  var formId = clean.formId;
-  await db.ref('contracts/' + formId).set(clean);
-  console.log('✅ Firebase 寫入成功：' + formId);
-}
-
-// 遞迴清除所有 undefined（Firebase 不接受）
-// JSON 序列化強制把 undefined 換成空字串
+// ── 遞迴清除所有 undefined ─────────────────────────────
 function sanitizeForFirebase(obj){
   var jsonStr = JSON.stringify(obj, function(key, value){
     return value === undefined ? '' : value;
@@ -520,41 +508,152 @@ function sanitizeForFirebase(obj){
   return JSON.parse(jsonStr);
 }
 
-// ── 更新 Firebase 部分欄位 ─────────────────────────────
+// ── payload → Firestore 巢狀結構 ──────────────────────
+function buildFirestoreDoc(payload){
+  var buyPeriods  = (payload.periods||[]).filter(function(p){ return p.type==='採購'; })
+                    .map(function(p){ return { name:p.name||'', currency:p.cur||'TWD', amount:parseFloat(p.amt)||0, expectedDate:p.date||'', note:p.note||'' }; });
+  var sellPeriods = (payload.periods||[]).filter(function(p){ return p.type==='銷售'; })
+                    .map(function(p){ return { name:p.name||'', currency:p.cur||'TWD', amount:parseFloat(p.amt)||0, expectedDate:p.date||'', note:p.note||'' }; });
+  var now = new Date().toLocaleString('zh-TW', {hour12:false});
+  return {
+    meta: {
+      timestamp:  payload.timestamp || now,
+      staff:      payload.staff     || '',
+      caseType:   payload.type      || '',
+      caseName:   payload.caseName  || '',
+      assistant:  payload.asst      || '',
+      formId:     payload.formId    || '',
+      createdAt:  now,
+    },
+    purchase: {
+      supplier:     payload.supplier || '',
+      paymentTerms: payload.buyPay   || '',
+      note:         payload.buyNote  || '',
+      contract:     payload.buyCon   || '',
+      periods:      buyPeriods,
+    },
+    sales: {
+      customer:     payload.buyer       || '',
+      paymentTerms: payload.sellPay     || '',
+      note:         payload.sellNote    || '',
+      contract:     payload.sellCon     || '',
+      costAmount:   parseFloat(payload.sellCostAmt) || 0,
+      costCurrency: payload.sellCostCur || 'TWD',
+      periods:      sellPeriods,
+    },
+    logistics: {
+      tradeTerms:  payload.trade   || '',
+      etd:         payload.etd     || '',
+      eta:         payload.eta     || '',
+      origin:      payload.origin  || '',
+      destination: payload.dest    || '',
+    },
+    fees: {
+      freight:    parseFloat(payload.freight) || 0,
+      tax:        parseFloat(payload.tax)     || 0,
+      insurance:  parseFloat(payload.insure)  || 0,
+      commission: parseFloat(payload.comm)    || 0,
+      other:      parseFloat(payload.extra)   || 0,
+    },
+    approval: {
+      bossApproved:        '',
+      bossNote:            '',
+      approvedAt:          '',
+      accountingConfirmed: '',
+      buyConfirmAmt:       parseFloat(payload.buyConfirmAmt)  || 0,
+      sellConfirmAmt:      parseFloat(payload.sellConfirmAmt) || 0,
+    },
+    transfer: {
+      transferTo:    payload.transferTo    || '',
+      transferEmail: payload.transferEmail || '',
+      transferNote:  payload.transferMsg   || '',
+      fillStatus:    payload.transferTo ? '待補填' : '',
+    },
+  };
+}
+
+// ── 寫入 Firestore（cases/{formId}）───────────────────
+async function writeFirebase(payload){
+  var db = getFirebaseDb();
+  if(!db) throw new Error('Firestore 未初始化');
+  var doc    = sanitizeForFirebase(buildFirestoreDoc(payload));
+  var formId = payload.formId;
+  await db.collection('cases').doc(formId).set(doc);
+  console.log('✅ Firestore 寫入成功：' + formId);
+}
+
+// ── 更新 Firestore 部分欄位（補填用）─────────────────
 async function updateFirebase(formId, fields){
   var db = getFirebaseDb();
-  if(!db) throw new Error('Firebase 未初始化');
-  var clean = sanitizeForFirebase(fields);
-  console.log('✅ Firebase update 準備寫入 formId:', formId, '欄位數:', Object.keys(clean).length);
-  await db.ref('contracts/' + formId).update(clean);
-  console.log('✅ Firebase update 成功：' + formId);
+  if(!db) throw new Error('Firestore 未初始化');
+  // 將補填欄位對應到巢狀路徑（使用 dot notation）
+  var fp = fields.fillPart || '銷售';
+  var updateData = {
+    'transfer.fillStatus': '已完成',
+    'meta.caseType':       '採購+銷售(三角貿易)',
+    '_fillUpdatedAt':      new Date().toLocaleString('zh-TW', {hour12:false}),
+  };
+  // 共用交易細節
+  if(fields.buyCon  !== undefined) updateData['purchase.contract']     = fields.buyCon;
+  if(fields.sellCon !== undefined) updateData['sales.contract']        = fields.sellCon;
+  if(fields.trade   !== undefined) updateData['logistics.tradeTerms']  = fields.trade;
+  if(fields.etd     !== undefined) updateData['logistics.etd']         = fields.etd;
+  if(fields.eta     !== undefined) updateData['logistics.eta']         = fields.eta;
+  if(fields.origin  !== undefined) updateData['logistics.origin']      = fields.origin;
+  if(fields.dest    !== undefined) updateData['logistics.destination'] = fields.dest;
+  if(fields.extra   !== undefined) updateData['fees.other']      = parseFloat(fields.extra)   || 0;
+  if(fields.freight !== undefined) updateData['fees.freight']    = parseFloat(fields.freight) || 0;
+  if(fields.tax     !== undefined) updateData['fees.tax']        = parseFloat(fields.tax)     || 0;
+  if(fields.insure  !== undefined) updateData['fees.insurance']  = parseFloat(fields.insure)  || 0;
+  if(fields.comm    !== undefined) updateData['fees.commission'] = parseFloat(fields.comm)    || 0;
+
+  if(fp === '銷售'){
+    if(fields.buyer     !== undefined) updateData['sales.customer']     = fields.buyer;
+    if(fields.sellPay   !== undefined) updateData['sales.paymentTerms'] = fields.sellPay;
+    if(fields.sellNote  !== undefined) updateData['sales.note']         = fields.sellNote;
+    if(fields.sellPeriods) {
+      updateData['sales.periods'] = fields.sellPeriods.map(function(p){
+        return { name:p.name||'', currency:p.cur||'TWD', amount:parseFloat(p.amt)||0, expectedDate:p.date||'', note:p.note||'' };
+      });
+    }
+  } else {
+    if(fields.supplier  !== undefined) updateData['purchase.supplier']     = fields.supplier;
+    if(fields.buyPay    !== undefined) updateData['purchase.paymentTerms'] = fields.buyPay;
+    if(fields.buyNote   !== undefined) updateData['purchase.note']         = fields.buyNote;
+    if(fields.buyPeriods) {
+      updateData['purchase.periods'] = fields.buyPeriods.map(function(p){
+        return { name:p.name||'', currency:p.cur||'TWD', amount:parseFloat(p.amt)||0, expectedDate:p.date||'', note:p.note||'' };
+      });
+    }
+  }
+  var clean = sanitizeForFirebase(updateData);
+  console.log('✅ Firestore update 準備寫入 formId:', formId, '欄位數:', Object.keys(clean).length);
+  await db.collection('cases').doc(formId).update(clean);
+  console.log('✅ Firestore update 成功：' + formId);
 }
 
-// ── 從 Firebase 讀取單筆 ───────────────────────────────
+// ── 從 Firestore 讀取單筆 ─────────────────────────────
 async function readFirebase(formId){
   var db = getFirebaseDb();
-  if(!db) throw new Error('Firebase 未初始化');
-  var snap = await db.ref('contracts/' + formId).once('value');
-  return snap.val();
+  if(!db) throw new Error('Firestore 未初始化');
+  var snap = await db.collection('cases').doc(formId).get();
+  return snap.exists ? snap.data() : null;
 }
 
-// ── 從 Firebase 讀取全部 ───────────────────────────────
+// ── 從 Firestore 讀取全部 ─────────────────────────────
 async function readAllFirebase(){
   var db = getFirebaseDb();
-  if(!db) throw new Error('Firebase 未初始化');
-  var snap = await db.ref('contracts').orderByChild('timestamp').once('value');
+  if(!db) throw new Error('Firestore 未初始化');
+  var snap = await db.collection('cases').orderBy('meta.createdAt', 'desc').get();
   var result = [];
-  snap.forEach(function(child){
-    result.push(Object.assign({ _firebaseKey: child.key }, child.val()));
+  snap.forEach(function(doc){
+    result.push(Object.assign({ _firebaseKey: doc.id }, doc.data()));
   });
   return result;
 }
 
 // ── GAS 非同步備份（fire-and-forget，失敗不影響主流程）─
 function backupToGAS(payload){
-  console.log('📤 GAS payload transferEmail:', payload.transferEmail);
-  console.log('📤 GAS payload transferTo:', payload.transferTo);
-  console.log('📤 GAS payload action:', payload.action);
   fetch(SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
@@ -944,13 +1043,11 @@ async function submitForm(){
     })(),
     transferType:  fd.type||'',
     transferEmail:(function(){
-      var sel = document.getElementById('transfer-to');
-      var val = sel ? sel.value : '';
-      var builtIn = (val && val !== '其他') ? (STAFF_EMAILS[val] || '') : '';
-      var manual = (document.getElementById('transfer-email-input') || {}).value || '';
-      var result = builtIn || manual.trim();
-      console.log('📧 transferEmail 計算：builtIn=', builtIn, 'manual=', manual, '→', result);
-      return result;
+      // 統一從 emailInp 讀取：
+      // - 手填「其他」時，使用者直接在 input 填入
+      // - 下拉選業務員時，onTransferChange 已將信箱寫入 emailInp
+      var inp=document.getElementById('transfer-email-input');
+      return inp?inp.value.trim():'';
     })(),
     transferMsg: (function(){ var el=document.getElementById('transfer-msg'); return el?el.value:''; })(),
     buyConfirmAmt:  parseFloat((document.getElementById('buy-confirm-amt')||{}).value)||0,
@@ -1051,17 +1148,19 @@ function onTransferChange(){
   btn.style.background='#4f46e5';
 
   if(val==='其他'){
+    // 手動輸入信箱 + 姓名
     emailDisp.style.display='none';
     emailInp.style.display='block';
     emailInp.value='';
     if(nameRow) nameRow.style.display='block';
     btn.textContent='📤 送出並通知對方補填';
   } else {
-    var email = STAFF_EMAILS[val] || '';
+    // 下拉選業務員：從 STAFF_EMAILS 取信箱，同時寫入 emailInp（供送出時統一讀取）
+    var email = STAFF_EMAILS[val]||'';
     emailDisp.style.display='block';
+    emailDisp.textContent = email ? '📧 '+email : '⚠️ 尚未設定信箱，請至 Firebase Accounts 補齊 email 欄位';
     emailDisp.style.color = email ? '#1e40af' : '#dc2626';
-    emailDisp.textContent = email ? '📧 '+email : '⚠️ 信箱尚未設定，請手動輸入';
-    emailInp.style.display = email ? 'none' : 'block';
+    emailInp.style.display='none';
     emailInp.value = email;
     btn.textContent='📤 送出並通知 '+val+' 補填';
   }
@@ -1945,19 +2044,36 @@ function submitSellPart(){
 }
 
 
-// ── 啟動：頁面載入時同步業務員信箱 ──────────────────
+// ── 啟動：從 Firestore Accounts 同步業務員信箱 ─────────
 (function(){
-  jsonpGet(SCRIPT_URL+'?action=getAccounts', function(accData, accErr){
-    if(accData && accData.status==='ok' && accData.accounts){
-      accData.accounts.forEach(function(u){
+  var db = getFirebaseDb();
+  if(!db){ console.warn('Firestore 未就緒，略過信箱同步'); return; }
+  db.collection('accounts').get()
+    .then(function(snap){
+      snap.forEach(function(doc){
+        var u = doc.data();
         if(u.email && u.staffName){
           STAFF_EMAILS[u.staffName] = u.email;
         }
       });
+      console.log('✅ Firestore 信箱同步完成', JSON.stringify(STAFF_EMAILS));
       var sel = document.getElementById('transfer-to');
       if(sel && sel.value) onTransferChange();
-    }
-  });
+    })
+    .catch(function(e){
+      console.warn('⚠️ Firestore Accounts 同步失敗，降級走 GAS：', e);
+      jsonpGet(SCRIPT_URL+'?action=getAccounts', function(accData, accErr){
+        if(accData && accData.status==='ok' && accData.accounts){
+          accData.accounts.forEach(function(u){
+            if(u.email && u.staffName){
+              STAFF_EMAILS[u.staffName] = u.email;
+            }
+          });
+          var sel = document.getElementById('transfer-to');
+          if(sel && sel.value) onTransferChange();
+        }
+      });
+    });
 })();
 
 // ── 啟動：偵測是否為補填模式 ────────────────────────
