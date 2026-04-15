@@ -468,13 +468,14 @@ var VERSION="form-006-firebase"; // 2026/04/15
 // ★ Firebase 設定（請填入你的 Firebase 專案資訊）★
 // ══════════════════════════════════════════════════════
 const FIREBASE_CONFIG = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT.firebaseapp.com",
-  databaseURL:       "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId:         "YOUR_PROJECT",
-  storageBucket:     "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId:             "YOUR_APP_ID"
+  apiKey:            "AIzaSyAvyDv1dEC9K-xYwLuyUahGhRPuQunWlxs",
+  authDomain:        "ot001-5c061.firebaseapp.com",
+  databaseURL:       "https://ot001-5c061-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "ot001-5c061",
+  storageBucket:     "ot001-5c061.firebasestorage.app",
+  messagingSenderId: "569582007093",
+  appId:             "1:569582007093:web:9e3b2aa67053030ee2d27c",
+  measurementId:     "G-T3JPXQ0N1F"
 };
 // ══════════════════════════════════════════════════════
 // ★ GAS 備份 URL（保持原有，不需修改）★
@@ -503,9 +504,28 @@ function getFirebaseDb(){
 async function writeFirebase(payload){
   var db = getFirebaseDb();
   if(!db) throw new Error('Firebase 未初始化');
-  var formId = payload.formId;
-  await db.ref('contracts/' + formId).set(payload);
+  // Firebase 不接受 undefined，全部轉成 null 或空字串
+  var clean = sanitizeForFirebase(payload);
+  var formId = clean.formId;
+  await db.ref('contracts/' + formId).set(clean);
   console.log('✅ Firebase 寫入成功：' + formId);
+}
+
+// 遞迴清除所有 undefined（Firebase 不接受）
+function sanitizeForFirebase(obj){
+  if(Array.isArray(obj)){
+    return obj.map(function(v){ return sanitizeForFirebase(v); });
+  }
+  if(obj !== null && typeof obj === 'object'){
+    var result = {};
+    Object.keys(obj).forEach(function(k){
+      var v = obj[k];
+      if(v === undefined) result[k] = '';
+      else result[k] = sanitizeForFirebase(v);
+    });
+    return result;
+  }
+  return obj === undefined ? '' : obj;
 }
 
 // ── 更新 Firebase 部分欄位 ─────────────────────────────
