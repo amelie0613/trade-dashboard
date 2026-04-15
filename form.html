@@ -512,20 +512,12 @@ async function writeFirebase(payload){
 }
 
 // 遞迴清除所有 undefined（Firebase 不接受）
+// JSON 序列化強制把 undefined 換成空字串
 function sanitizeForFirebase(obj){
-  if(Array.isArray(obj)){
-    return obj.map(function(v){ return sanitizeForFirebase(v); });
-  }
-  if(obj !== null && typeof obj === 'object'){
-    var result = {};
-    Object.keys(obj).forEach(function(k){
-      var v = obj[k];
-      if(v === undefined) result[k] = '';
-      else result[k] = sanitizeForFirebase(v);
-    });
-    return result;
-  }
-  return obj === undefined ? '' : obj;
+  var jsonStr = JSON.stringify(obj, function(key, value){
+    return value === undefined ? '' : value;
+  });
+  return JSON.parse(jsonStr);
 }
 
 // ── 更新 Firebase 部分欄位 ─────────────────────────────
