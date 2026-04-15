@@ -480,7 +480,7 @@ const FIREBASE_CONFIG = {
 // ══════════════════════════════════════════════════════
 // ★ GAS 備份 URL（保持原有，不需修改）★
 // ══════════════════════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzviHF0P8eIwBT9EOC66Bt1H6TFc8EF3H5m6QDo4AszaqiF7PDSwB5FShlSnOkRJHYGA/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxMAdnVIyGDuG3wbdxg2rKS_PnPyTR0ZUjkhrMKDskgFBOCi5jtIFx4ILvyHpXEq3cn/exec';
 const RATE = { USD:30.5, JPY:0.205, EUR:33.5, TWD:1 };
 const fd = {};
 
@@ -943,9 +943,7 @@ async function submitForm(){
     transferEmail:(function(){
       var sel = document.getElementById('transfer-to');
       var val = sel ? sel.value : '';
-      // ① 先看內建 STAFF_EMAILS 有沒有對應信箱
       var builtIn = (val && val !== '其他') ? (STAFF_EMAILS[val] || '') : '';
-      // ② 沒有內建 → 用手填的
       var manual = (document.getElementById('transfer-email-input') || {}).value || '';
       return (builtIn || manual.trim());
     })(),
@@ -1048,18 +1046,18 @@ function onTransferChange(){
   btn.style.background='#4f46e5';
 
   if(val==='其他'){
-    // 手動輸入信箱 + 姓名
     emailDisp.style.display='none';
     emailInp.style.display='block';
     emailInp.value='';
     if(nameRow) nameRow.style.display='block';
     btn.textContent='📤 送出並通知對方補填';
   } else {
-    // 顯示對應信箱，隱藏姓名欄
-    var email = STAFF_EMAILS[val]||'（尚未設定信箱）';
+    var email = STAFF_EMAILS[val] || '';
     emailDisp.style.display='block';
-    emailDisp.textContent='📧 ' + email;
-    emailInp.style.display='none';
+    emailDisp.style.color = email ? '#1e40af' : '#dc2626';
+    emailDisp.textContent = email ? '📧 '+email : '⚠️ 信箱尚未設定，請手動輸入';
+    emailInp.style.display = email ? 'none' : 'block';
+    emailInp.value = email;
     btn.textContent='📤 送出並通知 '+val+' 補填';
   }
 }
@@ -1947,11 +1945,10 @@ function submitSellPart(){
   jsonpGet(SCRIPT_URL+'?action=getAccounts', function(accData, accErr){
     if(accData && accData.status==='ok' && accData.accounts){
       accData.accounts.forEach(function(u){
-        if(u.email && u.staffName && STAFF_EMAILS.hasOwnProperty(u.staffName)){
+        if(u.email && u.staffName){
           STAFF_EMAILS[u.staffName] = u.email;
         }
       });
-      // 若轉交選單已有選擇，重新觸發更新信箱顯示
       var sel = document.getElementById('transfer-to');
       if(sel && sel.value) onTransferChange();
     }
