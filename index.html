@@ -632,51 +632,21 @@ function doLogin(u){
   setInterval(fetchRates, 1800000);
 }
 
-// 載入雲端帳號（優先 Firebase，降級走 GAS JSONP）
+// 載入雲端帳號（Apps Script Sheets — JSONP 模式）
 function fetchAccounts(callback){
-  var db = getFirebaseDb();
-  if(db){
-    db.ref('Accounts').once('value')
-      .then(function(snap){
-        var data = snap.val();
-        if(data && Object.keys(data).length > 0){
-          CLOUD_ACCOUNTS = Object.values(data);
-          try{ localStorage.setItem('cloudAccounts', JSON.stringify(CLOUD_ACCOUNTS)); }catch(e){}
-          if(callback) callback();
-        } else {
-          throw new Error('Firebase Accounts 無資料');
-        }
-      })
-      .catch(function(){
-        // 降級：GAS JSONP
-        jsonpGet(SCRIPT+'?action=getAccounts', function(d, err){
-          if(d && d.status==='ok' && d.accounts && d.accounts.length>0){
-            CLOUD_ACCOUNTS = d.accounts;
-            try{ localStorage.setItem('cloudAccounts', JSON.stringify(CLOUD_ACCOUNTS)); }catch(e){}
-          } else {
-            try{
-              var c=localStorage.getItem('cloudAccounts');
-              if(c) CLOUD_ACCOUNTS=JSON.parse(c);
-            }catch(e){}
-          }
-          if(callback) callback();
-        });
-      });
-  } else {
-    // Firebase 未就緒：直接走 GAS
-    jsonpGet(SCRIPT+'?action=getAccounts', function(d, err){
-      if(d && d.status==='ok' && d.accounts && d.accounts.length>0){
-        CLOUD_ACCOUNTS = d.accounts;
-        try{ localStorage.setItem('cloudAccounts', JSON.stringify(CLOUD_ACCOUNTS)); }catch(e){}
-      } else {
-        try{
-          var c=localStorage.getItem('cloudAccounts');
-          if(c) CLOUD_ACCOUNTS=JSON.parse(c);
-        }catch(e){}
-      }
-      if(callback) callback();
-    });
-  }
+  jsonpGet(SCRIPT+'?action=getAccounts', function(d, err){
+    if(d && d.status==='ok' && d.accounts && d.accounts.length>0){
+      CLOUD_ACCOUNTS = d.accounts;
+      try{localStorage.setItem('cloudAccounts', JSON.stringify(CLOUD_ACCOUNTS));}catch(e){}
+    } else {
+      // 失敗：從本地快取讀
+      try{
+        var c=localStorage.getItem('cloudAccounts');
+        if(c) CLOUD_ACCOUNTS=JSON.parse(c);
+      }catch(e){}
+    }
+    if(callback) callback();
+  });
 }
 function loadU(){
   var allLocal = BASE_USERS.concat(DEFAULT_STAFF);
@@ -2113,26 +2083,8 @@ function doApp(rowNum,status){
   // ① Firebase 更新（有 formId 才更新）
   if(formId){
     updateFirebase(formId, firebaseFields, function(){
-      // ② GAS 備份（含發財務通知 + 補填通知 email）
-      // 從 Firebase 讀取案件的 transferEmail，確保帶入
-      var db2 = getFirebaseDb();
-      if(db2 && formId){
-        db2.ref('contracts/'+formId).once('value').then(function(snap){
-          var rec = snap.val() || {};
-          backupActionToGAS({
-            action:'approve', row:rowNum, status:status, note:note,
-            approver:curUser.name, time:tsNow,
-            transferEmail: rec.transferEmail || '',
-            transferTo:    rec.transferTo    || '',
-            caseName:      rec.caseName      || g(r,'name') || '',
-            formId:        formId,
-          });
-        }).catch(function(){
-          backupActionToGAS({action:'approve',row:rowNum,status:status,note:note,approver:curUser.name,time:tsNow,formId:formId});
-        });
-      } else {
-        backupActionToGAS({action:'approve',row:rowNum,status:status,note:note,approver:curUser.name,time:tsNow,formId:formId});
-      }
+      // ② GAS 備份（含發財務通知 email）
+      backupActionToGAS({action:'approve',row:rowNum,status:status,note:note,approver:curUser.name,time:tsNow});
       onDone();
     });
   } else {
@@ -2148,7 +2100,7 @@ function openFillSell(rowNum){
   var r = rows.find(function(x){ return x._row===rowNum; });
   if(!r) return;
   var formId = r[F.formId]||'';
-  var url = 'https://asiacozyltd.github.io/trade-dashboard/form.html?fill='+encodeURIComponent(formId);
+  var url = 'https://amelie0613.github.io/trade-dashboard/form.html?fill='+encodeURIComponent(formId);
   window.open(url, '_blank');
 }
 
