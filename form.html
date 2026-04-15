@@ -941,11 +941,13 @@ async function submitForm(){
     })(),
     transferType:  fd.type||'',
     transferEmail:(function(){
-      // 統一從 emailInp 讀：
-      // - 選下拉業務員時，onTransferChange 已把信箱寫入 emailInp.value
-      // - 選「其他」時，使用者直接填入 emailInp
-      var inp=document.getElementById('transfer-email-input');
-      return inp ? inp.value.trim() : '';
+      var sel = document.getElementById('transfer-to');
+      var val = sel ? sel.value : '';
+      // ① 先看內建 STAFF_EMAILS 有沒有對應信箱
+      var builtIn = (val && val !== '其他') ? (STAFF_EMAILS[val] || '') : '';
+      // ② 沒有內建 → 用手填的
+      var manual = (document.getElementById('transfer-email-input') || {}).value || '';
+      return (builtIn || manual.trim());
     })(),
     transferMsg: (function(){ var el=document.getElementById('transfer-msg'); return el?el.value:''; })(),
     buyConfirmAmt:  parseFloat((document.getElementById('buy-confirm-amt')||{}).value)||0,
@@ -1053,16 +1055,11 @@ function onTransferChange(){
     if(nameRow) nameRow.style.display='block';
     btn.textContent='📤 送出並通知對方補填';
   } else {
-    // 下拉選業務員：從 STAFF_EMAILS 取信箱
-    var email = STAFF_EMAILS[val]||'';
+    // 顯示對應信箱，隱藏姓名欄
+    var email = STAFF_EMAILS[val]||'（尚未設定信箱）';
     emailDisp.style.display='block';
-    emailDisp.style.color = email ? '#1e40af' : '#dc2626';
-    emailDisp.textContent = email
-      ? '📧 '+email
-      : '⚠️ 信箱未設定，請至 Firebase → Accounts → '+val+' 補填 email 欄位';
-    // ★ 同時寫入 emailInp（hidden），送出時統一從這裡讀
+    emailDisp.textContent='📧 ' + email;
     emailInp.style.display='none';
-    emailInp.value = email;
     btn.textContent='📤 送出並通知 '+val+' 補填';
   }
 }
@@ -1945,48 +1942,20 @@ function submitSellPart(){
 }
 
 
-// ── 啟動：從 Firebase Accounts 同步業務員信箱（優先）──
+// ── 啟動：頁面載入時同步業務員信箱 ──────────────────
 (function(){
-  function applyEmails(accounts){
-    accounts.forEach(function(u){
-      if(u.email && u.staffName){
-        STAFF_EMAILS[u.staffName] = u.email;
-      }
-    });
-    console.log('✅ 信箱同步完成：', JSON.stringify(STAFF_EMAILS));
-    var sel = document.getElementById('transfer-to');
-    if(sel && sel.value) onTransferChange();
-  }
-
-  // ① 優先從 Firebase Accounts 節點讀
-  var db = getFirebaseDb();
-  if(db){
-    db.ref('Accounts').once('value')
-      .then(function(snap){
-        var data = snap.val();
-        if(data && Object.keys(data).length > 0){
-          applyEmails(Object.values(data));
-        } else {
-          throw new Error('Firebase Accounts 無資料');
+  jsonpGet(SCRIPT_URL+'?action=getAccounts', function(accData, accErr){
+    if(accData && accData.status==='ok' && accData.accounts){
+      accData.accounts.forEach(function(u){
+        if(u.email && u.staffName && STAFF_EMAILS.hasOwnProperty(u.staffName)){
+          STAFF_EMAILS[u.staffName] = u.email;
         }
-      })
-      .catch(function(e){
-        console.warn('⚠️ Firebase 信箱同步失敗，降級走 GAS：', e);
-        // ② 降級：GAS JSONP
-        jsonpGet(SCRIPT_URL+'?action=getAccounts', function(d, err){
-          if(d && d.status==='ok' && d.accounts && d.accounts.length){
-            applyEmails(d.accounts);
-          }
-        });
       });
-  } else {
-    // Firebase 未初始化：直接走 GAS
-    jsonpGet(SCRIPT_URL+'?action=getAccounts', function(d, err){
-      if(d && d.status==='ok' && d.accounts && d.accounts.length){
-        applyEmails(d.accounts);
-      }
-    });
-  }
+      // 若轉交選單已有選擇，重新觸發更新信箱顯示
+      var sel = document.getElementById('transfer-to');
+      if(sel && sel.value) onTransferChange();
+    }
+  });
 })();
 
 // ── 啟動：偵測是否為補填模式 ────────────────────────
