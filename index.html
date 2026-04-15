@@ -911,10 +911,25 @@ function load(){
 
 // Firebase row 欄位正規化（確保中文欄位名稱存在，向下相容 Sheets 格式）
 function normalizeRow(r){
-  // 若已有中文欄位（從 Sheets 遷移過來的資料），直接返回
-  if(r['業務名稱'] || r['案件名稱']) return r;
-  // 否則把英文 key 對應成中文欄位（新的 Firebase 資料）
   var mapped = Object.assign({}, r);
+  // _row 統一用 formId（Firebase 沒有列號）
+  var fid = r['formId']||r['表單編號']||r._firebaseKey||'';
+  mapped._row = fid;
+  mapped['表單編號'] = fid;
+  // 若已有中文欄位（從 Sheets 遷移過來的資料），補完後直接返回
+  if(r['業務名稱'] || r['案件名稱']){
+    // 修正時間戳記格式（數字毫秒 → 字串）
+    ['ETD 出貨日','ETA 到貨日','採購期1預計日','採購期2預計日','採購期3預計日',
+     '銷售期1預計日','銷售期2預計日','銷售期3預計日'].forEach(function(k){
+      var v = mapped[k];
+      if(v && !isNaN(v) && String(v).length >= 10){
+        var d = new Date(typeof v==='number'?v:parseInt(v));
+        if(!isNaN(d.getTime())) mapped[k] = d.toISOString().slice(0,10);
+      }
+    });
+    return mapped;
+  }
+  // 否則把英文 key 對應成中文欄位（新的 Firebase 資料）
   var keyMap = {
     'staff':'業務名稱', 'type':'案件屬性', 'caseName':'案件名稱', 'asst':'承辦業助',
     'supplier':'供應商（賣方）', 'buyPay':'付款條件（採購）',
@@ -1161,7 +1176,8 @@ function makeCard(r,showApprove){
   var m=calcMargin(r);
   var mgStr=m.isPurchOnly?'—':(m.margin!=='—'?m.margin+'%':'—');
   var rowNum=r._row;
-  return '<div class="cc '+sc2+'" onclick="showD('+rowNum+')">'
+  var rq="'"+rowNum+"'"; // 字串版（Firebase 用 formId 當 key）
+  return '<div class="cc '+sc2+'" onclick="showD('+rq+')">'
     +'<div class="cc-top"><div>'
     +'<div class="cc-id">'+g(r,'formId')+'</div>'
     +'<div class="cc-name">'+g(r,'name')+'</div>'
@@ -1173,8 +1189,8 @@ function makeCard(r,showApprove){
     +'<div><div class="cn-lbl">毛利率</div><div class="cn-val '+(parseFloat(m.margin)>=0?'cv-g':'cv-r')+'">'+mgStr+'</div></div>'
     +'</div>'
     +(fillPend && curUser && curUser.staffName && g(r,'transferTo')===curUser.staffName
-      ? '<button class="cc-btn" style="background:#4f46e5;color:#fff;border-color:#4338ca;" onclick="event.stopPropagation();openFillSell('+rowNum+')">✍️ 補填銷售內容</button>'
-      : '<button class="cc-btn" onclick="event.stopPropagation();showD('+rowNum+')">查看詳細 / 操作</button>')
+      ? '<button class="cc-btn" style="background:#4f46e5;color:#fff;border-color:#4338ca;" onclick="event.stopPropagation();openFillSell('+rq+')">✍️ 補填銷售內容</button>'
+      : '<button class="cc-btn" onclick="event.stopPropagation();showD('+rq+')">查看詳細 / 操作</button>')
     +'</div>';
 }
 
@@ -1842,6 +1858,7 @@ function fmtK(n){
 
 // 詳細 Modal
 function showD(rowNum){
+  var rq="'" + rowNum + "'";
   var r=rows.find(function(x){return x._row===rowNum;});
   if(!r)return;
   document.getElementById('dm-id').textContent='案件號碼 '+g(r,'formId');
@@ -1962,8 +1979,8 @@ function showD(rowNum){
       +(isAdmin
         ? '<div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e;text-align:center;">⚠️ 簽核同意／退回僅限董事長操作</div></div>'
         : '<div class="abtns">'
-          +'<button class="bng" id="bng-'+rowNum+'" onclick="doApp('+rowNum+',\'退回\')">❌ 退回</button>'
-          +'<button class="bok" id="bok-'+rowNum+'" onclick="doApp('+rowNum+',\'是\')">✅ 同意簽核</button>'
+          +'<button class="bng" id="bng-'+rowNum+'" onclick="doApp('+rq+',\'退回\')">❌ 退回</button>'
+          +'<button class="bok" id="bok-'+rowNum+'" onclick="doApp('+rq+',\'是\')">✅ 同意簽核</button>'
           +'</div></div>');
   }
 
