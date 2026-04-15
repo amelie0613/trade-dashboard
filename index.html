@@ -498,7 +498,7 @@ function getFirebaseDb(){
 function readAllFirebase(cb){
   var db = getFirebaseDb();
   if(!db){ cb(null, 'Firebase 未初始化'); return; }
-  db.ref('contracts').orderByChild('timestamp').once('value')
+  db.ref('contracts').once('value')
     .then(function(snap){
       var result = [];
       snap.forEach(function(child){
@@ -772,7 +772,7 @@ var F={
 };
 function g(r,k){return(r[F[k]]||'').toString().trim();}
 function pf(v){return parseFloat((v||'').toString().replace(/[^0-9.-]/g,''))||0;}
-function cv(v){return v&&v.trim()&&v!=='—'&&v!=='0'&&v!=='-'&&v!=='undefined';}
+function cv(v){var s=(v===undefined||v===null)?'':v.toString().trim();return s&&s!=='—'&&s!=='0'&&s!=='-'&&s!=='undefined';}
 function isPend(r){
   // 待補填中的案件不算待審核（補填完成後才讓老闆簽核）
   var fillStat = (r[F.fillStatus]||r['銷售補填狀態']||'').toString().trim();
