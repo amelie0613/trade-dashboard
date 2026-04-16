@@ -897,12 +897,14 @@ function load(){
     if(fbRows && fbRows.length > 0){
       console.log('✅ Firebase 讀取成功，共 '+fbRows.length+' 筆');
       // Firebase 的 key 結構轉成與 Sheets 相容的欄位格式
-      rows = fbRows.filter(function(r){
-        var staff = (r.meta && r.meta.staff) || r['staff'] || r['業務名稱'] || '';
-        return staff !== '';
-      }).map(function(r){
-        return normalizeRow(r);
-      });
+      var normalized = [];
+      for(var _i=0; _i<fbRows.length; _i++){
+        var _r = fbRows[_i];
+        var _staff = (_r.meta && _r.meta.staff) || _r['staff'] || _r['業務名稱'] || '';
+        if(_staff !== '') normalized.push(normalizeRow(_r));
+      }
+      window.rows = normalized;
+      console.log('✅ rows 賦值完成，共 '+window.rows.length+' 筆');
       onLoad();
     } else {
       console.warn('⚠️ Firebase 無資料或失敗（'+fbErr+'），降級走 JSONP');
@@ -1028,7 +1030,7 @@ function loadViaJSONP(){
     delete window[cbName];
     if(script.parentNode) script.parentNode.removeChild(script);
     if(d && d.status==='ok' && d.rows && d.rows.length>0){
-      rows = d.rows.filter(function(r){return g(r,'staff')!=='';});
+      window.rows = d.rows.filter(function(r){return g(r,'staff')!=='';});
       console.log('✅ JSONP getData01 成功，共 '+rows.length+' 筆（FormResponses01）');
       onLoad();
     } else if(d && d.status==='ok' && d.rows && d.rows.length===0){
@@ -1062,7 +1064,7 @@ function loadCSV(){
     .then(function(c){
       var p=parseCSV(c);
       if(p.length>0){
-        rows=p;
+        window.rows=p;
         console.log('✅ CSV 直連成功，共 '+p.length+' 筆');
         onLoad();
       } else {
@@ -1076,7 +1078,7 @@ function loadCSV(){
         .then(function(r){return r.text();})
         .then(function(c){
           var p=parseCSV(c);
-          if(p.length>0){rows=p;console.log('✅ proxy CSV 成功，共 '+p.length+' 筆');onLoad();}
+          if(p.length>0){window.rows=p;console.log('✅ proxy CSV 成功，共 '+p.length+' 筆');onLoad();}
           else showErr('所有讀取管道失敗，請確認：<br>1. Google Sheets 已公開發布<br>2. Apps Script 已重新部署');
         })
         .catch(function(e2){
