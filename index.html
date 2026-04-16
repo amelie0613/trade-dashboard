@@ -898,9 +898,9 @@ function load(){
       console.log('✅ Firebase 讀取成功，共 '+fbRows.length+' 筆');
       // Firebase 的 key 結構轉成與 Sheets 相容的欄位格式
       rows = fbRows.filter(function(r){
-        return (r['staff']||r['業務名稱']||'') !== '';
+        var staff = (r.meta && r.meta.staff) || r['staff'] || r['業務名稱'] || '';
+        return staff !== '';
       }).map(function(r){
-        // Firebase 用英文 key，對應中文欄位名稱（向下相容）
         return normalizeRow(r);
       });
       onLoad();
