@@ -126,7 +126,7 @@ textarea{height:72px;resize:none;line-height:1.6;}
       <div class="lbl">負責業務 <span class="req">*</span></div>
       <select id="staff" onchange="toggleOther('staff','staff-other')">
         <option value="">請選擇</option>
-        <option>黃啟靖</option><option>楊正國</option><option>朱嬿琳</option>
+        <option>黃啓靖</option><option>楊正國</option><option>朱嬿琳</option>
         <option>呂建宏</option><option>呂紀萱</option><option>陳彥竹</option>
         <option>SHERRY</option><option value="其他">其他</option>
       </select>
@@ -416,7 +416,7 @@ textarea{height:72px;resize:none;line-height:1.6;}
       <div class="lbl" id="transfer-to-lbl">轉交業務員 <span class="opt">選填</span></div>
       <select id="transfer-to" onchange="onTransferChange()" style="width:100%;padding:10px;border-radius:8px;border:1px solid #cbd5e1;font-family:inherit;font-size:13px;background:#fff;">
         <option value="">— 不轉交，由我自己完成全部填寫 —</option>
-        <option value="黃啟靖" data-email="FILL_HCJ">黃啟靖</option>
+        <option value="黃啓靖" data-email="FILL_HCJ">黃啓靖</option>
         <option value="楊正國" data-email="FILL_CZK">楊正國</option>
         <option value="朱嬿琳" data-email="FILL_JYL">朱嬿琳</option>
         <option value="呂建宏" data-email="FILL_LCH">呂建宏</option>
@@ -480,7 +480,7 @@ const FIREBASE_CONFIG = {
 // ══════════════════════════════════════════════════════
 // ★ GAS 備份 URL（保持原有，不需修改）★
 // ══════════════════════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzviHF0P8eIwBT9EOC66Bt1H6TFc8EF3H5m6QDo4AszaqiF7PDSwB5FShlSnOkRJHYGA/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyXxIvnOZM4Oeq_TkIB8RI-G3hYJAULShVyvezOACjcTw1XcK8kAMUrx0R8Te-q7HrdRw/exec';
 const RATE = { USD:30.5, JPY:0.205, EUR:33.5, TWD:1 };
 const fd = {};
 
@@ -1101,7 +1101,7 @@ function fmt(n){ return Math.round(n||0).toLocaleString('zh-TW'); }
 // ★ 業務員信箱：直接在這裡填入，或到 Google Sheets「Accounts」分頁的「email」欄設定
 // （Accounts 分頁優先，若有設定會自動覆蓋此處的值）
 var STAFF_EMAILS = {
-  '黃啟靖': '',
+  '黃啓靖': '',
   '楊正國': '',
   '朱嬿琳': '',
   '呂建宏': '',
