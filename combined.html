@@ -85,7 +85,9 @@ body{background:var(--bg);font-family:'Noto Sans TC',sans-serif;color:var(--text
 /* 應收 */
 .p-rcv{background:var(--rcv-bg);color:var(--rcv);}
 .p-rcv-usd{background:var(--rcv-usd-bg);color:var(--rcv-usd);}
-/* 狀態覆蓋 */
+/* 貿易大漁 → 黃底深色字 */
+.p-tr-ap{background:#fef08a;color:#713f12;border:1px solid #fde047;}
+.p-tr-rcv{background:#fef08a;color:#166534;border:1px solid #fde047;}
 .p-overdue{background:var(--overdue-bg);color:var(--overdue);}
 .p-est{background:var(--est-bg);color:var(--est);}
 .p-done{background:var(--done-bg);color:var(--done);}
@@ -126,6 +128,8 @@ body{background:var(--bg);font-family:'Noto Sans TC',sans-serif;color:var(--text
 .s-est{background:var(--est-bg);color:var(--est);}
 .s-rcv{background:var(--rcv-bg);color:var(--rcv);}
 .s-done{background:var(--done-bg);color:var(--done);}
+.s-tr-ap{background:#fef08a;color:#713f12;border:1px solid #fde047;}
+.s-tr-rcv{background:#fef08a;color:#166534;border:1px solid #fde047;}
 .note{color:var(--text);font-size:12px;line-height:1.5;}
 .amt{text-align:right;white-space:nowrap;}
 .a-ntd{color:var(--ntd);font-family:'DM Mono',monospace;font-size:11px;font-weight:500;}
@@ -184,9 +188,11 @@ body{background:var(--bg);font-family:'Noto Sans TC',sans-serif;color:var(--text
 <div class="legend">
   <span class="li"><span class="ld" style="background:var(--ntd)"></span>應付 NTD</span>
   <span class="li"><span class="ld" style="background:var(--usd)"></span>應付 USD</span>
-  <span class="li"><span class="ld" style="background:var(--jpy)"></span>JPY</span>
+  <span class="li"><span class="ld" style="background:var(--jpy)"></span>JPY/ZAR</span>
   <span class="li"><span class="ld" style="background:var(--overdue)"></span>逾期</span>
-  <span class="li"><span class="ld" style="background:var(--est)"></span>預估（含貿易大漁）</span>
+  <span class="li"><span class="ld" style="background:var(--est)"></span>預估</span>
+  <span class="li"><span class="ld" style="background:#c0302f"></span>貿易大漁↓採購</span>
+  <span class="li"><span class="ld" style="background:#16a34a"></span>貿易大漁↑銷售</span>
 </div>
 
 <div class="cal-wrap"><div class="cal-grid" id="cal-grid"></div></div>
@@ -209,7 +215,7 @@ body{background:var(--bg);font-family:'Noto Sans TC',sans-serif;color:var(--text
 <script>
 // ══ CONFIG ════════════════════════════════════════════
 const API_AP = 'https://script.google.com/macros/s/AKfycbzwTjIUwk78gMe3bIGBcJRrm88XEKNG94S5VA5O14AmqI7uBuzgLmJL_23bPM1fqvuQfA/exec';
-const API_TR = 'https://script.google.com/macros/s/AKfycbxzviHF0P8eIwBT9EOC66Bt1H6TFc8EF3H5m6QDo4AszaqiF7PDSwB5FShlSnOkRJHYGA/exec';
+const CSV_TR = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTJ6nBKr5P1RFidrD6V_7MRLRraKBrrf3CmT8StmKm4uPYL19HCE0zYHjJmY1E0TI-NYWR7AvJFu8RQ/pub?gid=953244165&single=true&output=csv';
 const CACHE_AP = 'cal_ap_v1';
 const CACHE_TR = 'cal_tr_v1';
 const CACHE_TS = 'cal_ts_v1';
@@ -258,28 +264,27 @@ function normalizeAP(raw) {
 }
 
 function normalizeTR(payments) {
+  // payments 為空時用靜態資料
+  if (!payments || !payments.length) return TR_INLINE;
+  // 若 API 有資料則解析（分期展開）
   const out = [];
   payments.forEach(p => {
     const date = (p['預計日期'] || '').replace(/-/g, '/');
     if (!date) return;
     const isBuy = p['類型'] === '採購';
     const isPaid = p['已付收'] === '是';
-    if (isPaid) return; // 已完成的不顯示
+    if (isPaid) return;
     const cur = (p['幣別'] || 'TWD').toUpperCase();
     const amt = parseFloat(p['金額']) || 0;
     if (!amt) return;
     out.push({
-      src: 'tr',
-      dir: isBuy ? 'ap' : 'rcv',
-      date,
-      dept: '貿易大漁',
-      cat: p['期別名稱'] || (isBuy ? '採購' : '銷售'),
-      note: (p['案件名稱'] || '') + (p['業務名稱'] ? ' · ' + p['業務名稱'] : ''),
-      status: '預估',
-      cur, amt,
+      src:'tr', dir: isBuy ? 'ap' : 'rcv', date,
+      dept:'貿易大漁', cat: p['期別名稱'] || (isBuy ? '採購' : '銷售'),
+      note: (p['案件名稱']||'') + (p['業務名稱'] ? ' · '+p['業務名稱'] : ''),
+      status:'預估', cur, amt,
     });
   });
-  return out;
+  return out.length ? out : TR_INLINE;
 }
 
 function allItems() {
@@ -327,8 +332,6 @@ function renderCalendar() {
     if (its.length) {
       // 應付帳款彙總（各幣別）
       const apSums = {ntd:0, usd:0, jpy:0, zar:0};
-      // 貿易大漁預估彙總（原幣）
-      const trSums = {};
       let hasOverdue = false, hasEst = false;
 
       its.forEach(r => {
@@ -339,11 +342,8 @@ function renderCalendar() {
           apSums.usd += r.usd || 0;
           apSums.jpy += r.jpy || 0;
           apSums.zar += r.zar || 0;
-        } else {
-          // 貿易大漁 → 紫色預估
-          const key = r.cur || 'TWD';
-          trSums[key] = (trSums[key] || 0) + (r.amt || 0);
         }
+        // TR 在下方另外處理
       });
 
       // 應付帳款 pills（逾期/預估/正常幣色）
@@ -353,10 +353,17 @@ function renderCalendar() {
       if (apSums.jpy) html += `<span class="pill ${baseCls||'p-jpy'}">${fJPY(apSums.jpy)}</span>`;
       if (apSums.zar) html += `<span class="pill ${baseCls||'p-zar'}">${fZAR(apSums.zar)}</span>`;
 
-      // 貿易大漁 pills → 永遠紫色
-      Object.keys(trSums).forEach(cur => {
-        const v = trSums[cur];
-        if (v) html += `<span class="pill p-est">預估 ${fTrade(v, cur)}</span>`;
+      // 貿易大漁 pills → 應付橘紅 / 應收綠色，各幣別加總
+      const trAP = {}, trRCV = {};
+      its.filter(r => r.src === 'tr').forEach(r => {
+        if (r.dir === 'ap') trAP[r.cur] = (trAP[r.cur]||0) + r.amt;
+        else trRCV[r.cur] = (trRCV[r.cur]||0) + r.amt;
+      });
+      Object.keys(trAP).forEach(cur => {
+        html += `<span class="pill p-tr-ap">↓${fTrade(trAP[cur], cur)}</span>`;
+      });
+      Object.keys(trRCV).forEach(cur => {
+        html += `<span class="pill p-tr-rcv">↑${fTrade(trRCV[cur], cur)}</span>`;
       });
 
       if (its.length > 3) html += `<div class="day-more">共 ${its.length} 筆</div>`;
@@ -373,12 +380,13 @@ function renderSummary() {
     return d.getFullYear() === curYear && d.getMonth() === curMonth;
   });
   let ap_ntd=0, ap_usd=0, ap_jpy=0, ap_zar=0;
-  const trEst = {};
+  const trAP = {}, trRCV = {};
   items.forEach(r => {
     if (r.src === 'ap') {
       ap_ntd += r.ntd||0; ap_usd += r.usd||0; ap_jpy += r.jpy||0; ap_zar += r.zar||0;
     } else {
-      trEst[r.cur||'TWD'] = (trEst[r.cur||'TWD']||0) + (r.amt||0);
+      if (r.dir === 'ap') trAP[r.cur] = (trAP[r.cur]||0) + (r.amt||0);
+      else trRCV[r.cur] = (trRCV[r.cur]||0) + (r.amt||0);
     }
   });
   let html = '';
@@ -386,14 +394,14 @@ function renderSummary() {
   if (ap_usd) html += card('應付 USD · 本月', 'US$' + ap_usd.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}), 'var(--usd)');
   if (ap_jpy) html += card('應付 JPY · 本月', '¥' + Math.round(ap_jpy).toLocaleString(), 'var(--jpy)');
   if (ap_zar) html += card('應付 ZAR · 本月', 'ZAR ' + ap_zar.toFixed(2), 'var(--zar)');
-  Object.keys(trEst).forEach(cur => {
-    if (trEst[cur]) html += card('預估 ' + cur + ' · 本月', fTrade(trEst[cur], cur), 'var(--est)');
-  });
+  Object.keys(trAP).forEach(cur => { html += card('貿易↓採購 '+cur+' · 本月', fTrade(trAP[cur], cur), '#713f12', '#fef9c3'); });
+  Object.keys(trRCV).forEach(cur => { html += card('貿易↑銷售 '+cur+' · 本月', fTrade(trRCV[cur], cur), '#166534', '#fef9c3'); });
   document.getElementById('summary-wrap').innerHTML = html;
 }
 
-function card(lbl, val, color) {
-  return `<div class="sum-card"><div class="sum-label">${lbl} · 本月</div><div class="sum-val" style="color:${color}">${val}</div></div>`;
+function card(lbl, val, color, bg) {
+  const bgStyle = bg ? `background:${bg};border-color:#fde047;` : '';
+  return `<div class="sum-card" style="${bgStyle}"><div class="sum-label">${lbl}</div><div class="sum-val" style="color:${color}">${val}</div></div>`;
 }
 
 // ══ MODAL ═════════════════════════════════════════════
@@ -443,11 +451,12 @@ function renderModal() {
 
 function renderItem(r) {
   const isTR = r.src === 'tr';
-  const sc = isTR ? 's-est' : r.status==='逾期' ? 's-ov' : r.status==='預估' ? 's-est' : 's-ap';
-  const statusLabel = isTR ? '預估' : r.status;
+  const sc = isTR ? (r.dir==='ap'?'s-tr-ap':'s-tr-rcv') : r.status==='逾期' ? 's-ov' : r.status==='預估' ? 's-est' : 's-ap';
+  const statusLabel = isTR ? (r.dir==='ap' ? '↓採購' : '↑銷售') : r.status;
   let amtHtml = '';
   if (isTR) {
-    amtHtml = `<div style="color:var(--est);font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">${fTrade(r.amt, r.cur)}</div>`;
+    const color = r.dir === 'ap' ? '#713f12' : '#166534';
+    amtHtml = `<div style="background:#fef08a;color:${color};font-family:'DM Mono',monospace;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;border:1px solid #fde047;">${r.dir==='ap'?'↓':'↑'} ${fTrade(r.amt, r.cur)}</div>`;
   } else {
     if (r.ntd) amtHtml += `<div class="a-ntd">${fNTD(r.ntd)}</div>`;
     if (r.usd) amtHtml += `<div class="a-usd">${fUSD(r.usd)}</div>`;
@@ -506,18 +515,65 @@ function saveCache(key, data) { try { localStorage.setItem(key, JSON.stringify(d
 function loadCache(key) { try { const r=localStorage.getItem(key); return r?JSON.parse(r):null; } catch(e){return null;} }
 function cacheAge(key) { try { return Date.now() - parseInt(localStorage.getItem(CACHE_TS+'_'+key)||'0'); } catch(e){return Infinity;} }
 
-// ══ JSONP for trade system (bypasses CORS) ════════════
-function jsonpGet(url) {
-  return new Promise((res, rej) => {
-    const cb = '_cb_' + Date.now() + '_' + Math.floor(Math.random()*9999);
-    const s = document.createElement('script');
-    const timer = setTimeout(() => { cleanup(); rej(new Error('timeout')); }, 12000);
-    window[cb] = d => { cleanup(); res(d); };
-    s.onerror = () => { cleanup(); rej(new Error('script error')); };
-    function cleanup() { clearTimeout(timer); delete window[cb]; if(s.parentNode) s.parentNode.removeChild(s); }
-    s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb + '&_=' + Date.now();
-    document.head.appendChild(s);
+// ══ CSV 解析工具 ═══════════════════════════════════════
+function parseCSV(text) {
+  const lines = text.split('\n');
+  if (!lines.length) return [];
+  // 處理 CSV 引號與換行
+  const rows = [], colCount = lines[0].split(',').length;
+  let cur = [];
+  let inQ = false, cell = '';
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') { inQ = !inQ; continue; }
+    if (c === ',' && !inQ) { cur.push(cell); cell = ''; continue; }
+    if ((c === '\n' || c === '\r') && !inQ) {
+      cur.push(cell); cell = '';
+      if (cur.some(s => s.trim())) rows.push(cur);
+      cur = []; continue;
+    }
+    cell += c;
+  }
+  if (cell || cur.length) { cur.push(cell); if (cur.some(s=>s.trim())) rows.push(cur); }
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = (row[i] || '').trim(); });
+    return obj;
   });
+}
+
+function parseTRFromCSV(text) {
+  const rows = parseCSV(text);
+  const items = [];
+  const cleanDate = d => {
+    d = (d||'').trim().replace(/-/g,'/');
+    const p = d.split('/');
+    if (p.length === 3) return `${p[0]}/${p[1].padStart(2,'0')}/${p[2].padStart(2,'0')}`;
+    return d;
+  };
+  rows.forEach(r => {
+    if ((r['老闆已同意']||'').trim() !== '是') return;
+    const caseName = r['案件名稱'] || '';
+    const staff = r['業務名稱'] || '';
+    const label = caseName + (staff ? ' · ' + staff : '');
+    for (let i of ['1','2','3']) {
+      // 採購期（應付）
+      const bAmt = parseFloat(r[`採購期${i}金額`]) || 0;
+      const bDate = cleanDate(r[`採購期${i}預計日`]);
+      const bCur = (r[`採購期${i}幣別`] || 'TWD').toUpperCase();
+      const bName = r[`採購期${i}名稱`] || `採購期${i}`;
+      if (bAmt > 0 && bDate) items.push({src:'tr',dir:'ap',date:bDate,dept:'貿易大漁',cat:bName,note:label,status:'預估',cur:bCur,amt:bAmt});
+      // 銷售期（應收）
+      const sAmt = parseFloat(r[`銷售期${i}金額`]) || 0;
+      const sDate = cleanDate(r[`銷售期${i}預計日`]);
+      const sCur = (r[`銷售期${i}幣別`] || 'TWD').toUpperCase();
+      const sName = r[`銷售期${i}名稱`] || `銷售期${i}`;
+      if (sAmt > 0 && sDate) items.push({src:'tr',dir:'rcv',date:sDate,dept:'貿易大漁',cat:sName,note:label,status:'預估',cur:sCur,amt:sAmt});
+    }
+  });
+  return items;
 }
 
 // ══ LOAD DATA ═════════════════════════════════════════
@@ -527,7 +583,7 @@ async function loadAll() {
 
   // 1. 立刻顯示（快取 > 靜態）不等 API
   dataAP = cachedAP ? normalizeAP(cachedAP) : normalizeAP(getInlineAP());
-  dataTR = cachedTR ? normalizeTR(cachedTR) : [];
+  dataTR = cachedTR ? normalizeTR(cachedTR) : TR_INLINE;
   document.getElementById('s-ap').className = 'spill ok';
   document.getElementById('s-ap').textContent = cachedAP ? '應付 快取' : '應付 靜態';
   document.getElementById('last-update').textContent = cachedAP ? '快取資料' : '靜態資料（更新中...）';
@@ -545,7 +601,7 @@ async function loadAll() {
   // 兩個 API 平行發出
   const [apResult, trResult] = await Promise.allSettled([
     fetch(API_AP).then(r => r.json()),
-    jsonpGet(API_TR + '?action=getAllPayments'),
+    fetch(CSV_TR).then(r => r.text()),
   ]);
 
   if (apResult.status === 'fulfilled' && !apResult.value.error) {
@@ -554,18 +610,25 @@ async function loadAll() {
     document.getElementById('s-ap').className = 'spill ok';
     document.getElementById('s-ap').textContent = '應付 ✓';
   } else {
-    dataAP = normalizeAP(getInlineAP()); // 永遠顯示靜態資料
+    dataAP = normalizeAP(getInlineAP());
     document.getElementById('s-ap').className = 'spill err';
     document.getElementById('s-ap').textContent = '應付 離線';
   }
 
-  if (trResult.status === 'fulfilled' && trResult.value?.status === 'ok' && trResult.value?.payments) {
-    dataTR = normalizeTR(trResult.value.payments);
-    saveCache(CACHE_TR, trResult.value.payments);
-    document.getElementById('s-tr').className = 'spill ok';
-    document.getElementById('s-tr').textContent = '貿易 ✓';
+  if (trResult.status === 'fulfilled' && trResult.value) {
+    const parsed = parseTRFromCSV(trResult.value);
+    if (parsed.length) {
+      dataTR = parsed;
+      saveCache(CACHE_TR, parsed);
+      document.getElementById('s-tr').className = 'spill ok';
+      document.getElementById('s-tr').textContent = `貿易 ✓ (${parsed.length}筆)`;
+    } else {
+      dataTR = TR_INLINE;
+      document.getElementById('s-tr').className = 'spill err';
+      document.getElementById('s-tr').textContent = '貿易 無資料';
+    }
   } else {
-    if (!cachedTR) dataTR = []; // 貿易大漁無靜態資料，空陣列即可
+    dataTR = TR_INLINE;
     document.getElementById('s-tr').className = 'spill err';
     document.getElementById('s-tr').textContent = '貿易 離線';
   }
@@ -575,7 +638,32 @@ async function loadAll() {
   renderCalendar();
 }
 
-// ══ FALLBACK DATA (完整應付款靜態資料) ═══════════════
+// ── 貿易大漁靜態資料（從試算表解析，採購=應付/銷售=應收）──
+const TR_INLINE = [
+  {src:'tr',dir:'ap', date:'2026/05/15',dept:'貿易大漁',cat:'月結15天',  note:'向海冠採購鮪魚碎肉6噸 · 楊正國/陳彥竹',     status:'預估',cur:'TWD',amt:510000},
+  {src:'tr',dir:'rcv',date:'2026/05/31',dept:'貿易大漁',cat:'銷售期1',   note:'向海冠採購鮪魚碎肉6噸 · 楊正國/陳彥竹',     status:'預估',cur:'TWD',amt:624000},
+  {src:'tr',dir:'ap', date:'2026/04/20',dept:'貿易大漁',cat:'採購期1',   note:'馬加鯊皮+馬加舅皮/銷售順漾 · 楊正國',       status:'預估',cur:'TWD',amt:221436},
+  {src:'tr',dir:'ap', date:'2026/05/15',dept:'貿易大漁',cat:'採購期2',   note:'馬加鯊皮+馬加舅皮/銷售順漾 · 楊正國',       status:'預估',cur:'TWD',amt:516684},
+  {src:'tr',dir:'ap', date:'2026/04/20',dept:'貿易大漁',cat:'簽約款',    note:'大漁水產輔助系統採購 · 黃湘蓁',             status:'預估',cur:'TWD',amt:195000},
+  {src:'tr',dir:'ap', date:'2026/06/15',dept:'貿易大漁',cat:'尾款',      note:'大漁水產輔助系統採購 · 黃湘蓁',             status:'預估',cur:'TWD',amt:195000},
+  {src:'tr',dir:'ap', date:'2026/04/30',dept:'貿易大漁',cat:'第一筆',    note:'水鯊銷售FOOD MASTERS · 楊正國',             status:'預估',cur:'TWD',amt:1000000},
+  {src:'tr',dir:'ap', date:'2026/05/31',dept:'貿易大漁',cat:'第二筆',    note:'水鯊銷售FOOD MASTERS · 楊正國',             status:'預估',cur:'TWD',amt:1700000},
+  {src:'tr',dir:'rcv',date:'2026/05/31',dept:'貿易大漁',cat:'銷售期1',   note:'水鯊銷售FOOD MASTERS · 楊正國',             status:'預估',cur:'USD',amt:151200},
+  {src:'tr',dir:'rcv',date:'2026/04/22',dept:'貿易大漁',cat:'全額',      note:'大漁在庫紅皮刀2461及粗油1140 · 朱嬿琳',     status:'預估',cur:'TWD',amt:267301},
+  {src:'tr',dir:'ap', date:'2026/04/28',dept:'貿易大漁',cat:'全額',      note:'孫宗敬劍乙批 · 朱嬿琳',                   status:'預估',cur:'TWD',amt:242485},
+  {src:'tr',dir:'ap', date:'2026/04/27',dept:'貿易大漁',cat:'全額',      note:'CO鰤魚-AED · 呂建宏/楊正國',               status:'預估',cur:'JPY',amt:53300608},
+  {src:'tr',dir:'rcv',date:'2026/05/31',dept:'貿易大漁',cat:'全額款',    note:'CO鰤魚-AED · 呂建宏/楊正國',               status:'預估',cur:'JPY',amt:53789604},
+  {src:'tr',dir:'ap', date:'2026/04/23',dept:'貿易大漁',cat:'訂金',      note:'越南淡水小蝦 · 黃啟靖',                   status:'預估',cur:'USD',amt:9990},
+  {src:'tr',dir:'ap', date:'2026/04/30',dept:'貿易大漁',cat:'尾款',      note:'越南淡水小蝦 · 黃啟靖',                   status:'預估',cur:'USD',amt:39960},
+  {src:'tr',dir:'rcv',date:'2026/04/16',dept:'貿易大漁',cat:'訂金',      note:'越南淡水小蝦 · 黃啟靖',                   status:'預估',cur:'USD',amt:17235},
+  {src:'tr',dir:'rcv',date:'2026/04/30',dept:'貿易大漁',cat:'尾款',      note:'越南淡水小蝦 · 黃啟靖',                   status:'預估',cur:'USD',amt:40215},
+  {src:'tr',dir:'ap', date:'2026/04/28',dept:'貿易大漁',cat:'訂金',      note:'印尼飛魚 · 黃啟靖',                       status:'預估',cur:'USD',amt:23520},
+  {src:'tr',dir:'ap', date:'2026/05/07',dept:'貿易大漁',cat:'第一櫃尾款',note:'印尼飛魚 · 黃啟靖',                       status:'預估',cur:'USD',amt:27440},
+  {src:'tr',dir:'ap', date:'2026/06/16',dept:'貿易大漁',cat:'第二櫃尾款',note:'印尼飛魚 · 黃啟靖',                       status:'預估',cur:'USD',amt:27440},
+  {src:'tr',dir:'rcv',date:'2026/04/23',dept:'貿易大漁',cat:'30%預付款', note:'印尼飛魚 · 黃啟靖',                       status:'預估',cur:'USD',amt:25725},
+  {src:'tr',dir:'rcv',date:'2026/05/12',dept:'貿易大漁',cat:'第一櫃尾款',note:'印尼飛魚 · 黃啟靖',                       status:'預估',cur:'USD',amt:30012.5},
+  {src:'tr',dir:'rcv',date:'2026/06/09',dept:'貿易大漁',cat:'第二櫃尾款',note:'印尼飛魚 · 黃啟靖',                       status:'預估',cur:'USD',amt:30012.5},
+];
 function getInlineAP() {
   return [
     {dept:"貿易",status:"應付",date:"2026/03/03",cat:"貨款",note:"裕鋒",ntd:537500,usd:0,jpy:0,zar:0},
