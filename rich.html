@@ -320,23 +320,31 @@
   }
   .modal-footer strong { color: var(--text); font-weight: 700; }
 
-  /* ── Loading overlay ── */
-  .loading-screen {
-    position: fixed; inset: 0;
-    background: var(--bg);
-    z-index: 300;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    transition: opacity 0.4s;
+  /* ── Skeleton shimmer ── */
+  @keyframes shimmer {
+    0% { background-position: -600px 0; }
+    100% { background-position: 600px 0; }
   }
-  .loading-screen.hide { opacity: 0; pointer-events: none; }
-  .loading-title { font-size: 16px; font-weight: 700; color: var(--text2); }
-  .loading-bar-wrap { width: 200px; height: 2px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
-  .loading-bar { height: 100%; width: 0; background: var(--ntd); border-radius: 2px; transition: width 0.4s; }
-  .loading-msg { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+  .skeleton {
+    background: linear-gradient(90deg, #ececec 25%, #f5f5f5 50%, #ececec 75%);
+    background-size: 600px 100%;
+    animation: shimmer 1.4s infinite linear;
+    border-radius: 4px;
+  }
+  .skel-pill { height: 13px; margin-bottom: 4px; }
+  .updating-badge {
+    display: none;
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: rgba(184,116,19,0.12);
+    color: var(--jpy);
+    border: 1px solid rgba(184,116,19,0.25);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .updating-badge.show { display: inline; }
 
   @media (max-width: 600px) {
     .topbar { padding: 0 14px; }
@@ -350,15 +358,10 @@
 </head>
 <body>
 
-<div class="loading-screen" id="loading">
-  <div class="loading-title">應付款日曆</div>
-  <div class="loading-bar-wrap"><div class="loading-bar" id="loading-bar"></div></div>
-  <div class="loading-msg" id="loading-msg">載入資料中...</div>
-</div>
 
 <div class="topbar">
   <div>
-    <div class="topbar-title">應付款日曆</div>
+    <div class="topbar-title">應付款日曆 <span class="updating-badge" id="updating-badge">更新中...</span></div>
     <div class="topbar-sub" id="last-update">--</div>
   </div>
   <div id="status-pill" class="status-pill loading">載入中...</div>
@@ -576,37 +579,107 @@ function setFilter(f) { modalFilter = f; renderModalContent(); }
 document.getElementById('modal-close').onclick = () => document.getElementById('modal-overlay').classList.remove('open');
 document.getElementById('modal-overlay').onclick = (e) => { if (e.target === document.getElementById('modal-overlay')) document.getElementById('modal-overlay').classList.remove('open'); };
 
-// ── Data loading ──────────────────────────────────────
-function setLoading(pct, msg) {
-  document.getElementById('loading-bar').style.width = pct + '%';
-  document.getElementById('loading-msg').textContent = msg;
+// ── Data loading with localStorage cache ─────────────
+const CACHE_KEY = 'ap_calendar_data';
+const CACHE_TS_KEY = 'ap_calendar_ts';
+const CACHE_TTL = 5 * 60 * 1000; // 5 分鐘內不重新抓
+
+function saveCache(data) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    localStorage.setItem(CACHE_TS_KEY, Date.now().toString());
+  } catch(e) {}
+}
+
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+function cacheAge() {
+  try {
+    const ts = parseInt(localStorage.getItem(CACHE_TS_KEY) || '0');
+    return Date.now() - ts;
+  } catch(e) { return Infinity; }
+}
+
+function renderSkeleton() {
+  const firstDay = new Date(curYear, curMonth, 1).getDay();
+  const daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
+  const DOWS = ['日','一','二','三','四','五','六'];
+  let html = DOWS.map(d => `<div class="dow-label">${d}</div>`).join('');
+  for (let i = 0; i < firstDay; i++) html += `<div class="day-cell empty"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    html += `<div class="day-cell" style="cursor:default">
+      <div class="day-num">${d}</div>
+      ${Math.random()>0.55 ? `<div class="skel-pill skeleton" style="width:${60+Math.random()*30}%"></div>` : ''}
+      ${Math.random()>0.75 ? `<div class="skel-pill skeleton" style="width:${40+Math.random()*25}%"></div>` : ''}
+    </div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+}
+
+async function fetchFromAPI() {
+  const res = await fetch(API_URL);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
 }
 
 async function loadData() {
-  setLoading(20, '連線中...');
-  try {
-    if (!API_URL || API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
-      throw new Error('尚未設定 API_URL');
-    }
-    setLoading(50, '讀取試算表...');
-    const res = await fetch(API_URL);
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    allData = data;
-    setLoading(90, '渲染日曆...');
+  const cached = loadCache();
+
+  if (cached) {
+    // 有快取 → 立即顯示，背景靜默更新
+    allData = cached;
+    const ts = parseInt(localStorage.getItem(CACHE_TS_KEY) || '0');
+    const timeStr = ts ? new Date(ts).toLocaleString('zh-TW') : '--';
+    document.getElementById('last-update').textContent = '快取：' + timeStr;
     document.getElementById('status-pill').className = 'status-pill ok';
-    document.getElementById('status-pill').textContent = '已同步';
-    document.getElementById('last-update').textContent = '更新：' + new Date().toLocaleString('zh-TW');
-  } catch (e) {
-    console.warn('API 載入失敗，使用內嵌資料', e.message);
-    allData = getInlineData();
-    document.getElementById('status-pill').className = 'status-pill error';
-    document.getElementById('status-pill').textContent = '離線資料';
-    document.getElementById('last-update').textContent = '使用靜態資料';
+    document.getElementById('status-pill').textContent = '快取資料';
+    renderCalendar();
+
+    // 超過 TTL 才背景更新
+    if (cacheAge() > CACHE_TTL && API_URL !== 'YOUR_APPS_SCRIPT_URL_HERE') {
+      document.getElementById('updating-badge').classList.add('show');
+      try {
+        const fresh = await fetchFromAPI();
+        allData = fresh;
+        saveCache(fresh);
+        document.getElementById('last-update').textContent = '更新：' + new Date().toLocaleString('zh-TW');
+        document.getElementById('status-pill').className = 'status-pill ok';
+        document.getElementById('status-pill').textContent = '已同步';
+        renderCalendar();
+      } catch(e) {
+        console.warn('背景更新失敗', e.message);
+      } finally {
+        document.getElementById('updating-badge').classList.remove('show');
+      }
+    }
+  } else {
+    // 無快取 → 顯示骨架畫面，等 API 回來
+    renderSkeleton();
+    document.getElementById('status-pill').textContent = '載入中...';
+    try {
+      if (!API_URL || API_URL === 'YOUR_APPS_SCRIPT_URL_HERE') throw new Error('未設定 API');
+      const data = await fetchFromAPI();
+      allData = data;
+      saveCache(data);
+      document.getElementById('last-update').textContent = '更新：' + new Date().toLocaleString('zh-TW');
+      document.getElementById('status-pill').className = 'status-pill ok';
+      document.getElementById('status-pill').textContent = '已同步';
+    } catch(e) {
+      console.warn('API 失敗，使用靜態資料', e.message);
+      allData = getInlineData();
+      document.getElementById('status-pill').className = 'status-pill error';
+      document.getElementById('status-pill').textContent = '離線資料';
+      document.getElementById('last-update').textContent = '使用靜態資料';
+    }
+    renderCalendar();
   }
-  setLoading(100, '完成');
-  renderCalendar();
-  setTimeout(() => document.getElementById('loading').classList.add('hide'), 300);
 }
 
 // 靜態 fallback 資料（從 CSV 內嵌，API 失敗時使用）
