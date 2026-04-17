@@ -185,10 +185,8 @@ body{background:var(--bg);font-family:'Noto Sans TC',sans-serif;color:var(--text
   <span class="li"><span class="ld" style="background:var(--ntd)"></span>應付 NTD</span>
   <span class="li"><span class="ld" style="background:var(--usd)"></span>應付 USD</span>
   <span class="li"><span class="ld" style="background:var(--jpy)"></span>JPY</span>
-  <span class="li"><span class="ld" style="background:var(--rcv)"></span>應收</span>
   <span class="li"><span class="ld" style="background:var(--overdue)"></span>逾期</span>
-  <span class="li"><span class="ld" style="background:var(--est)"></span>預估</span>
-  <span class="li"><span class="ld" style="background:var(--done)"></span>已完成</span>
+  <span class="li"><span class="ld" style="background:var(--est)"></span>預估（含貿易大漁）</span>
 </div>
 
 <div class="cal-wrap"><div class="cal-grid" id="cal-grid"></div></div>
@@ -266,20 +264,18 @@ function normalizeTR(payments) {
     if (!date) return;
     const isBuy = p['類型'] === '採購';
     const isPaid = p['已付收'] === '是';
-    const due = new Date(date.replace(/\//g, '-'));
-    due.setHours(0,0,0,0);
-    const isOverdue = !isPaid && due < today;
+    if (isPaid) return; // 已完成的不顯示
     const cur = (p['幣別'] || 'TWD').toUpperCase();
     const amt = parseFloat(p['金額']) || 0;
-    let status = isPaid ? '已完成' : isOverdue ? '逾期' : '應付';
+    if (!amt) return;
     out.push({
       src: 'tr',
       dir: isBuy ? 'ap' : 'rcv',
-      date: date,
+      date,
       dept: '貿易大漁',
       cat: p['期別名稱'] || (isBuy ? '採購' : '銷售'),
       note: (p['案件名稱'] || '') + (p['業務名稱'] ? ' · ' + p['業務名稱'] : ''),
-      status,
+      status: '預估',
       cur, amt,
     });
   });
@@ -329,55 +325,38 @@ function renderCalendar() {
     html += `<div class="day${isT?' today':''}" onclick="openModal('${ds}')"><div class="day-num">${d}</div>`;
 
     if (its.length) {
-      // 彙總：應付各幣別、應收各幣別
+      // 應付帳款彙總（各幣別）
       const apSums = {ntd:0, usd:0, jpy:0, zar:0};
-      const rcvSums = {};
-      let hasOverdue = false, hasEst = false, hasDone = false;
+      // 貿易大漁預估彙總（原幣）
+      const trSums = {};
+      let hasOverdue = false, hasEst = false;
 
       its.forEach(r => {
-        if (r.status === '逾期') hasOverdue = true;
-        if (r.status === '預估') hasEst = true;
-        if (r.status === '已完成') hasDone = true;
-        if (r.dir === 'ap') {
-          if (r.src === 'ap') {
-            apSums.ntd += r.ntd || 0;
-            apSums.usd += r.usd || 0;
-            apSums.jpy += r.jpy || 0;
-            apSums.zar += r.zar || 0;
-          } else {
-            const cur = r.cur || 'TWD';
-            if (!rcvSums['ap_' + cur]) rcvSums['ap_' + cur] = 0;
-            rcvSums['ap_' + cur] += r.amt || 0;
-          }
+        if (r.src === 'ap') {
+          if (r.status === '逾期') hasOverdue = true;
+          if (r.status === '預估') hasEst = true;
+          apSums.ntd += r.ntd || 0;
+          apSums.usd += r.usd || 0;
+          apSums.jpy += r.jpy || 0;
+          apSums.zar += r.zar || 0;
         } else {
-          const cur = r.cur || 'TWD';
-          if (!rcvSums['rcv_' + cur]) rcvSums['rcv_' + cur] = 0;
-          rcvSums['rcv_' + cur] += r.amt || 0;
+          // 貿易大漁 → 紫色預估
+          const key = r.cur || 'TWD';
+          trSums[key] = (trSums[key] || 0) + (r.amt || 0);
         }
       });
 
-      // 主幣色（逾期優先）
+      // 應付帳款 pills（逾期/預估/正常幣色）
       const baseCls = hasOverdue ? 'p-overdue' : hasEst ? 'p-est' : '';
-
-      // 應付行
       if (apSums.ntd) html += `<span class="pill ${baseCls||'p-ntd'}">${fNTD(apSums.ntd)}</span>`;
       if (apSums.usd) html += `<span class="pill ${baseCls||'p-usd'}">${fUSD(apSums.usd)}</span>`;
       if (apSums.jpy) html += `<span class="pill ${baseCls||'p-jpy'}">${fJPY(apSums.jpy)}</span>`;
       if (apSums.zar) html += `<span class="pill ${baseCls||'p-zar'}">${fZAR(apSums.zar)}</span>`;
 
-      // 貿易應付（TWD/USD）
-      ['TWD','USD','JPY','EUR'].forEach(cur => {
-        const v = rcvSums['ap_' + cur];
-        if (v) html += `<span class="pill p-overdue" style="font-size:9px;">↓${cur} ${Math.round(v).toLocaleString()}</span>`;
-      });
-
-      // 應收（綠色）
-      ['TWD','USD','JPY','EUR'].forEach(cur => {
-        const v = rcvSums['rcv_' + cur];
-        if (v) {
-          const cls = cur === 'USD' ? 'p-rcv-usd' : 'p-rcv';
-          html += `<span class="pill ${cls}" style="font-size:9px;">↑${cur} ${Math.round(v).toLocaleString()}</span>`;
-        }
+      // 貿易大漁 pills → 永遠紫色
+      Object.keys(trSums).forEach(cur => {
+        const v = trSums[cur];
+        if (v) html += `<span class="pill p-est">預估 ${fTrade(v, cur)}</span>`;
       });
 
       if (its.length > 3) html += `<div class="day-more">共 ${its.length} 筆</div>`;
@@ -393,32 +372,22 @@ function renderSummary() {
     const d = new Date(r.date.replace(/\//g,'-'));
     return d.getFullYear() === curYear && d.getMonth() === curMonth;
   });
-  // 應付合計
   let ap_ntd=0, ap_usd=0, ap_jpy=0, ap_zar=0;
-  // 應收合計（原幣）
-  const rcv = {};
+  const trEst = {};
   items.forEach(r => {
-    if (r.status === '已完成') return;
-    if (r.dir === 'ap') {
-      if (r.src === 'ap') {
-        ap_ntd += r.ntd||0; ap_usd += r.usd||0; ap_jpy += r.jpy||0; ap_zar += r.zar||0;
-      } else {
-        ap_ntd += r.cur==='TWD' ? r.amt||0 : 0;
-        if (r.cur !== 'TWD') { rcv['ap_'+r.cur] = (rcv['ap_'+r.cur]||0) + (r.amt||0); }
-      }
+    if (r.src === 'ap') {
+      ap_ntd += r.ntd||0; ap_usd += r.usd||0; ap_jpy += r.jpy||0; ap_zar += r.zar||0;
     } else {
-      rcv['rcv_'+r.cur] = (rcv['rcv_'+r.cur]||0) + (r.amt||0);
+      trEst[r.cur||'TWD'] = (trEst[r.cur||'TWD']||0) + (r.amt||0);
     }
   });
-
   let html = '';
-  if (ap_ntd) html += card('應付 NTD', 'NT$' + Math.round(ap_ntd).toLocaleString(), 'var(--ntd)');
-  if (ap_usd) html += card('應付 USD', 'US$' + ap_usd.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}), 'var(--usd)');
-  if (ap_jpy) html += card('應付 JPY', '¥' + Math.round(ap_jpy).toLocaleString(), 'var(--jpy)');
-  if (ap_zar) html += card('應付 ZAR', 'ZAR ' + ap_zar.toFixed(2), 'var(--zar)');
-  ['TWD','USD','JPY','EUR'].forEach(cur => {
-    const rv = rcv['rcv_'+cur];
-    if (rv) html += card('應收 '+cur, fTrade(rv, cur), 'var(--rcv)');
+  if (ap_ntd) html += card('應付 NTD · 本月', 'NT$' + Math.round(ap_ntd).toLocaleString(), 'var(--ntd)');
+  if (ap_usd) html += card('應付 USD · 本月', 'US$' + ap_usd.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}), 'var(--usd)');
+  if (ap_jpy) html += card('應付 JPY · 本月', '¥' + Math.round(ap_jpy).toLocaleString(), 'var(--jpy)');
+  if (ap_zar) html += card('應付 ZAR · 本月', 'ZAR ' + ap_zar.toFixed(2), 'var(--zar)');
+  Object.keys(trEst).forEach(cur => {
+    if (trEst[cur]) html += card('預估 ' + cur + ' · 本月', fTrade(trEst[cur], cur), 'var(--est)');
   });
   document.getElementById('summary-wrap').innerHTML = html;
 }
@@ -442,77 +411,52 @@ function openModal(ds) {
 
 function renderModal() {
   const items = modalFilter === '全部' ? modalItems
-    : modalItems.filter(r =>
-        r.status === modalFilter ||
-        r.dir === modalFilter ||
-        r.src === modalFilter ||
-        r.dept === modalFilter
-      );
+    : modalItems.filter(r => r.src === (modalFilter === '應付帳款' ? 'ap' : 'tr') || r.status === modalFilter);
 
   // filter buttons
-  const srcs = [...new Set(modalItems.map(r => r.src === 'ap' ? '應付帳款' : '貿易大漁'))];
-  const dirs = [...new Set(modalItems.map(r => r.dir === 'ap' ? '應付' : '應收'))];
+  const hasTR = modalItems.some(r => r.src === 'tr');
+  const hasAP = modalItems.some(r => r.src === 'ap');
   let fHtml = `<button class="mf-btn${modalFilter==='全部'?' on':''}" onclick="setMF('全部')">全部 (${modalItems.length})</button>`;
-  dirs.forEach(d => { const n = modalItems.filter(r => (r.dir==='ap'?'應付':'應收')===d).length; fHtml += `<button class="mf-btn${modalFilter===d?' on':''}" onclick="setMF('${d}')">${d} (${n})</button>`; });
-  srcs.forEach(s => { const key = s==='應付帳款'?'ap':'tr'; const n = modalItems.filter(r => r.src===key).length; fHtml += `<button class="mf-btn${modalFilter===s?' on':''}" onclick="setMF('${s}')">${s} (${n})</button>`; });
+  if (hasAP) { const n = modalItems.filter(r=>r.src==='ap').length; fHtml += `<button class="mf-btn${modalFilter==='應付帳款'?' on':''}" onclick="setMF('應付帳款')">應付帳款 (${n})</button>`; }
+  if (hasTR) { const n = modalItems.filter(r=>r.src==='tr').length; fHtml += `<button class="mf-btn${modalFilter==='貿易大漁'?' on':''}" onclick="setMF('貿易大漁')">貿易大漁預估 (${n})</button>`; }
   document.getElementById('m-filters').innerHTML = fHtml;
 
-  // 分兩區：應付 / 應收
-  const apItems = items.filter(r => r.dir === 'ap');
-  const rcvItems = items.filter(r => r.dir === 'rcv');
-
   let bHtml = '';
-  if (apItems.length) {
-    bHtml += `<div class="sec-hdr"><span class="sec-dot" style="background:var(--overdue)"></span>應付款 (${apItems.length} 筆)</div>`;
-    apItems.forEach(r => { bHtml += renderItem(r); });
-  }
-  if (rcvItems.length) {
-    bHtml += `<div class="sec-hdr" style="margin-top:8px"><span class="sec-dot" style="background:var(--rcv)"></span>應收款 (${rcvItems.length} 筆)</div>`;
-    rcvItems.forEach(r => { bHtml += renderItem(r); });
-  }
-  document.getElementById('m-body').innerHTML = bHtml;
+  items.forEach(r => { bHtml += renderItem(r); });
+  document.getElementById('m-body').innerHTML = bHtml || '<div style="padding:16px;color:var(--text3);font-size:13px;">無資料</div>';
 
   // footer totals
   let ap_ntd=0, ap_usd=0, ap_jpy=0, ap_zar=0;
-  const rcvT = {};
+  const trT = {};
   items.forEach(r => {
-    if (r.dir === 'ap') {
-      if (r.src === 'ap') { ap_ntd+=r.ntd||0; ap_usd+=r.usd||0; ap_jpy+=r.jpy||0; ap_zar+=r.zar||0; }
-      else { rcvT['ap_'+(r.cur||'TWD')] = (rcvT['ap_'+(r.cur||'TWD')]||0) + (r.amt||0); }
-    } else {
-      rcvT['rcv_'+(r.cur||'TWD')] = (rcvT['rcv_'+(r.cur||'TWD')]||0) + (r.amt||0);
-    }
+    if (r.src === 'ap') { ap_ntd+=r.ntd||0; ap_usd+=r.usd||0; ap_jpy+=r.jpy||0; ap_zar+=r.zar||0; }
+    else { trT[r.cur||'TWD'] = (trT[r.cur||'TWD']||0) + (r.amt||0); }
   });
   let fHtml2 = '合計 ';
   if (ap_ntd) fHtml2 += `<strong>${fNTD(ap_ntd)}</strong> `;
   if (ap_usd) fHtml2 += `<strong>${fUSD(ap_usd)}</strong> `;
   if (ap_jpy) fHtml2 += `<strong>${fJPY(ap_jpy)}</strong> `;
   if (ap_zar) fHtml2 += `<strong>${fZAR(ap_zar)}</strong> `;
-  Object.keys(rcvT).forEach(k => {
-    const cur = k.split('_')[1];
-    const prefix = k.startsWith('rcv_') ? '↑' : '↓';
-    fHtml2 += `<strong>${prefix}${fTrade(rcvT[k], cur)}</strong> `;
-  });
+  Object.keys(trT).forEach(cur => { fHtml2 += `<strong style="color:var(--est)">預估 ${fTrade(trT[cur], cur)}</strong> `; });
   document.getElementById('m-footer').innerHTML = fHtml2;
 }
 
 function renderItem(r) {
-  // status badge
-  const sc = r.status==='逾期'?'s-ov': r.status==='預估'?'s-est': r.status==='已完成'?'s-done': r.dir==='rcv'?'s-rcv':'s-ap';
-  // amount display
+  const isTR = r.src === 'tr';
+  const sc = isTR ? 's-est' : r.status==='逾期' ? 's-ov' : r.status==='預估' ? 's-est' : 's-ap';
+  const statusLabel = isTR ? '預估' : r.status;
   let amtHtml = '';
-  if (r.src === 'ap') {
+  if (isTR) {
+    amtHtml = `<div style="color:var(--est);font-family:'DM Mono',monospace;font-size:11px;font-weight:500;">${fTrade(r.amt, r.cur)}</div>`;
+  } else {
     if (r.ntd) amtHtml += `<div class="a-ntd">${fNTD(r.ntd)}</div>`;
     if (r.usd) amtHtml += `<div class="a-usd">${fUSD(r.usd)}</div>`;
     if (r.jpy) amtHtml += `<div class="a-jpy">${fJPY(r.jpy)}</div>`;
     if (r.zar) amtHtml += `<div class="a-zar">${fZAR(r.zar)}</div>`;
-  } else {
-    const cls = r.dir==='rcv' ? (r.cur==='USD'?'a-rcv-usd':'a-rcv') : 'a-ntd';
-    amtHtml = `<div class="${cls}">${fTrade(r.amt, r.cur)}</div>`;
   }
   return `<div class="item">
     <div><span class="tag">${r.dept}</span></div>
-    <div class="cat">${r.cat}<br><span class="sbadge ${sc}">${r.status}</span></div>
+    <div class="cat">${r.cat}<br><span class="sbadge ${sc}">${statusLabel}</span></div>
     <div class="note">${r.note||'—'}</div>
     <div class="amt">${amtHtml}</div>
   </div>`;
