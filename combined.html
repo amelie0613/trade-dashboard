@@ -581,28 +581,22 @@ async function loadAll() {
   const cachedAP = loadCache(CACHE_AP);
   const cachedTR = loadCache(CACHE_TR);
 
-  if (cachedAP) {
-    dataAP = normalizeAP(cachedAP);
-    document.getElementById('s-ap').className = 'spill ok';
-    document.getElementById('s-ap').textContent = '應付 快取';
-  }
-  if (cachedTR) {
-    dataTR = normalizeTR(cachedTR);
-    document.getElementById('s-tr').className = 'spill ok';
-    document.getElementById('s-tr').textContent = '貿易 快取';
+  // 1. 立刻顯示（快取 > 靜態）不等 API
+  dataAP = cachedAP ? normalizeAP(cachedAP) : normalizeAP(getInlineAP());
+  dataTR = cachedTR ? normalizeTR(cachedTR) : [];
+  document.getElementById('s-ap').className = 'spill ok';
+  document.getElementById('s-ap').textContent = cachedAP ? '應付 快取' : '應付 靜態';
+  document.getElementById('last-update').textContent = cachedAP ? '快取資料' : '靜態資料（更新中...）';
+  renderCalendar();
+
+  // 若快取夠新就不背景更新
+  if (cachedAP && cachedTR && cacheAge(CACHE_AP) < TTL && cacheAge(CACHE_TR) < TTL) {
+    document.getElementById('last-update').textContent = '快取資料';
+    return;
   }
 
-  if (cachedAP || cachedTR) {
-    renderCalendar();
-    // 若快取夠新就不再抓
-    if (cacheAge(CACHE_AP) < TTL && cacheAge(CACHE_TR) < TTL) {
-      document.getElementById('last-update').textContent = '快取資料';
-      return;
-    }
-    document.getElementById('upd-badge').classList.add('show');
-  } else {
-    renderSkeleton();
-  }
+  // 2. 背景靜默更新 API
+  document.getElementById('upd-badge').classList.add('show');
 
   // 兩個 API 平行發出
   const [apResult, trResult] = await Promise.allSettled([
@@ -616,7 +610,7 @@ async function loadAll() {
     document.getElementById('s-ap').className = 'spill ok';
     document.getElementById('s-ap').textContent = '應付 ✓';
   } else {
-    if (!cachedAP) dataAP = normalizeAP(getInlineAP());
+    dataAP = normalizeAP(getInlineAP()); // 永遠顯示靜態資料
     document.getElementById('s-ap').className = 'spill err';
     document.getElementById('s-ap').textContent = '應付 離線';
   }
@@ -627,7 +621,7 @@ async function loadAll() {
     document.getElementById('s-tr').className = 'spill ok';
     document.getElementById('s-tr').textContent = '貿易 ✓';
   } else {
-    if (!cachedTR) dataTR = [];
+    if (!cachedTR) dataTR = []; // 貿易大漁無靜態資料，空陣列即可
     document.getElementById('s-tr').className = 'spill err';
     document.getElementById('s-tr').textContent = '貿易 離線';
   }
@@ -637,18 +631,106 @@ async function loadAll() {
   renderCalendar();
 }
 
-// ══ FALLBACK DATA (應付款靜態) ════════════════════════
+// ══ FALLBACK DATA (完整應付款靜態資料) ═══════════════
 function getInlineAP() {
   return [
+    {dept:"貿易",status:"應付",date:"2026/03/03",cat:"貨款",note:"裕鋒",ntd:537500,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/03/12",cat:"貨款",note:"林基成",ntd:407143,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/03/25",cat:"費用",note:"凱祥電機有限公司",ntd:341775,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/03/31",cat:"貨款",note:"穩勝(缺兆豐188-石喬發票)",ntd:657747,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/03/31",cat:"貨款",note:"林基成",ntd:68606,usd:0,jpy:0,zar:0},
     {dept:"貿易",status:"應付",date:"2026/04/06",cat:"貨款",note:"林基成",ntd:16166,usd:0,jpy:0,zar:0},
     {dept:"貿易",status:"逾期",date:"2026/04/10",cat:"貨款",note:"友和(待批號+運費差額)",ntd:0,usd:0,jpy:2050000,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/14",cat:"貨款",note:"順昌",ntd:47906,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/15",cat:"貨款",note:"昇鮮(缺發票)",ntd:74400,usd:0,jpy:0,zar:0},
     {dept:"貿易",status:"應付",date:"2026/04/15",cat:"貨款",note:"上雋",ntd:1257408,usd:0,jpy:0,zar:0},
     {dept:"貿易",status:"應付",date:"2026/04/20",cat:"貨款",note:"上雋",ntd:3927420,usd:0,jpy:0,zar:0},
-    {dept:"貿易",status:"應付",date:"2026/04/25",cat:"支票兌現",note:"支票兌現",ntd:1170917,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"逾期",date:"2026/04/21",cat:"貨款",note:"友和",ntd:0,usd:0,jpy:42095000,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/20",cat:"費用",note:"全球",ntd:158302,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/22",cat:"貨款",note:"益泰",ntd:5975,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/25",cat:"費用",note:"立揚通運",ntd:5760,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/25",cat:"費用",note:"鋐暢運輸事業股份有限公司",ntd:3200,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/25",cat:"費用",note:"昱臺國際股份有限公司",ntd:10848,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/25",cat:"貨款",note:"口湖魚類生產合作社",ntd:3000,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/28",cat:"貨款",note:"孫宗敬",ntd:241198,usd:0,jpy:0,zar:0},
     {dept:"貿易",status:"應付",date:"2026/04/30",cat:"貨款",note:"上雋",ntd:1345967,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"貨款",note:"一洋(缺發票)",ntd:23700,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"逾期",date:"2026/04/30",cat:"貨款",note:"元家",ntd:20640,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"貨款",note:"天海",ntd:57000,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"貨款",note:"名昇",ntd:135213,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"貨款",note:"洋希國際",ntd:204700,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"貨款",note:"鈺贊(缺發票)",ntd:13000,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"貨款",note:"綜信",ntd:2763,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"費用",note:"隆發冷凍3月凍庫租",ntd:31185,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"費用",note:"順昌3月凍庫租",ntd:26473,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"費用",note:"興德3月倉租",ntd:43898,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"費用",note:"大順冷凍3月凍庫租",ntd:52500,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/04/30",cat:"貨款",note:"豐華食品機械(尾款)",ntd:1249500,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/05/01",cat:"費用",note:"全球",ntd:194368,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/05/01",cat:"費用",note:"沛榮(26-0131)",ntd:37517,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/05/04",cat:"貨款",note:"沃程",ntd:0,usd:54218.16,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/06/01",cat:"費用",note:"沛榮(26-0136)",ntd:63912,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/07/10",cat:"費用",note:"鄭寶金",ntd:40425,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/08/10",cat:"費用",note:"志明冷凍行",ntd:181441,usd:0,jpy:0,zar:0},
+    {dept:"貿易",status:"應付",date:"2026/05/22",cat:"費用",note:"允宏2號油款",ntd:0,usd:168300,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2025/03/07",cat:"薪資/獎金",note:"施紅兵-託匯款",ntd:0,usd:10337.70,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2025/06/20",cat:"代理",note:"NFC-2025/4月千里達代理費+香菸款",ntd:0,usd:32144.97,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2025/08/30",cat:"代理",note:"NFC-2025/5千里達代理費",ntd:0,usd:45905.08,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2025/10/27",cat:"費用",note:"連吉億-拖船費",ntd:201000,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2025/10/31",cat:"代理",note:"NFC-2025/5-7月千里達代理費",ntd:0,usd:35594.23,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2025/11/14",cat:"薪資/獎金",note:"吳剛林-保證待遇結算",ntd:0,usd:17739.25,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2025/11/25",cat:"薪資/獎金",note:"郭文進-滿期結算尾款",ntd:2447478,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/02/04",cat:"油款",note:"海順-2025/12/21滿帆168加油款",ntd:0,usd:53494.20,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/02/26",cat:"費用",note:"連吉億-拖船費",ntd:36000,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/03/25",cat:"補給",note:"開普船貨-2026/2滿福188開普敦補給",ntd:0,usd:0,jpy:0,zar:5760},
+    {dept:"船務",status:"逾期",date:"2026/03/25",cat:"機票",note:"華郁-2025/9月機票款",ntd:1514300,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/03/27",cat:"補給",note:"開普船貨-2026/3宏洋輪1號開普敦補給",ntd:0,usd:0,jpy:0,zar:41110},
+    {dept:"船務",status:"逾期",date:"2026/03/27",cat:"薪資/獎金",note:"快捷-2026/1-2月管理費",ntd:0,usd:14744.67,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/03/30",cat:"代理",note:"AGENCIA-維德角代理費預付",ntd:0,usd:18000,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/04/02",cat:"補給",note:"相宇-星鏈月租費",ntd:0,usd:8910,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/04/02",cat:"補給",note:"相宇-銥衛星",ntd:0,usd:2421.07,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/04/03",cat:"油款",note:"海順-2026/2加油款",ntd:0,usd:266612.46,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/04/10",cat:"費用",note:"群智-船員帳務系統維護",ntd:119700,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/04/10",cat:"補給",note:"太龍-大米補給",ntd:0,usd:6200,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/04/20",cat:"薪資/獎金",note:"威海-2026/1-2月薪資",ntd:0,usd:35400,jpy:0,zar:0},
     {dept:"船務",status:"應付",date:"2026/04/25",cat:"機票",note:"華郁-2025/10月機票",ntd:860700,usd:0,jpy:0,zar:0},
-    {dept:"船務",status:"應付",date:"2026/04/30",cat:"費用",note:"明台-P&I保費",ntd:0,usd:103139.29,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/04/30",cat:"費用",note:"明台-2026年度P&I保費",ntd:0,usd:103139.29,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/04/30",cat:"費用",note:"許啟明-台南巡視費用",ntd:6357,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/04/30",cat:"補給",note:"許啟明-代購茶葉",ntd:5800,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/04/27",cat:"費用",note:"鮪魚公會-宏洋輪減船代償金",ntd:5683,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/04/25",cat:"支票兌現",note:"支票兌現",ntd:1170917,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"逾期",date:"2026/04/10",cat:"支票兌現",note:"支票兌現",ntd:1452362,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/04",cat:"費用",note:"漁業署-滿福188船長罰款",ntd:5000,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/05",cat:"薪資/獎金",note:"郭文進-2026/4月薪資",ntd:60000,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/05",cat:"薪資/獎金",note:"翁志豪-2026/4月薪資",ntd:55397,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/05",cat:"薪資/獎金",note:"楊金順-2026/4月薪資",ntd:56542,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/05",cat:"薪資/獎金",note:"陳宏利-2026/4月薪資",ntd:60000,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/05",cat:"費用",note:"漁業署-呂友助罰鍰第二十二期",ntd:100000,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/05",cat:"費用",note:"中信資融-租車費第十四期",ntd:441300,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/05",cat:"薪資/獎金",note:"勞保局-2026/3月勞保",ntd:10864,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/05",cat:"薪資/獎金",note:"健保局-2026/3月健保",ntd:5852,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/08",cat:"費用",note:"林億泰-安平港顧船費",ntd:16666,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/10",cat:"支票兌現",note:"支票兌現",ntd:274531,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/05/26",cat:"補給",note:"Abao-開普敦補給",ntd:60000,usd:0,jpy:0,zar:156565.97},
     {dept:"船務",status:"預估",date:"2026/05/25",cat:"油款",note:"預估MFA168/MFU188油款",ntd:0,usd:368950,jpy:0,zar:0},
+    {dept:"船務",status:"預估",date:"2026/05/25",cat:"油款",note:"預估MFa1/MFu666油款",ntd:0,usd:240250,jpy:0,zar:0},
+    {dept:"船務",status:"預估",date:"2026/06/15",cat:"油款",note:"預估MFa1油款",ntd:0,usd:178250,jpy:0,zar:0},
+    {dept:"船務",status:"預估",date:"2026/05/25",cat:"薪資/獎金",note:"預估3-4月船員-快捷",ntd:0,usd:70236.28,jpy:0,zar:0},
+    {dept:"船務",status:"預估",date:"2026/05/25",cat:"薪資/獎金",note:"預估3-4月船員-星海",ntd:0,usd:71680.31,jpy:0,zar:0},
+    {dept:"船務",status:"預估",date:"2026/05/25",cat:"薪資/獎金",note:"預估3-4月船員-威海",ntd:0,usd:35400,jpy:0,zar:0},
+    {dept:"船務",status:"預估",date:"2026/05/25",cat:"薪資/獎金",note:"預估3-4月船員-新天通",ntd:0,usd:7800,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/06/05",cat:"薪資/獎金",note:"郭文進-2026/5月薪資",ntd:55397,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/06/05",cat:"薪資/獎金",note:"翁志豪-2026/5月薪資",ntd:56542,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/06/05",cat:"薪資/獎金",note:"楊金順-2026/5月薪資",ntd:60000,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/06/05",cat:"薪資/獎金",note:"陳宏利-2026/5月薪資",ntd:100000,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/06/05",cat:"費用",note:"漁業署-呂友助罰鍰第二十三期",ntd:441300,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/06/05",cat:"費用",note:"中信資融-租車費第十五期",ntd:25000,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/06/10",cat:"支票兌現",note:"支票兌現",ntd:191899,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/06/25",cat:"支票兌現",note:"支票兌現",ntd:54347,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/07/01",cat:"支票兌現",note:"支票兌現",ntd:120000,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/07/10",cat:"支票兌現",note:"支票兌現",ntd:4198591,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/07/25",cat:"支票兌現",note:"支票兌現",ntd:753789,usd:0,jpy:0,zar:0},
+    {dept:"船務",status:"應付",date:"2026/10/01",cat:"支票兌現",note:"支票兌現",ntd:120000,usd:0,jpy:0,zar:0},
   ];
 }
 
