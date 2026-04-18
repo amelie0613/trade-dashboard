@@ -214,6 +214,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 </head>
 <body>
 
@@ -656,6 +657,11 @@ var CLOUD_ACCOUNTS = null;
 // 執行登入後初始化
 function doLogin(u){
   curUser = u;
+  // Firebase Authentication 背景登入（保護 Firestore 存取）
+  try{
+    var fbApp = window.firebase ? (function(){ try{return firebase.app();}catch(e){return firebase.initializeApp(FIREBASE_CONFIG);} })() : null;
+    if(fbApp) firebase.auth().signInWithEmailAndPassword('amelie@macroocean.org','fong24659736').catch(function(e){console.warn('Firebase Auth 登入失敗：',e);});
+  }catch(e){}
   addLog('登入', u.name, '', '');
   document.getElementById('L').style.display = 'none';
   document.getElementById('A').style.display = 'block';
@@ -913,6 +919,7 @@ function login(){
 }
 function logout(){
   addLog('登出',curUser.name,'','');
+  try{ firebase.auth().signOut(); }catch(e){}
   document.getElementById('L').style.display='flex';
   document.getElementById('A').style.display='none';
   curUser=null;
