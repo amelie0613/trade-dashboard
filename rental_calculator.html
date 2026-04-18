@@ -962,9 +962,17 @@ async function previewMonthly() {
         const sums = {};
         sumKeys.forEach(k => { sums[k] = kept.reduce((s,r) => s + (parseFloat(r[k])||0), 0); });
 
-        const previewCols = ['產品名稱','批號','採購部門','上期結存','本期入庫','本期出庫','本期結存','前期結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)','狀態'];
+        const previewCols = ['產品名稱','批號','採購部門','上期結存','本期入庫','本期出庫','本期結存','前期結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)','狀態','備註'];
         const previewHighlight = ['前期結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)'];
-        const previewNumeric = ['上期結存','本期入庫','本期出庫','本期結存','前期結餘',`${label}上`,`${label}下`,'租金總計','月租金(出庫)','月租金(結餘)'];
+        const previewNumericCols = ['上期結存','本期入庫','本期出庫','本期結存','前期結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)'];
+        // 數字欄對應 r 的 key
+        const colKeyMap = {
+            '上期結存':'上期結存','本期入庫':'本期入庫','本期出庫':'本期出庫','本期結存':'本期結存',
+            '前期結餘':'前期結餘','月租金(出庫)':'月租金出庫','月租金(結餘)':'月租金結餘',
+            '租金總計':'租金總計','分攤單價':'分攤單價',
+        };
+        colKeyMap[`${label}上`] = '上半期';
+        colKeyMap[`${label}下`] = '下半期';
 
         let html = `<div class="result-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
@@ -1033,26 +1041,33 @@ async function previewMonthly() {
                 ? '<span style="background:#fef2f2; color:#e8836a; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">導入後移除</span>'
                 : (r._isNew ? '<span style="background:#fff8e8; color:#b07020; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">新增</span>' : '');
 
-            // 可編輯欄位：月租金(出庫)、月租金(結餘)
-            const editStyle = 'width:100%; min-width:60px; padding:0.3rem 0.4rem; border:none; border-bottom:1.5px solid transparent; background:transparent; font-size:0.78rem; font-family:inherit; text-align:right; outline:none; cursor:pointer;';
-            const editFocus = `onfocus="this.style.borderBottomColor='#f2a7c3'; this.style.background='#fff8fc';" onblur="this.style.borderBottomColor='transparent'; this.style.background='transparent';"`;
+            const eStyle = `width:100%; min-width:55px; padding:0.3rem 0.4rem; border:none; border-bottom:1.5px solid transparent; background:transparent; font-size:0.78rem; font-family:inherit; text-align:right; outline:none; cursor:pointer;`;
+            const eFocus = `onfocus="this.style.borderBottomColor='#f2a7c3';this.style.background='#fff8fc';" onblur="this.style.borderBottomColor='transparent';this.style.background='transparent';"`;
+            const noteStyle = `width:100%; min-width:100px; padding:0.3rem 0.4rem; border:none; border-bottom:1.5px solid transparent; background:transparent; font-size:0.78rem; font-family:inherit; outline:none; cursor:pointer;`;
+
+            const numCell = (colName, extraStyle='') => {
+                const key = colKeyMap[colName] || colName;
+                const val = r[key] !== undefined ? r[key] : '';
+                return `<td style="padding:0;"><input type="text" value="${val}" data-prow="${rowIdx}" data-pcol="${colName}" onchange="onPreviewEdit(this)" style="${eStyle}${extraStyle}" ${eFocus} /></td>`;
+            };
 
             html += `<tr style="${rowStyle}" data-preview-row="${rowIdx}">
                 <td style="white-space:nowrap;">${r.產品名稱}</td>
                 <td style="white-space:nowrap;">${r.批號}</td>
                 <td style="white-space:nowrap;">${r.採購部門}</td>
-                <td style="text-align:right;">${r.上期結存}</td>
-                <td style="text-align:right;">${r.本期入庫}</td>
-                <td style="text-align:right;">${r.本期出庫}</td>
-                <td style="text-align:right;">${r.本期結存}</td>
-                <td style="text-align:right;">${r.前期結餘.toLocaleString()}</td>
-                <td style="text-align:right;">${r.上半期.toLocaleString()}</td>
-                <td style="text-align:right;">${r.下半期.toLocaleString()}</td>
-                <td style="font-weight:700; text-align:right;">${r.租金總計.toLocaleString()}</td>
-                <td style="text-align:right;">${r.分攤單價}</td>
-                <td style="padding:0;"><input type="text" value="${r.月租金出庫}" data-prow="${rowIdx}" data-pcol="月租金出庫" onchange="onPreviewEdit(this)" style="${editStyle}" ${editFocus} /></td>
-                <td style="padding:0;"><input type="text" value="${r.月租金結餘}" data-prow="${rowIdx}" data-pcol="月租金結餘" onchange="onPreviewEdit(this)" style="${editStyle} color:${willDel?'#bbb':'#c0507a'}; font-weight:700;" ${editFocus} /></td>
+                ${numCell('上期結存')}
+                ${numCell('本期入庫')}
+                ${numCell('本期出庫')}
+                ${numCell('本期結存')}
+                ${numCell('前期結餘')}
+                ${numCell(`${label}上`)}
+                ${numCell(`${label}下`)}
+                ${numCell('租金總計','font-weight:700;')}
+                ${numCell('分攤單價')}
+                ${numCell('月租金(出庫)')}
+                ${numCell('月租金(結餘)',`color:${willDel?'#bbb':'#c0507a'};font-weight:700;`)}
                 <td>${tag}</td>
+                <td style="padding:0;"><input type="text" value="${r.備註||''}" data-prow="${rowIdx}" data-pcol="備註" onchange="onPreviewEdit(this)" style="${noteStyle}" ${eFocus} placeholder="備註..." /></td>
             </tr>`;
         });
 
@@ -1060,7 +1075,7 @@ async function previewMonthly() {
         document.getElementById('ledger_results').innerHTML = html;
         statusEl.innerHTML = '<span style="color:#4a9a37; font-weight:700;">✅ 預覽完成，請確認後導入</span>';
         // 只把結餘!=0的存入pendingMonthly（導入時移除清零的）
-        window._pendingMonthly = { preview: kept.filter(r => !(r.本期結存 === 0 && r.月租金結餘 === 0)), label };
+        window._pendingMonthly = { preview: kept.filter(r => !(r.本期結存 === 0 && r.月租金結餘 === 0)), label, colKeyMap };
 
     } catch(e) {
         statusEl.innerHTML = `<span style="color:#e8836a;">❌ 失敗：${e.message}</span>`;
@@ -1071,16 +1086,33 @@ async function previewMonthly() {
 // ===== 預覽表格編輯 =====
 window.onPreviewEdit = function(input) {
     const rowIdx = parseInt(input.dataset.prow);
-    const col = input.dataset.pcol;
-    const val = parseFloat(input.value.replace(/,/g,'')) || 0;
-    if (window._pendingMonthly) {
-        window._pendingMonthly.preview[rowIdx][col === '月租金出庫' ? '月租金出庫' : '月租金結餘'] = val;
+    const colName = input.dataset.pcol;
+    if (!window._pendingMonthly) return;
+    const r = window._pendingMonthly.preview[rowIdx];
+    if (!r) return;
+
+    if (colName === '備註') {
+        r.備註 = input.value;
+    } else {
+        const val = parseFloat(input.value.replace(/,/g,'')) || 0;
+        // colKeyMap 對應
+        const keyMap = {
+            '上期結存':'上期結存','本期入庫':'本期入庫','本期出庫':'本期出庫','本期結存':'本期結存',
+            '前期結餘':'前期結餘','月租金(出庫)':'月租金出庫','月租金(結餘)':'月租金結餘',
+            '租金總計':'租金總計','分攤單價':'分攤單價',
+        };
+        // 動態對應上下期標籤
+        Object.keys(window._pendingMonthly.colKeyMap||{}).forEach(k => { keyMap[k] = window._pendingMonthly.colKeyMap[k]; });
+        const key = keyMap[colName] || colName;
+        r[key] = val;
     }
+
     input.style.background = '#fffbe6';
+
     // 更新合計卡片
-    const allRows = window._pendingMonthly?.preview || [];
-    const totalOut = allRows.reduce((s,r) => s+(r.月租金出庫||0), 0);
-    const totalRemain = allRows.reduce((s,r) => s+(r.月租金結餘||0), 0);
+    const allRows = window._pendingMonthly.preview;
+    const totalOut = allRows.reduce((s,row) => s+(row.月租金出庫||0), 0);
+    const totalRemain = allRows.reduce((s,row) => s+(row.月租金結餘||0), 0);
     const el1 = document.getElementById('psum_出庫');
     const el2 = document.getElementById('psum_結餘');
     if (el1) el1.textContent = '$' + Math.round(totalOut).toLocaleString();
@@ -1156,6 +1188,7 @@ async function confirmMonthly() {
             採購部門: r.採購部門 || '',
             前期結餘: r.月租金結餘,
             月結歷史: { ...(historyMap[r._key]||{}), [label]: r.租金總計 },
+            備註: r.備註 || '',
             updatedAt: new Date().toISOString()
         }));
 
