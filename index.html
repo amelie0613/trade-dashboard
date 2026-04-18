@@ -1224,11 +1224,39 @@ function makeCard(r,showApprove){
     +'<div class="cc-name">'+g(r,'name')+'</div>'
     +'</div><span class="bdg '+bc+'">'+sl+'</span></div>'
     +'<div class="cc-meta">'+g(r,'staff')+'　·　'+g(r,'time').split(' ')[0]+'</div>'
-    +'<div class="cc-nums">'
-    +'<div><div class="cn-lbl">應收 NTD</div><div class="cn-val cv-g">NT$'+fmtN(m.sellNTD)+'</div></div>'
-    +'<div><div class="cn-lbl">應付 NTD</div><div class="cn-val cv-r">NT$'+fmtN(m.buyNTD)+'</div></div>'
-    +'<div><div class="cn-lbl">毛利率</div><div class="cn-val '+(parseFloat(m.margin)>=0?'cv-g':'cv-r')+'">'+mgStr+'</div></div>'
-    +'</div>'
+    +(function(){
+      // 應收：顯示原幣金額（取第1期幣別+金額，若多期同幣則加總，不同幣則顯示折合NTD）
+      var sellPeriods = getPeriods01(r,'sell');
+      var buyPeriods  = getPeriods01(r,'buy');
+      var sellDisplayStr = '—';
+      if(sellPeriods.length){
+        // 若所有分期同幣別，加總顯示原幣；否則顯示折合NTD
+        var firstCur = sellPeriods[0].cur||'TWD';
+        var allSameCur = sellPeriods.every(function(p){ return (p.cur||'TWD')===firstCur; });
+        if(allSameCur){
+          var total = sellPeriods.reduce(function(s,p){ return s+p.amt; },0);
+          sellDisplayStr = fmtAmt(total, firstCur);
+        } else {
+          sellDisplayStr = 'NT$'+fmtN(m.sellNTD);
+        }
+      }
+      var buyDisplayStr = '—';
+      if(buyPeriods.length){
+        var bFirstCur = buyPeriods[0].cur||'TWD';
+        var bAllSameCur = buyPeriods.every(function(p){ return (p.cur||'TWD')===bFirstCur; });
+        if(bAllSameCur){
+          var bTotal = buyPeriods.reduce(function(s,p){ return s+p.amt; },0);
+          buyDisplayStr = fmtAmt(bTotal, bFirstCur);
+        } else {
+          buyDisplayStr = 'NT$'+fmtN(m.buyNTD);
+        }
+      }
+      return '<div class="cc-nums">'
+        +'<div><div class="cn-lbl">應收</div><div class="cn-val cv-g">'+sellDisplayStr+'</div></div>'
+        +'<div><div class="cn-lbl">應付</div><div class="cn-val cv-r">'+buyDisplayStr+'</div></div>'
+        +'<div><div class="cn-lbl">毛利率</div><div class="cn-val '+(parseFloat(m.margin)>=0?'cv-g':'cv-r')+'">'+mgStr+'</div></div>'
+        +'</div>';
+    })()
     +(fillPend && curUser && curUser.staffName && g(r,'transferTo')===curUser.staffName
       ? '<button class="cc-btn" style="background:#4f46e5;color:#fff;border-color:#4338ca;" onclick="event.stopPropagation();openFillSell('+rq+')">✍️ 補填銷售內容</button>'
       : '<button class="cc-btn" onclick="event.stopPropagation();showD('+rq+')">查看詳細 / 操作</button>')
@@ -2012,6 +2040,28 @@ function showD(rowNum){
   }
   h+='</div>';
 
+  // ── 老闆批示欄（已有批示時顯示）────────────────────────
+  var bNote = (r[F.bossNote]||'').toString().trim();
+  var bStatus = (r[F.status]||'').toString().trim();
+  var bSignTime = (r[F.signTime]||'').toString().trim();
+  if(bNote || bStatus){
+    var isApproved = bStatus==='是'||bStatus.includes('同意');
+    var isRejected = bStatus.includes('退');
+    var bColor  = isApproved ? '#15803d' : isRejected ? '#dc2626' : '#92400e';
+    var bBg     = isApproved ? '#f0fdf4' : isRejected ? '#fef2f2' : '#fffbeb';
+    var bBorder = isApproved ? '#86efac' : isRejected ? '#fca5a5' : '#fde68a';
+    var bIcon   = isApproved ? '✅' : isRejected ? '❌' : '📝';
+    var bLabel  = isApproved ? '老闆已同意' : isRejected ? '老闆退回' : '老闆批示';
+    h+='<div style="background:'+bBg+';border:1.5px solid '+bBorder+';border-radius:10px;padding:14px 16px;margin:12px 0 4px;">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:'+(bNote?'8px':'0')+';">'
+      +'<span style="font-size:14px;">'+bIcon+'</span>'
+      +'<span style="font-size:12px;font-weight:700;color:'+bColor+';letter-spacing:.04em;text-transform:uppercase;">'+bLabel+'</span>'
+      +(bSignTime?'<span style="font-size:10px;color:#94a3b8;margin-left:auto;">'+bSignTime+'</span>':'')
+      +'</div>'
+      +(bNote?'<div style="font-size:13px;color:'+bColor+';font-weight:500;line-height:1.7;background:#fff;border-radius:6px;padding:9px 12px;border-left:3px solid '+bBorder+';">'+bNote+'</div>':'')
+      +'</div>';
+  }
+
   // 董事長簽核區（待審核 或 退回後業務已修改 → 都顯示）
   var needApprove = isPend(r) || (g(r,'status').includes('退') || g(r,'status')==='退回');
   if(curUser&&(curUser.role==='boss'||curUser.role==='admin')&&needApprove){
@@ -2040,38 +2090,69 @@ function showD(rowNum){
       var ops=opts.map(function(o){return '<option value="'+o+'"'+(o===val?' selected':'')+'>'+o+'</option>';}).join('');
       return '<div><label class="ef-lbl">'+lbl+'</label><select id="'+id+'" class="ef-i">'+ops+'</select></div>';
     };
+    // 取得採購/銷售期1的值（供編輯用）
+    var eBuyPeriods  = getPeriods01(r,'buy');
+    var eSellPeriods = getPeriods01(r,'sell');
+    var eBuyCur   = eBuyPeriods.length  ? (eBuyPeriods[0].cur||'TWD')  : (g(r,'buyCur')||'TWD');
+    var eBuyAmt   = eBuyPeriods.length  ? eBuyPeriods[0].amt            : pf(g(r,'buyAmt'));
+    var eBuyDate  = eBuyPeriods.length  ? eBuyPeriods[0].date           : g(r,'buyDate');
+    var eSellCur  = eSellPeriods.length ? (eSellPeriods[0].cur||'TWD') : (g(r,'sellCur')||'TWD');
+    var eSellAmt  = eSellPeriods.length ? eSellPeriods[0].amt           : pf(g(r,'sellAmt'));
+    var eSellDate = eSellPeriods.length ? eSellPeriods[0].date          : g(r,'sellDate');
+
     h+='<div class="ef"><div class="ef-t">✏️ 修改案件資料（老闆批示欄不開放）</div>'
+
+      // ── 主要資訊（最上方）────────────────────────
+      +'<div style="margin-bottom:8px;font-size:11px;font-weight:700;color:var(--sea);text-transform:uppercase;letter-spacing:.06em;padding-bottom:4px;border-bottom:1px solid #bae6fd;">主要資訊</div>'
       +'<div class="ef-grid">'
       +ef2('e-staff-'+rowNum,'業務名稱',g(r,'staff'))
-      +ef2('e-type-'+rowNum,'案件屬性',g(r,'type'))
+      +efSel('e-type-'+rowNum,'案件屬性',g(r,'type'),['採購','銷售','採購+銷售'])
       +ef2('e-name-'+rowNum,'案件名稱',g(r,'name'))
       +ef2('e-asst-'+rowNum,'承辦業助',g(r,'asst'))
-      +ef2('e-supp-'+rowNum,'供應商',g(r,'supp'))
-      +efSel('e-buycur-'+rowNum,'採購幣別',g(r,'buyCur'),['TWD','USD','JPY','EUR'])
-      +ef2('e-buyamt-'+rowNum,'應付總金額',g(r,'buyAmt'),'number')
-      +ef2('e-buydate-'+rowNum,'預計付款日期',g(r,'buyDate'),'date')
-      +ef2('e-buyer-'+rowNum,'客戶名稱',g(r,'buyer'))
-      +efSel('e-sellcur-'+rowNum,'銷售幣別',g(r,'sellCur'),['TWD','USD','JPY','EUR'])
-      +ef2('e-sellamt-'+rowNum,'應收總金額',g(r,'sellAmt'),'number')
-      +ef2('e-selldate-'+rowNum,'預計收款日',g(r,'sellDate'),'date')
+      +'</div>'
+
+      // ── 採購（右欄） 銷售（左欄）並排 ────────────
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;">'
+        // 銷售在左
+        +'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;">'
+          +'<div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">銷售（應收）</div>'
+          +ef2('e-buyer-'+rowNum,'客戶名稱',g(r,'buyer'))
+          +efSel('e-sellcur-'+rowNum,'銷售幣別',eSellCur,['TWD','USD','JPY','EUR'])
+          +ef2('e-sellamt-'+rowNum,'應收總金額',eSellAmt,'number')
+          +ef2('e-selldate-'+rowNum,'預計收款日',eSellDate,'date')
+        +'</div>'
+        // 採購在右
+        +'<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px;">'
+          +'<div style="font-size:11px;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">採購（應付）</div>'
+          +ef2('e-supp-'+rowNum,'供應商',g(r,'supp'))
+          +efSel('e-buycur-'+rowNum,'採購幣別',eBuyCur,['TWD','USD','JPY','EUR'])
+          +ef2('e-buyamt-'+rowNum,'應付總金額',eBuyAmt,'number')
+          +ef2('e-buydate-'+rowNum,'預計付款日期',eBuyDate,'date')
+        +'</div>'
+      +'</div>'
+
+      // ── 備註（採購/銷售）────────────────────────
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">'
+        +'<div><label class="ef-lbl">備註（銷售）</label><textarea id="e-sellrem-'+rowNum+'" class="ef-ta">'+g(r,'sellRem')+'</textarea></div>'
+        +'<div><label class="ef-lbl">備註（採購）</label><textarea id="e-buyrem-'+rowNum+'" class="ef-ta">'+g(r,'buyRem')+'</textarea></div>'
+      +'</div>'
+
+      // ── 物流/其他（下方）────────────────────────
+      +'<div style="margin-bottom:6px;margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding-bottom:4px;border-bottom:1px solid var(--border);">物流 / 其他資訊</div>'
+      +'<div class="ef-grid">'
       +ef2('e-trade-'+rowNum,'貿易條件',g(r,'trade'))
-      +ef2('e-etd-'+rowNum,'ETD',g(r,'etd'),'date')
-      +ef2('e-eta-'+rowNum,'ETA',g(r,'eta'),'date')
+      +ef2('e-etd-'+rowNum,'ETD 出貨日',g(r,'etd'),'date')
+      +ef2('e-eta-'+rowNum,'ETA 到貨日',g(r,'eta'),'date')
       +ef2('e-origin-'+rowNum,'出貨地',g(r,'origin'))
       +ef2('e-dest-'+rowNum,'目的地',g(r,'dest'))
-      +ef2('e-freight-'+rowNum,'運費',g(r,'freight'),'number')
-      +ef2('e-insure-'+rowNum,'保險費',g(r,'insure'),'number')
-      +ef2('e-tax-'+rowNum,'規費',g(r,'tax'),'number')
-      +ef2('e-comm-'+rowNum,'佣金',g(r,'comm'),'number')
-      +ef2('e-extra-'+rowNum,'其他費用',g(r,'extra'),'number')
-      +ef2('e-profit-'+rowNum,'預估毛利潤',g(r,'profit'))
+      +ef2('e-freight-'+rowNum,'運費（NTD）',g(r,'freight'),'number')
+      +ef2('e-insure-'+rowNum,'保險費（NTD）',g(r,'insure'),'number')
+      +ef2('e-tax-'+rowNum,'規費（NTD）',g(r,'tax'),'number')
+      +ef2('e-comm-'+rowNum,'佣金（NTD）',g(r,'comm'),'number')
+      +ef2('e-extra-'+rowNum,'其他費用（NTD）',g(r,'extra'),'number')
       +'</div>'
-      +'<div style="margin-bottom:8px;"><label class="ef-lbl">備註（採購）</label>'
-      +'<textarea id="e-buyrem-'+rowNum+'" class="ef-ta">'+g(r,'buyRem')+'</textarea></div>'
-      +'<div style="margin-bottom:8px;"><label class="ef-lbl">備註（銷售）</label>'
-      +'<textarea id="e-sellrem-'+rowNum+'" class="ef-ta">'+g(r,'sellRem')+'</textarea></div>'
-      +'<button class="btn-edit-save" id="ebtn-'+rowNum+'" onclick="doEdit('+rq+')">💾 儲存修改至 Sheets</button>'
-      // 刪除按鈕
+
+      +'<button class="btn-edit-save" id="ebtn-'+rowNum+'" onclick="doEdit('+rq+')" style="margin-top:10px;">💾 儲存修改</button>'
       +'<button onclick="confirmDel('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">🗑️ 刪除此案件</button>'
       +'</div>';
   }
@@ -2314,12 +2395,8 @@ function doEdit(rowNum){
     var el = document.getElementById(m[0]+rowNum);
     if(!el) return;
     var newVal = el.value.trim();
-    // 比對舊值（從 normalizeRow 展平後的 r）
-    var zhKey = m[1].split('.').pop(); // 取最後一段做粗略比對
     firestoreFields[m[1]] = newVal;
-    // 同步更新本地 r
     if(r){
-      // 對應中文欄位
       var zhMap = {
         'meta.staff':'業務名稱','meta.caseType':'案件屬性','meta.caseName':'案件名稱','meta.assistant':'承辦業助',
         'purchase.supplier':'供應商（賣方）','purchase.note':'備註（採購）',
@@ -2338,6 +2415,52 @@ function doEdit(rowNum){
       }
     }
   });
+
+  // 額外：採購/銷售期1 的幣別、金額、日期
+  var buyCurEl   = document.getElementById('e-buycur-'+rowNum);
+  var buyAmtEl   = document.getElementById('e-buyamt-'+rowNum);
+  var buyDateEl  = document.getElementById('e-buydate-'+rowNum);
+  var sellCurEl  = document.getElementById('e-sellcur-'+rowNum);
+  var sellAmtEl  = document.getElementById('e-sellamt-'+rowNum);
+  var sellDateEl = document.getElementById('e-selldate-'+rowNum);
+  if(buyCurEl){
+    var newBuyCur  = buyCurEl.value.trim();
+    var newBuyAmt  = buyAmtEl  ? buyAmtEl.value.trim()  : '';
+    var newBuyDate = buyDateEl ? buyDateEl.value.trim()  : '';
+    firestoreFields['採購期1幣別']  = newBuyCur;
+    firestoreFields['採購期1金額']  = parseFloat(newBuyAmt)||0;
+    firestoreFields['採購期1預計日']= newBuyDate;
+    if(r){
+      var oBuyCur  = (r['採購期1幣別']||'').toString().trim();
+      var oBuyAmt  = (r['採購期1金額']||'').toString().trim();
+      var oBuyDate = (r['採購期1預計日']||'').toString().trim();
+      if(oBuyCur!==newBuyCur)   changes.push('採購幣別 「'+oBuyCur+'」→「'+newBuyCur+'」');
+      if(oBuyAmt!==newBuyAmt)   changes.push('應付金額 「'+oBuyAmt+'」→「'+newBuyAmt+'」');
+      if(oBuyDate!==newBuyDate) changes.push('預計付款日 「'+oBuyDate+'」→「'+newBuyDate+'」');
+      r['採購期1幣別']   = newBuyCur;
+      r['採購期1金額']   = parseFloat(newBuyAmt)||0;
+      r['採購期1預計日'] = newBuyDate;
+    }
+  }
+  if(sellCurEl){
+    var newSellCur  = sellCurEl.value.trim();
+    var newSellAmt  = sellAmtEl  ? sellAmtEl.value.trim()  : '';
+    var newSellDate = sellDateEl ? sellDateEl.value.trim()  : '';
+    firestoreFields['銷售期1幣別']  = newSellCur;
+    firestoreFields['銷售期1金額']  = parseFloat(newSellAmt)||0;
+    firestoreFields['銷售期1預計日']= newSellDate;
+    if(r){
+      var oSellCur  = (r['銷售期1幣別']||'').toString().trim();
+      var oSellAmt  = (r['銷售期1金額']||'').toString().trim();
+      var oSellDate = (r['銷售期1預計日']||'').toString().trim();
+      if(oSellCur!==newSellCur)   changes.push('銷售幣別 「'+oSellCur+'」→「'+newSellCur+'」');
+      if(oSellAmt!==newSellAmt)   changes.push('應收金額 「'+oSellAmt+'」→「'+newSellAmt+'」');
+      if(oSellDate!==newSellDate) changes.push('預計收款日 「'+oSellDate+'」→「'+newSellDate+'」');
+      r['銷售期1幣別']   = newSellCur;
+      r['銷售期1金額']   = parseFloat(newSellAmt)||0;
+      r['銷售期1預計日'] = newSellDate;
+    }
+  }
 
   function onEditDone(){
     if(r){
