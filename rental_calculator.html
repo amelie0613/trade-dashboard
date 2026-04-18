@@ -851,7 +851,8 @@ async function refreshLedgerStatus() {
 }
 
 // ===== 期初開帳 =====
-// ledger 檔案綁定改用 onchange 直接在 HTML，這裡只處理拖拉後的 label 更新
+const ledgerFiles = {};
+
 function ledgerFileChanged(inputId) {
     const el = document.getElementById(inputId);
     if (el && el.files[0]) {
@@ -861,6 +862,14 @@ function ledgerFileChanged(inputId) {
         if (label) { label.textContent = el.files[0].name; label.classList.add('has-file'); }
     }
 }
+
+window.ledgerFileChanged = ledgerFileChanged;
+window.doInitLedger = doInitLedger;
+window.previewMonthly = previewMonthly;
+window.confirmMonthly = confirmMonthly;
+window.viewLedger = viewLedger;
+window.exportLedger = exportLedger;
+window.clearLedger = clearLedger;
 
 async function doInitLedger() {
     const input = document.getElementById('ledger_file_init');
