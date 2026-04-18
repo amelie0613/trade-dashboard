@@ -729,11 +729,10 @@ function syncDatePicker(textId, dateId) {
 }
 
 // ===== 頁面切換 =====
-function switchPage(page) {
+window.switchPage = function(page) {
     const isCalc = page === 'calc';
     document.getElementById('page_calc').style.display = isCalc ? '' : 'none';
     document.getElementById('page_ledger').style.display = isCalc ? 'none' : '';
-    // 更新按鈕樣式
     ['btn_calc','btn_calc2'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -898,9 +897,6 @@ async function doInitLedger() {
 
 // ===== 月結算預覽 =====
 async function previewMonthly() {
-    const ledger = loadLedger();
-    if (!ledger) { alert('請先執行期初開帳'); return; }
-
     const f1 = ledgerFiles['ledger_file_first'] || document.getElementById('ledger_file_first').files[0];
     const f2 = ledgerFiles['ledger_file_second'] || document.getElementById('ledger_file_second').files[0];
     const label = document.getElementById('ledger_month_label').value.trim() || '本月';
@@ -914,103 +910,102 @@ async function previewMonthly() {
         const d1 = await readExcel(f1, false);
         const d2 = await readExcel(f2, false);
 
-        // 從 Firestore 讀取現有總帳
         statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取總帳...</span>';
         const existingRows = await loadLedgerRows();
         const ledgerMap = {};
         existingRows.forEach(r => { ledgerMap[r.產品名稱 + '|' + r.批號] = r; });
 
-    const preview = [];
-    allKeys.forEach(key => {
-        const r1 = map1[key], r2 = map2[key];
-        const base = r1 || r2;
-        const 上半期租金 = (parseFloat((r1||{})['租金'])||0) + (parseFloat((r1||{})['出入庫'])||0);
-        const 下半期租金 = (parseFloat((r2||{})['租金'])||0) + (parseFloat((r2||{})['出入庫'])||0);
-        const prev = ledgerMap[key];
-        const 前期結餘 = prev ? prev.前期結餘 : 0;
-        const 租金總計 = 前期結餘 + 上半期租金 + 下半期租金;
+        const makeKey = r => String(r['產品名稱']||'').trim() + '|' + String(r['批號']||'').trim();
+        const map1 = {}, map2 = {};
+        d1.forEach(r => { map1[makeKey(r)] = r; });
+        d2.forEach(r => { map2[makeKey(r)] = r; });
+        const allKeys = new Set([...Object.keys(map1), ...Object.keys(map2)]);
 
-        const 上期結存 = parseFloat((r2||r1||{})['上期結存'])||0;
-        const 本期入庫 = parseFloat((r2||r1||{})['本期入庫'])||0;
-        const 本期出庫 = parseFloat((r2||r1||{})['本期出庫'])||0;
-        const 本期結存 = parseFloat((r2||r1||{})['本期結存'])||0;
-
-        const 分攤單價 = 上期結存 === 0
-            ? (本期入庫 > 0 ? Math.round((租金總計 / 本期入庫) * 100000) / 100000 : 0)
-            : (Math.round((租金總計 / 上期結存) * 100000) / 100000);
-        const 月租金出庫 = Math.round(分攤單價 * 本期出庫);
-        const 月租金結餘 = 租金總計 - 月租金出庫;
-
-        preview.push({
-            產品類別: (base||{})['產品類別']||'',
-            產品名稱: String((base||{})['產品名稱']||'').trim(),
-            批號: String((base||{})['批號']||'').trim(),
-            採購部門: (base||{})['採購部門']||prev?.採購部門||'',
-            上期結存, 本期入庫, 本期出庫, 本期結存,
-            前期結餘, 上半期: Math.round(上半期租金), 下半期: Math.round(下半期租金),
-            租金總計: Math.round(租金總計),
-            分攤單價, 月租金出庫, 月租金結餘,
-            _key: key, _isNew: !prev
+        const preview = [];
+        allKeys.forEach(key => {
+            const r1 = map1[key], r2 = map2[key];
+            const base = r1 || r2;
+            const 上半期租金 = (parseFloat((r1||{})['租金'])||0) + (parseFloat((r1||{})['出入庫'])||0);
+            const 下半期租金 = (parseFloat((r2||{})['租金'])||0) + (parseFloat((r2||{})['出入庫'])||0);
+            const prev = ledgerMap[key];
+            const 前期結餘 = prev ? (prev.前期結餘||0) : 0;
+            const 租金總計 = 前期結餘 + 上半期租金 + 下半期租金;
+            const 上期結存 = parseFloat((r2||r1||{})['上期結存'])||0;
+            const 本期入庫 = parseFloat((r2||r1||{})['本期入庫'])||0;
+            const 本期出庫 = parseFloat((r2||r1||{})['本期出庫'])||0;
+            const 本期結存 = parseFloat((r2||r1||{})['本期結存'])||0;
+            const 分攤單價 = 上期結存 === 0
+                ? (本期入庫 > 0 ? Math.round((租金總計 / 本期入庫) * 100000) / 100000 : 0)
+                : (Math.round((租金總計 / 上期結存) * 100000) / 100000);
+            const 月租金出庫 = Math.round(分攤單價 * 本期出庫);
+            const 月租金結餘 = Math.round(租金總計 - 月租金出庫);
+            preview.push({
+                產品類別: (base||{})['產品類別']||'',
+                產品名稱: String((base||{})['產品名稱']||'').trim(),
+                批號: String((base||{})['批號']||'').trim(),
+                採購部門: (base||{})['採購部門']||(prev&&prev.採購部門)||'',
+                上期結存, 本期入庫, 本期出庫, 本期結存,
+                前期結餘, 上半期: Math.round(上半期租金), 下半期: Math.round(下半期租金),
+                租金總計: Math.round(租金總計), 分攤單價, 月租金出庫, 月租金結餘,
+                _key: key, _isNew: !prev
+            });
         });
-    });
 
-    // 渲染預覽表格
-    const kept = preview.filter(r => !(r.本期結存 === 0 && r.月租金結餘 === 0));
-    const removed = preview.filter(r => r.本期結存 === 0 && r.月租金結餘 === 0);
+        const kept = preview.filter(r => !(r.本期結存 === 0 && r.月租金結餘 === 0));
+        const removed = preview.filter(r => r.本期結存 === 0 && r.月租金結餘 === 0);
 
-    let html = `
-    <div class="result-section">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-            <h3 style="margin:0;">📅 ${label} 月結算預覽（${kept.length} 筆保留，${removed.length} 筆清零）</h3>
-            <button onclick="confirmMonthly()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.5rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 確認導入總帳</button>
-        </div>
-        <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.82rem; color:#2d7a2d; font-weight:600;">
-            💡 確認無誤後點「確認導入」，系統會更新總帳並移除本期結存=0且月租金結餘=0的品項
-        </div>
-        <div class="overflow-auto">
-        <table>
-            <thead><tr>
-                <th>產品名稱</th><th>批號</th><th>採購部門</th>
-                <th>上期結存</th><th>本期入庫</th><th>本期出庫</th><th>本期結存</th>
-                <th class="highlight">前期結餘</th>
-                <th class="highlight">${label.replace('月','上月').replace('上月','').length > 0 ? label : ''}上</th>
-                <th class="highlight">${label}下</th>
-                <th class="highlight">租金總計</th>
-                <th class="highlight">分攤單價</th>
-                <th class="highlight">月租金(出庫)</th>
-                <th class="highlight">月租金(結餘)</th>
-                <th>狀態</th>
-            </tr></thead>
-            <tbody>`;
+        let html = `<div class="result-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h3 style="margin:0;">📅 ${label} 月結算預覽（${kept.length} 筆保留，${removed.length} 筆清零）</h3>
+                <button onclick="confirmMonthly()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.5rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 確認導入總帳</button>
+            </div>
+            <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.82rem; color:#2d7a2d; font-weight:600;">
+                💡 確認無誤後點「確認導入」，系統會更新總帳並移除本期結存=0且月租金結餘=0的品項
+            </div>
+            <div class="overflow-auto"><table>
+                <thead><tr>
+                    <th>產品名稱</th><th>批號</th><th>採購部門</th>
+                    <th>上期結存</th><th>本期入庫</th><th>本期出庫</th><th>本期結存</th>
+                    <th class="highlight">前期結餘</th>
+                    <th class="highlight">${label}上</th>
+                    <th class="highlight">${label}下</th>
+                    <th class="highlight">租金總計</th>
+                    <th class="highlight">分攤單價</th>
+                    <th class="highlight">月租金(出庫)</th>
+                    <th class="highlight">月租金(結餘)</th>
+                    <th>狀態</th>
+                </tr></thead><tbody>`;
 
-    kept.forEach(r => {
-        const tag = r._isNew ? '<span style="background:#fff8e8; color:#b07020; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">新增</span>' : '';
-        html += `<tr>
-            <td>${r.產品名稱}</td><td>${r.批號}</td><td>${r.採購部門}</td>
-            <td>${r.上期結存}</td><td>${r.本期入庫}</td><td>${r.本期出庫}</td><td>${r.本期結存}</td>
-            <td>${r.前期結餘.toLocaleString()}</td>
-            <td>${r.上半期.toLocaleString()}</td>
-            <td>${r.下半期.toLocaleString()}</td>
-            <td style="font-weight:700;">${r.租金總計.toLocaleString()}</td>
-            <td>${r.分攤單價}</td>
-            <td>${r.月租金出庫.toLocaleString()}</td>
-            <td style="font-weight:700; color:#c0507a;">${r.月租金結餘.toLocaleString()}</td>
-            <td>${tag}</td>
-        </tr>`;
-    });
+        kept.forEach(r => {
+            const tag = r._isNew ? '<span style="background:#fff8e8; color:#b07020; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">新增</span>' : '';
+            html += `<tr>
+                <td>${r.產品名稱}</td><td>${r.批號}</td><td>${r.採購部門}</td>
+                <td>${r.上期結存}</td><td>${r.本期入庫}</td><td>${r.本期出庫}</td><td>${r.本期結存}</td>
+                <td>${r.前期結餘.toLocaleString()}</td>
+                <td>${r.上半期.toLocaleString()}</td>
+                <td>${r.下半期.toLocaleString()}</td>
+                <td style="font-weight:700;">${r.租金總計.toLocaleString()}</td>
+                <td>${r.分攤單價}</td>
+                <td>${r.月租金出庫.toLocaleString()}</td>
+                <td style="font-weight:700; color:#c0507a;">${r.月租金結餘.toLocaleString()}</td>
+                <td>${tag}</td>
+            </tr>`;
+        });
 
-    if (removed.length > 0) {
-        html += `<tr><td colspan="15" style="background:#fef2f2; color:#991b1b; font-weight:700; padding:0.5rem; font-size:0.8rem;">
-            以下 ${removed.length} 筆本期結存=0且租金結餘=0，導入後將移除：${removed.map(r=>r.產品名稱+'('+r.批號+')').join('、')}
-        </td></tr>`;
+        if (removed.length > 0) {
+            html += `<tr><td colspan="15" style="background:#fef2f2; color:#991b1b; font-weight:700; padding:0.5rem; font-size:0.8rem;">
+                以下 ${removed.length} 筆將移除：${removed.map(r=>r.產品名稱+'('+r.批號+')').join('、')}
+            </td></tr>`;
+        }
+        html += '</tbody></table></div></div>';
+        document.getElementById('ledger_results').innerHTML = html;
+        statusEl.innerHTML = '<span style="color:#4a9a37; font-weight:700;">✅ 預覽完成，請確認後導入</span>';
+        window._pendingMonthly = { preview: kept, label };
+
+    } catch(e) {
+        statusEl.innerHTML = `<span style="color:#e8836a;">❌ 失敗：${e.message}</span>`;
+        console.error(e);
     }
-
-    html += `</tbody></table></div></div>`;
-    document.getElementById('ledger_results').innerHTML = html;
-    statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 預覽完成，請確認後導入</span>`;
-
-    // 暫存預覽結果
-    window._pendingMonthly = { preview: kept, label };
 }
 
 // ===== 確認導入 =====
