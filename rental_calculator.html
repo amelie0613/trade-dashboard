@@ -1064,31 +1064,49 @@ async function viewLedger() {
 
         let grandTotal = 0;
         let tableRows = '';
-        rows.sort((a,b) => (a.產品名稱||'').localeCompare(b.產品名稱||'', 'zh-TW')).forEach(r => {
+        rows.sort((a,b) => {
+            const catA = a.產品類別||'', catB = b.產品類別||'';
+            if (catA !== catB) return catA.localeCompare(catB, 'zh-TW');
+            return (a.產品名稱||'').localeCompare(b.產品名稱||'', 'zh-TW');
+        }).forEach(r => {
             grandTotal += r.前期結餘||0;
             const history = Object.entries(r.月結歷史||{}).map(([k,v])=>`${k}:$${Number(v).toLocaleString()}`).join(' / ');
+            const 結餘 = r.前期結餘||0;
+            const 結餘色 = 結餘 > 0 ? '#c0507a' : '#999';
             tableRows += `<tr>
-                <td>${r.產品名稱}</td><td>${r.批號}</td><td>${r.採購部門||''}</td>
-                <td style="font-weight:700; color:#c0507a;">${(r.前期結餘||0).toLocaleString()}</td>
-                <td style="font-size:0.75rem; color:#8a6a7a;">${history||'-'}</td>
+                <td style="white-space:nowrap;">${r.產品類別||''}</td>
+                <td style="white-space:nowrap;">${r.產品代碼||''}</td>
+                <td>${r.產品名稱}</td>
+                <td style="white-space:nowrap;">${r.批號}</td>
+                <td style="white-space:nowrap;">${r.採購部門||''}</td>
+                <td style="font-weight:700; color:${結餘色}; white-space:nowrap; text-align:right;">${結餘.toLocaleString()}</td>
+                <td style="font-size:0.72rem; color:#8a6a7a; min-width:120px;">${history||'-'}</td>
             </tr>`;
         });
 
         resultsEl.innerHTML = `<div class="result-section">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem;">
                 <h3 style="margin:0;">📋 目前總帳（${rows.length} 筆）</h3>
-                <button onclick="exportLedger()" style="background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.5rem 1rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">📥 匯出 Excel</button>
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <span style="font-size:0.9rem; color:#c0507a; font-weight:800;">累計總額：$${Math.round(grandTotal).toLocaleString()}</span>
+                    <button onclick="exportLedger()" style="background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.5rem 1rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">📥 匯出 Excel</button>
+                </div>
             </div>
-            <div class="overflow-auto"><table>
+            <div class="overflow-auto"><table style="font-size:0.78rem;">
                 <thead><tr>
-                    <th>產品名稱</th><th>批號</th><th>採購部門</th>
-                    <th class="highlight">月租金結餘</th><th>月結歷史</th>
+                    <th style="white-space:nowrap;">產品類別</th>
+                    <th style="white-space:nowrap;">產品代碼</th>
+                    <th>產品名稱</th>
+                    <th style="white-space:nowrap;">批號</th>
+                    <th style="white-space:nowrap;">採購部門</th>
+                    <th class="highlight" style="text-align:right; white-space:nowrap;">月租金結餘</th>
+                    <th>月結歷史</th>
                 </tr></thead>
                 <tbody>
                     ${tableRows}
                     <tr style="background:#fdf0f7; font-weight:800;">
-                        <td colspan="3" style="color:#c0507a;">合計</td>
-                        <td style="color:#c0507a;">$${Math.round(grandTotal).toLocaleString()}</td>
+                        <td colspan="5" style="color:#c0507a;">合計</td>
+                        <td style="color:#c0507a; text-align:right;">$${Math.round(grandTotal).toLocaleString()}</td>
                         <td></td>
                     </tr>
                 </tbody>
@@ -1104,6 +1122,8 @@ async function exportLedger() {
         const rows = await loadLedgerRows();
         if (rows.length === 0) { alert('總帳尚無資料'); return; }
         const exportData = rows.map(r => ({
+            產品類別: r.產品類別||'',
+            產品代碼: r.產品代碼||'',
             產品名稱: r.產品名稱,
             批號: r.批號,
             採購部門: r.採購部門||'',
