@@ -838,7 +838,7 @@ async function refreshLedgerStatus() {
         if (rows.length === 0) {
             el.innerHTML = '<span style="color:#e8836a; font-weight:700;">⚠️ 尚未建立總帳</span><br><span style="font-size:0.78rem;">請先執行期初開帳</span>';
         } else {
-            const total = rows.reduce((s, r) => s + (parseFloat(r.前期結餘)||0), 0);
+            const total = rows.reduce((s, r) => s + (parseFloat(r.月租金結餘 ?? r.前期結餘)|0 || 0), 0);
             el.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 已連線 Firebase</span><br>
                 <span style="font-size:0.78rem;">品項數：${rows.length} 筆<br>
                 累計租金餘額：$${Math.round(total).toLocaleString()}</span>`;
@@ -926,7 +926,7 @@ async function previewMonthly() {
             const 上半期租金 = (parseFloat((r1||{})['租金'])||0) + (parseFloat((r1||{})['出入庫'])||0);
             const 下半期租金 = (parseFloat((r2||{})['租金'])||0) + (parseFloat((r2||{})['出入庫'])||0);
             const prev = ledgerMap[key];
-            const 前期結餘 = prev ? (prev.前期結餘||0) : 0;
+            const 前期結餘 = prev ? (prev.月租金結餘 ?? prev.前期結餘 ?? 0) : 0;
             const 租金總計 = 前期結餘 + 上半期租金 + 下半期租金;
 
             // 上期結存：有上半期就抓上半期，否則抓下半期
@@ -980,28 +980,40 @@ async function previewMonthly() {
                 <button onclick="confirmMonthly()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.5rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 確認導入總帳</button>
             </div>
 
-            <!-- 合計卡片 -->
-            <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
-                <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
-                    <div style="font-size:0.72rem; color:#c0507a; font-weight:700;">租金總計</div>
-                    <div style="font-size:1rem; font-weight:800; color:#c0507a;" id="psum_租金總計">$${Math.round(sums['租金總計']).toLocaleString()}</div>
+            <!-- 合計卡片 + 重新計算按鈕 -->
+            <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
+                <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
+                    <div style="font-size:0.72rem; color:#2a6a82; font-weight:700;">前期結餘</div>
+                    <div style="font-size:1rem; font-weight:800; color:#2a6a82;" id="psum_前期結餘">$${Math.round(sums['前期結餘']).toLocaleString()}</div>
                 </div>
+                <div style="font-size:1.2rem; color:#aaa; font-weight:700;">+</div>
+                <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:110px;">
+                    <div style="font-size:0.72rem; color:#4a9a37; font-weight:700;">${label}上期</div>
+                    <div style="font-size:1rem; font-weight:800; color:#4a9a37;" id="psum_上期">$${Math.round(sums['上半期']).toLocaleString()}</div>
+                </div>
+                <div style="font-size:1.2rem; color:#aaa; font-weight:700;">+</div>
+                <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:110px;">
+                    <div style="font-size:0.72rem; color:#4a9a37; font-weight:700;">${label}下期</div>
+                    <div style="font-size:1rem; font-weight:800; color:#4a9a37;" id="psum_下期">$${Math.round(sums['下半期']).toLocaleString()}</div>
+                </div>
+                <div style="font-size:1.2rem; color:#aaa; font-weight:700;">=</div>
+                <div style="background:#fdf0f7; border:2px solid #f2a7c3; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:110px;">
+                    <div style="font-size:0.72rem; color:#c0507a; font-weight:700;">${label}總計</div>
+                    <div style="font-size:1rem; font-weight:800; color:#c0507a;" id="psum_期租金">$${(Math.round(sums['上半期'])+Math.round(sums['下半期'])+Math.round(sums['前期結餘'])).toLocaleString()}</div>
+                </div>
+                <div style="width:1px; height:40px; background:#e0d0f0; margin:0 0.3rem;"></div>
                 <div style="background:#fff8e8; border:1.5px solid #f7d96b; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
                     <div style="font-size:0.72rem; color:#b07020; font-weight:700;">月租金(出庫)</div>
                     <div style="font-size:1rem; font-weight:800; color:#b07020;" id="psum_出庫">$${Math.round(sums['月租金出庫']).toLocaleString()}</div>
                 </div>
-                <div style="background:#fdf0f7; border:1.5px solid #c9a8e0; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
-                    <div style="font-size:0.72rem; color:#8a5aa0; font-weight:700;">月租金(結餘)</div>
-                    <div style="font-size:1rem; font-weight:800; color:#8a5aa0;" id="psum_結餘">$${Math.round(sums['月租金結餘']).toLocaleString()}</div>
+                <div style="background:#fdf0f7; border:1.5px solid #e8836a; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
+                    <div style="font-size:0.72rem; color:#e8836a; font-weight:700;">月租金(結餘)</div>
+                    <div style="font-size:1rem; font-weight:800; color:#e8836a;" id="psum_結餘">$${Math.round(sums['月租金結餘']).toLocaleString()}</div>
                 </div>
-                <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
-                    <div style="font-size:0.72rem; color:#2a6a82; font-weight:700;">前期結餘</div>
-                    <div style="font-size:1rem; font-weight:800; color:#2a6a82;">$${Math.round(sums['前期結餘']).toLocaleString()}</div>
-                </div>
-                <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
-                    <div style="font-size:0.72rem; color:#4a9a37; font-weight:700;">${label}上+下</div>
-                    <div style="font-size:1rem; font-weight:800; color:#4a9a37;">$${(Math.round(sums['上半期'])+Math.round(sums['下半期'])).toLocaleString()}</div>
-                </div>
+                <button onclick="recalcPreview()" style="background:#667eea; color:white; border:none; border-radius:10px; padding:0.6rem 1rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif; white-space:nowrap;">
+                    🔄 重新計算
+                </button>
+                <span id="recalc_status" style="font-size:0.8rem; color:#4a9a37; font-weight:700;"></span>
             </div>
 
             <!-- 篩選列 -->
@@ -1145,6 +1157,60 @@ window.clearPreviewFilter = function() {
     if (note) note.textContent = '';
 };
 
+// ===== 重新計算預覽合計 =====
+window.recalcPreview = function() {
+    if (!window._pendingMonthly) return;
+    const preview = window._pendingMonthly.preview;
+
+    // 先把畫面上所有 input 的值同步回 preview 資料
+    const tbody = document.getElementById('previewBody');
+    if (tbody) {
+        tbody.querySelectorAll('tr[data-preview-row]').forEach(tr => {
+            const rowIdx = parseInt(tr.dataset.previewRow);
+            const r = preview[rowIdx];
+            if (!r) return;
+            tr.querySelectorAll('input[data-prow]').forEach(input => {
+                const colName = input.dataset.pcol;
+                if (colName === '備註') {
+                    r.備註 = input.value;
+                } else {
+                    const keyMap = window._pendingMonthly.colKeyMap || {};
+                    const extraMap = {
+                        '月租金(出庫)':'月租金出庫','月租金(結餘)':'月租金結餘',
+                        '租金總計':'租金總計','分攤單價':'分攤單價',
+                        '上期結存':'上期結存','本期入庫':'本期入庫',
+                        '本期出庫':'本期出庫','本期結存':'本期結存','前期結餘':'前期結餘'
+                    };
+                    const key = keyMap[colName] || extraMap[colName] || colName;
+                    r[key] = parseFloat(input.value.replace(/,/g,'')) || 0;
+                }
+            });
+        });
+    }
+
+    // 重算所有合計
+    const totalRental = preview.reduce((s,r) => s+(r.租金總計||0), 0);
+    const totalOut    = preview.reduce((s,r) => s+(r.月租金出庫||0), 0);
+    const totalRemain = preview.reduce((s,r) => s+(r.月租金結餘||0), 0);
+    const totalPrev   = preview.reduce((s,r) => s+(r.月租金結餘 ?? r.前期結餘 ?? 0), 0);
+    const totalPeriod = preview.reduce((s,r) => s+(r.上半期||0)+(r.下半期||0), 0);
+
+    const upd = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = '$'+Math.round(val).toLocaleString(); };
+    upd('psum_租金總計', totalRental);
+    upd('psum_出庫', totalOut);
+    upd('psum_結餘', totalRemain);
+    upd('psum_前期結餘', totalPrev);
+    upd('psum_上期', preview.reduce((s,r)=>s+(r.上半期||0),0));
+    upd('psum_下期', preview.reduce((s,r)=>s+(r.下半期||0),0));
+    upd('psum_期租金', totalPeriod);
+
+    const status = document.getElementById('recalc_status');
+    if (status) {
+        status.textContent = '✅ 已更新';
+        setTimeout(() => { status.textContent = ''; }, 2000);
+    }
+};
+
 // ===== 預覽表格排序 =====
 let previewSortState = { col: -1, asc: true };
 window.sortPreviewTable = function(colIdx) {
@@ -1183,12 +1249,29 @@ async function confirmMonthly() {
 
         const newRows = preview.map(r => ({
             產品類別: r.產品類別 || '',
+            產品代碼: r.產品代碼 || '',
             產品名稱: r.產品名稱,
             批號: r.批號,
             採購部門: r.採購部門 || '',
-            前期結餘: r.月租金結餘,
+            // 庫存數量
+            上期結存: r.上期結存 || 0,
+            本期入庫: r.本期入庫 || 0,
+            本期出庫: r.本期出庫 || 0,
+            本期結存: r.本期結存 || 0,
+            // 租金計算
+            前期結餘: r.前期結餘 || 0,
+            上半期租金: r.上半期 || 0,
+            下半期租金: r.下半期 || 0,
+            租金總計: r.租金總計 || 0,
+            分攤單價: r.分攤單價 || 0,
+            月租金出庫: r.月租金出庫 || 0,
+            月租金結餘: r.月租金結餘 || 0,
+            // 下期帶入用
+            前期結餘_next: r.月租金結餘,
+            // 歷史和備註
             月結歷史: { ...(historyMap[r._key]||{}), [label]: r.租金總計 },
             備註: r.備註 || '',
+            月份: label,
             updatedAt: new Date().toISOString()
         }));
 
@@ -1221,13 +1304,13 @@ async function viewLedger() {
         if (rows.length === 0) { resultsEl.innerHTML = '<p style="color:#999; text-align:center; padding:2rem;">總帳尚無資料</p>'; return; }
 
         // 只顯示月租金結餘 > 0 的
-        const activeRows = rows.filter(r => (r.前期結餘||0) > 0);
+        const activeRows = rows.filter(r => (r.月租金結餘 ?? r.前期結餘 ?? 0) > 0);
 
         // 採購部門小計
         const deptMap = {};
         activeRows.forEach(r => {
             const dept = r.採購部門 || '未分類';
-            deptMap[dept] = (deptMap[dept] || 0) + (r.前期結餘||0);
+            deptMap[dept] = (deptMap[dept] || 0) + (r.月租金結餘 ?? r.前期結餘 ?? 0);
         });
         const deptColors = ['#f2a7c3','#7ec8e3','#8dcc7a','#f7a35c','#c9a8e0','#f7d96b','#e8836a'];
         let deptCards = Object.entries(deptMap)
@@ -1238,7 +1321,7 @@ async function viewLedger() {
                     <div style="font-size:1.1rem; font-weight:800; color:#c0507a;">$${Math.round(total).toLocaleString()}</div>
                 </div>`).join('');
 
-        let grandTotal = activeRows.reduce((s,r) => s+(r.前期結餘||0), 0);
+        let grandTotal = activeRows.reduce((s,r) => s+(r.月租金結餘 ?? r.前期結餘 ?? 0), 0);
 
         let tableRows = '';
         activeRows.sort((a,b) => {
@@ -1253,7 +1336,7 @@ async function viewLedger() {
                 <td>${r.產品名稱}</td>
                 <td style="white-space:nowrap;">${r.批號}</td>
                 <td style="white-space:nowrap;">${r.採購部門||''}</td>
-                <td style="font-weight:700; color:#c0507a; white-space:nowrap; text-align:right;">${(r.前期結餘||0).toLocaleString()}</td>
+                <td style="font-weight:700; color:#c0507a; white-space:nowrap; text-align:right;">${(r.月租金結餘 ?? r.前期結餘 ?? 0).toLocaleString()}</td>
                 <td style="font-size:0.72rem; color:#8a6a7a; min-width:120px;">${history||'-'}</td>
             </tr>`;
         });
@@ -1310,7 +1393,7 @@ async function exportLedger() {
             產品名稱: r.產品名稱,
             批號: r.批號,
             採購部門: r.採購部門||'',
-            月租金結餘: r.前期結餘||0,
+            月租金結餘: (r.月租金結餘 ?? r.前期結餘 ?? 0),
             ...(r.月結歷史||{})
         }));
         const ws = window.XLSX.utils.json_to_sheet(exportData);
