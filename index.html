@@ -2278,9 +2278,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var dm = document.getElementById('DM');
   var daym = document.getElementById('DayM');
   var delm = document.getElementById('DelM');
-  if(dm)   dm.addEventListener('click',function(e){if(e.target===this)closeD();});
-  if(daym) daym.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
-  if(delm) delm.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');});
+  // 背景點擊不關閉 Modal（防止誤觸）
 });
 
 // 簽核
