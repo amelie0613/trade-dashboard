@@ -976,15 +976,15 @@ async function previewMonthly() {
             <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
                 <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
                     <div style="font-size:0.72rem; color:#c0507a; font-weight:700;">租金總計</div>
-                    <div style="font-size:1rem; font-weight:800; color:#c0507a;">$${Math.round(sums['租金總計']).toLocaleString()}</div>
+                    <div style="font-size:1rem; font-weight:800; color:#c0507a;" id="psum_租金總計">$${Math.round(sums['租金總計']).toLocaleString()}</div>
                 </div>
                 <div style="background:#fff8e8; border:1.5px solid #f7d96b; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
                     <div style="font-size:0.72rem; color:#b07020; font-weight:700;">月租金(出庫)</div>
-                    <div style="font-size:1rem; font-weight:800; color:#b07020;">$${Math.round(sums['月租金出庫']).toLocaleString()}</div>
+                    <div style="font-size:1rem; font-weight:800; color:#b07020;" id="psum_出庫">$${Math.round(sums['月租金出庫']).toLocaleString()}</div>
                 </div>
                 <div style="background:#fdf0f7; border:1.5px solid #c9a8e0; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
                     <div style="font-size:0.72rem; color:#8a5aa0; font-weight:700;">月租金(結餘)</div>
-                    <div style="font-size:1rem; font-weight:800; color:#8a5aa0;">$${Math.round(sums['月租金結餘']).toLocaleString()}</div>
+                    <div style="font-size:1rem; font-weight:800; color:#8a5aa0;" id="psum_結餘">$${Math.round(sums['月租金結餘']).toLocaleString()}</div>
                 </div>
                 <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
                     <div style="font-size:0.72rem; color:#2a6a82; font-weight:700;">前期結餘</div>
@@ -994,6 +994,21 @@ async function previewMonthly() {
                     <div style="font-size:0.72rem; color:#4a9a37; font-weight:700;">${label}上+下</div>
                     <div style="font-size:1rem; font-weight:800; color:#4a9a37;">$${(Math.round(sums['上半期'])+Math.round(sums['下半期'])).toLocaleString()}</div>
                 </div>
+            </div>
+
+            <!-- 篩選列 -->
+            <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.8rem; flex-wrap:wrap;">
+                <input type="text" id="previewFilter" placeholder="搜尋產品名稱 / 批號..."
+                    style="width:220px; padding:0.5rem 0.7rem; font-size:0.85rem;"
+                    oninput="applyPreviewFilter()" />
+                <select id="previewFilterCol" style="width:130px; padding:0.5rem; font-size:0.85rem;" onchange="applyPreviewFilter()">
+                    <option value="0">產品名稱</option>
+                    <option value="1">批號</option>
+                    <option value="2">採購部門</option>
+                </select>
+                <button onclick="clearPreviewFilter()" style="padding:0.5rem 0.8rem; font-size:0.85rem; flex:none; background:#fdf0f7; color:#c0507a; border:1px solid #f2a7c3; border-radius:6px; font-weight:700;">清除篩選</button>
+                <span id="previewFilterNote" style="font-size:0.8rem; color:#999;"></span>
+                <span style="font-size:0.78rem; color:#8a6a7a; margin-left:auto;">✏️ 月租金(出庫)、月租金(結餘) 可直接點擊編輯</span>
             </div>
 
             <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.82rem; color:#2d7a2d; font-weight:600;">
@@ -1011,12 +1026,18 @@ async function previewMonthly() {
 
         html += `</tr></thead><tbody id="previewBody">`;
 
-        kept.forEach(r => {
-            const tag = r._isNew ? '<span style="background:#fff8e8; color:#b07020; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">新增</span>' : '';
+        kept.forEach((r, rowIdx) => {
             const willDel = r.本期結存 === 0 && r.月租金結餘 === 0;
             const rowStyle = willDel ? 'color:#bbb;' : '';
-            const delTag = willDel ? '<span style="background:#fef2f2; color:#e8836a; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">導入後移除</span>' : tag;
-            html += `<tr style="${rowStyle}">
+            const tag = willDel
+                ? '<span style="background:#fef2f2; color:#e8836a; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">導入後移除</span>'
+                : (r._isNew ? '<span style="background:#fff8e8; color:#b07020; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">新增</span>' : '');
+
+            // 可編輯欄位：月租金(出庫)、月租金(結餘)
+            const editStyle = 'width:100%; min-width:60px; padding:0.3rem 0.4rem; border:none; border-bottom:1.5px solid transparent; background:transparent; font-size:0.78rem; font-family:inherit; text-align:right; outline:none; cursor:pointer;';
+            const editFocus = `onfocus="this.style.borderBottomColor='#f2a7c3'; this.style.background='#fff8fc';" onblur="this.style.borderBottomColor='transparent'; this.style.background='transparent';"`;
+
+            html += `<tr style="${rowStyle}" data-preview-row="${rowIdx}">
                 <td style="white-space:nowrap;">${r.產品名稱}</td>
                 <td style="white-space:nowrap;">${r.批號}</td>
                 <td style="white-space:nowrap;">${r.採購部門}</td>
@@ -1029,18 +1050,13 @@ async function previewMonthly() {
                 <td style="text-align:right;">${r.下半期.toLocaleString()}</td>
                 <td style="font-weight:700; text-align:right;">${r.租金總計.toLocaleString()}</td>
                 <td style="text-align:right;">${r.分攤單價}</td>
-                <td style="text-align:right;">${r.月租金出庫.toLocaleString()}</td>
-                <td style="font-weight:700; color:${willDel?'#bbb':'#c0507a'}; text-align:right;">${r.月租金結餘.toLocaleString()}</td>
-                <td>${delTag}</td>
+                <td style="padding:0;"><input type="text" value="${r.月租金出庫}" data-prow="${rowIdx}" data-pcol="月租金出庫" onchange="onPreviewEdit(this)" style="${editStyle}" ${editFocus} /></td>
+                <td style="padding:0;"><input type="text" value="${r.月租金結餘}" data-prow="${rowIdx}" data-pcol="月租金結餘" onchange="onPreviewEdit(this)" style="${editStyle} color:${willDel?'#bbb':'#c0507a'}; font-weight:700;" ${editFocus} /></td>
+                <td>${tag}</td>
             </tr>`;
         });
 
-        if (willRemove.length > 0) {
-            html += `<tr><td colspan="15" style="background:#fef2f2; color:#e8836a; padding:0.5rem; font-size:0.8rem; font-weight:600;">
-                ⚠️ 灰色 ${willRemove.length} 筆（本期結存=0且月租金結餘=0）確認導入後將從總帳移除
-            </td></tr>`;
-        }
-        html += '</tbody></table></div></div>';
+        html += `</tbody></table></div></div>`;
         document.getElementById('ledger_results').innerHTML = html;
         statusEl.innerHTML = '<span style="color:#4a9a37; font-weight:700;">✅ 預覽完成，請確認後導入</span>';
         // 只把結餘!=0的存入pendingMonthly（導入時移除清零的）
@@ -1051,6 +1067,51 @@ async function previewMonthly() {
         console.error(e);
     }
 }
+
+// ===== 預覽表格編輯 =====
+window.onPreviewEdit = function(input) {
+    const rowIdx = parseInt(input.dataset.prow);
+    const col = input.dataset.pcol;
+    const val = parseFloat(input.value.replace(/,/g,'')) || 0;
+    if (window._pendingMonthly) {
+        window._pendingMonthly.preview[rowIdx][col === '月租金出庫' ? '月租金出庫' : '月租金結餘'] = val;
+    }
+    input.style.background = '#fffbe6';
+    // 更新合計卡片
+    const allRows = window._pendingMonthly?.preview || [];
+    const totalOut = allRows.reduce((s,r) => s+(r.月租金出庫||0), 0);
+    const totalRemain = allRows.reduce((s,r) => s+(r.月租金結餘||0), 0);
+    const el1 = document.getElementById('psum_出庫');
+    const el2 = document.getElementById('psum_結餘');
+    if (el1) el1.textContent = '$' + Math.round(totalOut).toLocaleString();
+    if (el2) el2.textContent = '$' + Math.round(totalRemain).toLocaleString();
+};
+
+// ===== 預覽表格篩選 =====
+window.applyPreviewFilter = function() {
+    const keyword = document.getElementById('previewFilter')?.value.trim().toLowerCase() || '';
+    const colIdx = parseInt(document.getElementById('previewFilterCol')?.value || '0');
+    const tbody = document.getElementById('previewBody');
+    if (!tbody) return;
+    let visible = 0;
+    tbody.querySelectorAll('tr').forEach(row => {
+        const cell = row.cells[colIdx]?.textContent.toLowerCase() || '';
+        const show = !keyword || cell.includes(keyword);
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    const note = document.getElementById('previewFilterNote');
+    if (note) note.textContent = keyword ? `顯示 ${visible} 筆` : '';
+};
+
+window.clearPreviewFilter = function() {
+    const input = document.getElementById('previewFilter');
+    if (input) input.value = '';
+    const tbody = document.getElementById('previewBody');
+    if (tbody) tbody.querySelectorAll('tr').forEach(r => r.style.display = '');
+    const note = document.getElementById('previewFilterNote');
+    if (note) note.textContent = '';
+};
 
 // ===== 預覽表格排序 =====
 let previewSortState = { col: -1, asc: true };
