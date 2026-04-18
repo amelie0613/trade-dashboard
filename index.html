@@ -230,7 +230,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
     <button class="rtab" data-role="finance" onclick="setR(this)" style="flex:1;min-width:40%;">💰 財務</button>
   </div>
   <label class="llbl">密碼</label>
-  <input class="linput" type="password" id="lpwd" placeholder="請輸入密碼" onkeydown="if(event.key==='Enter')login()">
+  <input class="linput" type="text" id="lpwd" placeholder="請輸入密碼" autocomplete="off" style="font-family:monospace;letter-spacing:.04em;" onkeydown="if(event.key==='Enter')login()">
   <button class="lbtn" onclick="login()">登入</button>
   <div class="lerr" id="lerr"></div>
   <div style="margin-top:14px;text-align:center;font-size:12px;color:#94a3b8;">請使用系統管理員提供的帳號密碼登入</div>
@@ -2677,6 +2677,13 @@ function renderAdmin(){
       i2.style.cssText='font-family:monospace;letter-spacing:.04em;';
       f2.appendChild(l2); f2.appendChild(i2); card.appendChild(f2);
 
+      // 信箱
+      var fe = document.createElement('div'); fe.className='uc-f';
+      var le = document.createElement('label'); le.className='uc-l'; le.textContent='信箱（郵件通知用）';
+      var ie = document.createElement('input'); ie.className='uc-i'; ie.id='ue-'+u.id;
+      ie.type='email'; ie.value=u.email||''; ie.placeholder='name@company.com';
+      fe.appendChild(le); fe.appendChild(ie); card.appendChild(fe);
+
       // 業務員才有 staffName 欄位
       if(u.role==='staff'){
         var f3 = document.createElement('div'); f3.className='uc-f';
@@ -2731,17 +2738,20 @@ function renderAdmin(){
 }
 
 function saveAccountToFirebase(id){
-  var nameEl = document.getElementById('un-'+id);
-  var pwdEl  = document.getElementById('up-'+id);
-  var stnEl  = document.getElementById('usn-'+id);
+  var nameEl  = document.getElementById('un-'+id);
+  var pwdEl   = document.getElementById('up-'+id);
+  var emailEl = document.getElementById('ue-'+id);
+  var stnEl   = document.getElementById('usn-'+id);
   if(!nameEl||!pwdEl) return;
-  var name = nameEl.value.trim();
-  var pwd  = pwdEl.value.trim();
+  var name      = nameEl.value.trim();
+  var pwd       = pwdEl.value.trim();
+  var email     = emailEl ? emailEl.value.trim() : '';
   var staffName = stnEl ? stnEl.value.trim() : '';
   if(!name||!pwd){ toast('名稱和密碼不能空白','#dc2626'); return; }
 
   var existing = (CLOUD_ACCOUNTS||[]).find(function(u){ return u.id===id; }) || {};
   var acc = Object.assign({}, existing, { id:id, name:name, pwd:pwd });
+  if(email) acc.email = email;
   if(staffName) acc.staffName = staffName;
 
   saveAccountFirebase(acc, function(ok){
@@ -2755,7 +2765,7 @@ function saveAccountToFirebase(id){
       if(sv){sv.style.display='inline';setTimeout(function(){sv.style.display='none';},2000);}
       toast('✅ 已儲存至 Firebase','#16a34a');
       // 同步備份到 Sheets
-      fetch(SCRIPT,{method:'POST',body:JSON.stringify({action:'updateAccount',id:id,name:name,pwd:pwd,staffName:staffName}),mode:'no-cors'});
+      fetch(SCRIPT,{method:'POST',body:JSON.stringify({action:'updateAccount',id:id,name:name,pwd:pwd,email:email,staffName:staffName}),mode:'no-cors'});
     } else {
       toast('❌ 儲存失敗','#dc2626');
     }
@@ -2763,15 +2773,20 @@ function saveAccountToFirebase(id){
 }
 
 function showAddAccountModal(){
-  var roles = ['boss','admin','finance','staff'];
   var html = '<div style="padding:20px;">'
     +'<div style="font-size:15px;font-weight:700;margin-bottom:16px;">➕ 新增帳號</div>'
     +'<div style="display:flex;flex-direction:column;gap:10px;">'
-    +'<div><label class="ef-lbl">角色</label><select id="nacc-role" class="ef-i"><option value="staff">👤 業務員</option><option value="admin">🔧 管理員</option><option value="finance">💰 財務</option></select></div>'
+    +'<div><label class="ef-lbl">角色</label><select id="nacc-role" class="ef-i" onchange="toggleNaccStaffField(this.value)">'
+    +'<option value="staff">👤 業務員</option>'
+    +'<option value="admin">🔧 管理員</option>'
+    +'<option value="finance">💰 財務</option>'
+    +'<option value="boss">👑 董事長</option>'
+    +'</select></div>'
     +'<div><label class="ef-lbl">ID（唯一識別，英數字）</label><input type="text" id="nacc-id" class="ef-i" placeholder="例：s_name"></div>'
     +'<div><label class="ef-lbl">顯示名稱</label><input type="text" id="nacc-name" class="ef-i" placeholder="例：王小明"></div>'
-    +'<div><label class="ef-lbl">登入密碼</label><input type="text" id="nacc-pwd" class="ef-i" style="font-family:monospace;" placeholder="例：name2026"></div>'
-    +'<div><label class="ef-lbl">對應表單業務名稱（業務員填）</label><input type="text" id="nacc-sn" class="ef-i" placeholder="需與表單填寫名稱一致"></div>'
+    +'<div><label class="ef-lbl">登入密碼</label><input type="text" id="nacc-pwd" class="ef-i" style="font-family:monospace;" autocomplete="off" placeholder="例：name2026"></div>'
+    +'<div><label class="ef-lbl">信箱（用於郵件通知）</label><input type="email" id="nacc-email" class="ef-i" placeholder="例：name@company.com"></div>'
+    +'<div id="nacc-staff-row"><label class="ef-lbl">對應表單業務名稱（業務員填）</label><input type="text" id="nacc-sn" class="ef-i" placeholder="需與表單填寫名稱一致"></div>'
     +'</div>'
     +'<div style="display:flex;gap:8px;margin-top:16px;">'
     +'<button onclick="document.getElementById(\'AddAccM\').classList.remove(\'open\')" style="flex:1;padding:10px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:0.5px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">取消</button>'
@@ -2792,23 +2807,30 @@ function showAddAccountModal(){
   modal.classList.add('open');
 }
 
+function toggleNaccStaffField(role){
+  var el = document.getElementById('nacc-staff-row');
+  if(el) el.style.display = role==='staff' ? '' : 'none';
+}
+
 function doAddAccount(){
-  var id   = document.getElementById('nacc-id').value.trim();
-  var name = document.getElementById('nacc-name').value.trim();
-  var pwd  = document.getElementById('nacc-pwd').value.trim();
-  var role = document.getElementById('nacc-role').value;
-  var sn   = document.getElementById('nacc-sn').value.trim();
+  var id    = document.getElementById('nacc-id').value.trim();
+  var name  = document.getElementById('nacc-name').value.trim();
+  var pwd   = document.getElementById('nacc-pwd').value.trim();
+  var role  = document.getElementById('nacc-role').value;
+  var email = document.getElementById('nacc-email').value.trim();
+  var sn    = document.getElementById('nacc-sn') ? document.getElementById('nacc-sn').value.trim() : '';
   if(!id||!name||!pwd){ toast('ID、名稱、密碼必填','#dc2626'); return; }
 
   var acc = {id:id, role:role, name:name, pwd:pwd};
-  if(sn) acc.staffName = sn;
+  if(email) acc.email = email;
+  if(sn && role==='staff') acc.staffName = sn;
 
   saveAccountFirebase(acc, function(ok){
     if(ok){
       if(CLOUD_ACCOUNTS) CLOUD_ACCOUNTS.push(acc);
       document.getElementById('AddAccM').classList.remove('open');
       toast('✅ 帳號已新增','#16a34a');
-      fetch(SCRIPT,{method:'POST',body:JSON.stringify({action:'updateAccount',id:id,name:name,pwd:pwd,role:role,staffName:sn}),mode:'no-cors'});
+      fetch(SCRIPT,{method:'POST',body:JSON.stringify({action:'updateAccount',id:id,name:name,pwd:pwd,role:role,email:email,staffName:sn}),mode:'no-cors'});
       renderAdmin();
     } else {
       toast('❌ 新增失敗','#dc2626');
