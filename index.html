@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -1010,16 +1010,16 @@ function normalizeRow(r){
   mapped['備註（採購）']     = purchase.note         || '';
   mapped['賣方合約（採購）'] = purchase.contract     || '';
 
-  // purchase periods → 採購期1~3
+  // purchase periods → 採購期1~3（平鋪欄位優先，其次巢狀 periods）
   var buyPeriods = purchase.periods || [];
   for(var bi=0; bi<3; bi++){
     var bp = buyPeriods[bi] || {};
     var n = bi+1;
-    mapped['採購期'+n+'名稱']  = bp.name         || '';
-    mapped['採購期'+n+'幣別']  = bp.currency      || (bi===0?'TWD':'');
-    mapped['採購期'+n+'金額']  = bp.amount        || 0;
-    mapped['採購期'+n+'預計日']= bp.expectedDate  || '';
-    mapped['採購期'+n+'備註']  = bp.note          || '';
+    mapped['採購期'+n+'名稱']  = r['採購期'+n+'名稱']  !== undefined ? r['採購期'+n+'名稱']  : (bp.name        || '');
+    mapped['採購期'+n+'幣別']  = r['採購期'+n+'幣別']  !== undefined ? r['採購期'+n+'幣別']  : (bp.currency     || (bi===0?'TWD':''));
+    mapped['採購期'+n+'金額']  = r['採購期'+n+'金額']  !== undefined ? r['採購期'+n+'金額']  : (bp.amount       || 0);
+    mapped['採購期'+n+'預計日']= r['採購期'+n+'預計日'] !== undefined ? r['採購期'+n+'預計日']: (bp.expectedDate || '');
+    mapped['採購期'+n+'備註']  = r['採購期'+n+'備註']  !== undefined ? r['採購期'+n+'備註']  : (bp.note         || '');
   }
 
   // sales
@@ -1030,16 +1030,16 @@ function normalizeRow(r){
   mapped['銷售成本金額']     = sales.costAmount   || 0;
   mapped['銷售成本幣別']     = sales.costCurrency || 'TWD';
 
-  // sales periods → 銷售期1~3
+  // sales periods → 銷售期1~3（平鋪欄位優先，其次巢狀 periods）
   var sellPeriods = sales.periods || [];
   for(var si=0; si<3; si++){
     var sp = sellPeriods[si] || {};
     var sn = si+1;
-    mapped['銷售期'+sn+'名稱']  = sp.name         || '';
-    mapped['銷售期'+sn+'幣別']  = sp.currency      || (si===0?'TWD':'');
-    mapped['銷售期'+sn+'金額']  = sp.amount        || 0;
-    mapped['銷售期'+sn+'預計日']= sp.expectedDate  || '';
-    mapped['銷售期'+sn+'備註']  = sp.note          || '';
+    mapped['銷售期'+sn+'名稱']  = r['銷售期'+sn+'名稱']  !== undefined ? r['銷售期'+sn+'名稱']  : (sp.name        || '');
+    mapped['銷售期'+sn+'幣別']  = r['銷售期'+sn+'幣別']  !== undefined ? r['銷售期'+sn+'幣別']  : (sp.currency     || (si===0?'TWD':''));
+    mapped['銷售期'+sn+'金額']  = r['銷售期'+sn+'金額']  !== undefined ? r['銷售期'+sn+'金額']  : (sp.amount       || 0);
+    mapped['銷售期'+sn+'預計日']= r['銷售期'+sn+'預計日'] !== undefined ? r['銷售期'+sn+'預計日']: (sp.expectedDate || '');
+    mapped['銷售期'+sn+'備註']  = r['銷售期'+sn+'備註']  !== undefined ? r['銷售期'+sn+'備註']  : (sp.note         || '');
   }
 
   // logistics
@@ -2518,6 +2518,7 @@ function doEdit(rowNum){
   });
 
   // 採購分期 1~3
+  var newBuyPeriods = [];
   for(var bpi=1;bpi<=3;bpi++){
     var bpCurEl  = document.getElementById('e-buyp'+bpi+'cur-'+rowNum);
     var bpAmtEl  = document.getElementById('e-buyp'+bpi+'amt-'+rowNum);
@@ -2532,6 +2533,7 @@ function doEdit(rowNum){
     firestoreFields['採購期'+bpi+'金額']  = nbpAmt;
     firestoreFields['採購期'+bpi+'預計日']= nbpDate;
     firestoreFields['採購期'+bpi+'名稱']  = nbpName;
+    newBuyPeriods.push({name:nbpName, currency:nbpCur, amount:nbpAmt, expectedDate:nbpDate, note:''});
     if(r){
       var obpAmt = (r['採購期'+bpi+'金額']||0).toString();
       if(obpAmt!==(nbpAmt||0).toString()) changes.push('採購期'+bpi+'金額 「'+obpAmt+'」→「'+nbpAmt+'」');
@@ -2541,7 +2543,9 @@ function doEdit(rowNum){
       r['採購期'+bpi+'名稱']  = nbpName;
     }
   }
+  if(newBuyPeriods.length) firestoreFields['purchase.periods'] = newBuyPeriods;
   // 銷售分期 1~3
+  var newSellPeriods = [];
   for(var spi=1;spi<=3;spi++){
     var spCurEl  = document.getElementById('e-sellp'+spi+'cur-'+rowNum);
     var spAmtEl  = document.getElementById('e-sellp'+spi+'amt-'+rowNum);
@@ -2556,6 +2560,7 @@ function doEdit(rowNum){
     firestoreFields['銷售期'+spi+'金額']  = nspAmt;
     firestoreFields['銷售期'+spi+'預計日']= nspDate;
     firestoreFields['銷售期'+spi+'名稱']  = nspName;
+    newSellPeriods.push({name:nspName, currency:nspCur, amount:nspAmt, expectedDate:nspDate, note:''});
     if(r){
       var ospAmt = (r['銷售期'+spi+'金額']||0).toString();
       if(ospAmt!==(nspAmt||0).toString()) changes.push('銷售期'+spi+'金額 「'+ospAmt+'」→「'+nspAmt+'」');
@@ -2565,6 +2570,7 @@ function doEdit(rowNum){
       r['銷售期'+spi+'名稱']  = nspName;
     }
   }
+  if(newSellPeriods.length) firestoreFields['sales.periods'] = newSellPeriods;
   // 費用幣別
   var feeCurFields = [
     ['e-freightcur-','運費幣別','fees.freightCur'],
