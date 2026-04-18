@@ -1063,7 +1063,9 @@ async function previewMonthly() {
 
             const numCell = (colName, extraStyle='') => {
                 const key = colKeyMap[colName] || colName;
-                const val = r[key] !== undefined ? r[key] : '';
+                const raw = r[key] !== undefined ? r[key] : '';
+                // 不加千分位，避免parseFloat解析錯誤
+                const val = raw !== '' ? raw : '';
                 return `<td style="padding:0;"><input type="text" value="${val}" data-prow="${rowIdx}" data-pcol="${colName}" onchange="onPreviewEdit(this)" style="${eStyle}${extraStyle}" ${eFocus} /></td>`;
             };
 
@@ -1110,17 +1112,20 @@ window.onPreviewEdit = function(input) {
     if (colName === '備註') {
         r.備註 = input.value;
     } else {
-        const val = parseFloat(input.value.replace(/,/g,'')) || 0;
-        // colKeyMap 對應
-        const keyMap = {
-            '上期結存':'上期結存','本期入庫':'本期入庫','本期出庫':'本期出庫','本期結存':'本期結存',
-            '前期結餘':'前期結餘','月租金(出庫)':'月租金出庫','月租金(結餘)':'月租金結餘',
-            '租金總計':'租金總計','分攤單價':'分攤單價',
-        };
-        // 動態對應上下期標籤
-        Object.keys(window._pendingMonthly.colKeyMap||{}).forEach(k => { keyMap[k] = window._pendingMonthly.colKeyMap[k]; });
-        const key = keyMap[colName] || colName;
-        r[key] = val;
+        // 移除所有千分位逗號再解析
+        const cleaned = input.value.replace(/,/g, '').trim();
+        // 只有輸入有效數字才更新，空值不覆蓋
+        if (cleaned !== '' && !isNaN(parseFloat(cleaned))) {
+            const val = parseFloat(cleaned);
+            const keyMap = {
+                '上期結存':'上期結存','本期入庫':'本期入庫','本期出庫':'本期出庫','本期結存':'本期結存',
+                '前期結餘':'前期結餘','月租金(出庫)':'月租金出庫','月租金(結餘)':'月租金結餘',
+                '租金總計':'租金總計','分攤單價':'分攤單價',
+            };
+            Object.keys(window._pendingMonthly.colKeyMap||{}).forEach(k => { keyMap[k] = window._pendingMonthly.colKeyMap[k]; });
+            const key = keyMap[colName] || colName;
+            r[key] = val;
+        }
     }
 
     input.style.background = '#fffbe6';
