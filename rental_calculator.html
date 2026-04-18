@@ -1175,7 +1175,7 @@ window.recalcPreview = function() {
     const totalRental  = preview.reduce((s,r) => s+(r.租金總計||0), 0);
     const totalOut     = preview.reduce((s,r) => s+(r.月租金出庫||0), 0);
     const totalRemain  = preview.reduce((s,r) => s+(r.月租金結餘||0), 0);
-    const totalPrev    = preview.reduce((s,r) => s+((r.月租金結餘 ?? r.前期結餘) ?? 0), 0);
+    const totalPrev    = preview.reduce((s,r) => s+(r.前期結餘||0), 0);
     const totalFirst   = preview.reduce((s,r) => s+(r.上半期||0), 0);
     const totalSecond  = preview.reduce((s,r) => s+(r.下半期||0), 0);
 
