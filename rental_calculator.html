@@ -1166,47 +1166,22 @@ window.recalcPreview = function() {
     if (!window._pendingMonthly) return;
     const preview = window._pendingMonthly.preview;
 
-    // 先把畫面上所有 input 的值同步回 preview 資料
-    const tbody = document.getElementById('previewBody');
-    if (tbody) {
-        tbody.querySelectorAll('tr[data-preview-row]').forEach(tr => {
-            const rowIdx = parseInt(tr.dataset.previewRow);
-            const r = preview[rowIdx];
-            if (!r) return;
-            tr.querySelectorAll('input[data-prow]').forEach(input => {
-                const colName = input.dataset.pcol;
-                if (colName === '備註') {
-                    r.備註 = input.value;
-                } else {
-                    const keyMap = window._pendingMonthly.colKeyMap || {};
-                    const extraMap = {
-                        '月租金(出庫)':'月租金出庫','月租金(結餘)':'月租金結餘',
-                        '租金總計':'租金總計','分攤單價':'分攤單價',
-                        '上期結存':'上期結存','本期入庫':'本期入庫',
-                        '本期出庫':'本期出庫','本期結存':'本期結存','前期結餘':'前期結餘'
-                    };
-                    const key = keyMap[colName] || extraMap[colName] || colName;
-                    r[key] = parseFloat(input.value.replace(/,/g,'')) || 0;
-                }
-            });
-        });
-    }
-
-    // 重算所有合計
-    const totalRental = preview.reduce((s,r) => s+(r.租金總計||0), 0);
-    const totalOut    = preview.reduce((s,r) => s+(r.月租金出庫||0), 0);
-    const totalRemain = preview.reduce((s,r) => s+(r.月租金結餘||0), 0);
-    const totalPrev   = preview.reduce((s,r) => s+(r.月租金結餘 ?? r.前期結餘 ?? 0), 0);
-    const totalPeriod = preview.reduce((s,r) => s+(r.上半期||0)+(r.下半期||0), 0);
+    // 直接從 preview 資料重算合計（onPreviewEdit 已即時同步）
+    const totalRental  = preview.reduce((s,r) => s+(r.租金總計||0), 0);
+    const totalOut     = preview.reduce((s,r) => s+(r.月租金出庫||0), 0);
+    const totalRemain  = preview.reduce((s,r) => s+(r.月租金結餘||0), 0);
+    const totalPrev    = preview.reduce((s,r) => s+((r.月租金結餘 ?? r.前期結餘) ?? 0), 0);
+    const totalFirst   = preview.reduce((s,r) => s+(r.上半期||0), 0);
+    const totalSecond  = preview.reduce((s,r) => s+(r.下半期||0), 0);
 
     const upd = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = '$'+Math.round(val).toLocaleString(); };
     upd('psum_租金總計', totalRental);
     upd('psum_出庫', totalOut);
     upd('psum_結餘', totalRemain);
     upd('psum_前期結餘', totalPrev);
-    upd('psum_上期', preview.reduce((s,r)=>s+(r.上半期||0),0));
-    upd('psum_下期', preview.reduce((s,r)=>s+(r.下半期||0),0));
-    upd('psum_期租金', preview.reduce((s,r)=>s+(r.上半期||0)+(r.下半期||0),0));
+    upd('psum_上期', totalFirst);
+    upd('psum_下期', totalSecond);
+    upd('psum_期租金', totalFirst + totalSecond);
 
     const status = document.getElementById('recalc_status');
     if (status) {
