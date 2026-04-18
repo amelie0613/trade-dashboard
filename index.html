@@ -970,8 +970,20 @@ function normalizeRow(r){
   mapped._row = fid;
   mapped['表單編號'] = fid;
 
-  // 若是舊格式（已有中文欄位），補 _row 後直接返回
+  // 若是舊格式（已有中文欄位），補齊分期欄位後返回
   if(r['業務名稱'] || r['案件名稱']){
+    for(var bi=1; bi<=3; bi++){
+      if(mapped['採購期'+bi+'金額'] === undefined) mapped['採購期'+bi+'金額'] = 0;
+      if(mapped['採購期'+bi+'幣別'] === undefined) mapped['採購期'+bi+'幣別'] = 'TWD';
+      if(mapped['採購期'+bi+'名稱'] === undefined) mapped['採購期'+bi+'名稱'] = '';
+      if(mapped['採購期'+bi+'預計日'] === undefined) mapped['採購期'+bi+'預計日'] = '';
+    }
+    for(var si=1; si<=3; si++){
+      if(mapped['銷售期'+si+'金額'] === undefined) mapped['銷售期'+si+'金額'] = 0;
+      if(mapped['銷售期'+si+'幣別'] === undefined) mapped['銷售期'+si+'幣別'] = 'TWD';
+      if(mapped['銷售期'+si+'名稱'] === undefined) mapped['銷售期'+si+'名稱'] = '';
+      if(mapped['銷售期'+si+'預計日'] === undefined) mapped['銷售期'+si+'預計日'] = '';
+    }
     return mapped;
   }
 
