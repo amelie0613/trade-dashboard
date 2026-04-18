@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>租金計算工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+</head>
+<body>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        padding: 2rem 1rem;
+    }
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+    }
+    .header h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    .header p {
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+    .content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        padding: 2rem;
+    }
+    @media (max-width: 1024px) {
+        .content {
+            grid-template-columns: 1fr;
+        }
+    }
+    .panel {
+        background: #f8f9fb;
+        border: 1px solid #e0e4e8;
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+    .panel h2 {
+        font-size: 1.3rem;
+        margin-bottom: 1.5rem;
+        color: #333;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 0.5rem;
+    }
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 0.4rem;
+        color: #555;
+        font-size: 0.9rem;
+    }
+    input, select {
+        width: 100%;
+        padding: 0.6rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        transition: border-color 0.2s;
+    }
+    input:focus, select:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    .file-input-wrapper {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+    .file-input-label {
+        display: block;
+        padding: 0.8rem;
+        background: white;
+        border: 2px dashed #667eea;
+        border-radius: 6px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #667eea;
+        font-weight: 500;
+    }
+    .file-input-label:hover {
+        background: #f0f4ff;
+    }
+    .file-input-label.has-file {
+        border-color: #10b981;
+        color: #10b981;
+        background: #f0fdf4;
+    }
+    input[type="file"] {
+        display: none;
+    }
+    .button-group {
+        display: flex;
+        gap: 0.8rem;
+        margin-top: 1.5rem;
+    }
+    button {
+        flex: 1;
+        padding: 0.8rem;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+    }
+    .btn-primary {
+        background: #667eea;
+        color: white;
+    }
+    .btn-primary:hover {
+        background: #5568d3;
+    }
+    .btn-primary:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    .btn-secondary {
+        background: white;
+        color: #667eea;
+        border: 1px solid #667eea;
+    }
+    .btn-secondary:hover {
+        background: #f0f4ff;
+    }
+    .status {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+    }
+    .status.success {
+        background: #f0fdf4;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+    .status.error {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+    .status.info {
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+    .tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid #e0e4e8;
+        margin-bottom: 1.5rem;
+    }
+    .tab {
+        padding: 0.8rem 1.2rem;
+        cursor: pointer;
+        border: none;
+        background: none;
+        font-weight: 500;
+        color: #999;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s;
+    }
+    .tab.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+    }
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    .result-section {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background: white;
+        border: 1px solid #e0e4e8;
+        border-radius: 8px;
+    }
+    .result-section h3 {
+        margin-bottom: 1rem;
+        color: #333;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+    th, td {
+        padding: 0.6rem;
+        text-align: left;
+        border-bottom: 1px solid #e0e4e8;
+    }
+    th {
+        background: #f0f4ff;
+        font-weight: 600;
+        color: #555;
+    }
+    tr:hover {
+        background: #fafbfc;
+    }
+    .loading {
+        text-align: center;
+        padding: 1rem;
+        color: #667eea;
+    }
+    .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #e0e4e8;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .config-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    .config-item {
+        background: white;
+        padding: 1rem;
+        border-radius: 6px;
+        border: 1px solid #e0e4e8;
+    }
+    .config-item label {
+        font-size: 0.8rem;
+        margin-bottom: 0.3rem;
+    }
+    .export-btn {
+        background: #10b981;
+        color: white;
+        margin-top: 1rem;
+        width: 100%;
+    }
+    .export-btn:hover {
+        background: #059669;
+    }
+    .warning {
+        background: #fef3c7;
+        color: #92400e;
+        padding: 0.8rem;
+        border-radius: 6px;
+        margin-top: 1rem;
+        font-size: 0.85rem;
+    }
+</style>
+
+<div class="container">
+    <div class="header">
+        <h1>🧊 冷凍庫存租金計算工具</h1>
+        <p>自動合併表格、計算租金成本、匯出結果</p>
+    </div>
+
+    <div class="content">
+        <!-- 左側：上傳區域 -->
+        <div class="panel">
+            <h2>📤 上傳檔案</h2>
+            
+            <div class="form-group">
+                <label>租金表 (.xlsx)</label>
+                <div class="file-input-wrapper">
+                    <label class="file-input-label" id="label1">點擊選擇檔案</label>
+                    <input type="file" id="file1" accept=".xlsx" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>出入庫記錄表 (.xlsx)</label>
+                <div class="file-input-wrapper">
+                    <label class="file-input-label" id="label2">點擊選擇檔案</label>
+                    <input type="file" id="file2" accept=".xlsx" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>重量表 (.xlsx)</label>
+                <div class="file-input-wrapper">
+                    <label class="file-input-label" id="label3">點擊選擇檔案</label>
+                    <input type="file" id="file3" accept=".xlsx" />
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab(0)">設定</button>
+                <button class="tab" onclick="switchTab(1)">欄位對應</button>
+            </div>
+
+            <div id="tab0" class="tab-content active">
+                <div class="form-group">
+                    <label>期初日期</label>
+                    <input type="date" id="startDate" value="2026-03-01" />
+                </div>
+
+                <div class="form-group">
+                    <label>期末日期</label>
+                    <input type="date" id="endDate" value="2026-03-15" />
+                </div>
+
+                <div class="form-group">
+                    <label>日租金費率 (每15天/公斤，$)</label>
+                    <input type="number" id="dailyRate" value="0.8" step="0.01" />
+                </div>
+
+                <div class="form-group">
+                    <label>出入庫酌收 (1次/公斤，$)</label>
+                    <input type="number" id="handlingFee" value="1.0" step="0.01" />
+                </div>
+            </div>
+
+            <div id="tab1" class="tab-content">
+                <div class="config-grid">
+                    <div class="config-item">
+                        <label>租金表 - 產品名稱</label>
+                        <input type="text" id="col_product1" value="產品名稱" />
+                    </div>
+                    <div class="config-item">
+                        <label>租金表 - 批號</label>
+                        <input type="text" id="col_batch1" value="批號" />
+                    </div>
+                    <div class="config-item">
+                        <label>租金表 - 期初數量</label>
+                        <input type="text" id="col_begin" value="上期結存" />
+                    </div>
+                    <div class="config-item">
+                        <label>租金表 - 期末數量</label>
+                        <input type="text" id="col_end" value="本期結存" />
+                    </div>
+                    <div class="config-item">
+                        <label>出入庫表 - 產品名稱</label>
+                        <input type="text" id="col_product2" value="產品名稱" />
+                    </div>
+                    <div class="config-item">
+                        <label>出入庫表 - 批號</label>
+                        <input type="text" id="col_batch2" value="批號" />
+                    </div>
+                    <div class="config-item">
+                        <label>出入庫表 - 日期</label>
+                        <input type="text" id="col_date" value="單據日期" />
+                    </div>
+                    <div class="config-item">
+                        <label>出入庫表 - 入出類型</label>
+                        <input type="text" id="col_type" value="業務屬性" />
+                    </div>
+                    <div class="config-item">
+                        <label>重量表 - 產品名稱</label>
+                        <input type="text" id="col_product3" value="產品名稱" />
+                    </div>
+                    <div class="config-item">
+                        <label>重量表 - 重量欄</label>
+                        <input type="text" id="col_weight" value="重量" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="processFiles()">計算</button>
+                <button class="btn-secondary" onclick="resetForm()">清除</button>
+            </div>
+
+            <div id="status"></div>
+        </div>
+
+        <!-- 右側：結果區域 -->
+        <div class="panel">
+            <h2>📊 計算結果</h2>
+            <div id="results">
+                <p style="color: #999; text-align: center; padding: 2rem;">
+                    上傳檔案後點擊「計算」查看結果
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let files = { file1: null, file2: null, file3: null };
+let calculatedData = null;
+
+// 檔案選擇事件
+['file1', 'file2', 'file3'].forEach((id, idx) => {
+    const fileInput = document.getElementById(id);
+    const label = document.getElementById('label' + (idx + 1));
+    
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files[0]) {
+            files[id] = e.target.files[0];
+            label.textContent = e.target.files[0].name;
+            label.classList.add('has-file');
+        }
+    });
+    
+    label.addEventListener('click', () => fileInput.click());
+});
+
+function switchTab(index) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach((el, i) => {
+        el.classList.toggle('active', i === index);
+    });
+    document.getElementById('tab' + index).classList.add('active');
+}
+
+function showStatus(msg, type = 'info') {
+    const el = document.getElementById('status');
+    el.innerHTML = `<div class="status ${type}">${msg}</div>`;
+}
+
+function resetForm() {
+    files = { file1: null, file2: null, file3: null };
+    document.getElementById('file1').value = '';
+    document.getElementById('file2').value = '';
+    document.getElementById('file3').value = '';
+    ['label1', 'label2', 'label3'].forEach(id => {
+        document.getElementById(id).textContent = '點擊選擇檔案';
+        document.getElementById(id).classList.remove('has-file');
+    });
+    showStatus('');
+    document.getElementById('results').innerHTML = '<p style="color: #999; text-align: center; padding: 2rem;">上傳檔案後點擊「計算」查看結果</p>';
+}
+
+async function processFiles() {
+    if (!files.file1 || !files.file2 || !files.file3) {
+        showStatus('❌ 請上傳全部三個檔案', 'error');
+        return;
+    }
+
+    try {
+        showStatus('<div class="loading"><div class="spinner"></div> 處理中...</div>', 'info');
+        
+        const data1 = await readExcel(files.file1);
+        const data2 = await readExcel(files.file2);
+        const data3 = await readExcel(files.file3);
+
+        const result = calculateRental(data1, data2, data3);
+        calculatedData = result;
+        
+        displayResults(result);
+        showStatus('✅ 計算完成！', 'success');
+    } catch (err) {
+        showStatus('❌ 錯誤: ' + err.message, 'error');
+        console.error(err);
+    }
+}
+
+function readExcel(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const wb = XLSX.read(e.target.result, { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(ws);
+                resolve(json);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.onerror = () => reject(new Error('檔案讀取失敗'));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+function calculateRental(rentalData, ioData, weightData) {
+    const config = getConfig();
+    const result = [];
+
+    for (const row of rentalData) {
+        const productName = row[config.col_product1];
+        const batchNo = row[config.col_batch1];
+        const beginQty = parseFloat(row[config.col_begin]) || 0;
+        const endQty = parseFloat(row[config.col_end]) || 0;
+
+        // 查詢重量
+        const weightRow = weightData.find(w => w[config.col_product3] === productName);
+        const weight = weightRow ? parseFloat(weightRow[config.col_weight]) || 0 : 0;
+
+        // 計算在庫天數
+        const startDate = new Date(document.getElementById('startDate').value);
+        const endDate = new Date(document.getElementById('endDate').value);
+        let calcStartDate = startDate;
+        let calcEndDate = endDate;
+
+        // 期初 = 0，找入庫日期
+        if (beginQty === 0) {
+            const firstIO = ioData.find(io =>
+                io[config.col_product2] === productName &&
+                io[config.col_batch2] === batchNo &&
+                io[config.col_type]?.includes('庫')
+            );
+            if (firstIO) {
+                calcStartDate = new Date(firstIO[config.col_date]);
+            }
+        }
+
+        // 期末 = 0，找出庫日期
+        if (endQty === 0) {
+            const ioRecords = ioData.filter(io =>
+                io[config.col_product2] === productName &&
+                io[config.col_batch2] === batchNo
+            );
+            if (ioRecords.length > 0) {
+                const lastRecord = ioRecords[ioRecords.length - 1];
+                calcEndDate = new Date(lastRecord[config.col_date]);
+            }
+        }
+
+        // 天數
+        const days = Math.max(1, Math.ceil((calcEndDate - calcStartDate) / (1000 * 60 * 60 * 24)));
+
+        // 檢查是否有入庫
+        const hasInbound = ioData.some(io =>
+            io[config.col_product2] === productName &&
+            io[config.col_batch2] === batchNo &&
+            io[config.col_type]?.includes('入')
+        );
+
+        // 計算租金
+        const baseRate = parseFloat(document.getElementById('dailyRate').value) || 0.8;
+        const handlingFee = parseFloat(document.getElementById('handlingFee').value) || 1.0;
+        const ratePer15Days = 15; // 基準周期
+
+        let rentalCost = 0;
+        if (days >= 10) {
+            rentalCost = baseRate * weight;
+        } else {
+            rentalCost = (baseRate / ratePer15Days) * days * weight;
+        }
+
+        if (hasInbound) {
+            rentalCost += handlingFee * weight;
+        }
+
+        result.push({
+            productName,
+            batchNo,
+            beginQty,
+            endQty,
+            weight: weight.toFixed(2),
+            days,
+            hasInbound: hasInbound ? '是' : '否',
+            rentalCost: rentalCost.toFixed(2)
+        });
+    }
+
+    return result;
+}
+
+function getConfig() {
+    return {
+        col_product1: document.getElementById('col_product1').value,
+        col_batch1: document.getElementById('col_batch1').value,
+        col_begin: document.getElementById('col_begin').value,
+        col_end: document.getElementById('col_end').value,
+        col_product2: document.getElementById('col_product2').value,
+        col_batch2: document.getElementById('col_batch2').value,
+        col_date: document.getElementById('col_date').value,
+        col_type: document.getElementById('col_type').value,
+        col_product3: document.getElementById('col_product3').value,
+        col_weight: document.getElementById('col_weight').value
+    };
+}
+
+function displayResults(data) {
+    let html = `
+        <div class="result-section">
+            <h3>合併計算結果 (${data.length} 項)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>產品名稱</th>
+                        <th>批號</th>
+                        <th>期初</th>
+                        <th>期末</th>
+                        <th>重量</th>
+                        <th>在庫天數</th>
+                        <th>有入庫</th>
+                        <th>租金費用</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    let totalRental = 0;
+    data.forEach(row => {
+        totalRental += parseFloat(row.rentalCost);
+        html += `
+            <tr>
+                <td>${row.productName}</td>
+                <td>${row.batchNo}</td>
+                <td>${row.beginQty}</td>
+                <td>${row.endQty}</td>
+                <td>${row.weight}</td>
+                <td>${row.days}</td>
+                <td>${row.hasInbound}</td>
+                <td>$${row.rentalCost}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+            <div style="text-align: right; margin-top: 1rem; font-weight: 600; font-size: 1.1rem; color: #667eea;">
+                合計租金：$${totalRental.toFixed(2)}
+            </div>
+            <button class="btn-primary export-btn" onclick="exportResults()">📥 匯出為 Excel</button>
+        </div>
+    `;
+
+    document.getElementById('results').innerHTML = html;
+}
+
+function exportResults() {
+    if (!calculatedData) return;
+
+    const ws = XLSX.utils.json_to_sheet(calculatedData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "租金計算結果");
+    
+    const filename = `租金計算_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    
+    showStatus('✅ 檔案已下載！', 'success');
+}
+</script>
+</body>
+</html>
