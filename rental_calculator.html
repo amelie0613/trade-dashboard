@@ -864,14 +864,6 @@ function ledgerFileChanged(inputId) {
 }
 window.ledgerFileChanged = ledgerFileChanged;
 
-window.ledgerFileChanged = ledgerFileChanged;
-window.doInitLedger = doInitLedger;
-window.previewMonthly = previewMonthly;
-window.confirmMonthly = confirmMonthly;
-window.viewLedger = viewLedger;
-window.exportLedger = exportLedger;
-window.clearLedger = clearLedger;
-
 async function doInitLedger() {
     const input = document.getElementById('ledger_file_init');
     const file = ledgerFiles['ledger_file_init'] || (input && input.files[0]);
@@ -1677,6 +1669,27 @@ function exportResults() {
     window.XLSX.writeFile(wb, filename);
     showStatus('✅ 檔案已下載！', 'success');
 }
+// 掛載所有函式到 window
+window.doInitLedger = doInitLedger;
+window.previewMonthly = previewMonthly;
+window.confirmMonthly = confirmMonthly;
+window.viewLedger = viewLedger;
+window.exportLedger = exportLedger;
+window.clearLedger = clearLedger;
+window.openSettings = openSettings;
+window.closeSettings = closeSettings;
+window.resetForm = resetForm;
+window.processFiles = processFiles;
+window.sortTable = sortTable;
+window.applyFilter = applyFilter;
+window.clearFilter = clearFilter;
+window.exportResults = exportResults;
+window.onCellEdit = onCellEdit;
+window.toggleTotalRow = toggleTotalRow;
+window.autoFormatDate = autoFormatDate;
+window.dragOver = dragOver;
+window.dragLeave = dragLeave;
+window.dropFile = dropFile;
 </script>
 </body>
 </html>
