@@ -899,15 +899,14 @@ async function previewMonthly() {
     const f1 = ledgerFiles['ledger_file_first'] || document.getElementById('ledger_file_first').files[0];
     const f2 = ledgerFiles['ledger_file_second'] || document.getElementById('ledger_file_second').files[0];
     const label = document.getElementById('ledger_month_label').value.trim() || '本月';
-    if (!f1) { alert('請上傳上半期結果'); return; }
-    if (!f2) { alert('請上傳下半期結果'); return; }
+    if (!f1 && !f2) { alert('請至少上傳一期結果'); return; }
 
     const statusEl = document.getElementById('ledger_status_monthly');
     statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 計算中...</span>';
 
     try {
-        const d1 = await readExcel(f1, false);
-        const d2 = await readExcel(f2, false);
+        const d1 = f1 ? await readExcel(f1, false) : [];
+        const d2 = f2 ? await readExcel(f2, false) : [];
 
         statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取總帳...</span>';
         const existingRows = await loadLedgerRows();
@@ -950,10 +949,11 @@ async function previewMonthly() {
             });
         });
 
-        const kept = preview.filter(r => !(r.本期結存 === 0 && r.月租金結餘 === 0));
-        const removed = preview.filter(r => r.本期結存 === 0 && r.月租金結餘 === 0);
+        // 預覽顯示全部，導入時才移除結餘=0
+        const kept = preview;
+        const willRemove = preview.filter(r => r.本期結存 === 0 && r.月租金結餘 === 0);
 
-        // 合計
+        // 合計（全部資料）
         const sumKeys = ['上期結存','本期入庫','本期出庫','本期結存','前期結餘','上半期','下半期','租金總計','月租金出庫','月租金結餘'];
         const sums = {};
         sumKeys.forEach(k => { sums[k] = kept.reduce((s,r) => s + (parseFloat(r[k])||0), 0); });
@@ -964,7 +964,7 @@ async function previewMonthly() {
 
         let html = `<div class="result-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                <h3 style="margin:0;">📅 ${label} 月結算預覽（${kept.length} 筆保留，${removed.length} 筆清零）</h3>
+                <h3 style="margin:0;">📅 ${label} 月結算預覽（共 ${kept.length} 筆，其中 ${willRemove.length} 筆結餘=0將於導入後移除）</h3>
                 <button onclick="confirmMonthly()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.5rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 確認導入總帳</button>
             </div>
 
@@ -1009,7 +1009,10 @@ async function previewMonthly() {
 
         kept.forEach(r => {
             const tag = r._isNew ? '<span style="background:#fff8e8; color:#b07020; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">新增</span>' : '';
-            html += `<tr>
+            const willDel = r.本期結存 === 0 && r.月租金結餘 === 0;
+            const rowStyle = willDel ? 'color:#bbb;' : '';
+            const delTag = willDel ? '<span style="background:#fef2f2; color:#e8836a; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">導入後移除</span>' : tag;
+            html += `<tr style="${rowStyle}">
                 <td style="white-space:nowrap;">${r.產品名稱}</td>
                 <td style="white-space:nowrap;">${r.批號}</td>
                 <td style="white-space:nowrap;">${r.採購部門}</td>
@@ -1023,20 +1026,21 @@ async function previewMonthly() {
                 <td style="font-weight:700; text-align:right;">${r.租金總計.toLocaleString()}</td>
                 <td style="text-align:right;">${r.分攤單價}</td>
                 <td style="text-align:right;">${r.月租金出庫.toLocaleString()}</td>
-                <td style="font-weight:700; color:#c0507a; text-align:right;">${r.月租金結餘.toLocaleString()}</td>
-                <td>${tag}</td>
+                <td style="font-weight:700; color:${willDel?'#bbb':'#c0507a'}; text-align:right;">${r.月租金結餘.toLocaleString()}</td>
+                <td>${delTag}</td>
             </tr>`;
         });
 
-        if (removed.length > 0) {
-            html += `<tr><td colspan="15" style="background:#fef2f2; color:#991b1b; font-weight:700; padding:0.5rem; font-size:0.8rem;">
-                以下 ${removed.length} 筆將移除：${removed.map(r=>r.產品名稱+'('+r.批號+')').join('、')}
+        if (willRemove.length > 0) {
+            html += `<tr><td colspan="15" style="background:#fef2f2; color:#e8836a; padding:0.5rem; font-size:0.8rem; font-weight:600;">
+                ⚠️ 灰色 ${willRemove.length} 筆（本期結存=0且月租金結餘=0）確認導入後將從總帳移除
             </td></tr>`;
         }
         html += '</tbody></table></div></div>';
         document.getElementById('ledger_results').innerHTML = html;
         statusEl.innerHTML = '<span style="color:#4a9a37; font-weight:700;">✅ 預覽完成，請確認後導入</span>';
-        window._pendingMonthly = { preview: kept, label };
+        // 只把結餘!=0的存入pendingMonthly（導入時移除清零的）
+        window._pendingMonthly = { preview: kept.filter(r => !(r.本期結存 === 0 && r.月租金結餘 === 0)), label };
 
     } catch(e) {
         statusEl.innerHTML = `<span style="color:#e8836a;">❌ 失敗：${e.message}</span>`;
