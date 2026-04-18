@@ -928,9 +928,13 @@ async function previewMonthly() {
             const prev = ledgerMap[key];
             const 前期結餘 = prev ? (prev.前期結餘||0) : 0;
             const 租金總計 = 前期結餘 + 上半期租金 + 下半期租金;
-            const 上期結存 = parseFloat((r2||r1||{})['上期結存'])||0;
-            const 本期入庫 = parseFloat((r2||r1||{})['本期入庫'])||0;
-            const 本期出庫 = parseFloat((r2||r1||{})['本期出庫'])||0;
+
+            // 上期結存：有上半期就抓上半期，否則抓下半期
+            const 上期結存 = parseFloat((r1||r2||{})['上期結存'])||0;
+            // 本期入庫、本期出庫：兩期加總
+            const 本期入庫 = (parseFloat((r1||{})['本期入庫'])||0) + (parseFloat((r2||{})['本期入庫'])||0);
+            const 本期出庫 = (parseFloat((r1||{})['本期出庫'])||0) + (parseFloat((r2||{})['本期出庫'])||0);
+            // 本期結存：有下半期就抓下半期，否則抓上半期
             const 本期結存 = parseFloat((r2||r1||{})['本期結存'])||0;
             const 分攤單價 = 上期結存 === 0
                 ? (本期入庫 > 0 ? Math.round((租金總計 / 本期入庫) * 100000) / 100000 : 0)
