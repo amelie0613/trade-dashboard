@@ -977,12 +977,14 @@ function normalizeRow(r){
       if(mapped['採購期'+bi+'幣別'] === undefined) mapped['採購期'+bi+'幣別'] = 'TWD';
       if(mapped['採購期'+bi+'名稱'] === undefined) mapped['採購期'+bi+'名稱'] = '';
       if(mapped['採購期'+bi+'預計日'] === undefined) mapped['採購期'+bi+'預計日'] = '';
+      if(mapped['採購期'+bi+'備註'] === undefined) mapped['採購期'+bi+'備註'] = '';
     }
     for(var si=1; si<=3; si++){
       if(mapped['銷售期'+si+'金額'] === undefined) mapped['銷售期'+si+'金額'] = 0;
       if(mapped['銷售期'+si+'幣別'] === undefined) mapped['銷售期'+si+'幣別'] = 'TWD';
       if(mapped['銷售期'+si+'名稱'] === undefined) mapped['銷售期'+si+'名稱'] = '';
       if(mapped['銷售期'+si+'預計日'] === undefined) mapped['銷售期'+si+'預計日'] = '';
+      if(mapped['銷售期'+si+'備註'] === undefined) mapped['銷售期'+si+'備註'] = '';
     }
     return mapped;
   }
@@ -2188,6 +2190,7 @@ function showD(rowNum){
               var sa = eSellPeriods.length>=si?eSellPeriods[si-1].amt:'';
               var sd = eSellPeriods.length>=si?eSellPeriods[si-1].date:'';
               var sn = eSellPeriods.length>=si?(eSellPeriods[si-1].name||('第'+si+'期')):'';
+              var snt = eSellPeriods.length>=si?(eSellPeriods[si-1].note||''):'';
               rows3+='<div style="border-top:0.5px dashed #bbf7d0;padding-top:7px;margin-top:7px;">'
                 +'<div style="font-size:10px;font-weight:700;color:#16a34a;margin-bottom:5px;">第'+si+'期</div>'
                 +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">'
@@ -2195,6 +2198,7 @@ function showD(rowNum){
                 +efSel('e-sellp'+si+'cur-'+rowNum,'幣別',sc,['TWD','USD','JPY','EUR'])
                 +'<div><label class="ef-lbl">金額</label><input type="number" id="e-sellp'+si+'amt-'+rowNum+'" class="ef-i" value="'+(sa||'')+'"></div>'
                 +'<div><label class="ef-lbl">預計收款日</label><input type="date" id="e-sellp'+si+'date-'+rowNum+'" class="ef-i" value="'+(sd||'')+'"></div>'
+                +'<div style="grid-column:1/-1"><label class="ef-lbl">備註</label><input type="text" id="e-sellp'+si+'note-'+rowNum+'" class="ef-i" value="'+(snt||'')+'"></div>'
                 +'</div></div>';
             }
             return rows3;
@@ -2212,6 +2216,7 @@ function showD(rowNum){
               var ba = eBuyPeriods.length>=bi?eBuyPeriods[bi-1].amt:'';
               var bd = eBuyPeriods.length>=bi?eBuyPeriods[bi-1].date:'';
               var bn = eBuyPeriods.length>=bi?(eBuyPeriods[bi-1].name||('第'+bi+'期')):'';
+              var bnt = eBuyPeriods.length>=bi?(eBuyPeriods[bi-1].note||''):'';
               rowsb+='<div style="border-top:0.5px dashed #fed7aa;padding-top:7px;margin-top:7px;">'
                 +'<div style="font-size:10px;font-weight:700;color:#ea580c;margin-bottom:5px;">第'+bi+'期</div>'
                 +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">'
@@ -2219,6 +2224,7 @@ function showD(rowNum){
                 +efSel('e-buyp'+bi+'cur-'+rowNum,'幣別',bc,['TWD','USD','JPY','EUR'])
                 +'<div><label class="ef-lbl">金額</label><input type="number" id="e-buyp'+bi+'amt-'+rowNum+'" class="ef-i" value="'+(ba||'')+'"></div>'
                 +'<div><label class="ef-lbl">預計付款日</label><input type="date" id="e-buyp'+bi+'date-'+rowNum+'" class="ef-i" value="'+(bd||'')+'"></div>'
+                +'<div style="grid-column:1/-1"><label class="ef-lbl">備註</label><input type="text" id="e-buyp'+bi+'note-'+rowNum+'" class="ef-i" value="'+(bnt||'')+'"></div>'
                 +'</div></div>';
             }
             return rowsb;
@@ -2524,16 +2530,19 @@ function doEdit(rowNum){
     var bpAmtEl  = document.getElementById('e-buyp'+bpi+'amt-'+rowNum);
     var bpDateEl = document.getElementById('e-buyp'+bpi+'date-'+rowNum);
     var bpNameEl = document.getElementById('e-buyp'+bpi+'name-'+rowNum);
+    var bpNoteEl = document.getElementById('e-buyp'+bpi+'note-'+rowNum);
     if(!bpCurEl) continue;
     var nbpCur  = bpCurEl.value.trim();
     var nbpAmt  = bpAmtEl  ? (parseFloat(bpAmtEl.value)||0)  : 0;
     var nbpDate = bpDateEl ? bpDateEl.value.trim()  : '';
     var nbpName = bpNameEl ? bpNameEl.value.trim()  : '';
+    var nbpNote = bpNoteEl ? bpNoteEl.value.trim()  : '';
     firestoreFields['採購期'+bpi+'幣別']  = nbpCur;
     firestoreFields['採購期'+bpi+'金額']  = nbpAmt;
     firestoreFields['採購期'+bpi+'預計日']= nbpDate;
     firestoreFields['採購期'+bpi+'名稱']  = nbpName;
-    if(nbpAmt > 0 || nbpName) newBuyPeriods.push({name:nbpName, currency:nbpCur, amount:nbpAmt, expectedDate:nbpDate, note:''});
+    firestoreFields['採購期'+bpi+'備註']  = nbpNote;
+    if(nbpAmt > 0 || nbpName) newBuyPeriods.push({name:nbpName, currency:nbpCur, amount:nbpAmt, expectedDate:nbpDate, note:nbpNote});
     if(r){
       var obpAmt = (r['採購期'+bpi+'金額']||0).toString();
       if(obpAmt!==(nbpAmt||0).toString()) changes.push('採購期'+bpi+'金額 「'+obpAmt+'」→「'+nbpAmt+'」');
@@ -2541,6 +2550,7 @@ function doEdit(rowNum){
       r['採購期'+bpi+'金額']  = nbpAmt;
       r['採購期'+bpi+'預計日']= nbpDate;
       r['採購期'+bpi+'名稱']  = nbpName;
+      r['採購期'+bpi+'備註']  = nbpNote;
     }
   }
   firestoreFields['purchase.periods'] = newBuyPeriods;
@@ -2551,16 +2561,19 @@ function doEdit(rowNum){
     var spAmtEl  = document.getElementById('e-sellp'+spi+'amt-'+rowNum);
     var spDateEl = document.getElementById('e-sellp'+spi+'date-'+rowNum);
     var spNameEl = document.getElementById('e-sellp'+spi+'name-'+rowNum);
+    var spNoteEl = document.getElementById('e-sellp'+spi+'note-'+rowNum);
     if(!spCurEl) continue;
     var nspCur  = spCurEl.value.trim();
     var nspAmt  = spAmtEl  ? (parseFloat(spAmtEl.value)||0)  : 0;
     var nspDate = spDateEl ? spDateEl.value.trim()  : '';
     var nspName = spNameEl ? spNameEl.value.trim()  : '';
+    var nspNote = spNoteEl ? spNoteEl.value.trim()  : '';
     firestoreFields['銷售期'+spi+'幣別']  = nspCur;
     firestoreFields['銷售期'+spi+'金額']  = nspAmt;
     firestoreFields['銷售期'+spi+'預計日']= nspDate;
     firestoreFields['銷售期'+spi+'名稱']  = nspName;
-    if(nspAmt > 0 || nspName) newSellPeriods.push({name:nspName, currency:nspCur, amount:nspAmt, expectedDate:nspDate, note:''});
+    firestoreFields['銷售期'+spi+'備註']  = nspNote;
+    if(nspAmt > 0 || nspName) newSellPeriods.push({name:nspName, currency:nspCur, amount:nspAmt, expectedDate:nspDate, note:nspNote});
     if(r){
       var ospAmt = (r['銷售期'+spi+'金額']||0).toString();
       if(ospAmt!==(nspAmt||0).toString()) changes.push('銷售期'+spi+'金額 「'+ospAmt+'」→「'+nspAmt+'」');
@@ -2568,6 +2581,7 @@ function doEdit(rowNum){
       r['銷售期'+spi+'金額']  = nspAmt;
       r['銷售期'+spi+'預計日']= nspDate;
       r['銷售期'+spi+'名稱']  = nspName;
+      r['銷售期'+spi+'備註']  = nspNote;
     }
   }
   firestoreFields['sales.periods'] = newSellPeriods;
