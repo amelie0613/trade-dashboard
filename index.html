@@ -657,11 +657,6 @@ var CLOUD_ACCOUNTS = null;
 // 執行登入後初始化
 function doLogin(u){
   curUser = u;
-  // Firebase Authentication 背景登入（保護 Firestore 存取）
-  try{
-    var fbApp = window.firebase ? (function(){ try{return firebase.app();}catch(e){return firebase.initializeApp(FIREBASE_CONFIG);} })() : null;
-    if(fbApp) firebase.auth().signInWithEmailAndPassword('amelie@macroocean.org','fong24659736').catch(function(e){console.warn('Firebase Auth 登入失敗：',e);});
-  }catch(e){}
   addLog('登入', u.name, '', '');
   document.getElementById('L').style.display = 'none';
   document.getElementById('A').style.display = 'block';
@@ -674,10 +669,20 @@ function doLogin(u){
     u.role==='admin'   ? '管理員後台'     :
     u.role==='finance' ? '財務放款管理'   : '業務員系統';
   buildNav();
-  load();
   fetchRates();
   setInterval(load, 60000);
   setInterval(fetchRates, 1800000);
+  // Firebase Auth 登入完成後才讀資料
+  try{
+    var fbApp = window.firebase ? (function(){ try{return firebase.app();}catch(e){return firebase.initializeApp(FIREBASE_CONFIG);} })() : null;
+    if(fbApp){
+      firebase.auth().signInWithEmailAndPassword('amelie@macroocean.org','fong24659736')
+        .then(function(){ load(); })
+        .catch(function(e){ console.warn('Firebase Auth 登入失敗，直接讀取：',e); load(); });
+    } else {
+      load();
+    }
+  }catch(e){ load(); }
 }
 
 // 載入雲端帳號（Apps Script Sheets — JSONP 模式）
