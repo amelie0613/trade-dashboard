@@ -399,13 +399,10 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 </div>
 
 <div class="scr" id="s-admin">
-  <div class="asec"><div class="asec-t">⚙️ 系統帳號管理</div><div class="asec-s">修改各角色的顯示名稱與密碼，設定後立即生效。</div>
-    <div class="ugrid" id="ug"></div></div>
-  <div class="asec"><div class="asec-t">👤 業務員個人帳號</div><div class="asec-s">每位業務員各自的帳號密碼，登入後只能查看與修改自己的案件。</div>
-    <div id="staff-users"></div></div>
-  <div class="asec"><div class="asec-t">🔑 新增自訂帳號</div><div class="asec-s">可新增其他角色帳號。</div>
-    <div id="cu"></div>
-    <button onclick="addCU()" style="margin-top:10px;padding:9px 16px;border-radius:8px;background:var(--sea);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;">+ 新增帳號</button>
+  <div class="asec">
+    <div class="asec-t">⚙️ 帳號管理（Firebase）</div>
+    <div class="asec-s">所有帳號儲存於 Firebase，即時同步所有裝置。密碼為明碼顯示，請在安全環境操作。</div>
+    <div class="ugrid" id="ug"></div>
   </div>
 </div>
 </div>
@@ -526,6 +523,49 @@ function deleteFirebase(formId, cb){
   db.collection('cases').doc(formId).delete()
     .then(function(){ if(cb) cb(true); })
     .catch(function(e){ console.error('Firestore delete 失敗：', e); if(cb) cb(false); });
+}
+
+// ── Firebase 帳號管理 ──────────────────────────────────
+function readAccountsFirebase(cb){
+  var db = getFirebaseDb();
+  if(!db){ cb(null,'Firestore 未初始化'); return; }
+  db.collection('accounts').get()
+    .then(function(snap){
+      var result=[];
+      snap.forEach(function(doc){ result.push(Object.assign({id:doc.id},doc.data())); });
+      cb(result,null);
+    })
+    .catch(function(e){ cb(null,e.toString()); });
+}
+
+function saveAccountFirebase(acc, cb){
+  var db = getFirebaseDb();
+  if(!db){ if(cb) cb(false); return; }
+  db.collection('accounts').doc(acc.id).set(acc, {merge:true})
+    .then(function(){ if(cb) cb(true); })
+    .catch(function(e){ console.error('帳號寫入失敗：',e); if(cb) cb(false); });
+}
+
+function deleteAccountFirebase(id, cb){
+  var db = getFirebaseDb();
+  if(!db){ if(cb) cb(false); return; }
+  db.collection('accounts').doc(id).delete()
+    .then(function(){ if(cb) cb(true); })
+    .catch(function(e){ if(cb) cb(false); });
+}
+
+// 從 Firebase accounts 載入（優先），失敗才退回 Sheets/本地
+function fetchAccountsFirebase(callback){
+  readAccountsFirebase(function(fbAccs, err){
+    if(fbAccs && fbAccs.length > 0){
+      CLOUD_ACCOUNTS = fbAccs;
+      try{ localStorage.setItem('cloudAccounts', JSON.stringify(CLOUD_ACCOUNTS)); }catch(e){}
+      if(callback) callback();
+    } else {
+      // Firebase 無資料，退回 Sheets JSONP
+      fetchAccounts(callback);
+    }
+  });
 }
 
 // ── GAS 非同步備份 ─────────────────────────────────────
@@ -835,30 +875,39 @@ function login(){
   if(!p){ document.getElementById('lerr').textContent='請輸入密碼'; return; }
   if(btn){ btn.disabled=true; btn.textContent='驗證中...'; }
 
-  // 先嘗試從雲端取得帳號（JSONP，繞過 CORS），再本地比對
-  jsonpGet(SCRIPT+'?action=getAccounts', function(d, err){
+  function tryLogin(accounts){
     if(btn){ btn.disabled=false; btn.textContent='登入'; }
-    var accounts = (d && d.status==='ok' && d.accounts) ? d.accounts : [];
     var allLocal = BASE_USERS.concat(DEFAULT_STAFF);
-    var merged = accounts.map(function(u){
+    var merged = accounts.length > 0 ? accounts : allLocal;
+    // 補上本地密碼（若 Firebase 帳號沒有密碼欄位）
+    merged = merged.map(function(u){
       if(u.pwd) return u;
       var local = allLocal.find(function(l){ return l.id===u.id; });
       return Object.assign({}, u, { pwd: local ? local.pwd : '' });
     });
-    if(!merged.length) merged = allLocal.slice();
     var pTrim = p.trim();
-    var u = merged.find(function(x){
-      return x.role===role && (x.pwd||'').toString().trim()===pTrim;
-    });
-    if(!u) u = merged.find(function(x){
-      return (x.pwd||'').toString().trim()===pTrim;
-    });
+    var u = merged.find(function(x){ return x.role===role && (x.pwd||'').toString().trim()===pTrim; });
+    if(!u) u = merged.find(function(x){ return (x.pwd||'').toString().trim()===pTrim; });
     if(u){
       CLOUD_ACCOUNTS = merged;
       doLogin(u);
     } else {
       document.getElementById('lerr').textContent='密碼錯誤';
       document.getElementById('lpwd').value='';
+    }
+  }
+
+  // 優先從 Firebase accounts 讀取
+  readAccountsFirebase(function(fbAccs, err){
+    if(fbAccs && fbAccs.length > 0){
+      CLOUD_ACCOUNTS = fbAccs;
+      tryLogin(fbAccs);
+    } else {
+      // 退回 Sheets JSONP
+      jsonpGet(SCRIPT+'?action=getAccounts', function(d, err2){
+        var accounts = (d && d.status==='ok' && d.accounts) ? d.accounts : [];
+        tryLogin(accounts);
+      });
     }
   });
 }
@@ -2583,169 +2632,187 @@ function doDelete(rowNum,name){
 function renderAdmin(){
   var ug = document.getElementById('ug');
   if(!ug) return;
-  ug.innerHTML = '';
+  ug.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;"><div class="spin" style="margin:0 auto 8px;"></div>從 Firebase 載入帳號...</div>';
 
-  // 從 CLOUD_ACCOUNTS 讀完整帳號（包含 Sheets 新增的）
-  var allUsers = CLOUD_ACCOUNTS && CLOUD_ACCOUNTS.length > 0 ? CLOUD_ACCOUNTS : CU;
-  var editableUsers = allUsers.filter(function(u){
-    if(curUser.role==='boss') return true; // 董事長看全部
-    if(curUser.role==='admin') return true; // 管理員看全部
-    return u.id === curUser.id;
-  });
+  readAccountsFirebase(function(fbAccs, err){
+    var allLocal = BASE_USERS.concat(DEFAULT_STAFF);
+    var allUsers = (fbAccs && fbAccs.length > 0) ? fbAccs : (CLOUD_ACCOUNTS && CLOUD_ACCOUNTS.length > 0 ? CLOUD_ACCOUNTS : allLocal);
+    CLOUD_ACCOUNTS = allUsers;
 
-  editableUsers.forEach(function(u){
-    var card = document.createElement('div');
-    card.className = 'uc';
-    card.id = 'uc-'+u.id;
-
-    var roleDiv = document.createElement('div');
-    roleDiv.className = 'uc-role';
-    roleDiv.textContent = u.role;
-    card.appendChild(roleDiv);
-
-    var nmDiv = document.createElement('div');
-    nmDiv.className = 'uc-nm';
-    nmDiv.textContent = u.name;
-    card.appendChild(nmDiv);
-
-    // 名稱欄
-    var f1 = document.createElement('div'); f1.className='uc-f';
-    var l1 = document.createElement('label'); l1.className='uc-l'; l1.textContent='顯示名稱';
-    var i1 = document.createElement('input'); i1.className='uc-i'; i1.id='un-'+u.id; i1.value=u.name;
-    f1.appendChild(l1); f1.appendChild(i1); card.appendChild(f1);
-
-    // 密碼欄
-    var f2 = document.createElement('div'); f2.className='uc-f';
-    var l2 = document.createElement('label'); l2.className='uc-l'; l2.textContent='新密碼（留空不改）';
-    var i2 = document.createElement('input'); i2.className='uc-i'; i2.id='up-'+u.id;
-    i2.type='password'; i2.placeholder='輸入新密碼'; i2.autocomplete='new-password';
-    f2.appendChild(l2); f2.appendChild(i2); card.appendChild(f2);
-
-    // 儲存按鈕
-    var btn = document.createElement('button');
-    btn.className = 'btn-su';
-    btn.textContent = '儲存';
-    btn.setAttribute('data-uid', u.id);
-    btn.addEventListener('click', function(){
-      saveU2(this.getAttribute('data-uid'));
+    ug.innerHTML = '';
+    var editableUsers = allUsers.filter(function(u){
+      if(curUser.role==='boss') return true;
+      if(curUser.role==='admin') return true;
+      return u.id === curUser.id;
     });
-    card.appendChild(btn);
 
-    // 儲存成功提示
-    var sv = document.createElement('span');
-    sv.className = 'svd'; sv.id = 'sv-'+u.id; sv.textContent = '✓ 已儲存';
-    card.appendChild(sv);
+    editableUsers.forEach(function(u){
+      var card = document.createElement('div');
+      card.className = 'uc';
+      card.id = 'uc-'+u.id;
 
-    ug.appendChild(card);
+      // 角色標籤
+      var roleDiv = document.createElement('div');
+      roleDiv.className = 'uc-role';
+      var roleLabel = u.role==='boss'?'👑 董事長':u.role==='admin'?'🔧 管理員':u.role==='finance'?'💰 財務':'👤 業務員';
+      roleDiv.textContent = roleLabel;
+      card.appendChild(roleDiv);
+
+      var nmDiv = document.createElement('div');
+      nmDiv.className = 'uc-nm';
+      nmDiv.textContent = u.name;
+      card.appendChild(nmDiv);
+
+      // 顯示名稱
+      var f1 = document.createElement('div'); f1.className='uc-f';
+      var l1 = document.createElement('label'); l1.className='uc-l'; l1.textContent='顯示名稱';
+      var i1 = document.createElement('input'); i1.className='uc-i'; i1.id='un-'+u.id; i1.value=u.name||'';
+      f1.appendChild(l1); f1.appendChild(i1); card.appendChild(f1);
+
+      // 密碼（明碼顯示）
+      var f2 = document.createElement('div'); f2.className='uc-f';
+      var l2 = document.createElement('label'); l2.className='uc-l'; l2.textContent='登入密碼';
+      var i2 = document.createElement('input'); i2.className='uc-i'; i2.id='up-'+u.id;
+      i2.type='text'; i2.value=u.pwd||''; i2.autocomplete='off';
+      i2.style.cssText='font-family:monospace;letter-spacing:.04em;';
+      f2.appendChild(l2); f2.appendChild(i2); card.appendChild(f2);
+
+      // 業務員才有 staffName 欄位
+      if(u.role==='staff'){
+        var f3 = document.createElement('div'); f3.className='uc-f';
+        var l3 = document.createElement('label'); l3.className='uc-l'; l3.textContent='對應表單業務名稱';
+        var i3 = document.createElement('input'); i3.className='uc-i'; i3.id='usn-'+u.id;
+        i3.value=u.staffName||u.name||''; i3.placeholder='需與表單填寫名稱一致';
+        f3.appendChild(l3); f3.appendChild(i3); card.appendChild(f3);
+      }
+
+      // 儲存按鈕
+      var btn = document.createElement('button');
+      btn.className = 'btn-su';
+      btn.textContent = '💾 儲存';
+      btn.setAttribute('data-uid', u.id);
+      btn.addEventListener('click', function(){
+        saveAccountToFirebase(this.getAttribute('data-uid'));
+      });
+      card.appendChild(btn);
+
+      // 刪除按鈕（非自己才顯示，且非 boss 帳號）
+      if(u.id !== curUser.id && u.role !== 'boss'){
+        var delBtn = document.createElement('button');
+        delBtn.style.cssText='width:100%;margin-top:4px;padding:6px;border-radius:7px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:11px;font-weight:700;cursor:pointer;';
+        delBtn.textContent='🗑️ 刪除帳號';
+        delBtn.setAttribute('data-uid', u.id);
+        delBtn.addEventListener('click', function(){
+          var uid = this.getAttribute('data-uid');
+          if(!confirm('確定刪除帳號？')) return;
+          deleteAccountFirebase(uid, function(ok){
+            toast(ok?'✅ 帳號已刪除':'❌ 刪除失敗', ok?'#16a34a':'#dc2626');
+            renderAdmin();
+          });
+        });
+        card.appendChild(delBtn);
+      }
+
+      // 儲存成功提示
+      var sv = document.createElement('span');
+      sv.className = 'svd'; sv.id = 'sv-'+u.id; sv.textContent = '✓ 已儲存';
+      card.appendChild(sv);
+
+      ug.appendChild(card);
+    });
+
+    // 新增帳號按鈕
+    var addBtn = document.createElement('button');
+    addBtn.style.cssText='padding:10px 18px;border-radius:8px;background:var(--sea);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;margin-top:8px;grid-column:1/-1;';
+    addBtn.textContent='+ 新增帳號';
+    addBtn.onclick = function(){ showAddAccountModal(); };
+    ug.appendChild(addBtn);
   });
-
-  renderCU();
-  renderStaffUsers();
 }
-function saveU2(id){
-  var name=document.getElementById('un-'+id).value.trim();
-  var pwd=document.getElementById('up-'+id).value.trim();
-  // 同步更新到 Google Sheets（跨裝置）
-  fetch(SCRIPT,{
-    method:'POST',
-    body:JSON.stringify({action:'updateAccount',id:id,name:name,pwd:pwd||undefined}),
-    mode:'no-cors'
-  }).finally(function(){
-    // 更新本地雲端快取
-    fetchAccounts(function(){
-      CU=loadU();
+
+function saveAccountToFirebase(id){
+  var nameEl = document.getElementById('un-'+id);
+  var pwdEl  = document.getElementById('up-'+id);
+  var stnEl  = document.getElementById('usn-'+id);
+  if(!nameEl||!pwdEl) return;
+  var name = nameEl.value.trim();
+  var pwd  = pwdEl.value.trim();
+  var staffName = stnEl ? stnEl.value.trim() : '';
+  if(!name||!pwd){ toast('名稱和密碼不能空白','#dc2626'); return; }
+
+  var existing = (CLOUD_ACCOUNTS||[]).find(function(u){ return u.id===id; }) || {};
+  var acc = Object.assign({}, existing, { id:id, name:name, pwd:pwd });
+  if(staffName) acc.staffName = staffName;
+
+  saveAccountFirebase(acc, function(ok){
+    if(ok){
+      // 同步更新本地快取
+      if(CLOUD_ACCOUNTS){
+        var idx = CLOUD_ACCOUNTS.findIndex(function(u){ return u.id===id; });
+        if(idx>=0) CLOUD_ACCOUNTS[idx]=acc; else CLOUD_ACCOUNTS.push(acc);
+      }
       var sv=document.getElementById('sv-'+id);
       if(sv){sv.style.display='inline';setTimeout(function(){sv.style.display='none';},2000);}
-      toast('✅ 已更新（所有裝置同步）','#16a34a');
-    });
+      toast('✅ 已儲存至 Firebase','#16a34a');
+      // 同步備份到 Sheets
+      fetch(SCRIPT,{method:'POST',body:JSON.stringify({action:'updateAccount',id:id,name:name,pwd:pwd,staffName:staffName}),mode:'no-cors'});
+    } else {
+      toast('❌ 儲存失敗','#dc2626');
+    }
   });
 }
-function addCU(){
-  var cus=getCU();
-  if(cus.length>=7){toast('最多10個帳號','#dc2626');return;}
-  cus.push({id:'cu_'+Date.now(),role:'staff',name:'新帳號',pwd:'pass123'});
-  saveCU(cus);CU=loadU();renderCU();
-}
-function renderStaffUsers(){
-  var el=document.getElementById('staff-users');
-  if(!el) return;
 
-  // 從 CLOUD_ACCOUNTS 取完整業務員清單（含 Sheets 新增的）
-  var allAcc = CLOUD_ACCOUNTS && CLOUD_ACCOUNTS.length > 0 ? CLOUD_ACCOUNTS : CU;
-  var staffList = allAcc.filter(function(u){ return u.role==='staff'; });
-  if(!staffList.length) staffList = DEFAULT_STAFF;
+function showAddAccountModal(){
+  var roles = ['boss','admin','finance','staff'];
+  var html = '<div style="padding:20px;">'
+    +'<div style="font-size:15px;font-weight:700;margin-bottom:16px;">➕ 新增帳號</div>'
+    +'<div style="display:flex;flex-direction:column;gap:10px;">'
+    +'<div><label class="ef-lbl">角色</label><select id="nacc-role" class="ef-i"><option value="staff">👤 業務員</option><option value="admin">🔧 管理員</option><option value="finance">💰 財務</option></select></div>'
+    +'<div><label class="ef-lbl">ID（唯一識別，英數字）</label><input type="text" id="nacc-id" class="ef-i" placeholder="例：s_name"></div>'
+    +'<div><label class="ef-lbl">顯示名稱</label><input type="text" id="nacc-name" class="ef-i" placeholder="例：王小明"></div>'
+    +'<div><label class="ef-lbl">登入密碼</label><input type="text" id="nacc-pwd" class="ef-i" style="font-family:monospace;" placeholder="例：name2026"></div>'
+    +'<div><label class="ef-lbl">對應表單業務名稱（業務員填）</label><input type="text" id="nacc-sn" class="ef-i" placeholder="需與表單填寫名稱一致"></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:16px;">'
+    +'<button onclick="document.getElementById(\'AddAccM\').classList.remove(\'open\')" style="flex:1;padding:10px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:0.5px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">取消</button>'
+    +'<button onclick="doAddAccount()" style="flex:2;padding:10px;border-radius:8px;background:var(--sea);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;">✅ 新增</button>'
+    +'</div></div>';
 
-  var grid = document.createElement('div');
-  grid.className = 'ugrid';
-
-  staffList.forEach(function(u){
-    var card = document.createElement('div');
-    card.className = 'uc';
-
-    var roleDiv = document.createElement('div');
-    roleDiv.className='uc-role'; roleDiv.textContent='業務員';
-    card.appendChild(roleDiv);
-
-    var nmDiv = document.createElement('div');
-    nmDiv.className='uc-nm'; nmDiv.textContent=u.name;
-    card.appendChild(nmDiv);
-
-    // 名稱
-    var f1=document.createElement('div'); f1.className='uc-f';
-    var l1=document.createElement('label'); l1.className='uc-l';
-    l1.textContent='顯示名稱（需與表單業務名稱一致）';
-    var i1=document.createElement('input'); i1.className='uc-i';
-    i1.id='sn-'+u.id; i1.value=u.name;
-    f1.appendChild(l1); f1.appendChild(i1); card.appendChild(f1);
-
-    // 密碼（不顯示現有密碼，留空不改）
-    var f2=document.createElement('div'); f2.className='uc-f';
-    var l2=document.createElement('label'); l2.className='uc-l';
-    l2.textContent='新密碼（留空不改）';
-    var i2=document.createElement('input'); i2.className='uc-i';
-    i2.id='sp-'+u.id; i2.type='password'; i2.placeholder='輸入新密碼';
-    f2.appendChild(l2); f2.appendChild(i2); card.appendChild(f2);
-
-    // 對應業務名稱
-    var f3=document.createElement('div'); f3.className='uc-f';
-    var l3=document.createElement('label'); l3.className='uc-l';
-    l3.textContent='對應表單業務名稱';
-    var i3=document.createElement('input'); i3.className='uc-i';
-    i3.id='ssn-'+u.id; i3.value=u.staffName||u.name;
-    i3.placeholder='與表單填寫的業務名稱相同';
-    f3.appendChild(l3); f3.appendChild(i3); card.appendChild(f3);
-
-    // 儲存按鈕
-    var btn=document.createElement('button');
-    btn.className='btn-su'; btn.textContent='儲存';
-    btn.setAttribute('data-sid', u.id);
-    btn.addEventListener('click', function(){
-      saveStaffUser(this.getAttribute('data-sid'));
-    });
-    card.appendChild(btn);
-
-    grid.appendChild(card);
-  });
-
-  el.innerHTML='';
-  el.appendChild(grid);
+  var modal = document.getElementById('AddAccM');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'AddAccM';
+    modal.className = 'modal-bg';
+    modal.style.zIndex = '700';
+    modal.innerHTML = '<div class="modal-box" style="max-width:420px;"></div>';
+    modal.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); });
+    document.body.appendChild(modal);
+  }
+  modal.querySelector('.modal-box').innerHTML = html;
+  modal.classList.add('open');
 }
 
-function saveStaffUser(elOrId){
-  var id = typeof elOrId==='string' ? elOrId : elOrId.dataset.sid;
-  var name=document.getElementById('sn-'+id).value.trim();
-  var pwd=document.getElementById('sp-'+id).value.trim();
-  var staffName=document.getElementById('ssn-'+id).value.trim();
-  // 同步更新到 Google Sheets（跨裝置）
-  fetch(SCRIPT,{
-    method:'POST',
-    body:JSON.stringify({action:'updateAccount',id:id,name:name,pwd:pwd||undefined,staffName:staffName}),
-    mode:'no-cors'
-  }).finally(function(){
-    fetchAccounts(function(){
-      CU=loadU();
-      toast('✅ '+name+' 已更新（所有裝置同步）','#16a34a');
-    });
+function doAddAccount(){
+  var id   = document.getElementById('nacc-id').value.trim();
+  var name = document.getElementById('nacc-name').value.trim();
+  var pwd  = document.getElementById('nacc-pwd').value.trim();
+  var role = document.getElementById('nacc-role').value;
+  var sn   = document.getElementById('nacc-sn').value.trim();
+  if(!id||!name||!pwd){ toast('ID、名稱、密碼必填','#dc2626'); return; }
+
+  var acc = {id:id, role:role, name:name, pwd:pwd};
+  if(sn) acc.staffName = sn;
+
+  saveAccountFirebase(acc, function(ok){
+    if(ok){
+      if(CLOUD_ACCOUNTS) CLOUD_ACCOUNTS.push(acc);
+      document.getElementById('AddAccM').classList.remove('open');
+      toast('✅ 帳號已新增','#16a34a');
+      fetch(SCRIPT,{method:'POST',body:JSON.stringify({action:'updateAccount',id:id,name:name,pwd:pwd,role:role,staffName:sn}),mode:'no-cors'});
+      renderAdmin();
+    } else {
+      toast('❌ 新增失敗','#dc2626');
+    }
   });
 }
 
