@@ -982,11 +982,6 @@ async function previewMonthly() {
 
             <!-- 合計卡片 + 重新計算按鈕 -->
             <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
-                <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
-                    <div style="font-size:0.72rem; color:#2a6a82; font-weight:700;">前期結餘</div>
-                    <div style="font-size:1rem; font-weight:800; color:#2a6a82;" id="psum_前期結餘">$${Math.round(sums['前期結餘']).toLocaleString()}</div>
-                </div>
-                <div style="font-size:1.2rem; color:#aaa; font-weight:700;">+</div>
                 <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:110px;">
                     <div style="font-size:0.72rem; color:#4a9a37; font-weight:700;">${label}上期</div>
                     <div style="font-size:1rem; font-weight:800; color:#4a9a37;" id="psum_上期">$${Math.round(sums['上半期']).toLocaleString()}</div>
@@ -997,9 +992,19 @@ async function previewMonthly() {
                     <div style="font-size:1rem; font-weight:800; color:#4a9a37;" id="psum_下期">$${Math.round(sums['下半期']).toLocaleString()}</div>
                 </div>
                 <div style="font-size:1.2rem; color:#aaa; font-weight:700;">=</div>
+                <div style="background:#f0faf0; border:2px solid #4a9a37; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:110px;">
+                    <div style="font-size:0.72rem; color:#4a9a37; font-weight:700;">${label}總計</div>
+                    <div style="font-size:1rem; font-weight:800; color:#4a9a37;" id="psum_期租金">$${(Math.round(sums['上半期'])+Math.round(sums['下半期'])).toLocaleString()}</div>
+                </div>
+                <div style="width:1px; height:40px; background:#e0d0f0; margin:0 0.3rem;"></div>
+                <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
+                    <div style="font-size:0.72rem; color:#2a6a82; font-weight:700;">前期結餘</div>
+                    <div style="font-size:1rem; font-weight:800; color:#2a6a82;" id="psum_前期結餘">$${Math.round(sums['前期結餘']).toLocaleString()}</div>
+                </div>
+                <div style="font-size:1.2rem; color:#aaa; font-weight:700;">=</div>
                 <div style="background:#fdf0f7; border:2px solid #f2a7c3; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:110px;">
-                    <div style="font-size:0.72rem; color:#c0507a; font-weight:700;">${label}總計</div>
-                    <div style="font-size:1rem; font-weight:800; color:#c0507a;" id="psum_期租金">$${(Math.round(sums['上半期'])+Math.round(sums['下半期'])+Math.round(sums['前期結餘'])).toLocaleString()}</div>
+                    <div style="font-size:0.72rem; color:#c0507a; font-weight:700;">租金總計</div>
+                    <div style="font-size:1rem; font-weight:800; color:#c0507a;" id="psum_租金總計">$${Math.round(sums['租金總計']).toLocaleString()}</div>
                 </div>
                 <div style="width:1px; height:40px; background:#e0d0f0; margin:0 0.3rem;"></div>
                 <div style="background:#fff8e8; border:1.5px solid #f7d96b; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
@@ -1015,7 +1020,6 @@ async function previewMonthly() {
                 </button>
                 <span id="recalc_status" style="font-size:0.8rem; color:#4a9a37; font-weight:700;"></span>
             </div>
-
             <!-- 篩選列 -->
             <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.8rem; flex-wrap:wrap;">
                 <input type="text" id="previewFilter" placeholder="搜尋產品名稱 / 批號..."
@@ -1202,7 +1206,7 @@ window.recalcPreview = function() {
     upd('psum_前期結餘', totalPrev);
     upd('psum_上期', preview.reduce((s,r)=>s+(r.上半期||0),0));
     upd('psum_下期', preview.reduce((s,r)=>s+(r.下半期||0),0));
-    upd('psum_期租金', totalPeriod);
+    upd('psum_期租金', preview.reduce((s,r)=>s+(r.上半期||0)+(r.下半期||0),0));
 
     const status = document.getElementById('recalc_status');
     if (status) {
