@@ -559,7 +559,7 @@
     <div class="content">
         <!-- 總帳操作區 -->
         <div class="top-panel" style="margin-bottom:1.5rem;">
-            <div style="display:grid; grid-template-columns:2fr 1.2fr; gap:1.5rem;">
+            <div style="display:grid; grid-template-columns:2fr 1fr 1.2fr; gap:1.5rem;">
 
                 <!-- 月結算 -->
                 <div>
@@ -597,6 +597,24 @@
                     <div id="ledger_status_monthly" style="margin-top:0.5rem; font-size:0.82rem;"></div>
                 </div>
 
+                <!-- 手動上傳總檔 -->
+                <div>
+                    <div class="section-title">📤 上傳總檔</div>
+                    <p style="font-size:0.8rem; color:#8a6a7a; margin-bottom:0.8rem;">直接覆蓋本地總帳資料</p>
+                    <div class="form-group">
+                        <label>本期總檔 (.xlsx)</label>
+                        <div style="border:2px dashed #c9a8e0; border-radius:10px; padding:0.5rem; background:white;"
+                            ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'ledger_file_upload',this)">
+                            <input type="file" id="ledger_file_upload" accept=".xlsx"
+                                onchange="ledgerFileChanged('ledger_file_upload')"
+                                style="width:100%; font-size:0.8rem; border:none; background:transparent;" />
+                            <div id="ledger_label_upload" style="font-size:0.75rem; color:#8a5aa0; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                        </div>
+                    </div>
+                    <button onclick="doUploadLedger()" class="btn-primary" style="width:100%; margin-top:0.3rem; background:#8a5aa0;">📤 匯入總帳</button>
+                    <div id="ledger_status_upload" style="margin-top:0.5rem; font-size:0.82rem;"></div>
+                </div>
+
                 <!-- 總帳狀態 -->
                 <div>
                     <div class="section-title">💾 總帳狀態</div>
@@ -605,6 +623,7 @@
                     <button onclick="exportLedger()" style="width:100%; background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.75rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif; margin-bottom:0.5rem;">📥 匯出總帳 Excel</button>
                     <button onclick="syncToFirestore()" style="width:100%; background:#4285f4; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到雲端</button>
                     <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #4285f4; color:#4285f4; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從雲端載入</button>
+                    <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 復原上一步</button>
                     <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
                     <button onclick="clearLedger()" style="width:100%; background:none; border:1.5px solid #e8836a; color:#e8836a; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem;">🗑️ 清除總帳資料</button>
                 </div>
@@ -769,9 +788,13 @@ function waitFirebase() {
 const LEDGER_COL = 'ledger';
 const MONTHLY_COL = 'monthly_records';
 const LS_KEY = 'rental_ledger_rows_v2';
+const LS_BACKUP_KEY = 'rental_ledger_backup_v2';
 
 // ===== localStorage 主要操作 =====
 function lsSaveLedgerRows(rows) {
+    // 存新資料前，先把現有資料備份一份
+    const current = localStorage.getItem(LS_KEY);
+    if (current) localStorage.setItem(LS_BACKUP_KEY, current);
     localStorage.setItem(LS_KEY, JSON.stringify(rows));
 }
 function lsLoadLedgerRows() {
@@ -780,7 +803,24 @@ function lsLoadLedgerRows() {
 }
 function lsClearLedger() {
     localStorage.removeItem(LS_KEY);
+    localStorage.removeItem(LS_BACKUP_KEY);
 }
+
+// ===== 復原上一次備份 =====
+window.restoreBackup = async function() {
+    const backup = localStorage.getItem(LS_BACKUP_KEY);
+    if (!backup) { alert('沒有備份資料可以復原'); return; }
+    const rows = JSON.parse(backup);
+    if (!confirm(`確定要復原到上一次備份？（共 ${rows.length} 筆）\n⚠️ 目前資料將被覆蓋`)) return;
+    localStorage.setItem(LS_KEY, backup);
+    invalidateCache();
+    await refreshLedgerStatus();
+    document.getElementById('ledger_results').innerHTML = `
+        <div style="text-align:center; padding:2rem;">
+            <div style="font-size:2rem;">↩️</div>
+            <div style="font-weight:800; color:#4a9a37; margin-top:0.5rem;">已復原到上一次備份（${rows.length} 筆）</div>
+        </div>`;
+};
 
 // ===== 主要讀寫：優先用 localStorage =====
 async function saveLedgerRows(rows) {
@@ -946,6 +986,52 @@ async function refreshLedgerStatus(forceRefresh = false) {
         el.innerHTML = `<span style="color:#e8836a; font-weight:700;">❌ 連線失敗</span><br><span style="font-size:0.78rem;">${e.message}</span>`;
     }
 }
+
+// ===== 手動上傳總檔 =====
+window.doUploadLedger = async function() {
+    const input = document.getElementById('ledger_file_upload');
+    const file = ledgerFiles['ledger_file_upload'] || (input && input.files[0]);
+    if (!file) { alert('請先選擇本期總檔'); return; }
+    if (!confirm(`確定要用「${file.name}」覆蓋目前總帳？\n⚠️ 目前資料會備份一份，可用「↩️ 復原上一步」還原`)) return;
+
+    const statusEl = document.getElementById('ledger_status_upload');
+    statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取中...</span>';
+
+    try {
+        const raw = await readExcel(file, false);
+        const rows = raw.map(r => ({
+            產品類別: String(r['產品類別']||''),
+            產品代碼: String(r['產品代碼']||''),
+            產品名稱: String(r['產品名稱']||'').trim(),
+            產品規格: String(r['產品規格']||''),
+            基本單位: String(r['基本單位']||''),
+            倉庫: String(r['倉庫']||''),
+            存貨屬性: String(r['存貨屬性']||''),
+            批號: String(r['批號']||'').trim(),
+            庫存狀態: String(r['庫存狀態']||''),
+            採購部門: String(r['採購部門']||''),
+            本期結存: parseFloat(r['本期結存'])||0,
+            月租金結餘: parseFloat(r['月租金(結餘)'])||0,
+            前期結餘: parseFloat(r['月租金(結餘)'])||0,
+            月結歷史: {},
+            備註: String(r['備註']||''),
+            updatedAt: new Date().toISOString()
+        })).filter(r => r.產品名稱 && r.批號);
+
+        await saveLedgerRows(rows);
+        await refreshLedgerStatus();
+        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆</span>`;
+
+        // 清除檔案選取
+        if (input) input.value = '';
+        const lbl = document.getElementById('ledger_label_upload');
+        if (lbl) { lbl.textContent = '或拖拉至此'; lbl.style.color = '#8a5aa0'; }
+        delete ledgerFiles['ledger_file_upload'];
+
+    } catch(e) {
+        statusEl.innerHTML = `<span style="color:#e8836a;">❌ 失敗：${e.message}</span>`;
+    }
+};
 
 // ===== 期初開帳 =====
 
