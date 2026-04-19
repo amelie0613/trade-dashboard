@@ -1365,14 +1365,49 @@ window.onPreviewEdit = function(input) {
 
     input.style.background = '#fffbe6';
 
-    // 更新合計卡片
+    // 更新合計卡片 + 紫色合計列
     const allRows = window._pendingMonthly.preview;
-    const totalOut = allRows.reduce((s,row) => s+(row.月租金出庫||0), 0);
-    const totalRemain = allRows.reduce((s,row) => s+(row.月租金結餘||0), 0);
-    const el1 = document.getElementById('psum_出庫');
-    const el2 = document.getElementById('psum_結餘');
-    if (el1) el1.textContent = '$' + Math.round(totalOut).toLocaleString();
-    if (el2) el2.textContent = '$' + Math.round(totalRemain).toLocaleString();
+    const colKeyMap = window._pendingMonthly.colKeyMap || {};
+    const label = window._pendingMonthly.label || '';
+
+    const sumMap = {
+        '總檔結存': allRows.reduce((s,row)=>s+(parseFloat(row.總檔結存)||0),0),
+        '上期結存': allRows.reduce((s,row)=>s+(row.上期結存||0),0),
+        '本期入庫': allRows.reduce((s,row)=>s+(row.本期入庫||0),0),
+        '本期出庫': allRows.reduce((s,row)=>s+(row.本期出庫||0),0),
+        '本期結存': allRows.reduce((s,row)=>s+(row.本期結存||0),0),
+        '總檔租金結餘': allRows.reduce((s,row)=>s+(row.前期結餘||0),0),
+        '租金總計': allRows.reduce((s,row)=>s+(row.租金總計||0),0),
+        '月租金(出庫)': allRows.reduce((s,row)=>s+(row.月租金出庫||0),0),
+        '月租金(結餘)': allRows.reduce((s,row)=>s+(row.月租金結餘||0),0),
+    };
+    sumMap[`${label}上`] = allRows.reduce((s,row)=>s+(row.上半期||0),0);
+    sumMap[`${label}下`] = allRows.reduce((s,row)=>s+(row.下半期||0),0);
+
+    // 更新合計卡片
+    const upd = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = '$'+Math.round(val).toLocaleString(); };
+    upd('psum_出庫', sumMap['月租金(出庫)']);
+    upd('psum_結餘', sumMap['月租金(結餘)']);
+    upd('psum_租金總計', sumMap['租金總計']);
+    upd('psum_上期', sumMap[`${label}上`]);
+    upd('psum_下期', sumMap[`${label}下`]);
+    upd('psum_期租金', (sumMap[`${label}上`]||0)+(sumMap[`${label}下`]||0));
+
+    // 更新紫色合計列（第一個tr）
+    const thead = document.querySelector('#previewTable thead');
+    if (thead) {
+        const sumRow = thead.querySelector('tr:first-child');
+        if (sumRow) {
+            const cols = ['產品名稱','批號','採購部門','總檔結存','上期結存','本期入庫','本期出庫','本期結存','總檔租金結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)','狀態','備註'];
+            const skipCols = ['產品名稱','批號','採購部門','分攤單價','狀態','備註'];
+            Array.from(sumRow.cells).forEach((td, i) => {
+                const col = cols[i];
+                if (!col || skipCols.includes(col)) return;
+                const val = sumMap[col];
+                if (val !== undefined) td.textContent = Math.round(val).toLocaleString();
+            });
+        }
+    }
 };
 
 // ===== 預覽表格篩選 =====
@@ -1427,6 +1462,36 @@ window.recalcPreview = function() {
     if (status) {
         status.textContent = '✅ 已更新';
         setTimeout(() => { status.textContent = ''; }, 2000);
+    }
+
+    // 同步更新紫色合計列
+    const label2 = window._pendingMonthly?.label || '';
+    const thead = document.querySelector('#previewTable thead');
+    if (thead) {
+        const sumRow = thead.querySelector('tr:first-child');
+        if (sumRow) {
+            const sumMap2 = {
+                '總檔結存': preview.reduce((s,r)=>s+(parseFloat(r.總檔結存)||0),0),
+                '上期結存': preview.reduce((s,r)=>s+(r.上期結存||0),0),
+                '本期入庫': preview.reduce((s,r)=>s+(r.本期入庫||0),0),
+                '本期出庫': preview.reduce((s,r)=>s+(r.本期出庫||0),0),
+                '本期結存': preview.reduce((s,r)=>s+(r.本期結存||0),0),
+                '總檔租金結餘': preview.reduce((s,r)=>s+(r.前期結餘||0),0),
+                '租金總計': preview.reduce((s,r)=>s+(r.租金總計||0),0),
+                '月租金(出庫)': preview.reduce((s,r)=>s+(r.月租金出庫||0),0),
+                '月租金(結餘)': preview.reduce((s,r)=>s+(r.月租金結餘||0),0),
+                [`${label2}上`]: preview.reduce((s,r)=>s+(r.上半期||0),0),
+                [`${label2}下`]: preview.reduce((s,r)=>s+(r.下半期||0),0),
+            };
+            const cols = ['產品名稱','批號','採購部門','總檔結存','上期結存','本期入庫','本期出庫','本期結存','總檔租金結餘',`${label2}上`,`${label2}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)','狀態','備註'];
+            const skipCols = ['產品名稱','批號','採購部門','分攤單價','狀態','備註'];
+            Array.from(sumRow.cells).forEach((td, i) => {
+                const col = cols[i];
+                if (!col || skipCols.includes(col)) return;
+                const val = sumMap2[col];
+                if (val !== undefined) td.textContent = Math.round(val).toLocaleString();
+            });
+        }
     }
 };
 
