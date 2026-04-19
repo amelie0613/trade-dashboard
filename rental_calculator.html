@@ -1,55 +1,12 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>租金計算工具 v3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script type="module">
-        // 只保留 Google 登入功能，不初始化 Firebase
-        import { signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-        let window_currentUser = null;
+    <script>
         window._currentUser = null;
-
-        // 模擬登入（不實際連接 Firebase）
-        window._googleLogin = async () => {
-            try {
-                // 模擬登入，顯示提示
-                const name = prompt('請輸入您的名字（模擬登入）：');
-                if (name) {
-                    window._currentUser = { displayName: name, photoURL: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) };
-                    updateAuthUI(window._currentUser);
-                }
-            } catch(e) {
-                alert('登入失敗：' + e.message);
-            }
-        };
-
-        window._googleLogout = async () => {
-            window._currentUser = null;
-            updateAuthUI(null);
-        };
-
-        function updateAuthUI(user) {
-            const userHTML = user ? `
-                <div style="display:flex; align-items:center; gap:0.8rem;">
-                    <img src="${user.photoURL}" style="width:28px; height:28px; border-radius:50%; border:2px solid white;" />
-                    <span style="font-size:0.85rem; color:white; font-weight:600;">${user.displayName}</span>
-                    <button onclick="window._googleLogout()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.5); color:white; border-radius:8px; padding:0.3rem 0.8rem; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif;">登出</button>
-                </div>` : `
-                <button onclick="window._googleLogin()" style="display:flex; align-items:center; gap:0.5rem; background:white; border:none; border-radius:8px; padding:0.4rem 1rem; font-size:0.85rem; font-weight:700; cursor:pointer; color:#764ba2; font-family:'Nunito',sans-serif;">
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:16px; height:16px;" />
-                    登入
-                </button>`;
-            ['authBar','authBar2'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.innerHTML = userHTML;
-            });
-        }
-
-        // 初始化 UI
-        updateAuthUI(null);
         window._fbReady = true;
     </script>
 </head>
