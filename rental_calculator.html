@@ -603,6 +603,9 @@
                     <div id="ledger_db_status" style="font-size:0.85rem; color:#8a6a7a; margin-bottom:1rem;">讀取中...</div>
                     <button onclick="viewLedger()" class="btn-secondary" style="width:100%; margin-bottom:0.5rem;">📋 檢視目前總帳</button>
                     <button onclick="exportLedger()" style="width:100%; background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.75rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif; margin-bottom:0.5rem;">📥 匯出總帳 Excel</button>
+                    <button onclick="syncToFirestore()" style="width:100%; background:#4285f4; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到雲端</button>
+                    <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #4285f4; color:#4285f4; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從雲端載入</button>
+                    <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
                     <button onclick="clearLedger()" style="width:100%; background:none; border:1.5px solid #e8836a; color:#e8836a; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem;">🗑️ 清除總帳資料</button>
                 </div>
 
@@ -765,30 +768,113 @@ function waitFirebase() {
 // ===== 總帳 Firestore 操作 =====
 const LEDGER_COL = 'ledger';
 const MONTHLY_COL = 'monthly_records';
+const LS_KEY = 'rental_ledger_rows_v2';
 
-async function saveLedgerRows(rows) {
-    await waitFirebase();
-    const { writeBatch, doc, collection } = window._fs;
-    const db = window._db;
-    // 分批寫入（Firestore 每批最多500筆）
-    const chunkSize = 400;
-    for (let i = 0; i < rows.length; i += chunkSize) {
-        const batch = writeBatch(db);
-        rows.slice(i, i + chunkSize).forEach(row => {
-            const id = (row.產品名稱 + '|' + row.批號).replace(/\//g, '_');
-            const ref = doc(db, LEDGER_COL, id);
-            batch.set(ref, row);
-        });
-        await batch.commit();
-    }
+// ===== localStorage 主要操作 =====
+function lsSaveLedgerRows(rows) {
+    localStorage.setItem(LS_KEY, JSON.stringify(rows));
+}
+function lsLoadLedgerRows() {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : null;
+}
+function lsClearLedger() {
+    localStorage.removeItem(LS_KEY);
 }
 
-async function loadLedgerRows() {
+// ===== 主要讀寫：優先用 localStorage =====
+async function saveLedgerRows(rows) {
+    lsSaveLedgerRows(rows);
+    invalidateCache();
+}
+
+async function loadLedgerRows(forceRefresh = false) {
+    const local = lsLoadLedgerRows();
+    if (local && !forceRefresh) return local;
+    // localStorage 沒資料才去讀 Firestore
     await waitFirebase();
     const { getDocs, collection } = window._fs;
     const db = window._db;
     const snap = await getDocs(collection(db, LEDGER_COL));
-    return snap.docs.map(d => d.data());
+    const rows = snap.docs.map(d => d.data());
+    lsSaveLedgerRows(rows); // 存到 localStorage
+    _ledgerCache = rows;
+    _ledgerCacheTime = Date.now();
+    return rows;
+}
+
+async function clearAllLedger() {
+    lsClearLedger();
+    invalidateCache();
+}
+
+// ===== 手動同步到 Firestore =====
+async function syncToFirestore() {
+    const rows = lsLoadLedgerRows();
+    if (!rows || rows.length === 0) { alert('本地沒有總帳資料'); return; }
+    const statusEl = document.getElementById('sync_status');
+    if (statusEl) statusEl.textContent = '⏳ 同步中...';
+    try {
+        await waitFirebase();
+        const { writeBatch, doc, collection, getDocs } = window._fs;
+        const db = window._db;
+        // 先清除 Firestore 舊資料
+        const snap = await getDocs(collection(db, LEDGER_COL));
+        const delBatch = writeBatch(db);
+        snap.docs.forEach(d => delBatch.delete(d.ref));
+        await delBatch.commit();
+        // 分批寫入
+        const chunkSize = 400;
+        for (let i = 0; i < rows.length; i += chunkSize) {
+            const batch = writeBatch(db);
+            rows.slice(i, i + chunkSize).forEach(row => {
+                const id = (row.產品名稱 + '|' + row.批號).replace(/\//g, '_');
+                batch.set(doc(db, LEDGER_COL, id), row);
+            });
+            await batch.commit();
+        }
+        if (statusEl) statusEl.textContent = `✅ 已同步 ${rows.length} 筆到雲端`;
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+    } catch(e) {
+        if (statusEl) statusEl.textContent = `❌ 同步失敗：${e.message}`;
+    }
+}
+window.syncToFirestore = syncToFirestore;
+
+// ===== 從 Firestore 載入到 localStorage =====
+async function syncFromFirestore() {
+    const statusEl = document.getElementById('sync_status');
+    if (statusEl) statusEl.textContent = '⏳ 從雲端載入...';
+    try {
+        const rows = await loadLedgerRows(true); // 強制讀 Firestore
+        if (statusEl) statusEl.textContent = `✅ 已載入 ${rows.length} 筆到本地`;
+        await refreshLedgerStatus();
+        setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+    } catch(e) {
+        if (statusEl) statusEl.textContent = `❌ 載入失敗：${e.message}`;
+    }
+}
+window.syncFromFirestore = syncFromFirestore;
+
+// ===== 總帳記憶體快取 =====
+let _ledgerCache = null;
+let _ledgerCacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5分鐘
+
+function invalidateCache() { _ledgerCache = null; }
+
+async function loadLedgerRows(forceRefresh = false) {
+    await waitFirebase();
+    const now = Date.now();
+    if (!forceRefresh && _ledgerCache && (now - _ledgerCacheTime) < CACHE_TTL) {
+        return _ledgerCache;
+    }
+    const { getDocs, collection } = window._fs;
+    const db = window._db;
+    const snap = await getDocs(collection(db, LEDGER_COL));
+    _ledgerCache = snap.docs.map(d => d.data());
+    _ledgerCacheTime = now;
+    return _ledgerCache;
 }
 
 async function deleteLedgerRow(productName, batchNo) {
@@ -829,17 +915,17 @@ async function clearLedger() {
     }
 }
 
-async function refreshLedgerStatus() {
+async function refreshLedgerStatus(forceRefresh = false) {
     const el = document.getElementById('ledger_db_status');
     if (!el) return;
-    el.innerHTML = '<span style="color:#2a6a82;">⏳ 連線中...</span>';
     try {
-        const rows = await loadLedgerRows();
-        if (rows.length === 0) {
-            el.innerHTML = '<span style="color:#e8836a; font-weight:700;">⚠️ 尚未建立總帳</span><br><span style="font-size:0.78rem;">請先執行期初開帳</span>';
+        const rows = await loadLedgerRows(forceRefresh);
+        if (!rows || rows.length === 0) {
+            el.innerHTML = '<span style="color:#e8836a; font-weight:700;">⚠️ 尚未建立總帳</span><br><span style="font-size:0.78rem;">請從雲端載入或重新導入</span>';
         } else {
-            const total = rows.reduce((s, r) => s + (parseFloat(r.月租金結餘 ?? r.前期結餘)|0 || 0), 0);
-            el.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 已連線 Firebase</span><br>
+            const total = rows.reduce((s,r) => s+(parseFloat(r.月租金結餘??r.前期結餘)|0||0), 0);
+            const isLocal = !!lsLoadLedgerRows();
+            el.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ ${isLocal ? '本地快取' : '已連線 Firebase'}</span><br>
                 <span style="font-size:0.78rem;">品項數：${rows.length} 筆<br>
                 累計租金餘額：$${Math.round(total).toLocaleString()}</span>`;
         }
@@ -1267,7 +1353,7 @@ async function confirmMonthly() {
             count: newRows.length,
             totalRental: preview.reduce((s,r)=>s+r.租金總計,0)
         });
-        await refreshLedgerStatus();
+        await refreshLedgerStatus(true); // 強制重新讀取
         window._pendingMonthly = null;
 
         resultsEl.innerHTML = `
