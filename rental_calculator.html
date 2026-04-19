@@ -1246,7 +1246,33 @@ async function previewMonthly() {
                 💡 確認無誤後點「確認導入」，系統會更新總帳並移除本期結存=0且月租金結餘=0的品項
             </div>
             <div class="overflow-auto"><table id="previewTable" style="font-size:0.78rem;">
-                <thead><tr>`;
+                <thead>
+                <tr style="background:#f5f0ff; font-weight:800; font-size:0.75rem; color:#764ba2;">`;
+
+        // 合計列
+        const numericSumCols = {
+            '總檔結存': kept.reduce((s,r)=>s+(parseFloat(r.總檔結存)||0),0),
+            '上期結存': sums['上期結存'],
+            '本期入庫': sums['本期入庫'],
+            '本期出庫': sums['本期出庫'],
+            '本期結存': sums['本期結存'],
+            '總檔租金結餘': sums['前期結餘'],
+            [`${label}上`]: sums['上半期'],
+            [`${label}下`]: sums['下半期'],
+            '租金總計': sums['租金總計'],
+            '月租金(出庫)': sums['月租金出庫'],
+            '月租金(結餘)': sums['月租金結餘'],
+        };
+        previewCols.forEach(col => {
+            if (['產品名稱','批號','採購部門','分攤單價','狀態','備註'].includes(col)) {
+                html += `<td style="padding:0.3rem 0.5rem; text-align:center; color:#999; font-size:0.72rem;">${col === '產品名稱' ? '合計' : ''}</td>`;
+            } else {
+                const val = numericSumCols[col];
+                html += `<td style="padding:0.3rem 0.5rem; text-align:right; white-space:nowrap;">${val !== undefined ? Math.round(val).toLocaleString() : ''}</td>`;
+            }
+        });
+        html += `</tr>
+                <tr>`;
 
         previewCols.forEach((col, idx) => {
             const hl = previewHighlight.includes(col) ? ' highlight' : '';
