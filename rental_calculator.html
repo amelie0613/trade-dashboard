@@ -1160,17 +1160,18 @@ async function previewMonthly() {
         const willRemove = preview.filter(r => r.本期結存 === 0 && r.月租金結餘 === 0);
 
         // 合計（全部資料）
-        const sumKeys = ['上期結存','本期入庫','本期出庫','本期結存','前期結餘','上半期','下半期','租金總計','月租金出庫','月租金結餘'];
+        const sumKeys = ['總檔結存','上期結存','本期入庫','本期出庫','本期結存','前期結餘','上半期','下半期','租金總計','月租金出庫','月租金結餘'];
         const sums = {};
         sumKeys.forEach(k => { sums[k] = kept.reduce((s,r) => s + (parseFloat(r[k])||0), 0); });
 
-        const previewCols = ['產品名稱','批號','採購部門','上期結存','本期入庫','本期出庫','本期結存','前期結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)','狀態','備註'];
-        const previewHighlight = ['前期結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)'];
+        const previewCols = ['產品名稱','批號','採購部門','總檔結存','上期結存','本期入庫','本期出庫','本期結存','總檔租金結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)','狀態','備註'];
+        const previewHighlight = ['總檔租金結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)'];
         const previewNumericCols = ['上期結存','本期入庫','本期出庫','本期結存','前期結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)'];
         // 數字欄對應 r 的 key
         const colKeyMap = {
+            '總檔結存':'總檔結存',
             '上期結存':'上期結存','本期入庫':'本期入庫','本期出庫':'本期出庫','本期結存':'本期結存',
-            '前期結餘':'前期結餘','月租金(出庫)':'月租金出庫','月租金(結餘)':'月租金結餘',
+            '總檔租金結餘':'前期結餘','月租金(出庫)':'月租金出庫','月租金(結餘)':'月租金結餘',
             '租金總計':'租金總計','分攤單價':'分攤單價',
         };
         colKeyMap[`${label}上`] = '上半期';
@@ -1179,7 +1180,10 @@ async function previewMonthly() {
         let html = `<div class="result-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
                 <h3 style="margin:0;">📅 ${label} 月結算預覽（共 ${kept.length} 筆，其中 ${willRemove.length} 筆結餘=0將於導入後移除）</h3>
-                <button onclick="confirmMonthly()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.5rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 確認導入總帳</button>
+                <div style="display:flex; gap:0.5rem;">
+                    <button onclick="exportPreview()" style="background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">📥 匯出 Excel</button>
+                    <button onclick="confirmMonthly()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.5rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 確認導入總帳</button>
+                </div>
             </div>
 
             <!-- 合計卡片 + 重新計算按鈕 -->
@@ -1200,7 +1204,7 @@ async function previewMonthly() {
                 </div>
                 <div style="width:1px; height:40px; background:#e0d0f0; margin:0 0.3rem;"></div>
                 <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.5rem 1rem; text-align:center; min-width:100px;">
-                    <div style="font-size:0.72rem; color:#2a6a82; font-weight:700;">前期結餘</div>
+                    <div style="font-size:0.72rem; color:#2a6a82; font-weight:700;">總檔租金結餘</div>
                     <div style="font-size:1rem; font-weight:800; color:#2a6a82;" id="psum_前期結餘">$${Math.round(sums['前期結餘']).toLocaleString()}</div>
                 </div>
                 <div style="font-size:1.2rem; color:#aaa; font-weight:700;">=</div>
@@ -1275,11 +1279,12 @@ async function previewMonthly() {
                 <td style="white-space:nowrap;">${r.產品名稱}</td>
                 <td style="white-space:nowrap;">${r.批號}</td>
                 <td style="white-space:nowrap;">${r.採購部門}</td>
+                ${numCell('總檔結存')}
                 ${numCell('上期結存')}
                 ${numCell('本期入庫')}
                 ${numCell('本期出庫')}
                 ${numCell('本期結存')}
-                ${numCell('前期結餘')}
+                ${numCell('總檔租金結餘')}
                 ${numCell(`${label}上`)}
                 ${numCell(`${label}下`)}
                 ${numCell('租金總計','font-weight:700;')}
@@ -1320,8 +1325,9 @@ window.onPreviewEdit = function(input) {
         if (cleaned !== '' && !isNaN(parseFloat(cleaned))) {
             const val = parseFloat(cleaned);
             const keyMap = {
+                '總檔結存':'總檔結存',
                 '上期結存':'上期結存','本期入庫':'本期入庫','本期出庫':'本期出庫','本期結存':'本期結存',
-                '前期結餘':'前期結餘','月租金(出庫)':'月租金出庫','月租金(結餘)':'月租金結餘',
+                '總檔租金結餘':'前期結餘','月租金(出庫)':'月租金出庫','月租金(結餘)':'月租金結餘',
                 '租金總計':'租金總計','分攤單價':'分攤單價',
             };
             Object.keys(window._pendingMonthly.colKeyMap||{}).forEach(k => { keyMap[k] = window._pendingMonthly.colKeyMap[k]; });
@@ -1417,6 +1423,34 @@ window.sortPreviewTable = function(colIdx) {
     if (icon) icon.textContent = previewSortState.asc ? '↑' : '↓';
     const sumRow = tbody.querySelector('tr[style*="fdf0f7"]');
     rows.forEach(r => tbody.insertBefore(r, sumRow || null));
+};
+
+// ===== 匯出月結算預覽 Excel =====
+window.exportPreview = function() {
+    if (!window._pendingMonthly) { alert('請先預覽月結算'); return; }
+    const { preview, label } = window._pendingMonthly;
+    const exportData = preview.map(r => ({
+        產品類別: r.產品類別||'',
+        產品名稱: r.產品名稱,
+        批號: r.批號,
+        採購部門: r.採購部門||'',
+        上期結存: r.上期結存,
+        本期入庫: r.本期入庫,
+        本期出庫: r.本期出庫,
+        本期結存: r.本期結存,
+        總檔租金結餘: r.前期結餘,
+        [`${label}上`]: r.上半期,
+        [`${label}下`]: r.下半期,
+        租金總計: r.租金總計,
+        分攤單價: r.分攤單價,
+        月租金出庫: r.月租金出庫,
+        月租金結餘: r.月租金結餘,
+        備註: r.備註||''
+    }));
+    const ws = window.XLSX.utils.json_to_sheet(exportData);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, `${label}月結算`);
+    window.XLSX.writeFile(wb, `月結算_${label}_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
 
 async function confirmMonthly() {
@@ -1563,7 +1597,7 @@ async function viewLedger() {
                     <th style="white-space:nowrap;">批號</th>
                     <th style="white-space:nowrap;">採購部門</th>
                     <th style="text-align:right; white-space:nowrap;">總檔結存</th>
-                    <th class="highlight" style="text-align:right; white-space:nowrap;">月租金結餘</th>
+                    <th class="highlight" style="text-align:right; white-space:nowrap;">總檔租金結餘</th>
                     <th>月結歷史</th>
                 </tr></thead>
                 <tbody>
