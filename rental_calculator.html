@@ -1013,7 +1013,7 @@ window.doUploadLedger = async function() {
         const raw = await readExcel(file, false);
         const rows = raw.map(r => ({
             產品類別: String(r['產品類別']||''),
-            產品代碼: String(r['產品代碼']||''),
+            產品代碼: String(r['產品代碼']||'').padStart(4,'0'),
             產品名稱: String(r['產品名稱']||'').trim(),
             產品規格: String(r['產品規格']||''),
             基本單位: String(r['基本單位']||''),
@@ -1072,7 +1072,7 @@ async function doInitLedger() {
         const raw = await readExcel(file, false);
         const rows = raw.map(r => ({
             產品類別: r['產品類別'] || '',
-            產品代碼: String(r['產品代碼'] || ''),
+            產品代碼: String(r['產品代碼'] || '').padStart(4,'0'),
             產品名稱: String(r['產品名稱'] || '').trim(),
             產品規格: r['產品規格'] || '',
             基本單位: r['基本單位'] || '',
@@ -1145,7 +1145,7 @@ async function previewMonthly() {
             const 月租金結餘 = Math.round(租金總計 - 月租金出庫);
             preview.push({
                 產品類別: (base||{})['產品類別']||(prev&&prev.產品類別)||'',
-                產品代碼: (base||{})['產品代碼']||(prev&&prev.產品代碼)||'',
+                產品代碼: String((base||{})['產品代碼']||(prev&&prev.產品代碼)||'').padStart(4,'0'),
                 產品名稱: String((base||{})['產品名稱']||'').trim(),
                 批號: String((base||{})['批號']||'').trim(),
                 採購部門: (base||{})['採購部門']||(prev&&prev.採購部門)||'',
