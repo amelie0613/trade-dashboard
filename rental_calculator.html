@@ -1428,55 +1428,62 @@ async function confirmMonthly() {
     resultsEl.innerHTML = '<p style="text-align:center; padding:2rem; color:#2a6a82;">⏳ 寫入 Firebase 中...</p>';
 
     try {
-        // 讀取現有月結歷史（保留歷史記錄）
-        const existingRows = await loadLedgerRows();
-        const historyMap = {};
-        existingRows.forEach(r => { historyMap[r.產品名稱+'|'+r.批號] = r.月結歷史||{}; });
+        // 讀取現有資料（保留月結歷史、採購部門等）
+        const existingRows = lsLoadLedgerRows() || [];
+        const existingMap = {};
+        existingRows.forEach(r => { existingMap[r.產品名稱+'|'+r.批號] = r; });
 
-        // 先清除所有舊資料，再寫入新的（確保總帳金額正確）
-        await clearAllLedger();
+        const newRows = preview.map(r => {
+            const old = existingMap[r._key] || {};
+            return {
+                產品類別: r.產品類別 || old.產品類別 || '',
+                產品代碼: r.產品代碼 || old.產品代碼 || '',
+                產品名稱: r.產品名稱,
+                批號: r.批號,
+                // 採購部門：有值才更新，沒有就保留舊的
+                採購部門: r.採購部門 || old.採購部門 || '',
+                // 庫存數量
+                上期結存: r.上期結存 || 0,
+                本期入庫: r.本期入庫 || 0,
+                本期出庫: r.本期出庫 || 0,
+                本期結存: r.本期結存 || 0,
+                總檔結存: r.本期結存 || 0,        // 同步更新總檔結存
+                // 租金計算
+                前期結餘: r.前期結餘 || 0,
+                上半期租金: r.上半期 || 0,
+                下半期租金: r.下半期 || 0,
+                租金總計: r.租金總計 || 0,
+                分攤單價: r.分攤單價 || 0,
+                月租金出庫: r.月租金出庫 || 0,
+                月租金結餘: r.月租金結餘 || 0,
+                總檔租金結餘: r.月租金結餘 || 0,  // 同步更新總檔租金結餘
+                // 歷史和備註
+                月結歷史: { ...(old.月結歷史||{}), [label]: r.租金總計 },
+                備註: r.備註 || old.備註 || '',
+                月份: label,
+                updatedAt: new Date().toISOString()
+            };
+        });
 
-        const newRows = preview.map(r => ({
-            產品類別: r.產品類別 || '',
-            產品代碼: r.產品代碼 || '',
-            產品名稱: r.產品名稱,
-            批號: r.批號,
-            採購部門: r.採購部門 || '',
-            // 庫存數量
-            上期結存: r.上期結存 || 0,
-            本期入庫: r.本期入庫 || 0,
-            本期出庫: r.本期出庫 || 0,
-            本期結存: r.本期結存 || 0,
-            // 租金計算
-            前期結餘: r.前期結餘 || 0,
-            上半期租金: r.上半期 || 0,
-            下半期租金: r.下半期 || 0,
-            租金總計: r.租金總計 || 0,
-            分攤單價: r.分攤單價 || 0,
-            月租金出庫: r.月租金出庫 || 0,
-            月租金結餘: r.月租金結餘 || 0,
-            // 下期帶入用
-            前期結餘_next: r.月租金結餘,
-            // 歷史和備註
-            月結歷史: { ...(historyMap[r._key]||{}), [label]: r.租金總計 },
-            備註: r.備註 || '',
-            月份: label,
-            updatedAt: new Date().toISOString()
-        }));
+        // 不清除舊資料！只更新本次有出現的批號，其他保留
+        const finalMap = {};
+        existingRows.forEach(r => { finalMap[r.產品名稱+'|'+r.批號] = r; });
+        newRows.forEach(r => { finalMap[r.產品名稱+'|'+r.批號] = r; });
+        const finalRows = Object.values(finalMap);
 
-        await saveLedgerRows(newRows);
+        await saveLedgerRows(finalRows);
         await saveMonthlyRecord(label, {
             count: newRows.length,
             totalRental: preview.reduce((s,r)=>s+r.租金總計,0)
         });
-        await refreshLedgerStatus(true); // 強制重新讀取
+        await refreshLedgerStatus();
         window._pendingMonthly = null;
 
         resultsEl.innerHTML = `
             <div style="text-align:center; padding:2rem;">
                 <div style="font-size:2rem; margin-bottom:0.5rem;">🎉</div>
                 <div style="font-weight:800; font-size:1.2rem; color:#4a9a37;">${label} 月結算完成！</div>
-                <div style="color:#8a6a7a; margin-top:0.5rem;">共 ${newRows.length} 筆已寫入 Firebase</div>
+                <div style="color:#8a6a7a; margin-top:0.5rem;">更新 ${newRows.length} 筆，總帳共 ${finalRows.length} 筆</div>
                 <button onclick="viewLedger()" class="btn-primary" style="margin-top:1rem; width:auto; padding:0.6rem 1.5rem;">📋 檢視總帳</button>
             </div>`;
     } catch(e) {
