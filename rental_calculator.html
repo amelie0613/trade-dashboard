@@ -6,48 +6,29 @@
     <title>租金計算工具 v3</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+        // 只保留 Google 登入功能，不初始化 Firebase
+        import { signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCyIugOQCfTo5WvJhw-YHsIX9MW1yN0_yU",
-            authDomain: "rental-ledger-87143.firebaseapp.com",
-            projectId: "rental-ledger-87143",
-            storageBucket: "rental-ledger-87143.firebasestorage.app",
-            messagingSenderId: "356282267258",
-            appId: "1:356282267258:web:12b9d7fcbac12f1e5fedc3"
-        };
+        let window_currentUser = null;
+        window._currentUser = null;
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
-
-        window._db = db;
-        window._auth = auth;
-        window._fs = { collection, doc, setDoc, getDoc, getDocs, deleteDoc, writeBatch };
-
-        // 監聽登入狀態
-        onAuthStateChanged(auth, (user) => {
-            window._currentUser = user;
-            updateAuthUI(user);
-            if (user) {
-                window._fbReady = true;
-                document.dispatchEvent(new Event('firebase-ready'));
-            }
-        });
-
+        // 模擬登入（不實際連接 Firebase）
         window._googleLogin = async () => {
             try {
-                await signInWithPopup(auth, provider);
+                // 模擬登入，顯示提示
+                const name = prompt('請輸入您的名字（模擬登入）：');
+                if (name) {
+                    window._currentUser = { displayName: name, photoURL: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) };
+                    updateAuthUI(window._currentUser);
+                }
             } catch(e) {
                 alert('登入失敗：' + e.message);
             }
         };
 
         window._googleLogout = async () => {
-            await signOut(auth);
+            window._currentUser = null;
+            updateAuthUI(null);
         };
 
         function updateAuthUI(user) {
@@ -59,7 +40,7 @@
                 </div>` : `
                 <button onclick="window._googleLogin()" style="display:flex; align-items:center; gap:0.5rem; background:white; border:none; border-radius:8px; padding:0.4rem 1rem; font-size:0.85rem; font-weight:700; cursor:pointer; color:#764ba2; font-family:'Nunito',sans-serif;">
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:16px; height:16px;" />
-                    Google 登入
+                    登入
                 </button>`;
             ['authBar','authBar2'].forEach(id => {
                 const el = document.getElementById(id);
@@ -67,7 +48,9 @@
             });
         }
 
-        window._fbReady = false;
+        // 初始化 UI
+        updateAuthUI(null);
+        window._fbReady = true;
     </script>
 </head>
 <body>
