@@ -1144,7 +1144,8 @@ async function previewMonthly() {
             const 月租金出庫 = Math.round(分攤單價 * 本期出庫);
             const 月租金結餘 = Math.round(租金總計 - 月租金出庫);
             preview.push({
-                產品類別: (base||{})['產品類別']||'',
+                產品類別: (base||{})['產品類別']||(prev&&prev.產品類別)||'',
+                產品代碼: (base||{})['產品代碼']||(prev&&prev.產品代碼)||'',
                 產品名稱: String((base||{})['產品名稱']||'').trim(),
                 批號: String((base||{})['批號']||'').trim(),
                 採購部門: (base||{})['採購部門']||(prev&&prev.採購部門)||'',
@@ -1523,6 +1524,7 @@ window.exportPreview = function() {
     const { preview, label } = window._pendingMonthly;
     const exportData = preview.map(r => ({
         產品類別: r.產品類別||'',
+        產品代碼: r.產品代碼||'',
         產品名稱: r.產品名稱,
         批號: r.批號,
         採購部門: r.採購部門||'',
