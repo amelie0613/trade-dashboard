@@ -1595,7 +1595,9 @@ async function confirmMonthly() {
         const finalMap = {};
         existingRows.forEach(r => { finalMap[r.產品名稱+'|'+r.批號] = r; });
         newRows.forEach(r => { finalMap[r.產品名稱+'|'+r.批號] = r; });
-        const finalRows = Object.values(finalMap);
+        
+        // 移除本期結存=0且月租金結餘=0的（已完全出清）
+        const finalRows = Object.values(finalMap).filter(r => !(r.本期結存 === 0 && (r.月租金結餘 === 0 || r.前期結餘 === 0)));
 
         await saveLedgerRows(finalRows);
         await saveMonthlyRecord(label, {
