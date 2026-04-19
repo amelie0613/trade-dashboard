@@ -836,24 +836,9 @@ async function saveLedgerRows(rows) {
 
 async function loadLedgerRows(forceRefresh = false) {
     const local = lsLoadLedgerRows();
-    if (local && !forceRefresh) return local; // 有本地資料直接回傳，不碰 Firebase
-    // 沒有本地資料才去讀 Firestore（需要登入）
-    try {
-        await waitFirebase();
-        const { getDocs, collection } = window._fs;
-        const db = window._db;
-        const snap = await getDocs(collection(db, LEDGER_COL));
-        const rows = snap.docs.map(d => d.data());
-        if (rows.length > 0) {
-            lsSaveLedgerRows(rows);
-            _ledgerCache = rows;
-            _ledgerCacheTime = Date.now();
-        }
-        return rows;
-    } catch(e) {
-        console.warn('Firestore 讀取失敗，回傳空陣列：', e.message);
-        return [];
-    }
+    if (local && !forceRefresh) return local; // 有本地資料直接回傳
+    // 沒有本地資料，返回空陣列（改用GitHub讀檔）
+    return [];
 }
 
 async function clearAllLedger() {
@@ -994,28 +979,18 @@ async function loadLedgerRows(forceRefresh = false) {
 }
 
 async function deleteLedgerRow(productName, batchNo) {
-    await waitFirebase();
-    const { doc, deleteDoc } = window._fs;
-    const db = window._db;
-    const id = (productName + '|' + batchNo).replace(/\//g, '_');
-    await deleteDoc(doc(db, LEDGER_COL, id));
+    // 不再需要 - 資料存在 GitHub
+    console.log('DeleteLedgerRow 已移除');
 }
 
 async function saveMonthlyRecord(label, summary) {
-    await waitFirebase();
-    const { doc, setDoc } = window._fs;
-    const db = window._db;
-    await setDoc(doc(db, MONTHLY_COL, label), { ...summary, savedAt: new Date().toISOString() });
+    // 不再需要 - 資料存在 GitHub
+    console.log('SaveMonthlyRecord 已移除');
 }
 
 async function clearAllLedger() {
-    await waitFirebase();
-    const { getDocs, collection, doc, writeBatch } = window._fs;
-    const db = window._db;
-    const snap = await getDocs(collection(db, LEDGER_COL));
-    const batch = writeBatch(db);
-    snap.docs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
+    // 不再需要 - 資料存在 GitHub
+    console.log('ClearAllLedger 已移除');
 }
 
 async function clearLedger() {
@@ -1023,9 +998,9 @@ async function clearLedger() {
     const statusEl = document.getElementById('ledger_db_status');
     if (statusEl) statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 清除中...</span>';
     try {
-        await clearAllLedger();
+        lsClearLedger(); // 只清除 localStorage
         refreshLedgerStatus();
-        document.getElementById('ledger_results').innerHTML = '<p style="color:#999; text-align:center; padding:2rem;">總帳已清除</p>';
+        document.getElementById('ledger_results').innerHTML = '<p style="color:#999; text-align:center; padding:2rem;">本地總帳已清除（GitHub 備份保留）</p>';
     } catch(e) {
         alert('清除失敗：' + e.message);
     }
