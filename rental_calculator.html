@@ -1148,6 +1148,7 @@ async function previewMonthly() {
                 產品名稱: String((base||{})['產品名稱']||'').trim(),
                 批號: String((base||{})['批號']||'').trim(),
                 採購部門: (base||{})['採購部門']||(prev&&prev.採購部門)||'',
+                總檔結存: prev ? (prev.總檔結存 ?? prev.本期結存 ?? '') : '',
                 上期結存, 本期入庫, 本期出庫, 本期結存,
                 前期結餘, 上半期: Math.round(上半期租金), 下半期: Math.round(下半期租金),
                 租金總計: Math.round(租金總計), 分攤單價, 月租金出庫, 月租金結餘,
