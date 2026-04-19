@@ -1556,24 +1556,71 @@ window.exportPreviewPDF = function() {
     const tbody = table?.querySelector('tbody');
 
     const win = window.open('', '_blank');
+
+    // 只取需要的欄位
+    const cols = ['產品名稱','批號','採購部門','上期結存','本期入庫','本期出庫','本期結存','總檔租金結餘',`${label}上`,`${label}下`,'租金總計','月租金(出庫)','月租金(結餘)'];
+    
+    // 合計列
+    const sumMap = {
+        '上期結存': preview.reduce((s,r)=>s+(r.上期結存||0),0),
+        '本期入庫': preview.reduce((s,r)=>s+(r.本期入庫||0),0),
+        '本期出庫': preview.reduce((s,r)=>s+(r.本期出庫||0),0),
+        '本期結存': preview.reduce((s,r)=>s+(r.本期結存||0),0),
+        '總檔租金結餘': preview.reduce((s,r)=>s+(r.前期結餘||0),0),
+        '租金總計': preview.reduce((s,r)=>s+(r.租金總計||0),0),
+        '月租金(出庫)': preview.reduce((s,r)=>s+(r.月租金出庫||0),0),
+        '月租金(結餘)': preview.reduce((s,r)=>s+(r.月租金結餘||0),0),
+    };
+    sumMap[`${label}上`] = preview.reduce((s,r)=>s+(r.上半期||0),0);
+    sumMap[`${label}下`] = preview.reduce((s,r)=>s+(r.下半期||0),0);
+
+    const dataKeyMap = {
+        '總檔租金結餘':'前期結餘',
+        '月租金(出庫)':'月租金出庫',
+        '月租金(結餘)':'月租金結餘',
+        [`${label}上`]:'上半期',
+        [`${label}下`]:'下半期',
+    };
+
+    // 建立合計列HTML
+    const sumRowHTML = '<tr class="sum-row">' + cols.map(col => {
+        if (['產品名稱','批號','採購部門'].includes(col)) return `<td>${col==='產品名稱'?'合計':''}</td>`;
+        const val = sumMap[col];
+        return `<td>${val !== undefined ? Math.round(val).toLocaleString() : ''}</td>`;
+    }).join('') + '</tr>';
+
+    // 建立表頭HTML
+    const headerHTML = '<tr>' + cols.map(col => `<th>${col}</th>`).join('') + '</tr>';
+
+    // 建立資料列HTML
+    const bodyHTML = preview.map(r => {
+        return '<tr>' + cols.map(col => {
+            if (['產品名稱','批號','採購部門'].includes(col)) {
+                return `<td style="text-align:left;">${r[col]||''}</td>`;
+            }
+            const key = dataKeyMap[col] || col;
+            const val = r[key];
+            return `<td>${val !== undefined && val !== '' ? (typeof val === 'number' ? val.toLocaleString() : val) : ''}</td>`;
+        }).join('') + '</tr>';
+    }).join('');
+
     win.document.write(`<!DOCTYPE html><html><head>
         <meta charset="UTF-8">
         <title>${label} 月結算報表</title>
         <style>
-            @page { size: A4 landscape; margin: 1cm; }
+            @page { size: A4 landscape; margin: 0.8cm; }
             body { font-family: 'Microsoft JhengHei', sans-serif; font-size: 9px; color: #333; margin: 0; }
-            h2 { text-align:center; font-size:14px; color:#764ba2; margin-bottom:0.8rem; }
-            .cards { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem; justify-content:center; }
-            .card { border:1.5px solid #f2a7c3; border-radius:8px; padding:0.4rem 0.8rem; text-align:center; min-width:90px; }
+            h2 { text-align:center; font-size:14px; color:#764ba2; margin-bottom:0.6rem; }
+            .cards { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.8rem; justify-content:center; align-items:center; }
+            .card { border:1.5px solid #f2a7c3; border-radius:8px; padding:0.3rem 0.8rem; text-align:center; min-width:85px; }
             .card-label { font-size:7px; color:#888; margin-bottom:2px; }
             .card-value { font-size:11px; font-weight:800; color:#764ba2; }
-            .sep { display:flex; align-items:center; font-size:14px; color:#ccc; padding:0 0.2rem; }
-            table { width:100%; border-collapse:collapse; font-size:7.5px; }
-            th { background:#f8e8f8; color:#764ba2; padding:3px 2px; border:1px solid #e0c0e8; text-align:center; white-space:nowrap; }
-            td { padding:2px 3px; border:1px solid #eee; text-align:right; white-space:nowrap; }
-            td:nth-child(1), td:nth-child(2), td:nth-child(3) { text-align:left; }
+            .sep { font-size:13px; color:#ccc; padding:0 0.2rem; }
+            table { width:100%; border-collapse:collapse; font-size:9px; table-layout:fixed; }
+            th { background:#f8e8f8; color:#764ba2; padding:4px 2px; border:1px solid #e0c0e8; text-align:center; }
+            td { padding:3px 2px; border:1px solid #eee; text-align:right; }
             tr:nth-child(even) td { background:#fdf5ff; }
-            .sum-row td { background:#f0e8ff !important; font-weight:800; color:#764ba2; }
+            .sum-row td { background:#f0e8ff !important; font-weight:800; color:#764ba2; border-bottom:2px solid #c9a8e0; }
         </style>
     </head><body>
         <h2>📅 ${label} 月結算報表（共 ${preview.length} 筆）</h2>
@@ -1592,10 +1639,8 @@ window.exportPreviewPDF = function() {
             <div class="card" style="border-color:#c9a8e0;"><div class="card-label">月租金(結餘)</div><div class="card-value" style="color:#764ba2;">$${Math.round(totalRemain).toLocaleString()}</div></div>
         </div>
         <table>
-            <thead>
-                ${thead ? Array.from(thead.querySelectorAll('tr')).map((r,i) => i===0 ? `<tr class="sum-row">${r.innerHTML}</tr>` : r.outerHTML).join('') : ''}
-            </thead>
-            <tbody>${tbody ? tbody.innerHTML : ''}</tbody>
+            <thead>${sumRowHTML}${headerHTML}</thead>
+            <tbody>${bodyHTML}</tbody>
         </table>
         <script>window.onload=function(){window.print();}<\/script>
     </body></html>`);
