@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -862,63 +862,113 @@ async function clearAllLedger() {
 }
 
 // ===== 手動同步到 Firestore =====
-async function syncToFirestore() {
+async function syncToGitHub() {
     const rows = lsLoadLedgerRows();
     if (!rows || rows.length === 0) { alert('本地沒有總帳資料'); return; }
     const statusEl = document.getElementById('sync_status');
-    if (statusEl) statusEl.textContent = '⏳ 同步中...';
+    if (statusEl) statusEl.textContent = '⏳ 上傳到 GitHub...';
+    
     try {
-        await waitFirebase();
-        const { writeBatch, doc, collection, getDocs } = window._fs;
-        const db = window._db;
-        // 先清除 Firestore 舊資料
-        const snap = await getDocs(collection(db, LEDGER_COL));
-        const delBatch = writeBatch(db);
-        snap.docs.forEach(d => delBatch.delete(d.ref));
-        await delBatch.commit();
-        // 分批寫入
-        const chunkSize = 400;
-        for (let i = 0; i < rows.length; i += chunkSize) {
-            const batch = writeBatch(db);
-            rows.slice(i, i + chunkSize).forEach(row => {
-                const id = (row.產品名稱 + '|' + row.批號).replace(/\//g, '_');
-                batch.set(doc(db, LEDGER_COL, id), row);
+        const token = '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';
+        const owner = 'amelie0613';
+        const repo = 'trade-dashboard';
+        const path = 'ledger_backup.json';
+        const message = `Ledger backup - ${new Date().toISOString().split('T')[0]}`;
+        
+        // 先取得現有檔案的 SHA（用於更新）
+        let sha = null;
+        try {
+            const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+                headers: { 'Authorization': `token ${token}` }
             });
-            await batch.commit();
+            if (getRes.ok) {
+                const data = await getRes.json();
+                sha = data.sha;
+            }
+        } catch (e) {
+            console.log('新檔案，無需 SHA');
         }
-        if (statusEl) statusEl.textContent = `✅ 已同步 ${rows.length} 筆到雲端`;
+        
+        // 上傳到 GitHub
+        const content = btoa(JSON.stringify(rows, null, 2)); // Base64 編碼
+        const body = {
+            message: message,
+            content: content,
+            ...(sha && { sha: sha }) // 如果有舊檔案，提供 SHA 用於更新
+        };
+        
+        const uploadRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+        
+        if (!uploadRes.ok) {
+            throw new Error(`GitHub API 錯誤: ${uploadRes.status}`);
+        }
+        
+        if (statusEl) statusEl.textContent = `✅ 已上傳 ${rows.length} 筆到 GitHub`;
         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+        console.log('✅ 已上傳到 GitHub:', path);
     } catch(e) {
-        if (statusEl) statusEl.textContent = `❌ 同步失敗：${e.message}`;
+        console.error('GitHub 上傳錯誤:', e);
+        if (statusEl) statusEl.textContent = `❌ 上傳失敗：${e.message}`;
     }
+}
+
+// 兼容舊名稱
+async function syncToFirestore() {
+    return syncToGitHub();
 }
 window.syncToFirestore = syncToFirestore;
 
 // ===== 從 Firestore 載入到 localStorage =====
-async function syncFromFirestore() {
+async function syncFromGitHub() {
     const statusEl = document.getElementById('sync_status');
-    if (statusEl) statusEl.textContent = '⏳ 從雲端載入...';
+    if (statusEl) statusEl.textContent = '⏳ 從 GitHub 載入...';
     try {
-        await waitFirebase();
-        const { getDocs, collection } = window._fs;
-        const db = window._db;
-        const snap = await getDocs(collection(db, LEDGER_COL));
-        const rows = snap.docs.map(d => d.data());
-        if (rows.length === 0) {
-            if (statusEl) statusEl.textContent = '⚠️ 雲端沒有資料';
+        const token = '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';
+        const owner = 'amelie0613';
+        const repo = 'trade-dashboard';
+        const path = 'ledger_backup.json';
+        
+        // 從 GitHub 讀檔
+        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+            headers: { 'Authorization': `token ${token}` }
+        });
+        
+        if (!res.ok) {
+            if (statusEl) statusEl.textContent = '⚠️ GitHub 上沒有備份檔案';
             return;
         }
+        
+        const data = await res.json();
+        const content = atob(data.content); // Base64 解碼
+        const rows = JSON.parse(content);
+        
+        if (!rows || rows.length === 0) {
+            if (statusEl) statusEl.textContent = '⚠️ 備份檔案為空';
+            return;
+        }
+        
         lsSaveLedgerRows(rows);
         _ledgerCache = rows;
         _ledgerCacheTime = Date.now();
         await refreshLedgerStatus();
-        if (statusEl) statusEl.textContent = `✅ 已載入 ${rows.length} 筆到本地`;
+        if (statusEl) statusEl.textContent = `✅ 已從 GitHub 載入 ${rows.length} 筆到本地`;
         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
     } catch(e) {
-        // 失敗時不動 localStorage，保留原有資料
-        if (statusEl) statusEl.textContent = `❌ 載入失敗（配額超限請明天再試）`;
+        if (statusEl) statusEl.textContent = `❌ 載入失敗：${e.message}`;
         console.error(e);
     }
+}
+
+// 兼容舊名稱
+async function syncFromFirestore() {
+    return syncFromGitHub();
 }
 window.syncFromFirestore = syncFromFirestore;
 
@@ -1607,6 +1657,10 @@ async function confirmMonthly() {
             totalRental: preview.reduce((s,r)=>s+r.租金總計,0)
         });
         await refreshLedgerStatus();
+        
+        // 自動上傳到 GitHub
+        await syncToGitHub();
+        
         window._pendingMonthly = null;
 
         resultsEl.innerHTML = `
@@ -1614,6 +1668,7 @@ async function confirmMonthly() {
                 <div style="font-size:2rem; margin-bottom:0.5rem;">🎉</div>
                 <div style="font-weight:800; font-size:1.2rem; color:#4a9a37;">${label} 月結算完成！</div>
                 <div style="color:#8a6a7a; margin-top:0.5rem;">更新 ${newRows.length} 筆，總帳共 ${finalRows.length} 筆</div>
+                <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 已自動備份到 GitHub</div>
                 <button onclick="viewLedger()" class="btn-primary" style="margin-top:1rem; width:auto; padding:0.6rem 1.5rem;">📋 檢視總帳</button>
             </div>`;
     } catch(e) {
