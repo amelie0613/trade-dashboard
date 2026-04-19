@@ -836,17 +836,24 @@ async function saveLedgerRows(rows) {
 
 async function loadLedgerRows(forceRefresh = false) {
     const local = lsLoadLedgerRows();
-    if (local && !forceRefresh) return local;
-    // localStorage 沒資料才去讀 Firestore
-    await waitFirebase();
-    const { getDocs, collection } = window._fs;
-    const db = window._db;
-    const snap = await getDocs(collection(db, LEDGER_COL));
-    const rows = snap.docs.map(d => d.data());
-    lsSaveLedgerRows(rows); // 存到 localStorage
-    _ledgerCache = rows;
-    _ledgerCacheTime = Date.now();
-    return rows;
+    if (local && !forceRefresh) return local; // 有本地資料直接回傳，不碰 Firebase
+    // 沒有本地資料才去讀 Firestore（需要登入）
+    try {
+        await waitFirebase();
+        const { getDocs, collection } = window._fs;
+        const db = window._db;
+        const snap = await getDocs(collection(db, LEDGER_COL));
+        const rows = snap.docs.map(d => d.data());
+        if (rows.length > 0) {
+            lsSaveLedgerRows(rows);
+            _ledgerCache = rows;
+            _ledgerCacheTime = Date.now();
+        }
+        return rows;
+    } catch(e) {
+        console.warn('Firestore 讀取失敗，回傳空陣列：', e.message);
+        return [];
+    }
 }
 
 async function clearAllLedger() {
@@ -978,18 +985,17 @@ async function refreshLedgerStatus(forceRefresh = false) {
     const el = document.getElementById('ledger_db_status');
     if (!el) return;
     try {
-        const rows = await loadLedgerRows(forceRefresh);
+        const rows = lsLoadLedgerRows(); // 優先讀本地，不觸發 Firebase
         if (!rows || rows.length === 0) {
             el.innerHTML = '<span style="color:#e8836a; font-weight:700;">⚠️ 尚未建立總帳</span><br><span style="font-size:0.78rem;">請從雲端載入或重新導入</span>';
         } else {
-            const total = rows.reduce((s,r) => s+(parseFloat(r.月租金結餘??r.前期結餘)|0||0), 0);
-            const isLocal = !!lsLoadLedgerRows();
-            el.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ ${isLocal ? '本地快取' : '已連線 Firebase'}</span><br>
+            const total = rows.reduce((s,r) => s+(parseFloat(r.月租金結餘??r.前期結餘)||0), 0);
+            el.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 本地快取</span><br>
                 <span style="font-size:0.78rem;">品項數：${rows.length} 筆<br>
                 累計租金餘額：$${Math.round(total).toLocaleString()}</span>`;
         }
     } catch(e) {
-        el.innerHTML = `<span style="color:#e8836a; font-weight:700;">❌ 連線失敗</span><br><span style="font-size:0.78rem;">${e.message}</span>`;
+        el.innerHTML = `<span style="color:#e8836a; font-weight:700;">❌ 讀取失敗</span><br><span style="font-size:0.78rem;">${e.message}</span>`;
     }
 }
 
