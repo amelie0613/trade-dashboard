@@ -1487,7 +1487,7 @@ async function viewLedger() {
     const resultsEl = document.getElementById('ledger_results');
     resultsEl.innerHTML = '<p style="text-align:center; padding:2rem; color:#2a6a82;">⏳ 讀取中...</p>';
     try {
-        const rows = await loadLedgerRows();
+        const rows = lsLoadLedgerRows() || [];
         if (rows.length === 0) { resultsEl.innerHTML = '<p style="color:#999; text-align:center; padding:2rem;">總帳尚無資料</p>'; return; }
 
         // 只顯示月租金結餘 > 0 的
@@ -1575,7 +1575,7 @@ async function viewLedger() {
 // ===== 匯出總帳 =====
 async function exportLedger() {
     try {
-        const rows = await loadLedgerRows();
+        const rows = lsLoadLedgerRows() || [];
         if (rows.length === 0) { alert('總帳尚無資料'); return; }
         const exportData = rows.map(r => ({
             產品類別: r.產品類別||'',
