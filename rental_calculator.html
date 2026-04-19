@@ -846,12 +846,25 @@ async function syncFromFirestore() {
     const statusEl = document.getElementById('sync_status');
     if (statusEl) statusEl.textContent = '⏳ 從雲端載入...';
     try {
-        const rows = await loadLedgerRows(true); // 強制讀 Firestore
-        if (statusEl) statusEl.textContent = `✅ 已載入 ${rows.length} 筆到本地`;
+        await waitFirebase();
+        const { getDocs, collection } = window._fs;
+        const db = window._db;
+        const snap = await getDocs(collection(db, LEDGER_COL));
+        const rows = snap.docs.map(d => d.data());
+        if (rows.length === 0) {
+            if (statusEl) statusEl.textContent = '⚠️ 雲端沒有資料';
+            return;
+        }
+        lsSaveLedgerRows(rows);
+        _ledgerCache = rows;
+        _ledgerCacheTime = Date.now();
         await refreshLedgerStatus();
+        if (statusEl) statusEl.textContent = `✅ 已載入 ${rows.length} 筆到本地`;
         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
     } catch(e) {
-        if (statusEl) statusEl.textContent = `❌ 載入失敗：${e.message}`;
+        // 失敗時不動 localStorage，保留原有資料
+        if (statusEl) statusEl.textContent = `❌ 載入失敗（配額超限請明天再試）`;
+        console.error(e);
     }
 }
 window.syncFromFirestore = syncFromFirestore;
