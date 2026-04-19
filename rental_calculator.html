@@ -792,10 +792,16 @@ const LS_BACKUP_KEY = 'rental_ledger_backup_v2';
 
 // ===== localStorage 主要操作 =====
 function lsSaveLedgerRows(rows) {
-    // 存新資料前，先把現有資料備份一份
-    const current = localStorage.getItem(LS_KEY);
-    if (current) localStorage.setItem(LS_BACKUP_KEY, current);
-    localStorage.setItem(LS_KEY, JSON.stringify(rows));
+    try {
+        const current = localStorage.getItem(LS_KEY);
+        if (current) localStorage.setItem(LS_BACKUP_KEY, current);
+        const data = JSON.stringify(rows);
+        localStorage.setItem(LS_KEY, data);
+        console.log(`✅ localStorage 寫入成功，${rows.length} 筆，${(data.length/1024).toFixed(1)}KB`);
+    } catch(e) {
+        console.error('localStorage 寫入失敗：', e);
+        alert(`❌ 本地儲存失敗（可能容量不足）：${e.message}\n請嘗試清除瀏覽器資料後再試。`);
+    }
 }
 function lsLoadLedgerRows() {
     const raw = localStorage.getItem(LS_KEY);
