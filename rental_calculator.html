@@ -557,10 +557,11 @@
                     <button onclick="viewLedger()" class="btn-secondary" style="width:100%; margin-bottom:0.5rem;">📋 檢視目前總帳</button>
                     <button onclick="exportLedger()" style="width:100%; background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.75rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif; margin-bottom:0.5rem;">📥 匯出總帳 Excel</button>
                     <button onclick="syncToFirestore()" style="width:100%; background:#4285f4; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 GitHub</button>
-                    <button onclick="setGitHubToken()" style="width:100%; background:none; border:1.5px solid #4285f4; color:#4285f4; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">🔑 設定 GitHub Token</button>
-                    <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #4285f4; color:#4285f4; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從雲端載入</button>
+                    <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #4285f4; color:#4285f4; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 GitHub 載入</button>
                     <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 復原上一步</button>
                     <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
+                    <hr style="border:none; border-top:1px solid #f0e0f0; margin:0.8rem 0;">
+                    <button onclick="setGitHubToken()" style="width:100%; background:none; border:1.5px solid #aaa; color:#888; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">🔑 設定 GitHub Token</button>
                     <button onclick="clearLedger()" style="width:100%; background:none; border:1.5px solid #e8836a; color:#e8836a; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem;">🗑️ 清除總帳資料</button>
                 </div>
 
@@ -1174,6 +1175,7 @@ async function previewMonthly() {
                 <h3 style="margin:0;">📅 ${label} 月結算預覽（共 ${kept.length} 筆，其中 ${willRemove.length} 筆結餘=0將於導入後移除）</h3>
                 <div style="display:flex; gap:0.5rem;">
                     <button onclick="exportPreview()" style="background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">📥 匯出 Excel</button>
+                    <button onclick="exportPreviewPDF()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">🖨️ 匯出 PDF</button>
                     <button onclick="confirmMonthly()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.5rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 確認導入總帳</button>
                 </div>
             </div>
@@ -1535,6 +1537,69 @@ window.exportPreview = function() {
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, `${label}月結算`);
     window.XLSX.writeFile(wb, `月結算_${label}_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+// ===== 匯出月結算預覽 PDF =====
+window.exportPreviewPDF = function() {
+    if (!window._pendingMonthly) { alert('請先預覽月結算'); return; }
+    const { label, preview } = window._pendingMonthly;
+
+    const totalUp = preview.reduce((s,r)=>s+(r.上半期||0),0);
+    const totalDown = preview.reduce((s,r)=>s+(r.下半期||0),0);
+    const totalPrev = preview.reduce((s,r)=>s+(r.前期結餘||0),0);
+    const totalRental = preview.reduce((s,r)=>s+(r.租金總計||0),0);
+    const totalOut = preview.reduce((s,r)=>s+(r.月租金出庫||0),0);
+    const totalRemain = preview.reduce((s,r)=>s+(r.月租金結餘||0),0);
+
+    const table = document.getElementById('previewTable');
+    const thead = table?.querySelector('thead');
+    const tbody = table?.querySelector('tbody');
+
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head>
+        <meta charset="UTF-8">
+        <title>${label} 月結算報表</title>
+        <style>
+            @page { size: A4 landscape; margin: 1cm; }
+            body { font-family: 'Microsoft JhengHei', sans-serif; font-size: 9px; color: #333; margin: 0; }
+            h2 { text-align:center; font-size:14px; color:#764ba2; margin-bottom:0.8rem; }
+            .cards { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem; justify-content:center; }
+            .card { border:1.5px solid #f2a7c3; border-radius:8px; padding:0.4rem 0.8rem; text-align:center; min-width:90px; }
+            .card-label { font-size:7px; color:#888; margin-bottom:2px; }
+            .card-value { font-size:11px; font-weight:800; color:#764ba2; }
+            .sep { display:flex; align-items:center; font-size:14px; color:#ccc; padding:0 0.2rem; }
+            table { width:100%; border-collapse:collapse; font-size:7.5px; }
+            th { background:#f8e8f8; color:#764ba2; padding:3px 2px; border:1px solid #e0c0e8; text-align:center; white-space:nowrap; }
+            td { padding:2px 3px; border:1px solid #eee; text-align:right; white-space:nowrap; }
+            td:nth-child(1), td:nth-child(2), td:nth-child(3) { text-align:left; }
+            tr:nth-child(even) td { background:#fdf5ff; }
+            .sum-row td { background:#f0e8ff !important; font-weight:800; color:#764ba2; }
+        </style>
+    </head><body>
+        <h2>📅 ${label} 月結算報表（共 ${preview.length} 筆）</h2>
+        <div class="cards">
+            <div class="card" style="border-color:#8dcc7a;"><div class="card-label">${label}上期</div><div class="card-value" style="color:#4a9a37;">$${Math.round(totalUp).toLocaleString()}</div></div>
+            <div class="sep">+</div>
+            <div class="card" style="border-color:#8dcc7a;"><div class="card-label">${label}下期</div><div class="card-value" style="color:#4a9a37;">$${Math.round(totalDown).toLocaleString()}</div></div>
+            <div class="sep">=</div>
+            <div class="card" style="border-color:#4a9a37;"><div class="card-label">${label}總計</div><div class="card-value" style="color:#4a9a37;">$${Math.round(totalUp+totalDown).toLocaleString()}</div></div>
+            <div class="sep">+</div>
+            <div class="card" style="border-color:#7ec8e3;"><div class="card-label">總檔租金結餘</div><div class="card-value" style="color:#2a6a82;">$${Math.round(totalPrev).toLocaleString()}</div></div>
+            <div class="sep">=</div>
+            <div class="card" style="border-color:#f2a7c3;"><div class="card-label">租金總計</div><div class="card-value" style="color:#c0507a;">$${Math.round(totalRental).toLocaleString()}</div></div>
+            <div class="sep"></div>
+            <div class="card" style="border-color:#f7d96b;"><div class="card-label">月租金(出庫)</div><div class="card-value" style="color:#b8860b;">$${Math.round(totalOut).toLocaleString()}</div></div>
+            <div class="card" style="border-color:#c9a8e0;"><div class="card-label">月租金(結餘)</div><div class="card-value" style="color:#764ba2;">$${Math.round(totalRemain).toLocaleString()}</div></div>
+        </div>
+        <table>
+            <thead>
+                ${thead ? Array.from(thead.querySelectorAll('tr')).map((r,i) => i===0 ? `<tr class="sum-row">${r.innerHTML}</tr>` : r.outerHTML).join('') : ''}
+            </thead>
+            <tbody>${tbody ? tbody.innerHTML : ''}</tbody>
+        </table>
+        <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`);
+    win.document.close();
 };
 
 async function confirmMonthly() {
