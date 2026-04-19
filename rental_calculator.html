@@ -857,8 +857,9 @@ async function syncToGitHub() {
             console.log('新檔案，無需 SHA');
         }
         
-        // 上傳到 GitHub
-        const content = btoa(JSON.stringify(rows, null, 2)); // Base64 編碼
+        // 上傳到 GitHub（處理中文字符）
+        const jsonStr = JSON.stringify(rows, null, 2);
+        const content = btoa(unescape(encodeURIComponent(jsonStr))); // 支援中文
         const body = {
             message: message,
             content: content,
@@ -914,7 +915,7 @@ async function syncFromGitHub() {
         }
         
         const data = await res.json();
-        const content = atob(data.content); // Base64 解碼
+        const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, '')))); // 支援中文
         const rows = JSON.parse(content);
         
         if (!rows || rows.length === 0) {
