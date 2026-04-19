@@ -1109,7 +1109,9 @@ async function previewMonthly() {
         const d2 = f2 ? await readExcel(f2, false) : [];
 
         statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取總帳...</span>';
-        const existingRows = await loadLedgerRows();
+        const existingRows = lsLoadLedgerRows() || [];
+        console.log('總帳筆數:', existingRows.length);
+        if (existingRows.length > 0) console.log('第一筆:', existingRows[0].產品名稱, existingRows[0].批號, existingRows[0].前期結餘, existingRows[0].月租金結餘);
         const ledgerMap = {};
         existingRows.forEach(r => { ledgerMap[r.產品名稱 + '|' + r.批號] = r; });
 
