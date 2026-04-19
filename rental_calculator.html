@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -556,7 +556,8 @@
                     <div id="ledger_db_status" style="font-size:0.85rem; color:#8a6a7a; margin-bottom:1rem;">讀取中...</div>
                     <button onclick="viewLedger()" class="btn-secondary" style="width:100%; margin-bottom:0.5rem;">📋 檢視目前總帳</button>
                     <button onclick="exportLedger()" style="width:100%; background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.75rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif; margin-bottom:0.5rem;">📥 匯出總帳 Excel</button>
-                    <button onclick="syncToFirestore()" style="width:100%; background:#4285f4; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到雲端</button>
+                    <button onclick="syncToFirestore()" style="width:100%; background:#4285f4; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 GitHub</button>
+                    <button onclick="setGitHubToken()" style="width:100%; background:none; border:1.5px solid #4285f4; color:#4285f4; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">🔑 設定 GitHub Token</button>
                     <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #4285f4; color:#4285f4; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從雲端載入</button>
                     <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 復原上一步</button>
                     <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
@@ -789,7 +790,13 @@ async function syncToGitHub() {
     if (statusEl) statusEl.textContent = '⏳ 上傳到 GitHub...';
     
     try {
-        const token = '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';
+        // 從 localStorage 讀取 token（不寫死在代碼裡）
+        let token = localStorage.getItem('github_token');
+        if (!token) {
+            token = prompt('請輸入 GitHub Token：');
+            if (!token) { if (statusEl) statusEl.textContent = '❌ 未輸入 Token'; return; }
+            localStorage.setItem('github_token', token);
+        }
         const owner = 'amelie0613';
         const repo = 'trade-dashboard';
         const path = 'ledger_backup.json';
@@ -842,6 +849,20 @@ async function syncToGitHub() {
     }
 }
 
+// ===== 設定 GitHub Token =====
+window.setGitHubToken = function() {
+    const current = localStorage.getItem('github_token');
+    const token = prompt('請輸入 GitHub Token：\n（輸入後會存在本地瀏覽器，不會上傳）', current || '');
+    if (token === null) return;
+    if (token.trim() === '') {
+        localStorage.removeItem('github_token');
+        alert('已清除 Token');
+    } else {
+        localStorage.setItem('github_token', token.trim());
+        alert('✅ Token 已儲存！');
+    }
+};
+
 // 兼容舊名稱
 async function syncToFirestore() {
     return syncToGitHub();
@@ -853,7 +874,13 @@ async function syncFromGitHub() {
     const statusEl = document.getElementById('sync_status');
     if (statusEl) statusEl.textContent = '⏳ 從 GitHub 載入...';
     try {
-        const token = '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';
+        // 從 localStorage 讀取 token
+        let token = localStorage.getItem('github_token');
+        if (!token) {
+            token = prompt('請輸入 GitHub Token：');
+            if (!token) { if (statusEl) statusEl.textContent = '❌ 未輸入 Token'; return; }
+            localStorage.setItem('github_token', token);
+        }
         const owner = 'amelie0613';
         const repo = 'trade-dashboard';
         const path = 'ledger_backup.json';
