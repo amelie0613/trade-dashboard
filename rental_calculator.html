@@ -1156,9 +1156,9 @@ async function previewMonthly() {
             });
         });
 
-        // 預覽顯示全部，導入時才移除結餘=0
+        // 預覽顯示全部，導入時才移除結存=0
         const kept = preview;
-        const willRemove = preview.filter(r => r.本期結存 === 0 && r.月租金結餘 === 0);
+        const willRemove = preview.filter(r => r.本期結存 === 0);
 
         // 合計（全部資料）
         const sumKeys = ['總檔結存','上期結存','本期入庫','本期出庫','本期結存','前期結餘','上半期','下半期','租金總計','月租金出庫','月租金結餘'];
@@ -1548,8 +1548,8 @@ window.exportPreview = function() {
 async function confirmMonthly() {
     if (!window._pendingMonthly) return;
     const { preview: allPreview, label } = window._pendingMonthly;
-    // 導入時才過濾掉本期結存=0且月租金結餘=0的
-    const preview = allPreview.filter(r => !(r.本期結存 === 0 && r.月租金結餘 === 0));
+    // 導入時才過濾掉本期結存=0的（已出清）
+    const preview = allPreview.filter(r => r.本期結存 > 0);
     const resultsEl = document.getElementById('ledger_results');
     resultsEl.innerHTML = '<p style="text-align:center; padding:2rem; color:#2a6a82;">⏳ 寫入 Firebase 中...</p>';
 
@@ -1591,13 +1591,13 @@ async function confirmMonthly() {
             };
         });
 
-        // 不清除舊資料！只更新本次有出現的批號，其他保留
+        // 不清除舊資料，但明確移除本期結存=0的（已出清，不該有結餘）
         const finalMap = {};
         existingRows.forEach(r => { finalMap[r.產品名稱+'|'+r.批號] = r; });
         newRows.forEach(r => { finalMap[r.產品名稱+'|'+r.批號] = r; });
         
-        // 移除本期結存=0且月租金結餘=0的（已完全出清）
-        const finalRows = Object.values(finalMap).filter(r => !(r.本期結存 === 0 && (r.月租金結餘 === 0 || r.前期結餘 === 0)));
+        // 刪除本期結存=0的（已出清，無論有無結餘）
+        const finalRows = Object.values(finalMap).filter(r => r.本期結存 > 0);
 
         await saveLedgerRows(finalRows);
         await saveMonthlyRecord(label, {
