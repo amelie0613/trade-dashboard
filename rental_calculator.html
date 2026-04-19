@@ -1022,8 +1022,8 @@ window.doUploadLedger = async function() {
             批號: String(r['批號']||'').trim(),
             庫存狀態: String(r['庫存狀態']||''),
             採購部門: String(r['採購部門']||''),
-            本期結存: parseFloat(r['本期結存'])||0,
-            月租金結餘: parseFloat(r['月租金(結餘)'])||0,
+            總檔結存: parseFloat(r['本期結存'])||0,
+            總檔租金結餘: parseFloat(r['月租金(結餘)'])||0,
             前期結餘: parseFloat(r['月租金(結餘)'])||0,
             月結歷史: {},
             備註: String(r['備註']||''),
@@ -1523,7 +1523,7 @@ async function viewLedger() {
                 <td>${r.產品名稱}</td>
                 <td style="white-space:nowrap;">${r.批號}</td>
                 <td style="white-space:nowrap;">${r.採購部門||''}</td>
-                <td style="text-align:right; white-space:nowrap;">${r.本期結存 !== undefined ? r.本期結存 : '-'}</td>
+                <td style="text-align:right; white-space:nowrap;">${r.總檔結存 !== undefined ? r.總檔結存 : (r.本期結存 !== undefined ? r.本期結存 : '-')}</td>
                 <td style="font-weight:700; color:#c0507a; white-space:nowrap; text-align:right;">${(r.月租金結餘 ?? r.前期結餘 ?? 0).toLocaleString()}</td>
                 <td style="font-size:0.72rem; color:#8a6a7a; min-width:120px;">${history||'-'}</td>
             </tr>`;
@@ -1553,7 +1553,7 @@ async function viewLedger() {
                     <th>產品名稱</th>
                     <th style="white-space:nowrap;">批號</th>
                     <th style="white-space:nowrap;">採購部門</th>
-                    <th style="text-align:right; white-space:nowrap;">本期結存</th>
+                    <th style="text-align:right; white-space:nowrap;">總檔結存</th>
                     <th class="highlight" style="text-align:right; white-space:nowrap;">月租金結餘</th>
                     <th>月結歷史</th>
                 </tr></thead>
@@ -1583,7 +1583,7 @@ async function exportLedger() {
             產品名稱: r.產品名稱,
             批號: r.批號,
             採購部門: r.採購部門||'',
-            本期結存: r.本期結存 ?? '',
+            總檔結存: r.總檔結存 ?? r.本期結存 ?? '',
             月租金結餘: (r.月租金結餘 ?? r.前期結餘 ?? 0),
             ...(r.月結歷史||{})
         }));
