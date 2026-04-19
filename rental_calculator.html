@@ -1022,6 +1022,9 @@ window.doUploadLedger = async function() {
         await refreshLedgerStatus();
         statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆</span>`;
 
+        // 自動顯示總帳
+        await viewLedger();
+
         // 清除檔案選取
         if (input) input.value = '';
         const lbl = document.getElementById('ledger_label_upload');
