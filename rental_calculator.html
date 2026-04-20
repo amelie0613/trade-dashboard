@@ -2159,13 +2159,13 @@ function displayResults(data) {
         totalHandling += parseFloat(row['出入庫']) || 0;
     });
 
-    // 決定要顯示的欄位（產品規格緊接在產品名稱後）
+    // 決定要顯示的欄位順序（依照Excel報表順序）
     const displayCols = [
-        '產品類別', '產品代碼', '產品名稱', '產品規格', '基本單位',
+        '序號', '核算組織名稱', '產品類別', '產品代碼', '產品名稱', '基本單位',
         '倉庫', '存貨屬性', '批號', '庫存狀態',
         '上期結存', '本期入庫', '本期出庫', '本期結存',
         '[期初]', '[期末]', '天數', '淨重', '計價重量',
-        '出入庫', '租金', '總計', '採購部門', '業務屬性明細', '備註'
+        '出入庫', '租金', '總計', '採購部門', '備註', '產品規格', '業務屬性明細'
     ];
     const editableCols = ['出入庫', '租金', '總計', '備註'];
     const numericCols = ['上期結存','本期入庫','本期出庫','本期結存','天數','淨重','計價重量','出入庫','租金','總計'];
@@ -2419,8 +2419,28 @@ function toggleTotalRow() {
 
 function exportResults() {
     if (!calculatedData) return;
-    // 匯出時包含手動修改後的值（直接讀calculatedData，onCellEdit已同步）
-    const ws = window.XLSX.utils.json_to_sheet(calculatedData);
+    
+    // 定義匯出欄位順序（跟顯示表格一致）
+    const exportCols = [
+        '產品類別', '產品代碼', '產品名稱', '產品規格', '基本單位',
+        '倉庫', '存貨屬性', '批號', '庫存狀態',
+        '上期結存', '本期入庫', '本期出庫', '本期結存',
+        '[期初]', '[期末]', '天數', '淨重', '計價重量',
+        '出入庫', '租金', '總計', '採購部門', '業務屬性明細', '備註'
+    ];
+    
+    // 只匯出指定欄位，並按順序排列
+    const exportData = calculatedData.map(row => {
+        const newRow = {};
+        exportCols.forEach(col => {
+            if (row.hasOwnProperty(col)) {
+                newRow[col] = row[col];
+            }
+        });
+        return newRow;
+    });
+    
+    const ws = window.XLSX.utils.json_to_sheet(exportData);
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, "租金計算結果");
     const filename = `租金計算_${new Date().toISOString().slice(0,10)}.xlsx`;
