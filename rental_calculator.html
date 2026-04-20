@@ -1157,6 +1157,36 @@ async function previewMonthly() {
         const sums = {};
         sumKeys.forEach(k => { sums[k] = kept.reduce((s,r) => s + (parseFloat(r[k])||0), 0); });
 
+        // 計算各採購部門的租金合計
+        const deptRentals = {};
+        kept.forEach(r => {
+            const dept = (r.採購部門 || '未分類').trim();
+            if (!deptRentals[dept]) {
+                deptRentals[dept] = { 上期: 0, 下期: 0 };
+            }
+            deptRentals[dept].上期 += parseFloat(r.上半期) || 0;
+            deptRentals[dept].下期 += parseFloat(r.下半期) || 0;
+        });
+
+        // 生成採購部門卡片 HTML
+        let deptCardsHTML = '';
+        if (Object.keys(deptRentals).length > 0) {
+            deptCardsHTML = '<div style="flex-basis:100%;"></div>'; // 換行
+            const colors = ['#8dcc7a', '#7ec8e3', '#f7d96b', '#e8836a', '#c9a8e0', '#f2a7c3'];
+            let colorIdx = 0;
+            for (const [dept, rentals] of Object.entries(deptRentals).sort()) {
+                const total = Math.round(rentals.上期 + rentals.下期);
+                const color = colors[colorIdx % colors.length];
+                deptCardsHTML += `
+                    <div style="background:${color}15; border:1.5px solid ${color}; border-radius:10px; padding:0.4rem 0.8rem; text-align:center; min-width:110px; flex-shrink:0;">
+                        <div style="font-size:0.7rem; color:${color}; font-weight:700;">${dept}</div>
+                        <div style="font-size:0.9rem; font-weight:800; color:${color};">$${total.toLocaleString()}</div>
+                    </div>
+                `;
+                colorIdx++;
+            }
+        }
+
         const previewCols = ['產品名稱','批號','採購部門','總檔結存','上期結存','本期入庫','本期出庫','本期結存','總檔租金結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)','狀態','備註'];
         const previewHighlight = ['總檔租金結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)'];
         const previewNumericCols = ['上期結存','本期入庫','本期出庫','本期結存','前期結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)'];
@@ -1220,6 +1250,10 @@ async function previewMonthly() {
                 </button>
                 <span id="recalc_status" style="font-size:0.8rem; color:#4a9a37; font-weight:700;"></span>
             </div>
+
+            <!-- 採購部門租金合計卡片 -->
+            <div id="deptCards" style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem; align-items:center;"></div>
+
             <!-- 篩選列 -->
             <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.8rem; flex-wrap:wrap;">
                 <input type="text" id="previewFilter" placeholder="搜尋產品名稱 / 批號..."
@@ -1318,6 +1352,10 @@ async function previewMonthly() {
 
         html += `</tbody></table></div></div>`;
         document.getElementById('ledger_results').innerHTML = html;
+        
+        // 插入採購部門卡片
+        document.getElementById('deptCards').innerHTML = deptCardsHTML;
+        
         statusEl.innerHTML = '<span style="color:#4a9a37; font-weight:700;">✅ 預覽完成，請確認後導入</span>';
         // 只把結餘!=0的存入pendingMonthly（導入時移除清零的）
         window._pendingMonthly = { preview: kept, label, colKeyMap };
