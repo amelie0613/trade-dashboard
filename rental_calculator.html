@@ -2076,6 +2076,13 @@ function calculateRental(rentalData, ioData, weightData) {
         } else if (inboundRemark) {
             fullRemark = `[入庫] ${inboundRemark}`;
         }
+        
+        // 採購部門（本期入庫的部門）
+        let purchaseDept = '';
+        const inboundRecords = ioMatch.filter(io => isInbound(io[config.col_type]));
+        if (inboundRecords.length > 0) {
+            purchaseDept = inboundRecords[0][config.col_dept] || '';
+        }
 
         // 計算租金
         const baseRate = parseFloat(document.getElementById('dailyRate').value) || 0.8;
