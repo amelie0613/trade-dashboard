@@ -2006,15 +2006,16 @@ function calculateRental(rentalData, ioData, weightData) {
             normalize(io[config.col_batch2]) === normalize(batchNo)
         );
 
-        // 情況1：期初數量 = 0 → 起始日 = 批號前8碼（入庫日）
+        // 情況1：期初數量 = 0 → 起始日 = 出入庫報表中最早的入庫日期
         // 情況2：期初數量 ≠ 0 → 起始日 = 設定的期初日期
         let startDate = periodStart;
         if (beginQty === 0) {
-            const digits = batchNo.replace(/\D/g, '').slice(0, 8);
-            if (digits.length === 8) {
-                const d = parseDate(`${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6,8)}`);
-                if (d) startDate = d;
-            }
+            const inRecords = ioMatch
+                .filter(io => isInbound(io[config.col_type]))
+                .map(io => parseDate(io[config.col_date]))
+                .filter(d => d !== null)
+                .sort((a, b) => a - b);
+            if (inRecords.length > 0) startDate = inRecords[0];
         }
 
         // 情況3：期末數量 = 0 → 結束日 = 最後一筆出庫日期
