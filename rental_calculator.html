@@ -2042,11 +2042,39 @@ function calculateRental(rentalData, ioData, weightData) {
         // 出入庫酌收：只有「期初=0 且 有入庫」才收（代表本期新入庫的批次）
         const hasInbound = beginQty === 0 && ioMatch.some(io => isInbound(io[config.col_type]));
 
-        // 採購部門（本期入庫的部門）
-        let purchaseDept = '';
-        const inboundRecords = ioMatch.filter(io => isInbound(io[config.col_type]));
-        if (inboundRecords.length > 0) {
-            purchaseDept = inboundRecords[0][config.col_dept] || '';
+        // 計算出入庫明細（按業務屬性分組）
+        const outboundByType = {};
+        const inboundByType = {};
+        
+        for (const io of ioMatch) {
+            const businessType = String(io[config.col_type] || '').trim();
+            const qty = parseFloat(io['數量'] || 0) || 0;
+            
+            if (isOutbound(businessType)) {
+                if (!outboundByType[businessType]) outboundByType[businessType] = 0;
+                outboundByType[businessType] += qty;
+            } else if (isInbound(businessType)) {
+                if (!inboundByType[businessType]) inboundByType[businessType] = 0;
+                inboundByType[businessType] += qty;
+            }
+        }
+        
+        // 生成備註：各業務屬性的出庫數量
+        const outboundRemark = Object.entries(outboundByType)
+            .map(([type, qty]) => `【${type}】${Math.round(qty)}`)
+            .join(' / ') || '';
+        
+        const inboundRemark = Object.entries(inboundByType)
+            .map(([type, qty]) => `【${type}】${Math.round(qty)}`)
+            .join(' / ') || '';
+        
+        let fullRemark = '';
+        if (outboundRemark && inboundRemark) {
+            fullRemark = `[出庫] ${outboundRemark} | [入庫] ${inboundRemark}`;
+        } else if (outboundRemark) {
+            fullRemark = `[出庫] ${outboundRemark}`;
+        } else if (inboundRemark) {
+            fullRemark = `[入庫] ${inboundRemark}`;
         }
 
         // 計算租金
@@ -2082,7 +2110,8 @@ function calculateRental(rentalData, ioData, weightData) {
             '出入庫': Math.round(handlingCost).toString(),
             '租金': rentalCost.toString(),
             '總計': (rentalCost + Math.round(handlingCost)).toString(),
-            '採購部門': purchaseDept
+            '採購部門': purchaseDept,
+            '業務屬性明細': fullRemark
         };
 
         result.push(result_row);
