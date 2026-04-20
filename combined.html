@@ -31,13 +31,13 @@
   --rcv-usd:#2e87c8; --rcv-usd-bg:rgba(46,135,200,0.12);
   /* 狀態 */
   --overdue:#e05252; --overdue-bg:rgba(224,82,82,0.12);
-  --est:#8b6bd6; --est-bg:rgba(139,107,214,0.12);
+  --est:#8b6bd6; --est-bg:rgba(247,217,107,0.35);
   --done:#9aabb8; --done-bg:rgba(154,171,184,0.10);
   --radius:18px; --radius-lg:20px;
 }
 
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg-solid);background-image:var(--bg);font-family:'Noto Sans TC',sans-serif;color:var(--text);min-height:100vh;}
+body{background:#fafbff;background-image:linear-gradient(135deg,#fff8fb 0%,#f8f5ff 50%,#f2f9ff 100%);font-family:'Noto Sans TC',sans-serif;color:var(--text);min-height:100vh;}
 
 /* ── 花卉裝飾 SVG ── */
 .flower-bar{position:relative;overflow:hidden;background:linear-gradient(90deg,#F2A7C3,#C9A8E0,#7EC8E3,#8DCC7A,#F7D96B,#F7A35C,#F08080,#F2A7C3);height:5px;}
@@ -106,7 +106,7 @@ body{background:var(--bg-solid);background-image:var(--bg);font-family:'Noto San
 .p-tr-ap{background:rgba(240,128,128,0.18);color:#c0302f;border:1px solid rgba(240,128,128,0.45);}
 .p-tr-rcv{background:rgba(141,204,122,0.2);color:#2d7a1f;border:1px solid rgba(141,204,122,0.5);}
 .p-overdue{background:var(--overdue-bg);color:var(--overdue);}
-.p-est{background:var(--est-bg);color:var(--est);}
+.p-est{background:rgba(247,217,107,0.4);color:#6b45c8;border:1px solid rgba(247,217,107,0.7);}
 .p-done{background:var(--done-bg);color:var(--done);}
 .day-more{font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px;}
 
@@ -142,7 +142,7 @@ body{background:var(--bg-solid);background-image:var(--bg);font-family:'Noto San
 .sbadge{font-size:9px;border-radius:8px;padding:1px 5px;font-family:'DM Mono',monospace;}
 .s-ap{background:var(--ntd-bg);color:var(--ntd);}
 .s-ov{background:var(--overdue-bg);color:var(--overdue);}
-.s-est{background:var(--est-bg);color:var(--est);}
+.s-est{background:rgba(247,217,107,0.4);color:#6b45c8;border:1px solid rgba(247,217,107,0.7);}
 .s-rcv{background:var(--rcv-bg);color:var(--rcv);}
 .s-done{background:var(--done-bg);color:var(--done);}
 /* 貿易大漁 採購=紅 / 銷售=綠 */
