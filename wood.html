@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌸 庫存健康管理系統</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;700&display=swap');
+
+  :root {
+    --pink:   #F2A7C3;
+    --red:    #F08080;
+    --orange: #F7A35C;
+    --yellow: #F7D96B;
+    --green:  #8DCC7A;
+    --blue:   #7EC8E3;
+    --purple: #6B5B95;
+    --coral:  #E8836A;
+    --violet: #C9A8E0;
+    --white:  #FFFFFF;
+    --bg:     #FFF6FA;
+    --card:   #FFFFFF;
+    --text:   #3D2C4E;
+    --muted:  #9B8EAB;
+    --border: #EDD8F0;
+    --shadow: 0 4px 20px rgba(107,91,149,0.10);
+    --r: 18px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ──────────────────────────────── */
+  .header {
+    background: linear-gradient(135deg, var(--purple) 0%, #9B73C7 60%, var(--violet) 100%);
+    padding: 24px 32px 20px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 6px 30px rgba(107,91,149,0.30);
+  }
+  .header::before {
+    content: '';
+    position: absolute; top: -40px; right: -40px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .header-flowers {
+    position: absolute; top: 0; right: 0; left: 0; bottom: 0;
+    pointer-events: none; overflow: hidden;
+  }
+  .flower {
+    position: absolute; font-size: 22px; opacity: 0.22;
+    animation: sway 6s ease-in-out infinite;
+  }
+  .flower:nth-child(1){ top:8px; right:60px; animation-delay:0s; font-size:28px; }
+  .flower:nth-child(2){ top:20px; right:120px; animation-delay:1s; }
+  .flower:nth-child(3){ top:5px; right:180px; animation-delay:2s; font-size:18px; }
+  .flower:nth-child(4){ bottom:8px; right:80px; animation-delay:0.5s; }
+  .flower:nth-child(5){ top:12px; left:60%; animation-delay:1.5s; font-size:20px; }
+  @keyframes sway {
+    0%,100%{ transform: rotate(-5deg) scale(1); }
+    50%{ transform: rotate(5deg) scale(1.08); }
+  }
+
+  .header-content { position: relative; z-index:1; display:flex; align-items:center; gap:16px; }
+  .header-logo { font-size: 36px; }
+  .header-title { color: white; }
+  .header-title h1 { font-size: 22px; font-weight: 900; letter-spacing: 1px; }
+  .header-title p  { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+  .header-date { margin-left:auto; color:white; text-align:right; font-size:12px; opacity:0.85; }
+
+  /* ── LAYOUT ──────────────────────────────── */
+  .main { max-width: 1400px; margin: 0 auto; padding: 24px 24px; }
+
+  /* ── KPI CARDS ───────────────────────────── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: var(--card);
+    border-radius: var(--r);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    border-left: 5px solid;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: transform .2s, box-shadow .2s;
+    cursor: default;
+  }
+  .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(107,91,149,0.18); }
+  .kpi-card.red    { border-color: var(--red); }
+  .kpi-card.orange { border-color: var(--orange); }
+  .kpi-card.coral  { border-color: var(--coral); }
+  .kpi-card.blue   { border-color: var(--blue); }
+  .kpi-label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing:.5px; }
+  .kpi-value { font-size: 32px; font-weight: 900; line-height: 1; }
+  .kpi-card.red    .kpi-value { color: var(--red); }
+  .kpi-card.orange .kpi-value { color: var(--orange); }
+  .kpi-card.coral  .kpi-value { color: var(--coral); }
+  .kpi-card.blue   .kpi-value { color: var(--purple); }
+  .kpi-sub { font-size: 11px; color: var(--muted); }
+
+  /* ── CONTROL BAR ─────────────────────────── */
+  .control-bar {
+    background: var(--card);
+    border-radius: var(--r);
+    padding: 18px 22px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+  }
+  .ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+  .ctrl-group label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing:.5px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border-radius: 12px; border: none;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    transition: all .2s;
+  }
+  .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-primary  { background: var(--purple); color: white; }
+  .btn-green    { background: var(--green);  color: #2a5a1a; }
+  .btn-orange   { background: var(--orange); color: white; }
+  .btn-blue     { background: var(--blue);   color: #1a4a5a; }
+  .btn-red      { background: var(--red);    color: white; }
+  .btn-ghost    { background: var(--border); color: var(--text); }
+
+  input[type=file] { display: none; }
+
+  select, input[type=number] {
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    background: white;
+    outline: none;
+    transition: border-color .2s;
+  }
+  select:focus, input[type=number]:focus { border-color: var(--violet); }
+
+  /* ── TABS ────────────────────────────────── */
+  .tabs {
+    display: flex; gap: 6px; margin-bottom: 0;
+    border-bottom: 3px solid var(--border);
+    padding-bottom: 0;
+  }
+  .tab-btn {
+    padding: 10px 20px;
+    border: none; background: transparent;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 13px; font-weight: 700;
+    color: var(--muted); cursor: pointer;
+    border-radius: 12px 12px 0 0;
+    transition: all .2s;
+    border: 2px solid transparent;
+    border-bottom: none;
+    margin-bottom: -3px;
+  }
+  .tab-btn:hover { color: var(--text); background: rgba(107,91,149,.07); }
+  .tab-btn.active {
+    color: var(--purple);
+    background: white;
+    border-color: var(--border) var(--border) white;
+    border-bottom: 3px solid white;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── TABLE WRAPPER ───────────────────────── */
+  .table-wrap {
+    background: var(--card);
+    border-radius: 0 var(--r) var(--r) var(--r);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .table-toolbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .search-box {
+    display: flex; align-items: center; gap: 8px;
+    background: white; border: 2px solid var(--border);
+    border-radius: 10px; padding: 6px 12px;
+    transition: border-color .2s;
+  }
+  .search-box:focus-within { border-color: var(--violet); }
+  .search-box input {
+    border: none; outline: none; background: transparent;
+    font-family: 'Noto Sans TC', sans-serif; font-size: 13px;
+    width: 180px; color: var(--text);
+  }
+  .filter-select {
+    padding: 7px 12px; border: 2px solid var(--border);
+    border-radius: 10px; font-size: 13px;
+    font-family: 'Noto Sans TC', sans-serif;
+    color: var(--text); background: white; outline: none;
+    transition: border-color .2s;
+  }
+  .filter-select:focus { border-color: var(--violet); }
+
+  .tbl-count { margin-left:auto; font-size:12px; color:var(--muted); font-weight:600; }
+
+  .tbl-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
+  thead th {
+    position: sticky; top: 0; z-index: 2;
+    padding: 12px 10px;
+    font-size: 11px; font-weight: 800;
+    letter-spacing: .5px; color: white;
+    cursor: pointer; white-space: nowrap;
+    user-select: none;
+    transition: filter .15s;
+  }
+  thead th:hover { filter: brightness(1.12); }
+  thead th .sort-icon { margin-left: 3px; opacity: .6; font-size: 10px; }
+
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+  tbody tr:hover { background: rgba(107,91,149,.04); }
+  tbody tr:last-child { border-bottom: none; }
+  td { padding: 9px 10px; white-space: nowrap; }
+
+  .badge {
+    display: inline-block; padding: 2px 9px;
+    border-radius: 20px; font-size: 11px; font-weight: 700;
+  }
+  .badge-red    { background: #FFE8E8; color: #C03030; }
+  .badge-orange { background: #FFF0E0; color: #B05010; }
+  .badge-yellow { background: #FFFBE0; color: #906000; }
+  .badge-green  { background: #E8FFE0; color: #2A7A10; }
+  .badge-gray   { background: #F0EDF5; color: #6B5B95; }
+
+  .row-expired { background: #FFF5F5; }
+  .row-urgent  { background: #FFF5F5; }
+  .row-warn    { background: #FFF8F0; }
+  .row-caution { background: #FFFEF0; }
+  .row-track   { background: #F5FFF0; }
+  .row-long    { background: #FFF8F0; }
+
+  .tbl-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 18px; background: var(--bg);
+    border-top: 2px solid var(--border);
+    font-size: 12px; color: var(--muted); font-weight: 600;
+  }
+  .tbl-footer strong { color: var(--purple); }
+
+  /* ── PRICE EDITOR ────────────────────────── */
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    padding: 18px;
+    max-height: 520px;
+    overflow-y: auto;
+  }
+  .price-card {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex; align-items: center; gap: 12px;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .price-card:focus-within { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(107,91,149,.12); }
+  .price-code { font-size: 11px; font-weight: 800; color: var(--purple); min-width: 42px; }
+  .price-name { flex: 1; font-size: 12px; color: var(--text); }
+  .price-input {
+    width: 88px; padding: 6px 10px;
+    border: 2px solid var(--border);
+    border-radius: 8px; font-size: 13px; font-weight: 700;
+    color: var(--text); text-align: right;
+    font-family: 'DM Sans', sans-serif;
+    outline: none; transition: border-color .2s;
+  }
+  .price-input:focus { border-color: var(--violet); }
+
+  /* ── SETTINGS ────────────────────────────── */
+  .settings-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 20px; padding: 20px;
+  }
+  .setting-card {
+    background: white; border-radius: 14px;
+    border: 2px solid var(--border); padding: 18px;
+  }
+  .setting-card h4 { font-size: 13px; font-weight: 800; color: var(--purple); margin-bottom: 14px; }
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+  /* ── UPLOAD ZONE ─────────────────────────── */
+  .upload-zone {
+    border: 3px dashed var(--border);
+    border-radius: var(--r);
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: white;
+    margin: 20px;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--violet); background: rgba(107,91,149,.04); }
+  .upload-zone .icon { font-size: 40px; margin-bottom: 12px; }
+  .upload-zone h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .upload-zone p  { font-size: 13px; color: var(--muted); }
+
+  /* ── EMPTY STATE ─────────────────────────── */
+  .empty-state {
+    text-align: center; padding: 48px 20px; color: var(--muted);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: .5; }
+  .empty-state p { font-size: 14px; }
+
+  /* ── TOAST ───────────────────────────────── */
+  .toast {
+    position: fixed; bottom: 28px; right: 28px;
+    background: var(--purple); color: white;
+    padding: 12px 22px; border-radius: 14px;
+    font-size: 13px; font-weight: 700;
+    box-shadow: 0 8px 30px rgba(107,91,149,.35);
+    transform: translateY(80px); opacity: 0;
+    transition: all .3s cubic-bezier(.4,0,.2,1);
+    z-index: 999;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── RESPONSIVE ──────────────────────────── */
+  @media(max-width:900px){
+    .kpi-grid { grid-template-columns: repeat(2,1fr); }
+    .settings-grid { grid-template-columns: 1fr; }
+  }
+  @media(max-width:600px){
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .main { padding: 16px; }
+  }
+
+  .loader {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    background: rgba(255,246,250,.85);
+    justify-content: center; align-items: center;
+    flex-direction: column; gap: 16px;
+  }
+  .loader.show { display: flex; }
+  .spin { width: 40px; height: 40px; border: 4px solid var(--border);
+    border-top-color: var(--purple); border-radius: 50%;
+    animation: spin .7s linear infinite; }
+  @keyframes spin { to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div class="loader" id="loader">
+  <div class="spin"></div>
+  <p style="color:var(--purple);font-weight:700;font-size:14px;">資料處理中…</p>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-flowers">
+    <span class="flower">🌸</span><span class="flower">🌺</span>
+    <span class="flower">🌼</span><span class="flower">🌷</span><span class="flower">✿</span>
+  </div>
+  <div class="header-content">
+    <div class="header-logo">🌸</div>
+    <div class="header-title">
+      <h1>庫存健康管理系統</h1>
+      <p>過期品 ／ 長期在庫 ／ 即將到期 ／ 存貨成本分析</p>
+    </div>
+    <div class="header-date" id="headerDate"></div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- KPI -->
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi-card blue">
+      <div class="kpi-label">📦 總庫存筆數</div>
+      <div class="kpi-value" id="kpi-total">—</div>
+      <div class="kpi-sub">已載入資料</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-label">❌ 過期品</div>
+      <div class="kpi-value" id="kpi-expired">—</div>
+      <div class="kpi-sub">有效期已過</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">⏳ 長期在庫</div>
+      <div class="kpi-value" id="kpi-long">—</div>
+      <div class="kpi-sub">入庫超過3年</div>
+    </div>
+    <div class="kpi-card coral">
+      <div class="kpi-label">⚠️ 即將到期</div>
+      <div class="kpi-value" id="kpi-soon">—</div>
+      <div class="kpi-sub" id="kpi-soon-sub">效期未滿210天</div>
+    </div>
+  </div>
+
+  <!-- CONTROL BAR -->
+  <div class="control-bar">
+    <div class="ctrl-group">
+      <label>📂 匯入庫存報表</label>
+      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+        📥 上傳 xlsx 檔案
+      </button>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="loadFile(this)">
+    </div>
+
+    <div class="ctrl-group">
+      <label>⚠️ 即將到期天數閾值</label>
+      <input type="number" id="soonDays" value="210" min="1" max="999" style="width:100px"
+             onchange="recompute()">
+    </div>
+
+    <div class="ctrl-group">
+      <label>⏳ 長期在庫年限</label>
+      <input type="number" id="longYears" value="3" min="1" max="20" style="width:80px"
+             onchange="recompute()">
+    </div>
+
+    <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn btn-green" onclick="exportExcel()">📤 匯出 Excel</button>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('all',this)">📋 全部庫存</button>
+    <button class="tab-btn" onclick="switchTab('expired',this)">❌ 過期品</button>
+    <button class="tab-btn" onclick="switchTab('long',this)">⏳ 長期在庫</button>
+    <button class="tab-btn" onclick="switchTab('soon',this)">⚠️ 即將到期</button>
+    <button class="tab-btn" onclick="switchTab('prices',this)">💰 單價設定</button>
+  </div>
+
+  <!-- TAB: all -->
+  <div class="tab-content active" id="tab-all">
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" placeholder="搜尋產品名稱 / 批號…" id="search-all" oninput="renderTable('all')">
+        </div>
+        <select class="filter-select" id="filter-all-warehouse" onchange="renderTable('all')">
+          <option value="">全部倉庫</option>
+        </select>
+        <select class="filter-select" id="filter-all-category" onchange="renderTable('all')">
+          <option value="">全部類別</option>
+        </select>
+        <span class="tbl-count" id="count-all">0 筆</span>
+      </div>
+      <div class="tbl-scroll" id="tbl-all-wrap">
+        <div class="upload-zone" id="uploadZone"
+             onclick="document.getElementById('fileInput').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handleDrop(event)">
+          <div class="icon">📂</div>
+          <h3>拖曳或點擊上傳庫存 xlsx</h3>
+          <p>支援 ERP 匯出的標準庫存格式</p>
+        </div>
+      </div>
+      <div class="tbl-footer" id="footer-all" style="display:none">
+        <span>庫存數量合計：<strong id="sum-all-qty">0</strong></span>
+        <span>存貨成本合計：<strong id="sum-all-cost">$0</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: expired -->
+  <div class="tab-content" id="tab-expired">
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" placeholder="搜尋…" id="search-expired" oninput="renderTable('expired')">
+        </div>
+        <select class="filter-select" id="filter-expired-warehouse" onchange="renderTable('expired')">
+          <option value="">全部倉庫</option>
+        </select>
+        <select class="filter-select" id="filter-expired-category" onchange="renderTable('expired')">
+          <option value="">全部類別</option>
+        </select>
+        <span class="tbl-count" id="count-expired">0 筆</span>
+      </div>
+      <div class="tbl-scroll" id="tbl-expired-wrap"></div>
+      <div class="tbl-footer" id="footer-expired" style="display:none">
+        <span>庫存數量合計：<strong id="sum-expired-qty">0</strong></span>
+        <span>存貨成本合計：<strong id="sum-expired-cost">$0</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: long -->
+  <div class="tab-content" id="tab-long">
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" placeholder="搜尋…" id="search-long" oninput="renderTable('long')">
+        </div>
+        <select class="filter-select" id="filter-long-warehouse" onchange="renderTable('long')">
+          <option value="">全部倉庫</option>
+        </select>
+        <select class="filter-select" id="filter-long-category" onchange="renderTable('long')">
+          <option value="">全部類別</option>
+        </select>
+        <span class="tbl-count" id="count-long">0 筆</span>
+      </div>
+      <div class="tbl-scroll" id="tbl-long-wrap"></div>
+      <div class="tbl-footer" id="footer-long" style="display:none">
+        <span>庫存數量合計：<strong id="sum-long-qty">0</strong></span>
+        <span>存貨成本合計：<strong id="sum-long-cost">$0</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: soon -->
+  <div class="tab-content" id="tab-soon">
+    <!-- 分段彙總 -->
+    <div style="background:white;border-radius:var(--r);box-shadow:var(--shadow);padding:16px 20px;margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:13px;font-weight:800;color:var(--purple);">分段統計：</span>
+      <span class="badge badge-red"   id="seg-urgent">🔴 緊急(≤30天) 0筆</span>
+      <span class="badge badge-orange" id="seg-warn">🟠 警示(31-90天) 0筆</span>
+      <span class="badge badge-yellow" id="seg-caution">🟡 注意(91-180天) 0筆</span>
+      <span class="badge badge-green"  id="seg-track">🟢 追蹤(181-210天) 0筆</span>
+      <select class="filter-select" id="filter-soon-seg" onchange="renderTable('soon')" style="margin-left:auto;">
+        <option value="">全部區段</option>
+        <option value="urgent">🔴 緊急 ≤30天</option>
+        <option value="warn">🟠 警示 31-90天</option>
+        <option value="caution">🟡 注意 91-180天</option>
+        <option value="track">🟢 追蹤 181-210天</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" placeholder="搜尋…" id="search-soon" oninput="renderTable('soon')">
+        </div>
+        <select class="filter-select" id="filter-soon-warehouse" onchange="renderTable('soon')">
+          <option value="">全部倉庫</option>
+        </select>
+        <select class="filter-select" id="filter-soon-category" onchange="renderTable('soon')">
+          <option value="">全部類別</option>
+        </select>
+        <span class="tbl-count" id="count-soon">0 筆</span>
+      </div>
+      <div class="tbl-scroll" id="tbl-soon-wrap"></div>
+      <div class="tbl-footer" id="footer-soon" style="display:none">
+        <span>庫存數量合計：<strong id="sum-soon-qty">0</strong></span>
+        <span>存貨成本合計：<strong id="sum-soon-cost">$0</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: prices -->
+  <div class="tab-content" id="tab-prices">
+    <div class="table-wrap">
+      <div class="table-toolbar" style="justify-content:space-between;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div class="search-box">
+            <span>🔍</span>
+            <input type="text" placeholder="搜尋產品…" id="search-price" oninput="renderPrices()">
+          </div>
+          <span style="font-size:12px;color:var(--muted);">💡 在下方黃色格直接輸入單價，存貨成本自動計算</span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-blue" onclick="document.getElementById('priceFileInput').click()">📥 匯入單價 xlsx</button>
+          <input type="file" id="priceFileInput" accept=".xlsx,.xls" onchange="loadPriceFile(this)" style="display:none">
+          <button class="btn btn-green" onclick="exportPriceExcel()">📤 匯出單價表</button>
+        </div>
+      </div>
+      <div class="price-grid" id="priceGrid">
+        <div class="empty-state" style="grid-column:1/-1">
+          <div class="icon">💰</div>
+          <p>請先上傳庫存資料，產品清單將自動出現</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────
+let allData = [];       // 原始資料
+let prices  = {};      // { 產品代碼: 單價 }
+let sortState = {};    // { tabKey: { col, dir } }
+
+const TODAY = new Date(2026, 3, 20);  // 2026-04-20
+document.getElementById('headerDate').innerHTML =
+  `基準日期<br>${TODAY.getFullYear()}/${String(TODAY.getMonth()+1).padStart(2,'0')}/${String(TODAY.getDate()).padStart(2,'0')}`;
+
+// ─── HELPERS ─────────────────────────────────────────────────
+function showToast(msg, dur=2400){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur);
+}
+function showLoader(v){ document.getElementById('loader').classList.toggle('show',v); }
+function fmtDate(d){ if(!d)return ''; return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; }
+function fmtNum(n){ return Number(n||0).toLocaleString('zh-TW',{maximumFractionDigits:2}); }
+function daysDiff(d){ if(!d)return null; return Math.round((d - TODAY) / 86400000); }
+
+function parseLotDate(lot){
+  if(!lot) return null;
+  let s = String(lot).trim();
+  if(s.toUpperCase().startsWith('E')) s = s.slice(1);
+  const digits = s.replace(/[^0-9]/g,'');
+  if(digits.length >= 8){
+    const d = digits.slice(0,8);
+    const y=+d.slice(0,4), m=+d.slice(4,6)-1, day=+d.slice(6,8);
+    if(y>1990 && m>=0 && m<12 && day>=1 && day<=31){
+      const dt = new Date(y,m,day);
+      if(!isNaN(dt)) return dt;
+    }
+  }
+  return null;
+}
+
+function parseExcelDate(v){
+  if(!v) return null;
+  if(v instanceof Date && !isNaN(v)) return v;
+  if(typeof v === 'number'){ // Excel serial
+    const d = new Date(Math.round((v - 25569)*86400*1000));
+    if(!isNaN(d)) return d;
+  }
+  const s = String(v).trim();
+  const dt = new Date(s);
+  if(!isNaN(dt)) return dt;
+  return null;
+}
+
+// ─── DERIVED ──────────────────────────────────────────────────
+function getThresholds(){
+  return {
+    soonDays:  +document.getElementById('soonDays').value || 210,
+    longYears: +document.getElementById('longYears').value || 3,
+  };
+}
+
+function classify(row){
+  const { soonDays, longYears } = getThresholds();
+  const expDate   = row._expDate;
+  const lotDate   = row._lotDate;
+  const flags = { expired:false, long:false, soon:false, soonSeg:null };
+
+  if(expDate){
+    const left = daysDiff(expDate);
+    if(left < 0) flags.expired = true;
+    else if(left < soonDays){
+      flags.soon = true;
+      if(left <= 30)       flags.soonSeg = 'urgent';
+      else if(left <= 90)  flags.soonSeg = 'warn';
+      else if(left <= 180) flags.soonSeg = 'caution';
+      else                 flags.soonSeg = 'track';
+    }
+  }
+
+  if(lotDate){
+    const cutoff = new Date(TODAY);
+    cutoff.setFullYear(cutoff.getFullYear() - longYears);
+    if(lotDate <= cutoff) flags.long = true;
+  }
+
+  return flags;
+}
+
+function getRowClass(flags, row){
+  if(flags.expired) return 'row-expired';
+  if(flags.soonSeg === 'urgent') return 'row-urgent';
+  if(flags.soonSeg === 'warn')   return 'row-warn';
+  if(flags.soonSeg === 'caution')return 'row-caution';
+  if(flags.soonSeg === 'track')  return 'row-track';
+  if(flags.long) return 'row-long';
+  return '';
+}
+
+function computeCost(row){
+  const code = String(row['產品代碼']||'').trim();
+  const qty  = parseFloat(row['庫存數量'])||0;
+  const price = prices[code] || 0;
+  return { qty, price, cost: qty * price };
+}
+
+// ─── LOAD FILE ────────────────────────────────────────────────
+function loadFile(input){
+  const file = input.files[0]; if(!file) return;
+  showLoader(true);
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const wb  = XLSX.read(e.target.result, {type:'binary', cellDates:true});
+      const ws  = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
+      processData(raw);
+      showToast(`✅ 成功載入 ${raw.length} 筆資料`);
+    }catch(err){
+      showToast('❌ 讀取失敗：'+err.message, 4000);
+    }
+    showLoader(false);
+    input.value = '';
+  };
+  reader.readAsBinaryString(file);
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if(!file) return;
+  const fakeInput = { files:[file] };
+  loadFile(fakeInput);
+}
+
+function processData(raw){
+  allData = raw.map(r => {
+    r._expDate = parseExcelDate(r['有效期至']);
+    r._lotDate = parseLotDate(r['批號']);
+    return r;
+  });
+
+  // Build price keys from data
+  allData.forEach(r => {
+    const code = String(r['產品代碼']||'').trim();
+    if(code && prices[code] === undefined) prices[code] = 0;
+  });
+
+  buildFilters();
+  recompute();
+  renderPrices();
+  document.getElementById('uploadZone').style.display = 'none';
+}
+
+// ─── RECOMPUTE KPI ────────────────────────────────────────────
+function recompute(){
+  if(!allData.length) return;
+  const { soonDays } = getThresholds();
+  let expiredCount=0, longCount=0, soonCount=0;
+  let seg={urgent:0,warn:0,caution:0,track:0};
+
+  allData.forEach(r => {
+    const f = classify(r);
+    if(f.expired) expiredCount++;
+    if(f.long)    longCount++;
+    if(f.soon){   soonCount++; seg[f.soonSeg]++; }
+  });
+
+  document.getElementById('kpi-total').textContent   = fmtNum(allData.length);
+  document.getElementById('kpi-expired').textContent = expiredCount;
+  document.getElementById('kpi-long').textContent    = longCount;
+  document.getElementById('kpi-soon').textContent    = soonCount;
+  document.getElementById('kpi-soon-sub').textContent= `效期未滿${soonDays}天`;
+
+  document.getElementById('seg-urgent').textContent  = `🔴 緊急(≤30天) ${seg.urgent}筆`;
+  document.getElementById('seg-warn').textContent    = `🟠 警示(31-90天) ${seg.warn}筆`;
+  document.getElementById('seg-caution').textContent = `🟡 注意(91-180天) ${seg.caution}筆`;
+  document.getElementById('seg-track').textContent   = `🟢 追蹤(181-210天) ${seg.track}筆`;
+
+  ['all','expired','long','soon'].forEach(k => renderTable(k));
+}
+
+// ─── BUILD FILTERS ────────────────────────────────────────────
+function buildFilters(){
+  const warehouses = [...new Set(allData.map(r=>r['倉庫名稱']||'').filter(Boolean))].sort();
+  const categories = [...new Set(allData.map(r=>r['產品類別']||'').filter(Boolean))].sort();
+
+  ['all','expired','long','soon'].forEach(k => {
+    const ws = document.getElementById(`filter-${k}-warehouse`);
+    const cs = document.getElementById(`filter-${k}-category`);
+    ws.innerHTML = '<option value="">全部倉庫</option>' + warehouses.map(w=>`<option>${w}</option>`).join('');
+    cs.innerHTML = '<option value="">全部類別</option>' + categories.map(c=>`<option>${c}</option>`).join('');
+  });
+}
+
+// ─── RENDER TABLE ─────────────────────────────────────────────
+const COLS = [
+  {key:'產品類別',   label:'類別'},
+  {key:'產品代碼',   label:'產品代碼'},
+  {key:'產品名稱',   label:'產品名稱'},
+  {key:'產品規格',   label:'規格'},
+  {key:'庫存數量',   label:'庫存數量'},
+  {key:'基本單位名稱',label:'單位'},
+  {key:'倉庫名稱',   label:'倉庫'},
+  {key:'批號',       label:'批號'},
+  {key:'_lotDate',   label:'入庫日期'},
+  {key:'有效期至',   label:'有效期至'},
+  {key:'_days',      label:'剩餘/在庫天數'},
+  {key:'_price',     label:'單價'},
+  {key:'_cost',      label:'存貨成本'},
+];
+
+function filterRows(tabKey){
+  const search    = (document.getElementById(`search-${tabKey}`)?.value||'').toLowerCase();
+  const warehouse = document.getElementById(`filter-${tabKey}-warehouse`)?.value||'';
+  const category  = document.getElementById(`filter-${tabKey}-category`)?.value||'';
+  const soonSeg   = tabKey==='soon' ? (document.getElementById('filter-soon-seg')?.value||'') : '';
+  const { soonDays } = getThresholds();
+
+  return allData.filter(r => {
+    const f = classify(r);
+    if(tabKey==='expired' && !f.expired) return false;
+    if(tabKey==='long'    && !f.long)    return false;
+    if(tabKey==='soon'    && !f.soon)    return false;
+    if(tabKey==='soon' && soonSeg && f.soonSeg !== soonSeg) return false;
+    if(warehouse && r['倉庫名稱'] !== warehouse) return false;
+    if(category  && r['產品類別'] !== category)  return false;
+    if(search){
+      const hay = (String(r['產品名稱']||'')+String(r['批號']||'')+String(r['產品代碼']||'')).toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function renderTable(tabKey){
+  if(!allData.length) return;
+  const rows = filterRows(tabKey);
+  const wrap  = document.getElementById(`tbl-${tabKey}-wrap`);
+  const countEl = document.getElementById(`count-${tabKey}`);
+  const footerEl = document.getElementById(`footer-${tabKey}`);
+
+  if(!rows.length){
+    wrap.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><p>沒有符合條件的資料</p></div>`;
+    countEl.textContent = '0 筆';
+    if(footerEl) footerEl.style.display='none';
+    return;
+  }
+
+  let totalQty=0, totalCost=0;
+
+  const colsToShow = tabKey==='long'
+    ? COLS.map(c=>c.key==='_days' ? {...c,label:'在庫天數'} : c)
+    : tabKey==='expired'
+    ? COLS.map(c=>c.key==='_days' ? {...c,label:'超期天數'} : c)
+    : COLS;
+
+  let html = `<table><thead><tr>`;
+  colsToShow.forEach(c => {
+    const s = sortState[tabKey];
+    const icon = s?.col===c.key ? (s.dir>0?'▲':'▼') : '<span style="opacity:.3">⇅</span>';
+    html += `<th onclick="sortTable('${tabKey}','${c.key}')" style="background:${colHeader(tabKey)}">${c.label} <span class="sort-icon">${icon}</span></th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  rows.forEach(r => {
+    const f = classify(r);
+    const rc = getRowClass(f, r);
+    const { qty, price, cost } = computeCost(r);
+    totalQty  += qty;
+    totalCost += cost;
+
+    let dayVal = '';
+    if(tabKey==='long'){
+      const ld = r._lotDate;
+      if(ld) dayVal = Math.round((TODAY - ld)/86400000) + '天';
+    } else if(tabKey==='expired'){
+      const ed = r._expDate;
+      if(ed){
+        const d = Math.round((TODAY - ed)/86400000);
+        dayVal = `<span class="badge badge-red">超 ${d}天</span>`;
+      }
+    } else {
+      const ed = r._expDate;
+      if(ed){
+        const d = daysDiff(ed);
+        if(d!==null && d>=0){
+          const seg = f.soonSeg;
+          const cls = seg==='urgent'?'badge-red':seg==='warn'?'badge-orange':seg==='caution'?'badge-yellow':seg==='track'?'badge-green':'badge-gray';
+          dayVal = `<span class="badge ${cls}">${d}天</span>`;
+        }
+      }
+    }
+
+    const expDisplay = r._expDate ? fmtDate(r._expDate) : (r['有效期至']||'—');
+    const lotDisplay = r._lotDate ? fmtDate(r._lotDate) : '—';
+    const priceDisplay = price > 0 ? `$${fmtNum(price)}` : `<span style="color:var(--muted)">未設定</span>`;
+    const costDisplay  = cost  > 0 ? `<strong>$${fmtNum(cost)}</strong>` : '<span style="color:var(--muted)">—</span>';
+
+    html += `<tr class="${rc}">`;
+    html += `<td><span class="badge badge-gray">${r['產品類別']||'—'}</span></td>`;
+    html += `<td style="font-weight:700;color:var(--purple)">${r['產品代碼']||'—'}</td>`;
+    html += `<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${r['產品名稱']||'—'}</td>`;
+    html += `<td style="color:var(--muted);font-size:11px">${r['產品規格']||'—'}</td>`;
+    html += `<td style="text-align:right;font-weight:700">${fmtNum(r['庫存數量'])}</td>`;
+    html += `<td>${r['基本單位名稱']||'—'}</td>`;
+    html += `<td>${r['倉庫名稱']||'—'}</td>`;
+    html += `<td style="font-size:11px;color:var(--muted)">${r['批號']||'—'}</td>`;
+    html += `<td>${lotDisplay}</td>`;
+    html += `<td>${expDisplay}</td>`;
+    html += `<td style="text-align:center">${dayVal}</td>`;
+    html += `<td style="text-align:right">${priceDisplay}</td>`;
+    html += `<td style="text-align:right">${costDisplay}</td>`;
+    html += `</tr>`;
+  });
+
+  html += `</tbody></table>`;
+  wrap.innerHTML = html;
+  countEl.textContent = `${rows.length} 筆`;
+  if(footerEl){
+    footerEl.style.display = 'flex';
+    document.getElementById(`sum-${tabKey}-qty`).textContent  = fmtNum(totalQty);
+    document.getElementById(`sum-${tabKey}-cost`).textContent = '$'+fmtNum(totalCost);
+  }
+}
+
+function colHeader(k){
+  return k==='expired'?'#E07070':k==='long'?'#E0904A':k==='soon'?'#D0736A':'#7B6BAA';
+}
+
+// ─── SORT ─────────────────────────────────────────────────────
+function sortTable(tabKey, col){
+  const s = sortState[tabKey] || {};
+  const dir = s.col===col ? -s.dir : 1;
+  sortState[tabKey] = { col, dir };
+
+  const getSortVal = (r,c) => {
+    if(c==='_lotDate') return r._lotDate ? r._lotDate.getTime() : 0;
+    if(c==='_days'){
+      if(r._expDate) return daysDiff(r._expDate)||0;
+      if(r._lotDate) return (TODAY - r._lotDate)/86400000;
+      return 0;
+    }
+    if(c==='庫存數量') return parseFloat(r[c])||0;
+    return String(r[c]||'');
+  };
+
+  allData.sort((a,b) => {
+    const av = getSortVal(a,col), bv = getSortVal(b,col);
+    return av < bv ? -dir : av > bv ? dir : 0;
+  });
+  renderTable(tabKey);
+}
+
+// ─── PRICE RENDER ─────────────────────────────────────────────
+function renderPrices(){
+  const search = (document.getElementById('search-price')?.value||'').toLowerCase();
+  const products = [...new Set(allData.map(r=>r['產品代碼']||'').filter(Boolean))].sort();
+  const grid = document.getElementById('priceGrid');
+
+  if(!products.length){
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">💰</div><p>請先上傳庫存資料，產品清單將自動出現</p></div>';
+    return;
+  }
+
+  const nameMap = {};
+  allData.forEach(r=>{ if(r['產品代碼']) nameMap[r['產品代碼']] = r['產品名稱']||''; });
+
+  const filtered = products.filter(code => {
+    if(!search) return true;
+    return code.toLowerCase().includes(search) || (nameMap[code]||'').toLowerCase().includes(search);
+  });
+
+  grid.innerHTML = filtered.map(code => `
+    <div class="price-card">
+      <span class="price-code">${code}</span>
+      <span class="price-name">${nameMap[code]||''}</span>
+      <input class="price-input" type="number" min="0" step="0.01"
+             placeholder="0.00"
+             value="${prices[code]||''}"
+             onchange="updatePrice('${code}',this.value)"
+             style="background:${(prices[code]>0)?'#FFFBE0':'white'}">
+    </div>
+  `).join('');
+}
+
+function updatePrice(code, val){
+  prices[code] = parseFloat(val)||0;
+  recompute();
+  renderPrices();
+}
+
+// ─── LOAD PRICE FILE ─────────────────────────────────────────
+function loadPriceFile(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const wb  = XLSX.read(e.target.result, {type:'binary'});
+      const ws  = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
+      let count = 0;
+      raw.forEach(r => {
+        const code  = String(r['產品代碼']||r['code']||'').trim();
+        const price = parseFloat(r['單價']||r['price']||r['單價（元）']||0);
+        if(code && price>=0){ prices[code]=price; count++; }
+      });
+      recompute();
+      renderPrices();
+      showToast(`✅ 匯入 ${count} 筆單價`);
+    }catch(err){ showToast('❌ 讀取失敗：'+err.message, 4000); }
+    input.value='';
+  };
+  reader.readAsBinaryString(file);
+}
+
+// ─── TAB SWITCH ──────────────────────────────────────────────
+function switchTab(key, btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+key).classList.add('active');
+  if(key!=='prices' && allData.length) renderTable(key);
+}
+
+// ─── EXPORT EXCEL ─────────────────────────────────────────────
+function exportExcel(){
+  if(!allData.length){ showToast('❌ 尚未載入資料'); return; }
+  const wb = XLSX.utils.book_new();
+
+  const mkSheet = (rows, name) => {
+    const out = rows.map(r => {
+      const f = classify(r);
+      const {qty,price,cost} = computeCost(r);
+      const expDate = r._expDate ? fmtDate(r._expDate) : (r['有效期至']||'');
+      const lotDate = r._lotDate ? fmtDate(r._lotDate) : '';
+      let daysLabel = '';
+      if(name==='長期在庫' && r._lotDate)
+        daysLabel = Math.round((TODAY-r._lotDate)/86400000);
+      else if(r._expDate){
+        const d = daysDiff(r._expDate);
+        if(d!==null) daysLabel = d;
+      }
+      return {
+        '核算組織':r['核算組織名稱']||'',
+        '產品類別':r['產品類別']||'',
+        '產品代碼':r['產品代碼']||'',
+        '產品名稱':r['產品名稱']||'',
+        '產品規格':r['產品規格']||'',
+        '庫存數量':qty,
+        '單位':r['基本單位名稱']||'',
+        '倉庫名稱':r['倉庫名稱']||'',
+        '批號':r['批號']||'',
+        '入庫日期':lotDate,
+        '有效期至':expDate,
+        '剩餘/在庫天數':daysLabel,
+        '單價':price,
+        '存貨成本':cost,
+      };
+    });
+    return XLSX.utils.json_to_sheet(out);
+  };
+
+  XLSX.utils.book_append_sheet(wb, mkSheet(allData,'全部'),'全部庫存');
+  XLSX.utils.book_append_sheet(wb, mkSheet(allData.filter(r=>classify(r).expired),'過期品'),'❌過期品');
+  XLSX.utils.book_append_sheet(wb, mkSheet(allData.filter(r=>classify(r).long),'長期在庫'),'⏳長期在庫');
+  XLSX.utils.book_append_sheet(wb, mkSheet(allData.filter(r=>classify(r).soon),'即將到期'),'⚠️即將到期');
+
+  // 單價頁
+  const priceRows = Object.entries(prices).map(([code,price])=>({
+    '產品代碼':code,
+    '產品名稱':(allData.find(r=>String(r['產品代碼']||'')==code)||{})['產品名稱']||'',
+    '單位':(allData.find(r=>String(r['產品代碼']||'')==code)||{})['基本單位名稱']||'',
+    '單價':price,
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(priceRows),'單價表');
+
+  const today = TODAY;
+  const fn = `庫存管理報表_${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}.xlsx`;
+  XLSX.writeFile(wb, fn);
+  showToast('✅ 已匯出 Excel');
+}
+
+function exportPriceExcel(){
+  const priceRows = Object.entries(prices).map(([code,price])=>({
+    '產品代碼':code,
+    '產品名稱':(allData.find(r=>String(r['產品代碼']||'')==code)||{})['產品名稱']||'',
+    '基本單位':(allData.find(r=>String(r['產品代碼']||'')==code)||{})['基本單位名稱']||'',
+    '單價（元）':price,
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(priceRows),'單價表');
+  XLSX.writeFile(wb,'產品單價表.xlsx');
+  showToast('✅ 已匯出單價表');
+}
+</script>
+</body>
+</html>
