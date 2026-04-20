@@ -1889,16 +1889,36 @@ async function exportLedger() {
     try {
         const rows = lsLoadLedgerRows() || [];
         if (rows.length === 0) { alert('總帳尚無資料'); return; }
-        const exportData = rows.map(r => ({
-            產品類別: r.產品類別||'',
-            產品代碼: r.產品代碼||'',
-            產品名稱: r.產品名稱,
-            批號: r.批號,
-            採購部門: r.採購部門||'',
-            總檔結存: r.總檔結存 ?? r.本期結存 ?? '',
-            月租金結餘: (r.月租金結餘 ?? r.前期結餘 ?? 0),
-            ...(r.月結歷史||{})
-        }));
+        
+        // 收集所有可能的欄位名稱
+        const allKeys = new Set();
+        rows.forEach(r => {
+            Object.keys(r).forEach(k => allKeys.add(k));
+        });
+        
+        // 定義欄位順序（優先顯示這些欄位）
+        const priorityKeys = [
+            '產品類別', '產品代碼', '產品名稱', '批號', '採購部門',
+            '總檔結存', '本期結存', '上期結存', '本期入庫', '本期出庫',
+            '前期結餘', '上半期', '下半期', '租金總計', '月租金出庫', '月租金結餘',
+            '分攤單價', '總檔租金結餘', '_key', '_isNew'
+        ];
+        
+        // 排序：優先欄位在前，其餘欄位（月結歷史等）在後
+        const orderedKeys = [
+            ...priorityKeys.filter(k => allKeys.has(k)),
+            ...Array.from(allKeys).filter(k => !priorityKeys.includes(k))
+        ];
+        
+        // 產生匯出資料
+        const exportData = rows.map(r => {
+            const row = {};
+            orderedKeys.forEach(k => {
+                row[k] = r[k] !== undefined ? r[k] : '';
+            });
+            return row;
+        });
+        
         const ws = window.XLSX.utils.json_to_sheet(exportData);
         const wb = window.XLSX.utils.book_new();
         window.XLSX.utils.book_append_sheet(wb, ws, '租金總帳');
