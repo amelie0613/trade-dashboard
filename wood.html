@@ -758,7 +758,7 @@ function processData(raw){
   // Build price keys from data (key = 產品名稱__批號)
   allData.forEach(r => {
     const k = priceKey(r);
-    if(k !== '__' && prices[k] === undefined) prices[k] = { price: 0, scope: '' };
+    if(k !== '__' && prices[k] === undefined) prices[k] = { price: 0, priceSource: '', scope: '' };
   });
 
   buildFilters();
@@ -882,7 +882,7 @@ function renderTable(tabKey){
   rows.forEach(r => {
     const f = classify(r);
     const rc = getRowClass(f, r);
-    const { qty, price, cost } = computeCost(r);
+    const { qty, price, scope, cost } = computeCost(r);
     totalQty  += qty;
     totalCost += cost;
 
@@ -1009,6 +1009,7 @@ function renderPrices(){
         <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
           <span style="font-size:11px;font-weight:800;color:var(--purple);">${r['產品代碼']||''} ${r['產品名稱']||''}</span>
           <span style="font-size:10px;color:var(--muted);">批號：${r['批號']||'—'}</span>
+        ${pd.priceSource ? `<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:${pd.priceSource==='期末'?'#E8F8E0':'#FFF8E0'};color:${pd.priceSource==='期末'?'#2A7A10':'#906000'};font-weight:700;">${pd.priceSource}</span>` : ''}
         </div>
         <input class="price-input" type="number" min="0" step="0.01"
                placeholder="0.00"
@@ -1028,7 +1029,7 @@ function renderPrices(){
 }
 
 function updatePriceField(key, field, val){
-  if(!prices[key]) prices[key] = { price: 0, scope: '' };
+  if(!prices[key]) prices[key] = { price: 0, priceSource: '', scope: '' };
   if(field === 'price') prices[key].price = parseFloat(val)||0;
   else prices[key].scope = String(val).trim();
   recompute();
@@ -1047,10 +1048,16 @@ function loadPriceFile(input){
       raw.forEach(r => {
         const name  = String(r['產品名稱']||'').trim();
         const lot   = String(r['批號']||'').trim();
-        const price = parseFloat(r['單價']||r['price']||r['單價（元）']||0);
+        // 期末優先，無值時用期初
+        const endCost   = parseFloat(r['期末單位成本']);
+        const startCost = parseFloat(r['期初單位成本']);
+        const price = !isNaN(endCost) && endCost > 0 ? endCost
+                    : !isNaN(startCost) && startCost > 0 ? startCost
+                    : 0;
+        const priceSource = (!isNaN(endCost) && endCost > 0) ? '期末' : '期初';
         const scope = String(r['存貨核算範圍']||r['核算範圍']||'').trim();
         if(name && lot){
-          prices[`${name}__${lot}`] = { price: price>=0 ? price : 0, scope };
+          prices[`${name}__${lot}`] = { price, priceSource, scope };
           count++;
         }
       });
@@ -1146,7 +1153,9 @@ function exportPriceExcel(){
       '產品名稱':     name,
       '批號':         lot,
       '基本單位':     found['基本單位名稱']||'',
-      '單價（元）':   pd.price||0,
+      '期末單位成本': pd.priceSource==='期末' ? pd.price||0 : '',
+      '期初單位成本': pd.priceSource==='期初' ? pd.price||0 : '',
+      '採用來源':     pd.priceSource||'手動',
       '存貨核算範圍': pd.scope||'',
     };
   });
