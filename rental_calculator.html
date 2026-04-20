@@ -1827,12 +1827,19 @@ async function viewLedger() {
             const catA = a.產品類別||'', catB = b.產品類別||'';
             if (catA !== catB) return catA.localeCompare(catB, 'zh-TW');
             return (a.產品名稱||'').localeCompare(b.產品名稱||'', 'zh-TW');
-        }).forEach(r => {
+        }).forEach((r, idx) => {
             const history = Object.entries(r.月結歷史||{}).map(([k,v])=>`${k}:$${Number(v).toLocaleString()}`).join(' / ');
+            const rowKey = r.產品名稱 + '|' + r.批號; // 用來找到這筆資料
             tableRows += `<tr>
                 <td style="white-space:nowrap;">${r.產品類別||''}</td>
                 <td style="white-space:nowrap;">${r.產品代碼||''}</td>
-                <td>${r.產品名稱}</td>
+                <td style="padding:0;">
+                    <input type="text" value="${r.產品名稱}" data-ledger-key="${rowKey}" data-field="產品名稱" 
+                        onchange="onLedgerEdit(this)" 
+                        style="width:100%; border:none; padding:0.3rem 0.4rem; background:transparent; font-family:inherit; outline:none; cursor:pointer; border-bottom:1.5px solid transparent;"
+                        onfocus="this.style.borderBottomColor='#f2a7c3'; this.style.background='#fff8fc';"
+                        onblur="this.style.borderBottomColor='transparent'; this.style.background='transparent';" />
+                </td>
                 <td style="white-space:nowrap;">${r.批號}</td>
                 <td style="white-space:nowrap;">${r.採購部門||''}</td>
                 <td style="text-align:right; white-space:nowrap;">${r.總檔結存 !== undefined ? r.總檔結存 : (r.本期結存 !== undefined ? r.本期結存 : '-')}</td>
@@ -2471,6 +2478,61 @@ function onCellEdit(input) {
     recalcSummary();
 }
 
+// 總帳編輯函式
+function onLedgerEdit(input) {
+    const rowKey = input.dataset.ledgerKey;
+    const field = input.dataset.field;
+    const newValue = input.value.trim();
+    
+    if (!newValue) {
+        alert('欄位不能為空！');
+        input.value = input.defaultValue;
+        return;
+    }
+    
+    try {
+        const rows = lsLoadLedgerRows() || [];
+        const [productName, batchNo] = rowKey.split('|');
+        
+        // 找到對應的資料列
+        const targetIdx = rows.findIndex(r => 
+            (r.產品名稱 || '').trim() === productName && 
+            (r.批號 || '').trim() === batchNo
+        );
+        
+        if (targetIdx === -1) {
+            alert('無法找到該筆資料！');
+            input.value = input.defaultValue;
+            return;
+        }
+        
+        // 更新欄位
+        const oldValue = rows[targetIdx][field];
+        rows[targetIdx][field] = newValue;
+        
+        // 如果改的是產品名稱，要更新key（但保持批號相同）
+        if (field === '產品名稱') {
+            // 直接更新就好，key在下次編輯時會用新的值
+        }
+        
+        // 存回localStorage
+        lsSaveLedgerRows(rows);
+        
+        // UI反饋
+        input.style.background = '#e8f5e9';
+        input.style.borderBottomColor = '#8dcc7a';
+        setTimeout(() => {
+            input.style.background = 'transparent';
+            input.style.borderBottomColor = 'transparent';
+        }, 1500);
+        
+        console.log(`✅ 已更新：${field}，從「${oldValue}」改為「${newValue}」`);
+    } catch(e) {
+        alert('更新失敗：' + e.message);
+        input.value = input.defaultValue;
+    }
+}
+
 function recalcSummary() {
     const tbody = document.getElementById('resultBody');
     if (!tbody) return;
@@ -2551,6 +2613,7 @@ window.applyFilter = applyFilter;
 window.clearFilter = clearFilter;
 window.exportResults = exportResults;
 window.onCellEdit = onCellEdit;
+window.onLedgerEdit = onLedgerEdit;
 window.toggleTotalRow = toggleTotalRow;
 window.autoFormatDate = autoFormatDate;
 window.dragOver = dragOver;
