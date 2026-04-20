@@ -702,11 +702,20 @@ function getRowClass(flags, row){
   return '';
 }
 
+// 單價 key = 產品名稱__批號
+// prices[key] = { price: number, scope: string }
+function priceKey(row){
+  return `${String(row['產品名稱']||'').trim()}__${String(row['批號']||'').trim()}`;
+}
+
+function getPriceData(row){
+  return prices[priceKey(row)] || { price: 0, scope: '' };
+}
+
 function computeCost(row){
-  const code = String(row['產品代碼']||'').trim();
-  const qty  = parseFloat(row['庫存數量'])||0;
-  const price = prices[code] || 0;
-  return { qty, price, cost: qty * price };
+  const qty = parseFloat(row['庫存數量'])||0;
+  const pd  = getPriceData(row);
+  return { qty, price: pd.price, scope: pd.scope, cost: qty * pd.price };
 }
 
 // ─── LOAD FILE ────────────────────────────────────────────────
@@ -746,10 +755,10 @@ function processData(raw){
     return r;
   });
 
-  // Build price keys from data
+  // Build price keys from data (key = 產品名稱__批號)
   allData.forEach(r => {
-    const code = String(r['產品代碼']||'').trim();
-    if(code && prices[code] === undefined) prices[code] = 0;
+    const k = priceKey(r);
+    if(k !== '__' && prices[k] === undefined) prices[k] = { price: 0, scope: '' };
   });
 
   buildFilters();
@@ -813,6 +822,7 @@ const COLS = [
   {key:'有效期至',   label:'有效期至'},
   {key:'_days',      label:'剩餘/在庫天數'},
   {key:'_price',     label:'單價'},
+  {key:'_scope',     label:'核算範圍'},
   {key:'_cost',      label:'存貨成本'},
 ];
 
@@ -901,6 +911,7 @@ function renderTable(tabKey){
     const expDisplay = r._expDate ? fmtDate(r._expDate) : (r['有效期至']||'—');
     const lotDisplay = r._lotDate ? fmtDate(r._lotDate) : '—';
     const priceDisplay = price > 0 ? `$${fmtNum(price)}` : `<span style="color:var(--muted)">未設定</span>`;
+    const scopeDisplay = scope ? `<span class="badge badge-gray">${scope}</span>` : '<span style="color:var(--muted)">—</span>';
     const costDisplay  = cost  > 0 ? `<strong>$${fmtNum(cost)}</strong>` : '<span style="color:var(--muted)">—</span>';
 
     html += `<tr class="${rc}">`;
@@ -916,6 +927,7 @@ function renderTable(tabKey){
     html += `<td>${expDisplay}</td>`;
     html += `<td style="text-align:center">${dayVal}</td>`;
     html += `<td style="text-align:right">${priceDisplay}</td>`;
+    html += `<td style="text-align:center">${scopeDisplay}</td>`;
     html += `<td style="text-align:right">${costDisplay}</td>`;
     html += `</tr>`;
   });
@@ -961,39 +973,65 @@ function sortTable(tabKey, col){
 // ─── PRICE RENDER ─────────────────────────────────────────────
 function renderPrices(){
   const search = (document.getElementById('search-price')?.value||'').toLowerCase();
-  const products = [...new Set(allData.map(r=>r['產品代碼']||'').filter(Boolean))].sort();
   const grid = document.getElementById('priceGrid');
 
-  if(!products.length){
+  // 以每筆資料的 產品名稱+批號 為單位
+  const seen = new Set();
+  const items = allData
+    .filter(r => {
+      const k = priceKey(r);
+      if(k==='__' || seen.has(k)) return false;
+      seen.add(k); return true;
+    })
+    .sort((a,b)=>{
+      const ka = priceKey(a), kb = priceKey(b);
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+
+  if(!items.length){
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">💰</div><p>請先上傳庫存資料，產品清單將自動出現</p></div>';
     return;
   }
 
-  const nameMap = {};
-  allData.forEach(r=>{ if(r['產品代碼']) nameMap[r['產品代碼']] = r['產品名稱']||''; });
-
-  const filtered = products.filter(code => {
+  const filtered = items.filter(r => {
     if(!search) return true;
-    return code.toLowerCase().includes(search) || (nameMap[code]||'').toLowerCase().includes(search);
+    const hay = (String(r['產品名稱']||'')+String(r['批號']||'')+String(r['產品代碼']||'')).toLowerCase();
+    return hay.includes(search);
   });
 
-  grid.innerHTML = filtered.map(code => `
-    <div class="price-card">
-      <span class="price-code">${code}</span>
-      <span class="price-name">${nameMap[code]||''}</span>
-      <input class="price-input" type="number" min="0" step="0.01"
-             placeholder="0.00"
-             value="${prices[code]||''}"
-             onchange="updatePrice('${code}',this.value)"
-             style="background:${(prices[code]>0)?'#FFFBE0':'white'}">
+  grid.innerHTML = filtered.map(r => {
+    const k = priceKey(r);
+    const safeKey = k.replace(/'/g,"\\'");
+    const pd = prices[k] || { price: 0, scope: '' };
+    return `
+    <div class="price-card" style="flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
+          <span style="font-size:11px;font-weight:800;color:var(--purple);">${r['產品代碼']||''} ${r['產品名稱']||''}</span>
+          <span style="font-size:10px;color:var(--muted);">批號：${r['批號']||'—'}</span>
+        </div>
+        <input class="price-input" type="number" min="0" step="0.01"
+               placeholder="0.00"
+               value="${pd.price||''}"
+               onchange="updatePriceField('${safeKey}','price',this.value)"
+               style="background:${(pd.price>0)?'#FFFBE0':'white'}">
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:10px;color:var(--muted);min-width:60px;">核算範圍</span>
+        <input type="text" placeholder="例：貿易部"
+               value="${pd.scope||''}"
+               onchange="updatePriceField('${safeKey}','scope',this.value)"
+               style="flex:1;border:2px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;font-family:inherit;outline:none;color:var(--text);background:${pd.scope?'#F0F8FF':'white'}">
+      </div>
     </div>
-  `).join('');
+  `}).join('');
 }
 
-function updatePrice(code, val){
-  prices[code] = parseFloat(val)||0;
+function updatePriceField(key, field, val){
+  if(!prices[key]) prices[key] = { price: 0, scope: '' };
+  if(field === 'price') prices[key].price = parseFloat(val)||0;
+  else prices[key].scope = String(val).trim();
   recompute();
-  renderPrices();
 }
 
 // ─── LOAD PRICE FILE ─────────────────────────────────────────
@@ -1007,13 +1045,18 @@ function loadPriceFile(input){
       const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
       let count = 0;
       raw.forEach(r => {
-        const code  = String(r['產品代碼']||r['code']||'').trim();
+        const name  = String(r['產品名稱']||'').trim();
+        const lot   = String(r['批號']||'').trim();
         const price = parseFloat(r['單價']||r['price']||r['單價（元）']||0);
-        if(code && price>=0){ prices[code]=price; count++; }
+        const scope = String(r['存貨核算範圍']||r['核算範圍']||'').trim();
+        if(name && lot){
+          prices[`${name}__${lot}`] = { price: price>=0 ? price : 0, scope };
+          count++;
+        }
       });
       recompute();
       renderPrices();
-      showToast(`✅ 匯入 ${count} 筆單價`);
+      showToast(`✅ 匯入 ${count} 筆（單價＋核算範圍）`);
     }catch(err){ showToast('❌ 讀取失敗：'+err.message, 4000); }
     input.value='';
   };
@@ -1061,6 +1104,7 @@ function exportExcel(){
         '有效期至':expDate,
         '剩餘/在庫天數':daysLabel,
         '單價':price,
+        '存貨核算範圍':scope,
         '存貨成本':cost,
       };
     });
@@ -1072,13 +1116,19 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb, mkSheet(allData.filter(r=>classify(r).long),'長期在庫'),'⏳長期在庫');
   XLSX.utils.book_append_sheet(wb, mkSheet(allData.filter(r=>classify(r).soon),'即將到期'),'⚠️即將到期');
 
-  // 單價頁
-  const priceRows = Object.entries(prices).map(([code,price])=>({
-    '產品代碼':code,
-    '產品名稱':(allData.find(r=>String(r['產品代碼']||'')==code)||{})['產品名稱']||'',
-    '單位':(allData.find(r=>String(r['產品代碼']||'')==code)||{})['基本單位名稱']||'',
-    '單價':price,
-  }));
+  // 單價頁（產品名稱+批號對應）
+  const priceRows = Object.entries(prices).map(([k, pd])=>{
+    const [name, lot] = k.split('__');
+    const found = allData.find(r=>String(r['產品名稱']||'').trim()===name && String(r['批號']||'').trim()===lot) || {};
+    return {
+      '產品代碼':     found['產品代碼']||'',
+      '產品名稱':     name,
+      '批號':         lot,
+      '單位':         found['基本單位名稱']||'',
+      '單價':         pd.price||0,
+      '存貨核算範圍': pd.scope||'',
+    };
+  });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(priceRows),'單價表');
 
   const today = TODAY;
@@ -1088,12 +1138,18 @@ function exportExcel(){
 }
 
 function exportPriceExcel(){
-  const priceRows = Object.entries(prices).map(([code,price])=>({
-    '產品代碼':code,
-    '產品名稱':(allData.find(r=>String(r['產品代碼']||'')==code)||{})['產品名稱']||'',
-    '基本單位':(allData.find(r=>String(r['產品代碼']||'')==code)||{})['基本單位名稱']||'',
-    '單價（元）':price,
-  }));
+  const priceRows = Object.entries(prices).map(([k, pd])=>{
+    const [name, lot] = k.split('__');
+    const found = allData.find(r=>String(r['產品名稱']||'').trim()===name && String(r['批號']||'').trim()===lot) || {};
+    return {
+      '產品代碼':     found['產品代碼']||'',
+      '產品名稱':     name,
+      '批號':         lot,
+      '基本單位':     found['基本單位名稱']||'',
+      '單價（元）':   pd.price||0,
+      '存貨核算範圍': pd.scope||'',
+    };
+  });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(priceRows),'單價表');
   XLSX.writeFile(wb,'產品單價表.xlsx');
