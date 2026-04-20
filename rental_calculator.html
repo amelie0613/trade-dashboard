@@ -1654,6 +1654,8 @@ window.exportPreviewPDF = function() {
             .card-label { font-size:7px; color:#888; margin-bottom:2px; }
             .card-value { font-size:11px; font-weight:800; color:#764ba2; }
             .sep { font-size:13px; color:#ccc; padding:0 0.2rem; }
+            .dept-cards { display:flex; flex-wrap:wrap; gap:0.4rem; margin-bottom:0.8rem; justify-content:flex-start; align-items:center; }
+            .dept-card { border:1.5px solid #999; border-radius:8px; padding:0.25rem 0.6rem; text-align:center; min-width:80px; font-size:8px; }
             table { width:100%; border-collapse:collapse; font-size:9px; table-layout:fixed; }
             th { background:#f8e8f8; color:#764ba2; padding:4px 2px; border:1px solid #e0c0e8; text-align:center; }
             td { padding:3px 2px; border:1px solid #eee; text-align:right; }
@@ -1676,6 +1678,34 @@ window.exportPreviewPDF = function() {
             <div class="card" style="border-color:#f7d96b;"><div class="card-label">月租金(出庫)</div><div class="card-value" style="color:#b8860b;">$${Math.round(totalOut).toLocaleString()}</div></div>
             <div class="card" style="border-color:#c9a8e0;"><div class="card-label">月租金(結餘)</div><div class="card-value" style="color:#764ba2;">$${Math.round(totalRemain).toLocaleString()}</div></div>
         </div>
+        
+        <div class="dept-cards">${
+            (() => {
+                const deptRentals = {};
+                preview.forEach(r => {
+                    const dept = (r.採購部門 || '未分類').trim();
+                    if (!deptRentals[dept]) {
+                        deptRentals[dept] = { 上期: 0, 下期: 0 };
+                    }
+                    deptRentals[dept].上期 += parseFloat(r.上半期) || 0;
+                    deptRentals[dept].下期 += parseFloat(r.下半期) || 0;
+                });
+                const colors = ['#8dcc7a', '#7ec8e3', '#f7d96b', '#e8836a', '#c9a8e0', '#f2a7c3'];
+                let colorIdx = 0;
+                let html = '';
+                for (const [dept, rentals] of Object.entries(deptRentals).sort()) {
+                    const total = Math.round(rentals.上期 + rentals.下期);
+                    const color = colors[colorIdx % colors.length];
+                    html += `<div class="dept-card" style="border-color:${color}; background:${color}15;">
+                        <div style="color:${color}; font-weight:700;">${dept}</div>
+                        <div style="color:${color}; font-weight:800;">$${total.toLocaleString()}</div>
+                    </div>`;
+                    colorIdx++;
+                }
+                return html;
+            })()
+        }</div>
+        
         <table>
             <thead>${sumRowHTML}${headerHTML}</thead>
             <tbody>${bodyHTML}</tbody>
