@@ -2063,12 +2063,16 @@ async function writeToSheets(){
     try{
       const payload = { sheetName, sheetId, headers, rows: dataRows, headerColor: color,
         sendEmail: sendEmail && i===sheets.length-1, emailTo, emailSubject: emailSubj };
-      const encoded = encodeURIComponent(JSON.stringify(payload));
-      const getUrl  = url + '?payload=' + encoded;
-      await fetch(getUrl, { method: 'GET', mode: 'no-cors' });
-      totalRows += dataRows.length;
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload),
+      });
+      const result = await resp.text();
+      if(result.includes('success')){ totalRows += dataRows.length; }
+      else { errors.push(`「${sheetName}」回應異常：` + result.slice(0,60)); }
     } catch(err){
-      errors.push(`「${sheetName}」連線失敗`);
+      errors.push(`「${sheetName}」連線失敗：` + err.message);
     }
   }
 
