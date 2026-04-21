@@ -498,20 +498,13 @@
           style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;color:var(--text);"
           onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
       </div>
-      <div>
-        <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">寫入工作表名稱（預設新建）</label>
-        <input id="sheetTabName" type="text" placeholder="庫存分析結果" value="庫存分析結果"
-          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;color:var(--text);"
-          onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
-      </div>
-      <div>
-        <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">寫入範圍</label>
-        <select id="sheetsWriteScope" style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;color:var(--text);background:white;">
-          <option value="all">全部庫存</option>
-          <option value="expired">僅過期品</option>
-          <option value="long">僅長期在庫</option>
-          <option value="soon">僅即將到期</option>
-        </select>
+      <div style="background:#F0FFF4;border-radius:12px;padding:14px;font-size:12px;color:#2A5A3A;line-height:1.8;">
+        <strong>📋 將自動寫入 4 個分頁：</strong><br>
+        <span style="display:inline-block;margin:2px 4px;padding:2px 10px;background:#E8F8E0;border-radius:8px;font-weight:700;">全部庫存</span>
+        <span style="display:inline-block;margin:2px 4px;padding:2px 10px;background:#FFE8E8;border-radius:8px;font-weight:700;">過期品</span>
+        <span style="display:inline-block;margin:2px 4px;padding:2px 10px;background:#FFF0E0;border-radius:8px;font-weight:700;">長期在庫</span>
+        <span style="display:inline-block;margin:2px 4px;padding:2px 10px;background:#FFFBE0;border-radius:8px;font-weight:700;">即將到期</span><br>
+        <span style="font-size:11px;color:#666;">每次寫入會清除並重寫各分頁內容</span>
       </div>
     </div>
 
@@ -1591,45 +1584,58 @@ function buildExportRows(scope){
 
 async function writeToSheets(){
   const url      = document.getElementById('appsScriptUrl').value.trim();
-  const tabName  = document.getElementById('sheetTabName').value.trim() || '庫存分析結果';
-  const writeScope = document.getElementById('sheetsWriteScope').value;
   const statusEl = document.getElementById('sheetsStatus');
   const btn      = document.getElementById('writeSheetsBtn');
-
   if(!url){ statusEl.textContent = '❌ 請填入 Apps Script 網址'; statusEl.style.color='var(--red)'; return; }
 
+  const sheetId = document.getElementById('sheetId')?.value?.trim() || '';
   const headers = ['核算組織','產品類別','產品代碼','產品名稱','產品規格',
     '庫存數量','單位','倉庫名稱','批號','入庫日期','有效期至',
     '剩餘/在庫天數','庫存狀態','存貨核算範圍名稱','單價','存貨成本'];
-  const dataRows = buildExportRows(writeScope);
+
+  // 4種分頁設定
+  const sheets = [
+    { sheetName: '全部庫存',   scope: 'all',     color: '#7B6BAA' },
+    { sheetName: '過期品',     scope: 'expired', color: '#E07070' },
+    { sheetName: '長期在庫',   scope: 'long',    color: '#E0904A' },
+    { sheetName: '即將到期',   scope: 'soon',    color: '#D0736A' },
+  ];
 
   btn.disabled = true;
   btn.textContent = '寫入中…';
   statusEl.style.color = 'var(--muted)';
-  statusEl.textContent = `準備寫入 ${dataRows.length} 筆資料…`;
 
-  try{
-    const sheetId = document.getElementById('sheetId')?.value?.trim() || '';
-    const payload = { sheetName: tabName, sheetId, headers, rows: dataRows };
-    const resp = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-    const result = await resp.text();
-    if(result.includes('success') || result.includes('OK') || resp.ok){
-      statusEl.style.color = 'var(--green)';
-      statusEl.textContent = `✅ 成功寫入 ${dataRows.length} 筆到「${tabName}」`;
-      showToast(`✅ 已寫入 Google Sheets（${dataRows.length}筆）`);
-    } else {
-      statusEl.style.color = 'var(--red)';
-      statusEl.textContent = '⚠️ 伺服器回應異常：' + result.slice(0,80);
+  let totalRows = 0;
+  let errors = [];
+
+  for(let i = 0; i < sheets.length; i++){
+    const { sheetName, scope, color } = sheets[i];
+    const dataRows = buildExportRows(scope);
+    statusEl.textContent = `(${i+1}/4) 寫入「${sheetName}」… ${dataRows.length} 筆`;
+    try{
+      const payload = { sheetName, sheetId, headers, rows: dataRows, headerColor: color };
+      const resp = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+      const result = await resp.text();
+      if(result.includes('success') || result.includes('OK') || resp.ok){
+        totalRows += dataRows.length;
+      } else {
+        errors.push(`「${sheetName}」寫入異常`);
+      }
+    } catch(err){
+      errors.push(`「${sheetName}」連線失敗`);
     }
-  } catch(err){
-    statusEl.style.color = 'var(--red)';
-    statusEl.textContent = '❌ 連線失敗：' + err.message;
   }
+
   btn.disabled = false;
   btn.textContent = '☁️ 開始寫入';
+  if(errors.length === 0){
+    statusEl.style.color = 'var(--green)';
+    statusEl.textContent = `✅ 4個分頁全部寫入完成，共 ${totalRows} 筆`;
+    showToast('✅ 已寫入 Google Sheets 4個分頁');
+  } else {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '⚠️ 部分失敗：' + errors.join('、');
+  }
 }
 
 const APPS_SCRIPT_CODE = `function doPost(e) {
@@ -1648,6 +1654,7 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
     headerRange.setFontColor('#FFFFFF');
     headerRange.setFontWeight('bold');
     sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, data.headers.length);
     return ContentService.createTextOutput('success');
   } catch(err) {
     return ContentService.createTextOutput('error: ' + err.message);
