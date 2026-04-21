@@ -709,13 +709,13 @@ function priceKey(row){
 }
 
 function getPriceData(row){
-  return prices[priceKey(row)] || { price: 0, scope: '' };
+  return prices[priceKey(row)] || { price: 0, priceSource: '', scope: '' };
 }
 
 function computeCost(row){
   const qty = parseFloat(row['庫存數量'])||0;
   const pd  = getPriceData(row);
-  return { qty, price: pd.price, scope: pd.scope, cost: qty * pd.price };
+  return { qty, price: pd.price, priceSource: pd.priceSource||'', scope: pd.scope||'', cost: qty * pd.price };
 }
 
 // ─── LOAD FILE ────────────────────────────────────────────────
@@ -741,7 +741,7 @@ function loadFile(input){
 
 function handleDrop(e){
   e.preventDefault();
-  document.getElementById('uploadZone').classList.remove('drag');
+  const uzd = document.getElementById('uploadZone'); if(uzd) uzd.classList.remove('drag');
   const file = e.dataTransfer.files[0];
   if(!file) return;
   const fakeInput = { files:[file] };
@@ -764,7 +764,7 @@ function processData(raw){
   buildFilters();
   recompute();
   renderPrices();
-  document.getElementById('uploadZone').style.display = 'none';
+  const uz = document.getElementById('uploadZone'); if(uz) uz.style.display = 'none';
 }
 
 // ─── RECOMPUTE KPI ────────────────────────────────────────────
