@@ -310,6 +310,40 @@
   .setting-label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
   .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
 
+
+  /* ── PRICE TABLE ─────────────────────────── */
+  .price-tbl-wrap { overflow-x: auto; }
+  .price-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+  .price-tbl thead th {
+    background: var(--purple); color: white;
+    padding: 10px 12px; font-size:11px; font-weight:800;
+    letter-spacing:.5px; text-align:center; white-space:nowrap;
+    border: 1px solid rgba(255,255,255,.2);
+  }
+  .price-tbl tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+  .price-tbl tbody tr:hover { background: rgba(107,91,149,.04); }
+  .price-tbl td { padding: 7px 10px; border-right: 1px solid var(--border); }
+  .price-tbl td:last-child { border-right: none; }
+  .price-tbl .td-code  { font-size:11px; font-weight:800; color:var(--purple); text-align:center; white-space:nowrap; }
+  .price-tbl .td-name  { font-size:12px; color:var(--text); }
+  .price-tbl .td-lot   { font-size:11px; color:var(--muted); text-align:center; white-space:nowrap; }
+  .price-tbl .td-src   { text-align:center; }
+  .price-tbl .td-num   { text-align:right; }
+  .price-tbl input.tbl-price-input {
+    width: 90px; padding: 5px 8px; text-align:right;
+    border: 2px solid var(--border); border-radius:7px;
+    font-size:13px; font-weight:700; font-family:'DM Sans',sans-serif;
+    outline:none; transition: border-color .15s;
+  }
+  .price-tbl input.tbl-price-input:focus { border-color: var(--violet); }
+  .price-tbl input.tbl-scope-input {
+    width: 110px; padding: 5px 8px;
+    border: 2px solid var(--border); border-radius:7px;
+    font-size:12px; font-family:'Noto Sans TC',sans-serif;
+    outline:none; transition: border-color .15s;
+  }
+  .price-tbl input.tbl-scope-input:focus { border-color: var(--violet); }
+
   /* ── UPLOAD ZONE ─────────────────────────── */
   .upload-zone {
     border: 3px dashed var(--border);
@@ -370,6 +404,124 @@
 </style>
 </head>
 <body>
+
+
+
+<!-- GITHUB PANEL -->
+<div id="githubPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(61,44,78,.45);backdrop-filter:blur(4px);" onclick="if(event.target===this)closeGithubPanel()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;padding:28px 32px;width:min(540px,95vw);box-shadow:0 20px 60px rgba(107,91,149,.3);">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+      <span style="font-size:28px;">🐙</span>
+      <div>
+        <h3 style="font-size:16px;font-weight:900;color:var(--purple);">儲存單價表到 GitHub</h3>
+        <p style="font-size:12px;color:var(--muted);">以 JSON 格式儲存，下次可直接從 GitHub 載入</p>
+      </div>
+      <button onclick="closeGithubPanel()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">✕</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">GitHub Personal Access Token <span style="color:var(--red)">*</span></label>
+        <input id="ghToken" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;"
+          onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
+        <p style="font-size:10px;color:var(--muted);margin-top:3px;">Settings → Developer settings → Personal access tokens → 權限需要 <b>repo</b></p>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;">
+          <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">GitHub 使用者名稱</label>
+          <input id="ghOwner" type="text" placeholder="your-username"
+            style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;"
+            onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Repository 名稱</label>
+          <input id="ghRepo" type="text" placeholder="inventory-data"
+            style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;"
+            onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">檔案路徑（含檔名）</label>
+        <input id="ghFilePath" type="text" value="prices.json" placeholder="prices.json"
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;"
+          onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+
+      <div style="background:#F5F0FF;border-radius:10px;padding:12px;font-size:11px;color:var(--muted);line-height:1.7;">
+        💡 <b>下次載入單價</b>：在單價設定頁籤填入 GitHub Raw 網址，點「從 GitHub 載入」即可還原所有單價與核算範圍。<br>
+        Raw 網址格式：<code style="background:#EEE;padding:1px 4px;border-radius:4px;">https://raw.githubusercontent.com/[使用者]/[Repo]/main/prices.json</code>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeGithubPanel()">取消</button>
+      <button class="btn btn-primary" onclick="savePricesToGithub()" id="ghSaveBtn">🐙 儲存到 GitHub</button>
+    </div>
+    <div id="ghStatus" style="margin-top:10px;font-size:12px;text-align:center;min-height:18px;color:var(--muted);"></div>
+  </div>
+</div>
+
+<!-- GOOGLE SHEETS PANEL -->
+<div id="sheetsPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(61,44,78,.45);backdrop-filter:blur(4px);" onclick="if(event.target===this)closeSheetsPanel()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;padding:28px 32px;width:min(560px,95vw);box-shadow:0 20px 60px rgba(107,91,149,.3);">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+      <span style="font-size:28px;">☁️</span>
+      <div>
+        <h3 style="font-size:16px;font-weight:900;color:var(--purple);">寫入 Google Sheets</h3>
+        <p style="font-size:12px;color:var(--muted);">透過 Apps Script 將分析結果推送到指定試算表</p>
+      </div>
+      <button onclick="closeSheetsPanel()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">✕</button>
+    </div>
+
+    <!-- 說明步驟 -->
+    <div id="sheetsSetupGuide" style="background:#F5F0FF;border-radius:14px;padding:16px;margin-bottom:16px;font-size:12px;line-height:1.8;color:#3D2C4E;">
+      <strong style="font-size:13px;color:var(--purple);">📋 第一次使用？三步驟設定：</strong><br>
+      <b>Step 1.</b> 開啟你要寫入的 Google Sheet → 上方選單點「<b>擴充功能</b>」→「<b>Apps Script</b>」<br>
+      <b>Step 2.</b> 把下方程式碼貼入，按「<b>部署 → 新增部署</b>」→ 類型選「<b>網頁應用程式</b>」→ 存取權設「<b>任何人</b>」→ 複製網址<br>
+      <b>Step 3.</b> 把網址貼到下方「Apps Script 網址」欄位，點「寫入」<br>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 12px;" onclick="copyAppsScript()">📋 複製 Apps Script 程式碼</button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 12px;" onclick="document.getElementById('sheetsSetupGuide').style.display='none'">收起說明</button>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Google Sheet ID（已預填）</label>
+        <input id="sheetId" type="text" value="1vAjncE2dWp95g0tCzOcprCgu3caWPPr6qw42Hb4xyMI" readonly
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:12px;font-family:monospace;outline:none;color:var(--muted);background:#F8F8F8;">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Apps Script 部署網址</label>
+        <input id="appsScriptUrl" type="text" placeholder="https://script.google.com/macros/s/...../exec"
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;color:var(--text);"
+          onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">寫入工作表名稱（預設新建）</label>
+        <input id="sheetTabName" type="text" placeholder="庫存分析結果" value="庫存分析結果"
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;color:var(--text);"
+          onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">寫入範圍</label>
+        <select id="sheetsWriteScope" style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;color:var(--text);background:white;">
+          <option value="all">全部庫存</option>
+          <option value="expired">僅過期品</option>
+          <option value="long">僅長期在庫</option>
+          <option value="soon">僅即將到期</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeSheetsPanel()">取消</button>
+      <button class="btn btn-primary" onclick="writeToSheets()" id="writeSheetsBtn">☁️ 開始寫入</button>
+    </div>
+    <div id="sheetsStatus" style="margin-top:12px;font-size:12px;text-align:center;min-height:18px;color:var(--muted);"></div>
+  </div>
+</div>
 
 <!-- LOADER -->
 <div class="loader" id="loader">
@@ -446,6 +598,7 @@
 
     <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn btn-green" onclick="exportExcel()">📤 匯出 Excel</button>
+      <button class="btn btn-primary" onclick="openSheetsPanel()">☁️ 寫入 Google Sheets</button>
     </div>
   </div>
 
@@ -582,22 +735,25 @@
   <!-- TAB: prices -->
   <div class="tab-content" id="tab-prices">
     <div class="table-wrap">
-      <div class="table-toolbar" style="justify-content:space-between;">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div class="table-toolbar" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <div class="search-box">
             <span>🔍</span>
-            <input type="text" placeholder="搜尋產品…" id="search-price" oninput="renderPrices()">
+            <input type="text" placeholder="搜尋產品 / 批號…" id="search-price" oninput="renderPrices()">
           </div>
-          <span style="font-size:12px;color:var(--muted);">💡 在下方黃色格直接輸入單價，存貨成本自動計算</span>
+          <span style="font-size:11px;color:var(--muted);">💡 直接在表格輸入單價與核算範圍</span>
         </div>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-blue" onclick="document.getElementById('priceFileInput').click()">📥 匯入單價 xlsx</button>
           <input type="file" id="priceFileInput" accept=".xlsx,.xls" onchange="loadPriceFile(this)" style="display:none">
-          <button class="btn btn-green" onclick="exportPriceExcel()">📤 匯出單價表</button>
+          <button class="btn btn-green" onclick="exportPriceExcel()">📤 匯出單價 xlsx</button>
+          <button class="btn btn-orange" onclick="savePriceJson()">💾 下載 JSON</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('priceJsonInput').click()">📂 載入 JSON</button>
+          <input type="file" id="priceJsonInput" accept=".json" onchange="loadPriceJson(this)" style="display:none">
         </div>
       </div>
-      <div class="price-grid" id="priceGrid">
-        <div class="empty-state" style="grid-column:1/-1">
+      <div class="price-tbl-wrap" id="priceGrid">
+        <div class="empty-state">
           <div class="icon">💰</div>
           <p>請先上傳庫存資料，產品清單將自動出現</p>
         </div>
@@ -608,6 +764,9 @@
 </div><!-- /main -->
 
 <script>
+// ─── CONFIG ──────────────────────────────────────────────────────
+const SHEET_ID = '1vAjncE2dWp95g0tCzOcprCgu3caWPPr6qw42Hb4xyMI';
+
 // ─── STATE ────────────────────────────────────────────────────
 let allData = [];       // 原始資料
 let prices  = {};      // { 產品代碼: 單價 }
@@ -970,6 +1129,16 @@ function sortTable(tabKey, col){
   renderTable(tabKey);
 }
 
+// ─── PRICE VIEW (card / table) ───────────────────────────────
+let priceViewMode = 'card'; // 'card' | 'table'
+
+function togglePriceView(){
+  priceViewMode = priceViewMode === 'card' ? 'table' : 'card';
+  document.getElementById('priceViewToggle').textContent =
+    priceViewMode === 'card' ? '🔀 切換表格模式' : '🔀 切換卡片模式';
+  renderPrices();
+}
+
 // ─── PRICE RENDER ─────────────────────────────────────────────
 function renderPrices(){
   const search = (document.getElementById('search-price')?.value||'').toLowerCase();
@@ -998,6 +1167,11 @@ function renderPrices(){
     const hay = (String(r['產品名稱']||'')+String(r['批號']||'')+String(r['產品代碼']||'')).toLowerCase();
     return hay.includes(search);
   });
+
+  if(priceViewMode === 'table'){
+    renderPricesTable(filtered);
+    return;
+  }
 
   grid.innerHTML = filtered.map(r => {
     const k = priceKey(r);
@@ -1055,7 +1229,7 @@ function loadPriceFile(input){
                     : !isNaN(startCost) && startCost > 0 ? startCost
                     : 0;
         const priceSource = (!isNaN(endCost) && endCost > 0) ? '期末' : '期初';
-        const scope = String(r['存貨核算範圍']||r['核算範圍']||'').trim();
+        const scope = String(r['存貨核算範圍名稱']||r['存貨核算範圍']||r['核算範圍']||'').trim();
         if(name && lot){
           prices[`${name}__${lot}`] = { price, priceSource, scope };
           count++;
@@ -1087,7 +1261,7 @@ function exportExcel(){
   const mkSheet = (rows, name) => {
     const out = rows.map(r => {
       const f = classify(r);
-      const {qty,price,cost} = computeCost(r);
+      const {qty,price,scope,cost} = computeCost(r);
       const expDate = r._expDate ? fmtDate(r._expDate) : (r['有效期至']||'');
       const lotDate = r._lotDate ? fmtDate(r._lotDate) : '';
       let daysLabel = '';
@@ -1110,8 +1284,9 @@ function exportExcel(){
         '入庫日期':lotDate,
         '有效期至':expDate,
         '剩餘/在庫天數':daysLabel,
+        '庫存狀態': f.expired ? '過期品' : f.soon ? ('即將到期('+(f.soonSeg==='urgent'?'緊急':f.soonSeg==='warn'?'警示':f.soonSeg==='caution'?'注意':'追蹤')+')') : f.long ? '長期在庫' : '正常',
+        '存貨核算範圍名稱': scope,
         '單價':price,
-        '存貨核算範圍':scope,
         '存貨成本':cost,
       };
     });
@@ -1164,6 +1339,335 @@ function exportPriceExcel(){
   XLSX.writeFile(wb,'產品單價表.xlsx');
   showToast('✅ 已匯出單價表');
 }
+
+
+// ─── PRICE TABLE MODE ─────────────────────────────────────────
+function renderPricesTable(items){
+  const grid = document.getElementById('priceGrid');
+  let html = `<div style="overflow-x:auto;width:100%;padding:0 4px;">
+  <table style="width:100%;border-collapse:collapse;font-size:13px;">
+  <thead>
+    <tr>
+      <th style="background:var(--purple);color:white;padding:10px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:800;border:1px solid rgba(255,255,255,.2);">產品代碼</th>
+      <th style="background:var(--purple);color:white;padding:10px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:800;border:1px solid rgba(255,255,255,.2);">產品名稱</th>
+      <th style="background:var(--purple);color:white;padding:10px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:800;border:1px solid rgba(255,255,255,.2);">批號</th>
+      <th style="background:var(--purple);color:white;padding:10px 12px;text-align:right;white-space:nowrap;font-size:11px;font-weight:800;border:1px solid rgba(255,255,255,.2);">期末單位成本</th>
+      <th style="background:var(--purple);color:white;padding:10px 12px;text-align:right;white-space:nowrap;font-size:11px;font-weight:800;border:1px solid rgba(255,255,255,.2);">期初單位成本</th>
+      <th style="background:var(--purple);color:white;padding:10px 12px;text-align:center;white-space:nowrap;font-size:11px;font-weight:800;border:1px solid rgba(255,255,255,.2);">採用</th>
+      <th style="background:var(--purple);color:white;padding:10px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:800;border:1px solid rgba(255,255,255,.2);">存貨核算範圍名稱</th>
+    </tr>
+  </thead><tbody>`;
+
+  items.forEach((r, idx) => {
+    const k = priceKey(r);
+    const safeKey = k.replace(/'/g,"\\'");
+    const pd = prices[k] || { price: 0, priceSource: '', scope: '' };
+    const isEnd = pd.priceSource === '期末';
+    const isStart = pd.priceSource === '期初';
+    const endVal   = isEnd   ? pd.price : '';
+    const startVal = isStart ? pd.price : '';
+    const bg = idx % 2 === 0 ? 'white' : '#FAF7FF';
+
+    html += `<tr style="background:${bg};border-bottom:1px solid var(--border);">
+      <td style="padding:8px 12px;font-size:11px;font-weight:800;color:var(--purple);">${r['產品代碼']||''}</td>
+      <td style="padding:8px 12px;font-size:12px;">${r['產品名稱']||''}</td>
+      <td style="padding:8px 12px;font-size:11px;color:var(--muted);">${r['批號']||''}</td>
+      <td style="padding:8px 6px;text-align:right;">
+        <input type="number" min="0" step="0.01" value="${endVal}"
+          placeholder="0" style="width:90px;text-align:right;border:2px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;background:${isEnd?'#FFFBE0':'white'}"
+          onchange="updateTablePrice('${safeKey}','end',this.value)">
+      </td>
+      <td style="padding:8px 6px;text-align:right;">
+        <input type="number" min="0" step="0.01" value="${startVal}"
+          placeholder="0" style="width:90px;text-align:right;border:2px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;background:${isStart?'#FFF8E0':'white'}"
+          onchange="updateTablePrice('${safeKey}','start',this.value)">
+      </td>
+      <td style="padding:8px 6px;text-align:center;">
+        <span style="font-size:11px;padding:2px 8px;border-radius:8px;font-weight:700;
+          background:${isEnd?'#E8FFE0':isStart?'#FFF8E0':'#F5F5F5'};
+          color:${isEnd?'#2A7A10':isStart?'#906000':'#aaa'}">
+          ${pd.priceSource||'—'}
+        </span>
+      </td>
+      <td style="padding:8px 6px;">
+        <input type="text" value="${pd.scope||''}" placeholder="核算範圍"
+          style="width:120px;border:2px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;"
+          onchange="updatePriceField('${safeKey}','scope',this.value)">
+      </td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  grid.innerHTML = html;
+}
+
+function updateTablePrice(key, type, val){
+  if(!prices[key]) prices[key] = { price: 0, priceSource: '', scope: '' };
+  const v = parseFloat(val)||0;
+  if(type === 'end'){
+    if(v > 0){ prices[key].price = v; prices[key].priceSource = '期末'; }
+    else if((prices[key].priceSource||'') === '期末'){ prices[key].price = 0; prices[key].priceSource = ''; }
+  } else {
+    if((prices[key].priceSource||'') !== '期末'){
+      prices[key].price = v > 0 ? v : 0;
+      prices[key].priceSource = v > 0 ? '期初' : '';
+    }
+  }
+  recompute();
+  renderPrices();
+}
+
+// ─── GITHUB ───────────────────────────────────────────────────
+function openGithubPanel(){ document.getElementById('githubPanel').style.display='block'; }
+function closeGithubPanel(){ document.getElementById('githubPanel').style.display='none'; document.getElementById('ghStatus').textContent=''; }
+
+function buildPricesJson(){
+  // 行列式：每個 key 一筆，包含所有欄位
+  return Object.entries(prices).map(([k, pd]) => {
+    const [name, lot] = k.split('__');
+    const found = allData.find(r => String(r['產品名稱']||'').trim()===name && String(r['批號']||'').trim()===lot) || {};
+    return {
+      產品代碼:         found['產品代碼'] || '',
+      產品名稱:         name,
+      批號:             lot,
+      基本單位:         found['基本單位名稱'] || '',
+      期末單位成本:     pd.priceSource==='期末' ? pd.price : null,
+      期初單位成本:     pd.priceSource==='期初' ? pd.price : null,
+      採用來源:         pd.priceSource || '',
+      存貨核算範圍名稱: pd.scope || '',
+    };
+  });
+}
+
+async function savePricesToGithub(){
+  const token    = document.getElementById('ghToken').value.trim();
+  const owner    = document.getElementById('ghOwner').value.trim();
+  const repo     = document.getElementById('ghRepo').value.trim();
+  const filePath = document.getElementById('ghFilePath').value.trim() || 'prices.json';
+  const statusEl = document.getElementById('ghStatus');
+  const btn      = document.getElementById('ghSaveBtn');
+
+  if(!token||!owner||!repo){ statusEl.style.color='var(--red)'; statusEl.textContent='❌ 請填寫 Token、使用者名稱、Repository'; return; }
+
+  btn.disabled=true; btn.textContent='儲存中…';
+  statusEl.style.color='var(--muted)'; statusEl.textContent='連線中…';
+
+  const content = JSON.stringify(buildPricesJson(), null, 2);
+  const encoded = btoa(unescape(encodeURIComponent(content)));
+  const apiUrl  = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
+
+  // 先抓現有檔案 SHA（更新時需要）
+  let sha = null;
+  try{
+    const getResp = await fetch(apiUrl, { headers:{ 'Authorization':`Bearer ${token}`, 'Accept':'application/vnd.github+json' }});
+    if(getResp.ok){ const d=await getResp.json(); sha=d.sha; }
+  }catch(e){}
+
+  const body = { message:`更新單價表 ${new Date().toLocaleString('zh-TW')}`, content: encoded };
+  if(sha) body.sha = sha;
+
+  try{
+    const resp = await fetch(apiUrl, {
+      method: 'PUT',
+      headers:{ 'Authorization':`Bearer ${token}`, 'Accept':'application/vnd.github+json', 'Content-Type':'application/json' },
+      body: JSON.stringify(body),
+    });
+    const result = await resp.json();
+    if(resp.ok){
+      const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/main/${filePath}`;
+      statusEl.style.color='var(--green)';
+      statusEl.innerHTML = `✅ 儲存成功！<br><a href="${rawUrl}" target="_blank" style="color:var(--purple);font-size:11px;">${rawUrl}</a>`;
+      showToast('✅ 單價表已儲存到 GitHub');
+    } else {
+      statusEl.style.color='var(--red)';
+      statusEl.textContent='❌ '+(result.message||'儲存失敗');
+    }
+  }catch(err){
+    statusEl.style.color='var(--red)'; statusEl.textContent='❌ '+err.message;
+  }
+  btn.disabled=false; btn.textContent='🐙 儲存到 GitHub';
+}
+
+// ─── 從 GitHub 載入單價 ────────────────────────────────────────
+async function loadPricesFromGithub(){
+  const url = prompt('請輸入 GitHub Raw 網址（prices.json）：','https://raw.githubusercontent.com/');
+  if(!url) return;
+  try{
+    const resp = await fetch(url);
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const rows = await resp.json();
+    let count = 0;
+    rows.forEach(r => {
+      const name = String(r['產品名稱']||'').trim();
+      const lot  = String(r['批號']||'').trim();
+      if(!name || !lot) return;
+      const endCost   = parseFloat(r['期末單位成本']);
+      const startCost = parseFloat(r['期初單位成本']);
+      const price = !isNaN(endCost) && endCost > 0 ? endCost : !isNaN(startCost) && startCost > 0 ? startCost : 0;
+      const priceSource = (!isNaN(endCost) && endCost > 0) ? '期末' : (!isNaN(startCost) && startCost > 0) ? '期初' : '';
+      prices[`${name}__${lot}`] = { price, priceSource, scope: String(r['存貨核算範圍名稱']||'').trim() };
+      count++;
+    });
+    recompute(); renderPrices();
+    showToast(`✅ 從 GitHub 載入 ${count} 筆單價`);
+  }catch(err){ showToast('❌ 載入失敗：'+err.message, 4000); }
+}
+
+
+// ─── PRICE JSON SAVE / LOAD (for GitHub) ──────────────────────
+function savePriceJson(){
+  if(!Object.keys(prices).length){ showToast('❌ 尚無單價資料'); return; }
+  const payload = JSON.stringify(prices, null, 2);
+  const blob = new Blob([payload], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'prices.json';
+  a.click();
+  showToast('✅ 已下載 prices.json，可上傳到 GitHub');
+}
+
+function loadPriceJson(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const data = JSON.parse(e.target.result);
+      let count = 0;
+      Object.entries(data).forEach(([k, v]) => {
+        if(typeof v === 'object'){
+          prices[k] = { price: v.price||0, priceSource: v.priceSource||'', scope: v.scope||'' };
+        } else {
+          prices[k] = { price: parseFloat(v)||0, priceSource: '', scope: '' };
+        }
+        count++;
+      });
+      recompute();
+      renderPrices();
+      showToast(`✅ 從 JSON 載入 ${count} 筆單價`);
+    } catch(err){ showToast('❌ JSON 格式錯誤：'+err.message, 4000); }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// stub 防呼叫舊函式報錯
+function togglePriceView(){}
+function openGithubPanel(){ showToast('請使用「💾 下載 JSON」後上傳到 GitHub'); }
+
+// ─── GOOGLE SHEETS ────────────────────────────────────────────
+function openSheetsPanel(){
+  if(!allData.length){ showToast('❌ 請先載入庫存資料'); return; }
+  document.getElementById('sheetsPanel').style.display = 'block';
+}
+function closeSheetsPanel(){
+  document.getElementById('sheetsPanel').style.display = 'none';
+  document.getElementById('sheetsStatus').textContent = '';
+}
+
+function buildExportRows(scope){
+  const rows = scope==='all'    ? allData
+             : scope==='expired'? allData.filter(r=>classify(r).expired)
+             : scope==='long'   ? allData.filter(r=>classify(r).long)
+             :                    allData.filter(r=>classify(r).soon);
+  return rows.map(r => {
+    const f = classify(r);
+    const {qty, price, scope: scopeVal, cost} = computeCost(r);
+    const expDate = r._expDate ? fmtDate(r._expDate) : (r['有效期至']||'');
+    const lotDate = r._lotDate ? fmtDate(r._lotDate) : '';
+    let daysLabel = '';
+    if(f.long && r._lotDate) daysLabel = Math.round((TODAY-r._lotDate)/86400000);
+    else if(r._expDate){ const d=daysDiff(r._expDate); if(d!==null) daysLabel=d; }
+    const status = f.expired ? '過期品'
+      : f.soon ? ('即將到期('+(f.soonSeg==='urgent'?'緊急':f.soonSeg==='warn'?'警示':f.soonSeg==='caution'?'注意':'追蹤')+')')
+      : f.long ? '長期在庫' : '正常';
+    return [
+      r['核算組織名稱']||'', r['產品類別']||'', r['產品代碼']||'',
+      r['產品名稱']||'', r['產品規格']||'', qty, r['基本單位名稱']||'',
+      r['倉庫名稱']||'', r['批號']||'', lotDate, expDate,
+      daysLabel, status, scopeVal, price, cost
+    ];
+  });
+}
+
+async function writeToSheets(){
+  const url      = document.getElementById('appsScriptUrl').value.trim();
+  const tabName  = document.getElementById('sheetTabName').value.trim() || '庫存分析結果';
+  const writeScope = document.getElementById('sheetsWriteScope').value;
+  const statusEl = document.getElementById('sheetsStatus');
+  const btn      = document.getElementById('writeSheetsBtn');
+
+  if(!url){ statusEl.textContent = '❌ 請填入 Apps Script 網址'; statusEl.style.color='var(--red)'; return; }
+
+  const headers = ['核算組織','產品類別','產品代碼','產品名稱','產品規格',
+    '庫存數量','單位','倉庫名稱','批號','入庫日期','有效期至',
+    '剩餘/在庫天數','庫存狀態','存貨核算範圍名稱','單價','存貨成本'];
+  const dataRows = buildExportRows(writeScope);
+
+  btn.disabled = true;
+  btn.textContent = '寫入中…';
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = `準備寫入 ${dataRows.length} 筆資料…`;
+
+  try{
+    const sheetId = document.getElementById('sheetId')?.value?.trim() || '';
+    const payload = { sheetName: tabName, sheetId, headers, rows: dataRows };
+    const resp = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    const result = await resp.text();
+    if(result.includes('success') || result.includes('OK') || resp.ok){
+      statusEl.style.color = 'var(--green)';
+      statusEl.textContent = `✅ 成功寫入 ${dataRows.length} 筆到「${tabName}」`;
+      showToast(`✅ 已寫入 Google Sheets（${dataRows.length}筆）`);
+    } else {
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = '⚠️ 伺服器回應異常：' + result.slice(0,80);
+    }
+  } catch(err){
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '❌ 連線失敗：' + err.message;
+  }
+  btn.disabled = false;
+  btn.textContent = '☁️ 開始寫入';
+}
+
+const APPS_SCRIPT_CODE = `function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var ss = data.sheetId ? SpreadsheetApp.openById(data.sheetId) : SpreadsheetApp.getActiveSpreadsheet();
+    var sheetName = data.sheetName || '庫存分析結果';
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) sheet = ss.insertSheet(sheetName);
+    sheet.clearContents();
+    var allRows = [data.headers].concat(data.rows);
+    sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);
+    // 標題列格式
+    var headerRange = sheet.getRange(1, 1, 1, data.headers.length);
+    headerRange.setBackground('#6B5B95');
+    headerRange.setFontColor('#FFFFFF');
+    headerRange.setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    return ContentService.createTextOutput('success');
+  } catch(err) {
+    return ContentService.createTextOutput('error: ' + err.message);
+  }
+}`;
+
+function copyAppsScript(){
+  navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(()=>{
+    showToast('✅ 程式碼已複製，貼到 Apps Script 編輯器');
+  }).catch(()=>{
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = APPS_SCRIPT_CODE;
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✅ 程式碼已複製');
+  });
+}
+
 </script>
 </body>
 </html>
