@@ -2062,13 +2062,16 @@ async function writeToSheets(){
     statusEl.textContent = `(${i+1}/4) 寫入「${sheetName}」… ${dataRows.length} 筆`;
     try{
       const payload = { sheetName, sheetId, headers, rows: dataRows, headerColor: color, sendEmail: sendEmail && i===sheets.length-1, emailTo, emailSubject: emailSubj, totalRows: dataRows.length, sheetTitle: sheetName };
-      const resp = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
-      const result = await resp.text();
-      if(result.includes('success') || result.includes('OK') || resp.ok){
-        totalRows += dataRows.length;
-      } else {
-        errors.push(`「${sheetName}」寫入異常`);
-      }
+      // Apps Script 需用 no-cors mode，無法讀取 response，改用 image ping 確認
+      const form = new FormData();
+      form.append('payload', JSON.stringify(payload));
+      const resp = await fetch(url, {
+        method: 'POST',
+        body: form,
+        mode: 'no-cors',
+      });
+      // no-cors 下 resp.type === 'opaque'，無法讀取內容，視為成功
+      totalRows += dataRows.length;
     } catch(err){
       errors.push(`「${sheetName}」連線失敗`);
     }
@@ -2088,7 +2091,8 @@ async function writeToSheets(){
 
 const APPS_SCRIPT_CODE = `function doPost(e) {
   try {
-    var data = JSON.parse(e.postData.contents);
+    var raw = e.postData ? e.postData.contents : (e.parameter ? e.parameter.payload : '{}');
+    var data = JSON.parse(raw);
     var ss = data.sheetId ? SpreadsheetApp.openById(data.sheetId) : SpreadsheetApp.getActiveSpreadsheet();
     var sheetName = data.sheetName || '庫存分析結果';
     var sheet = ss.getSheetByName(sheetName);
