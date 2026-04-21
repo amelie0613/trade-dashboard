@@ -46,6 +46,23 @@
   .app-page { display: none; }
   .app-page.active { display: block; }
 
+  /* ── WOOD APP 外層留白（對齊租金工具風格） */
+  #app_wood {
+    background: #fdf6ee;
+    padding: 2rem 1rem;
+    min-height: calc(100vh - 52px);
+  }
+  .wood-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 8px 40px rgba(42,31,45,0.12);
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
   /* ── WOOD APP (庫存系統) global styles ──── */
 
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;700&display=swap');
@@ -123,7 +140,7 @@
   .header-date { color: rgba(255,255,255,0.75); font-size: 12px; margin-left: 12px; white-space: nowrap; }
 
   /* ── LAYOUT ──────────────────────────────── */
-  .main { max-width: 1400px; margin: 0 auto; padding: 24px 24px; }
+  .main { max-width: 100%; margin: 0; padding: 24px 24px; }
 
   /* ── KPI CARDS ───────────────────────────── */
   .kpi-grid {
@@ -982,6 +999,7 @@
 <div class="toast" id="toast"></div>
 
 <!-- HEADER -->
+<div class="wood-container">
 <div class="header">
   <div class="header-flowers">
     <!-- 粉紅花 -->
@@ -1345,6 +1363,7 @@
   </div>
 
 </div><!-- /main -->
+</div><!-- /wood-container -->
 </div><!-- end app_wood -->
 
 <!-- ══ APP 2：租金計算工具 ═══════════════════════════════════════ -->
