@@ -2061,16 +2061,11 @@ async function writeToSheets(){
     const dataRows = buildExportRows(scope);
     statusEl.textContent = `(${i+1}/4) 寫入「${sheetName}」… ${dataRows.length} 筆`;
     try{
-      const payload = { sheetName, sheetId, headers, rows: dataRows, headerColor: color, sendEmail: sendEmail && i===sheets.length-1, emailTo, emailSubject: emailSubj, totalRows: dataRows.length, sheetTitle: sheetName };
-      // Apps Script 需用 no-cors mode，無法讀取 response，改用 image ping 確認
-      const form = new FormData();
-      form.append('payload', JSON.stringify(payload));
-      const resp = await fetch(url, {
-        method: 'POST',
-        body: form,
-        mode: 'no-cors',
-      });
-      // no-cors 下 resp.type === 'opaque'，無法讀取內容，視為成功
+      const payload = { sheetName, sheetId, headers, rows: dataRows, headerColor: color,
+        sendEmail: sendEmail && i===sheets.length-1, emailTo, emailSubject: emailSubj };
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      const getUrl  = url + '?payload=' + encoded;
+      await fetch(getUrl, { method: 'GET', mode: 'no-cors' });
       totalRows += dataRows.length;
     } catch(err){
       errors.push(`「${sheetName}」連線失敗`);
@@ -2090,12 +2085,21 @@ async function writeToSheets(){
 }
 
 const APPS_SCRIPT_CODE = [
-  'function doPost(e) {',
+  'function doGet(e) { return handleRequest(e); }',
+  'function doPost(e) { return handleRequest(e); }',
+  '',
+  'function handleRequest(e) {',
   '  try {',
-  '    var raw = (e.postData && e.postData.contents) ? e.postData.contents : "{}";',
+  '    var raw = "";',
+  '    if (e.parameter && e.parameter.payload) {',
+  '      raw = e.parameter.payload;',
+  '    } else if (e.postData && e.postData.contents) {',
+  '      raw = e.postData.contents;',
+  '    }',
+  '    if (!raw) return ContentService.createTextOutput("error: no data");',
   '    var data = JSON.parse(raw);',
   '    var ss = data.sheetId ? SpreadsheetApp.openById(data.sheetId) : SpreadsheetApp.getActiveSpreadsheet();',
-  '    var sheetName = data.sheetName || "\u5eab\u5b58\u5206\u6790\u7d50\u679c";',
+  '    var sheetName = data.sheetName || "庫存分析結果";',
   '    var sheet = ss.getSheetByName(sheetName);',
   '    if (!sheet) sheet = ss.insertSheet(sheetName);',
   '    sheet.clearContents();',
@@ -2111,16 +2115,16 @@ const APPS_SCRIPT_CODE = [
   '    sheet.setFrozenRows(1);',
   '    sheet.autoResizeColumns(1, data.headers.length);',
   '    if (data.sendEmail && data.emailTo) {',
-  '      var emails = data.emailTo.split(",").map(function(e){ return e.trim(); });',
-  '      var subject = data.emailSubject || "\u5eab\u5b58\u5065\u5eb7\u5831\u544a";',
-  '      var body = "\u5eab\u5b58\u5206\u6790\u5df2\u5b8c\u6210\uff0c\u8acb\u81f3 Google Sheets \u67e5\u770b\u3002\n\n";',
-  '      body += "\u5df2\u5beb\u51654\u500b\u5206\u9801\uff1a\u5168\u90e8\u5eab\u5b58\u3001\u904e\u671f\u54c1\u3001\u9577\u671f\u5728\u5eab\u3001\u5373\u5c07\u5230\u671f\n";',
-  '      body += "\u5beb\u5165\u6642\u9593\uff1a" + new Date().toLocaleString() + "\n";',
-  '      emails.forEach(function(email){',
-  '        if (email) GmailApp.sendEmail(email, subject, body);',
+  '      var emails = data.emailTo.split(",").map(function(addr){ return addr.trim(); });',
+  '      var subject = data.emailSubject || "庫存健康報告";',
+  '      var body = "庫存分析已完成，請至 Google Sheets 查看。" + "\n\n"',
+  '               + "已寫入4個分頁：全部庫存、過期品、長期在庫、即將到期" + "\n"',
+  '               + "寫入時間：" + new Date().toLocaleString() + "\n";',
+  '      emails.forEach(function(addr){',
+  '        if (addr) GmailApp.sendEmail(addr, subject, body);',
   '      });',
   '    }',
-  '    return ContentService.createTextOutput("success");',
+  '    return ContentService.createTextOutput("success").setMimeType(ContentService.MimeType.TEXT);',
   '  } catch(err) {',
   '    return ContentService.createTextOutput("error: " + err.message);',
   '  }',
