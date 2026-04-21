@@ -2089,40 +2089,43 @@ async function writeToSheets(){
   }
 }
 
-const APPS_SCRIPT_CODE = `function doPost(e) {
-  try {
-    var raw = e.postData ? e.postData.contents : (e.parameter ? e.parameter.payload : '{}');
-    var data = JSON.parse(raw);
-    var ss = data.sheetId ? SpreadsheetApp.openById(data.sheetId) : SpreadsheetApp.getActiveSpreadsheet();
-    var sheetName = data.sheetName || '庫存分析結果';
-    var sheet = ss.getSheetByName(sheetName);
-    if (!sheet) sheet = ss.insertSheet(sheetName);
-    sheet.clearContents();
-    var allRows = [data.headers].concat(data.rows);
-    sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);
-    // 標題列格式
-    var headerRange = sheet.getRange(1, 1, 1, data.headers.length);
-    headerRange.setBackground('#6B5B95');
-    headerRange.setFontColor('#FFFFFF');
-    headerRange.setFontWeight('bold');
-    sheet.setFrozenRows(1);
-    sheet.autoResizeColumns(1, data.headers.length);
-    // 發送郵件通知
-    if (data.sendEmail && data.emailTo) {
-      var emails = data.emailTo.split(',').map(function(e){ return e.trim(); });
-      var subject = data.emailSubject || '庫存健康報告';
-      var body = '庫存分析已完成，請至 Google Sheets 查看。\n\n';
-      body += '已寫入4個分頁：全部庫存、過期品、長期在庫、即將到期\n';
-      body += '寫入時間：' + new Date().toLocaleString('zh-TW') + '\n';
-      emails.forEach(function(email){
-        if(email) GmailApp.sendEmail(email, subject, body);
-      });
-    }
-    return ContentService.createTextOutput('success');
-  } catch(err) {
-    return ContentService.createTextOutput('error: ' + err.message);
-  }
-}`;
+const APPS_SCRIPT_CODE = [
+  'function doPost(e) {',
+  '  try {',
+  '    var raw = (e.postData && e.postData.contents) ? e.postData.contents : "{}";',
+  '    var data = JSON.parse(raw);',
+  '    var ss = data.sheetId ? SpreadsheetApp.openById(data.sheetId) : SpreadsheetApp.getActiveSpreadsheet();',
+  '    var sheetName = data.sheetName || "\u5eab\u5b58\u5206\u6790\u7d50\u679c";',
+  '    var sheet = ss.getSheetByName(sheetName);',
+  '    if (!sheet) sheet = ss.insertSheet(sheetName);',
+  '    sheet.clearContents();',
+  '    var allRows = [data.headers].concat(data.rows);',
+  '    if (allRows.length > 0) {',
+  '      sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);',
+  '    }',
+  '    var headerColor = data.headerColor || "#6B5B95";',
+  '    var headerRange = sheet.getRange(1, 1, 1, data.headers.length);',
+  '    headerRange.setBackground(headerColor);',
+  '    headerRange.setFontColor("#FFFFFF");',
+  '    headerRange.setFontWeight("bold");',
+  '    sheet.setFrozenRows(1);',
+  '    sheet.autoResizeColumns(1, data.headers.length);',
+  '    if (data.sendEmail && data.emailTo) {',
+  '      var emails = data.emailTo.split(",").map(function(e){ return e.trim(); });',
+  '      var subject = data.emailSubject || "\u5eab\u5b58\u5065\u5eb7\u5831\u544a";',
+  '      var body = "\u5eab\u5b58\u5206\u6790\u5df2\u5b8c\u6210\uff0c\u8acb\u81f3 Google Sheets \u67e5\u770b\u3002\n\n";',
+  '      body += "\u5df2\u5beb\u51654\u500b\u5206\u9801\uff1a\u5168\u90e8\u5eab\u5b58\u3001\u904e\u671f\u54c1\u3001\u9577\u671f\u5728\u5eab\u3001\u5373\u5c07\u5230\u671f\n";',
+  '      body += "\u5beb\u5165\u6642\u9593\uff1a" + new Date().toLocaleString() + "\n";',
+  '      emails.forEach(function(email){',
+  '        if (email) GmailApp.sendEmail(email, subject, body);',
+  '      });',
+  '    }',
+  '    return ContentService.createTextOutput("success");',
+  '  } catch(err) {',
+  '    return ContentService.createTextOutput("error: " + err.message);',
+  '  }',
+  '}'
+].join('\n')
 
 function copyAppsScript(){
   navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(()=>{
