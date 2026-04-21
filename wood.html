@@ -2036,7 +2036,10 @@ async function writeToSheets(){
   const btn      = document.getElementById('writeSheetsBtn');
   if(!url){ statusEl.textContent = '❌ 請填入 Apps Script 網址'; statusEl.style.color='var(--red)'; return; }
 
-  const sheetId = document.getElementById('sheetId')?.value?.trim() || '';
+  const sheetId   = document.getElementById('sheetId')?.value?.trim() || '';
+  const sendEmail = document.getElementById('enableEmail')?.checked || false;
+  const emailTo   = document.getElementById('emailTo')?.value?.trim() || '';
+  const emailSubj = document.getElementById('emailSubject')?.value?.trim() || '庫存健康報告';
   const headers = ['核算組織','產品類別','產品代碼','產品名稱','產品規格',
     '庫存數量','單位','倉庫名稱','批號','入庫日期','有效期至',
     '剩餘/在庫天數','庫存狀態','存貨核算範圍名稱','單價','存貨成本'];
