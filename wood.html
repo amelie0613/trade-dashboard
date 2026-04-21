@@ -1093,6 +1093,17 @@ function toggleScopeTable(){
   document.getElementById('scopeToggleHint').textContent = scopeTableOpen ? '▼ 點擊收合' : '▶ 點擊展開';
 }
 
+// 各倉庫展開狀態
+const scopeExpanded = {};
+
+function toggleScope(sc){
+  scopeExpanded[sc] = !scopeExpanded[sc];
+  const row = document.getElementById('scope-detail-'+CSS.escape(sc));
+  const arrow = document.getElementById('scope-arrow-'+CSS.escape(sc));
+  if(row){ row.style.display = scopeExpanded[sc] ? '' : 'none'; }
+  if(arrow){ arrow.textContent = scopeExpanded[sc] ? '▼' : '▶'; }
+}
+
 function renderScopeCostTable(){
   if(!allData.length) return;
   const scopeSet = new Set();
@@ -1100,25 +1111,96 @@ function renderScopeCostTable(){
   const scopes = [...scopeSet].sort();
   if(!scopes.length){ document.getElementById('scopeCostWrap').style.display = 'none'; return; }
   document.getElementById('scopeCostWrap').style.display = '';
+
   const STATUS = ['全部','正常','過期品','長期在庫','即將到期'];
-  const scopeData = {}, totalData = {};
+  // scopeData[sc][st] = cost
+  // warehouseData[sc][warehouse][st] = cost
+  const scopeData = {}, warehouseData = {}, totalData = {};
   STATUS.forEach(s => totalData[s] = 0);
-  scopes.forEach(sc => { scopeData[sc] = {}; STATUS.forEach(s => scopeData[sc][s] = 0); });
+  scopes.forEach(sc => {
+    scopeData[sc] = {}; warehouseData[sc] = {};
+    STATUS.forEach(s => scopeData[sc][s] = 0);
+  });
+
   allData.forEach(r => {
-    const pd = getPriceData(r); const sc = pd.scope||''; if(!sc) return;
+    const pd = getPriceData(r);
+    const sc = pd.scope||''; if(!sc) return;
+    const wh = r['倉庫名稱']||'未知倉庫';
     const cost = (parseFloat(r['庫存數量'])||0) * pd.price;
     const f = classify(r);
     const st = f.expired ? '過期品' : f.soon ? '即將到期' : f.long ? '長期在庫' : '正常';
+
     scopeData[sc]['全部'] += cost; scopeData[sc][st] += cost;
     totalData['全部'] += cost; totalData[st] += cost;
+
+    if(!warehouseData[sc][wh]){ warehouseData[sc][wh] = {}; STATUS.forEach(s => warehouseData[sc][wh][s] = 0); }
+    warehouseData[sc][wh]['全部'] += cost; warehouseData[sc][wh][st] += cost;
   });
-  const fmtCost = v => v > 0 ? '$'+fmtNum(Math.round(v)) : '<span class="cost-zero">-</span>';
-  let html = '<thead><tr><th>核算範圍</th><th style="color:var(--purple)">全部成本</th><th>正常</th><th style="color:#C03030">過期品</th><th style="color:#B05010">長期在庫</th><th style="color:var(--coral)">即將到期</th></tr></thead><tbody>';
+
+  const fmtCost = v => v > 0 ? '$'+fmtNum(Math.round(v)) : '<span class="cost-zero">—</span>';
+  const TH = (txt, color='') => `<th style="color:var(--purple);${color?'color:'+color:''}">${txt}</th>`;
+
+  let html = `<thead><tr>
+    <th>核算範圍 / 倉庫</th>
+    <th>全部成本</th>
+    <th>正常</th>
+    <th style="color:#C03030">過期品</th>
+    <th style="color:#B05010">長期在庫</th>
+    <th style="color:var(--coral)">即將到期</th>
+  </tr></thead><tbody>`;
+
   scopes.forEach(sc => {
     const d = scopeData[sc];
-    html += '<tr><td>'+sc+'</td><td style="font-weight:700;color:var(--purple)">'+fmtCost(d['全部'])+'</td><td>'+fmtCost(d['正常'])+'</td><td style="color:#C03030">'+fmtCost(d['過期品'])+'</td><td style="color:#B05010">'+fmtCost(d['長期在庫'])+'</td><td style="color:var(--coral)">'+fmtCost(d['即將到期'])+'</td></tr>';
+    const scId = sc.replace(/[^a-zA-Z0-9一-鿿]/g,'_');
+    const warehouses = Object.keys(warehouseData[sc]).sort();
+    const hasWh = warehouses.length > 0;
+    const isOpen = scopeExpanded[sc] || false;
+
+    // 核算範圍主列（可點擊展開）
+    html += `<tr style="cursor:${hasWh?'pointer':'default'};background:#F5F0FF;"
+      onclick="${hasWh?`toggleScope('${sc.replace(/'/g,"\'")}')`:''}" >
+      <td style="font-weight:800;color:var(--purple);padding:10px 14px;">
+        ${hasWh?`<span id="scope-arrow-${scId}" style="margin-right:6px;font-size:11px;">${isOpen?'▼':'▶'}</span>`:''}
+        ${sc}
+        ${hasWh?`<span style="font-size:10px;color:var(--muted);margin-left:6px;">(${warehouses.length}個倉庫)</span>`:''}
+      </td>
+      <td style="font-weight:800;color:var(--purple);text-align:right;padding:10px 14px;">${fmtCost(d['全部'])}</td>
+      <td style="text-align:right;padding:10px 14px;">${fmtCost(d['正常'])}</td>
+      <td style="text-align:right;color:#C03030;padding:10px 14px;">${fmtCost(d['過期品'])}</td>
+      <td style="text-align:right;color:#B05010;padding:10px 14px;">${fmtCost(d['長期在庫'])}</td>
+      <td style="text-align:right;color:var(--coral);padding:10px 14px;">${fmtCost(d['即將到期'])}</td>
+    </tr>`;
+
+    // 各倉庫明細列（預設隱藏）
+    if(hasWh){
+      html += `<tr id="scope-detail-${scId}" style="display:${isOpen?'':'none'};">
+        <td colspan="6" style="padding:0;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">`;
+      warehouses.forEach(wh => {
+        const wd = warehouseData[sc][wh];
+        html += `<tr style="background:#FDFAFF;border-bottom:1px solid var(--border);">
+          <td style="padding:7px 14px 7px 36px;color:var(--muted);white-space:nowrap;">🏭 ${wh}</td>
+          <td style="text-align:right;padding:7px 14px;font-weight:600;">${fmtCost(wd['全部'])}</td>
+          <td style="text-align:right;padding:7px 14px;">${fmtCost(wd['正常'])}</td>
+          <td style="text-align:right;padding:7px 14px;color:#C03030;">${fmtCost(wd['過期品'])}</td>
+          <td style="text-align:right;padding:7px 14px;color:#B05010;">${fmtCost(wd['長期在庫'])}</td>
+          <td style="text-align:right;padding:7px 14px;color:var(--coral);">${fmtCost(wd['即將到期'])}</td>
+        </tr>`;
+      });
+      html += `</table></td></tr>`;
+    }
   });
-  html += '<tr><td>合計</td><td>'+fmtCost(totalData['全部'])+'</td><td>'+fmtCost(totalData['正常'])+'</td><td>'+fmtCost(totalData['過期品'])+'</td><td>'+fmtCost(totalData['長期在庫'])+'</td><td>'+fmtCost(totalData['即將到期'])+'</td></tr></tbody>';
+
+  // 合計列
+  html += `<tr style="background:#EDE8F5;">
+    <td style="font-weight:800;padding:10px 14px;">合計</td>
+    <td style="text-align:right;font-weight:800;color:var(--purple);padding:10px 14px;">${fmtCost(totalData['全部'])}</td>
+    <td style="text-align:right;font-weight:800;padding:10px 14px;">${fmtCost(totalData['正常'])}</td>
+    <td style="text-align:right;font-weight:800;color:#C03030;padding:10px 14px;">${fmtCost(totalData['過期品'])}</td>
+    <td style="text-align:right;font-weight:800;color:#B05010;padding:10px 14px;">${fmtCost(totalData['長期在庫'])}</td>
+    <td style="text-align:right;font-weight:800;color:var(--coral);padding:10px 14px;">${fmtCost(totalData['即將到期'])}</td>
+  </tr></tbody>`;
+
   document.getElementById('scopeCostTbl').innerHTML = html;
 }
 
