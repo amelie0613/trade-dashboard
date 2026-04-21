@@ -3062,20 +3062,25 @@ function loadPriceJson(input){
 function openGithubPanel(){ ghBackupPrices(); }
 
 // ─── GITHUB 單價備份 ───────────────────────────────────────────
-// 設定 key（存 localStorage）
+// 直接共用租金工具的 GitHub 設定（同一組 localStorage key）
 const GH_PRICE_LS = {
-  token:  'gh_price_token',
+  token:  'github_token',   // 與租金工具共用
   owner:  'gh_price_owner',
   repo:   'gh_price_repo',
   path:   'gh_price_path',
 };
 
+// 若尚未設定 owner/repo，預填租金工具的預設值
+function ghPriceGetOwner(){ return localStorage.getItem(GH_PRICE_LS.owner) || 'amelie0613'; }
+function ghPriceGetRepo(){  return localStorage.getItem(GH_PRICE_LS.repo)  || 'trade-dashboard'; }
+function ghPriceGetPath(){  return localStorage.getItem(GH_PRICE_LS.path)  || 'prices.json'; }
+
 function ghSetPriceConfig(){
   const cur = {
     token: localStorage.getItem(GH_PRICE_LS.token) || '',
-    owner: localStorage.getItem(GH_PRICE_LS.owner) || '',
-    repo:  localStorage.getItem(GH_PRICE_LS.repo)  || '',
-    path:  localStorage.getItem(GH_PRICE_LS.path)  || 'prices.json',
+    owner: ghPriceGetOwner(),
+    repo:  ghPriceGetRepo(),
+    path:  ghPriceGetPath(),
   };
 
   // 用一個簡單 overlay 來設定（不用 prompt）
@@ -3155,9 +3160,9 @@ function ghPriceStatus(msg, color='var(--muted)'){
 async function ghBackupPrices(){
   if(!Object.keys(prices).length){ showToast('❌ 尚無單價資料'); return; }
   let token = localStorage.getItem(GH_PRICE_LS.token);
-  const owner = localStorage.getItem(GH_PRICE_LS.owner);
-  const repo  = localStorage.getItem(GH_PRICE_LS.repo);
-  const path  = localStorage.getItem(GH_PRICE_LS.path) || 'prices.json';
+  const owner = ghPriceGetOwner();
+  const repo  = ghPriceGetRepo();
+  const path  = ghPriceGetPath();
 
   if(!token || !owner || !repo){
     ghSetPriceConfig();
@@ -3196,9 +3201,9 @@ async function ghBackupPrices(){
 
 async function ghLoadPrices(){
   let token = localStorage.getItem(GH_PRICE_LS.token);
-  const owner = localStorage.getItem(GH_PRICE_LS.owner);
-  const repo  = localStorage.getItem(GH_PRICE_LS.repo);
-  const path  = localStorage.getItem(GH_PRICE_LS.path) || 'prices.json';
+  const owner = ghPriceGetOwner();
+  const repo  = ghPriceGetRepo();
+  const path  = ghPriceGetPath();
 
   if(!token || !owner || !repo){
     ghSetPriceConfig();
