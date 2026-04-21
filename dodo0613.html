@@ -1275,9 +1275,6 @@
           <button class="btn btn-blue" onclick="document.getElementById('priceFileInput').click()">📥 匯入單價 xlsx</button>
           <input type="file" id="priceFileInput" accept=".xlsx,.xls" onchange="loadPriceFile(this)" style="display:none">
           <button class="btn btn-green" onclick="exportPriceExcel()">📤 匯出單價 xlsx</button>
-          <button class="btn btn-orange" onclick="savePriceJson()">💾 下載 JSON</button>
-          <button class="btn btn-ghost" onclick="document.getElementById('priceJsonInput').click()">📂 載入 JSON</button>
-          <input type="file" id="priceJsonInput" accept=".json" onchange="loadPriceJson(this)" style="display:none">
           <button class="btn" style="background:#4285f4;color:white;" onclick="ghBackupPrices()">☁️ 備份到 GitHub</button>
           <button class="btn" style="background:white;color:#4285f4;border:2px solid #4285f4;" onclick="ghLoadPrices()">📥 從 GitHub 載入</button>
           <button class="btn btn-ghost" style="font-size:11px;padding:7px 12px;" onclick="ghSetPriceConfig()" title="設定 GitHub Token / Repo">🔑 設定</button>
