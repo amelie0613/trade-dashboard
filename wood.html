@@ -237,6 +237,35 @@
   tbody tr:last-child { border-bottom: none; }
   td { padding: 9px 10px; white-space: nowrap; }
 
+
+  /* ── DENSE TABLE (like screenshot) ──────── */
+  .tbl-scroll { overflow-x: auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; min-width:900px; }
+  thead th {
+    position:sticky; top:0; z-index:2;
+    padding: 10px 12px; font-size:11px; font-weight:800;
+    letter-spacing:.4px; color:white; cursor:pointer;
+    white-space:nowrap; user-select:none; transition:filter .15s;
+    border-bottom: 2px solid rgba(255,255,255,.2);
+  }
+  thead th:hover { filter:brightness(1.1); }
+  tbody tr { border-bottom:1px solid #F0EAF5; transition:background .1s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:rgba(107,91,149,.05) !important; }
+  td { padding:8px 12px; white-space:nowrap; font-size:13px; }
+
+  /* diff 變化標記 */
+  .diff-new  { background:#F0FFF4; }
+  .diff-gone { background:#FFF5F5; }
+  .diff-up   { background:#F0F8FF; }
+  .diff-down { background:#FFF8F0; }
+  .chg-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
+  .chg-new  { background:#C6F6D5; color:#276749; }
+  .chg-gone { background:#FED7D7; color:#9B2C2C; }
+  .chg-up   { background:#BEE3F8; color:#2A69AC; }
+  .chg-down { background:#FEEBC8; color:#C05621; }
+  .chg-same { background:#EDF2F7; color:#718096; }
+
   .badge {
     display: inline-block; padding: 2px 9px;
     border-radius: 20px; font-size: 11px; font-weight: 700;
@@ -343,6 +372,42 @@
     outline:none; transition: border-color .15s;
   }
   .price-tbl input.tbl-scope-input:focus { border-color: var(--violet); }
+
+
+  /* ── SCOPE COST TABLE ───────────────────── */
+  .scope-table-wrap {
+    background: var(--card);
+    border-radius: var(--r);
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .scope-table-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 18px;
+    background: linear-gradient(90deg, var(--purple), #9B73C7);
+    cursor: pointer;
+    user-select: none;
+  }
+  .scope-table-header h4 { color:white; font-size:13px; font-weight:800; }
+  .scope-table-header span { color:rgba(255,255,255,.7); font-size:12px; }
+  .scope-tbl-body { overflow-x:auto; }
+  .scope-tbl { width:100%; border-collapse:collapse; font-size:13px; }
+  .scope-tbl th {
+    padding: 9px 14px; background: #F5F0FF;
+    font-size:11px; font-weight:800; color:var(--purple);
+    text-align:right; white-space:nowrap;
+    border-bottom: 2px solid var(--border);
+  }
+  .scope-tbl th:first-child { text-align:left; }
+  .scope-tbl td {
+    padding: 9px 14px; border-bottom:1px solid var(--border);
+    text-align:right; white-space:nowrap; font-size:12px;
+  }
+  .scope-tbl td:first-child { text-align:left; font-weight:700; color:var(--purple); }
+  .scope-tbl tbody tr:hover { background: rgba(107,91,149,.04); }
+  .scope-tbl tbody tr:last-child td { border-bottom:none; font-weight:800; background:#F5F0FF; color:var(--purple); }
+  .cost-zero { color:#CCC; }
 
   /* ── UPLOAD ZONE ─────────────────────────── */
   .upload-zone {
@@ -508,7 +573,24 @@
       </div>
     </div>
 
-    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+    <div style="margin-top:16px;padding:14px;background:#FFF8F0;border-radius:12px;display:flex;flex-direction:column;gap:10px;">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:700;">
+        <input type="checkbox" id="enableEmail" style="width:16px;height:16px;accent-color:var(--coral);">
+        📧 寫入後發送郵件通知
+      </label>
+      <div id="emailFields" style="display:none;flex-direction:column;gap:8px;">
+        <input id="emailTo" type="email" placeholder="收件人 email（多個用逗號分隔）"
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;"
+          onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
+        <input id="emailSubject" type="text" placeholder="郵件主旨" value="庫存健康報告"
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;"
+          onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+    </div>
+    <script>document.getElementById('enableEmail').addEventListener('change',function(){
+      document.getElementById('emailFields').style.display = this.checked ? 'flex' : 'none';
+    });</script>
+    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeSheetsPanel()">取消</button>
       <button class="btn btn-primary" onclick="writeToSheets()" id="writeSheetsBtn">☁️ 開始寫入</button>
     </div>
@@ -567,6 +649,18 @@
     </div>
   </div>
 
+
+  <!-- SCOPE COST TABLE -->
+  <div class="scope-table-wrap" id="scopeCostWrap" style="display:none;">
+    <div class="scope-table-header" onclick="toggleScopeTable()">
+      <h4>💰 各存貨核算範圍成本分析</h4>
+      <span id="scopeToggleHint">▼ 點擊收合</span>
+    </div>
+    <div class="scope-tbl-body" id="scopeTblBody">
+      <table class="scope-tbl" id="scopeCostTbl"></table>
+    </div>
+  </div>
+
   <!-- CONTROL BAR -->
   <div class="control-bar">
     <div class="ctrl-group">
@@ -602,6 +696,7 @@
     <button class="tab-btn" onclick="switchTab('long',this)">⏳ 長期在庫</button>
     <button class="tab-btn" onclick="switchTab('soon',this)">⚠️ 即將到期</button>
     <button class="tab-btn" onclick="switchTab('prices',this)">💰 單價設定</button>
+    <button class="tab-btn" onclick="switchTab('diff',this)">📊 差異比較</button>
   </div>
 
   <!-- TAB: all -->
@@ -745,11 +840,80 @@
           <input type="file" id="priceJsonInput" accept=".json" onchange="loadPriceJson(this)" style="display:none">
         </div>
       </div>
-      <div class="price-tbl-wrap" id="priceGrid">
+      <!-- 單價拖曳上傳區 -->
+      <div id="priceDrop"
+           style="margin:12px 16px;border:3px dashed var(--border);border-radius:14px;padding:18px 20px;
+                  display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .2s;background:white;"
+           onclick="document.getElementById('priceFileInput').click()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--violet)';this.style.background='rgba(107,91,149,.04)'"
+           ondragleave="this.style.borderColor='var(--border)';this.style.background='white'"
+           ondrop="handlePriceDrop(event)">
+        <span style="font-size:28px;">📥</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);">拖曳或點擊上傳單價表 xlsx</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">欄位需包含：產品名稱、批號、期末單位成本、期初單位成本、存貨核算範圍名稱</div>
+        </div>
+        <span id="priceDropStatus" style="margin-left:auto;font-size:12px;color:var(--green);font-weight:700;"></span>
+      </div>
+      <!-- 單價表格 -->
+      <div class="price-tbl-wrap" id="priceGrid" style="max-height:520px;overflow-y:auto;">
         <div class="empty-state">
           <div class="icon">💰</div>
           <p>請先上傳庫存資料，產品清單將自動出現</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- TAB: diff -->
+  <div class="tab-content" id="tab-diff">
+    <div class="table-wrap">
+      <div class="table-toolbar" style="flex-wrap:wrap;gap:12px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;font-weight:700;color:var(--muted);">📅 期初庫存（舊資料）</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-ghost" style="font-size:12px;" onclick="document.getElementById('diffFileA').click()">📂 上傳期初 xlsx</button>
+            <input type="file" id="diffFileA" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('A',this)">
+            <span id="diffLabelA" style="font-size:12px;color:var(--muted);">未載入</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;font-weight:700;color:var(--muted);">📅 期末庫存（新資料）</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-ghost" style="font-size:12px;" onclick="document.getElementById('diffFileB').click()">📂 上傳期末 xlsx</button>
+            <input type="file" id="diffFileB" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('B',this)">
+            <span id="diffLabelB" style="font-size:12px;color:var(--muted);">未載入</span>
+          </div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end;">
+          <button class="btn btn-primary" onclick="runDiff()">🔍 執行比較</button>
+          <button class="btn btn-green" onclick="exportDiffExcel()">📤 匯出差異表</button>
+        </div>
+      </div>
+      <!-- 差異統計 -->
+      <div id="diffStats" style="display:none;padding:12px 18px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;gap:16px;flex-wrap:wrap;">
+        <span style="font-size:12px;">🟢 新增：<strong id="diffNew" style="color:var(--green)">0</strong> 筆</span>
+        <span style="font-size:12px;">🔴 消失：<strong id="diffGone" style="color:var(--red)">0</strong> 筆</span>
+        <span style="font-size:12px;">🔵 數量增加：<strong id="diffUp" style="color:#4488CC">0</strong> 筆</span>
+        <span style="font-size:12px;">🟠 數量減少：<strong id="diffDown" style="color:var(--orange)">0</strong> 筆</span>
+        <span style="font-size:12px;">⚪ 無變化：<strong id="diffSame" style="color:var(--muted)">0</strong> 筆</span>
+      </div>
+      <div style="display:flex;gap:8px;padding:10px 18px;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap;">
+        <select class="filter-select" id="diffFilter" onchange="renderDiff()">
+          <option value="">全部變化</option>
+          <option value="new">🟢 新增</option>
+          <option value="gone">🔴 消失</option>
+          <option value="up">🔵 數量增加</option>
+          <option value="down">🟠 數量減少</option>
+          <option value="same">⚪ 無變化</option>
+        </select>
+        <select class="filter-select" id="diffWarehouse" onchange="renderDiff()"><option value="">全部倉庫</option></select>
+        <select class="filter-select" id="diffCategory" onchange="renderDiff()"><option value="">全部類別</option></select>
+        <span class="tbl-count" id="diffCount">0 筆</span>
+      </div>
+      <div class="tbl-scroll" id="tbl-diff-wrap">
+        <div class="empty-state"><div class="icon">📊</div><p>請上傳期初與期末庫存 xlsx，再按「執行比較」</p></div>
       </div>
     </div>
   </div>
@@ -919,6 +1083,45 @@ function processData(raw){
   const uz = document.getElementById('uploadZone'); if(uz) uz.style.display = 'none';
 }
 
+
+// ─── SCOPE COST TABLE ────────────────────────────────────────
+let scopeTableOpen = true;
+
+function toggleScopeTable(){
+  scopeTableOpen = !scopeTableOpen;
+  document.getElementById('scopeTblBody').style.display = scopeTableOpen ? '' : 'none';
+  document.getElementById('scopeToggleHint').textContent = scopeTableOpen ? '▼ 點擊收合' : '▶ 點擊展開';
+}
+
+function renderScopeCostTable(){
+  if(!allData.length) return;
+  const scopeSet = new Set();
+  allData.forEach(r => { const pd = getPriceData(r); if(pd.scope) scopeSet.add(pd.scope); });
+  const scopes = [...scopeSet].sort();
+  if(!scopes.length){ document.getElementById('scopeCostWrap').style.display = 'none'; return; }
+  document.getElementById('scopeCostWrap').style.display = '';
+  const STATUS = ['全部','正常','過期品','長期在庫','即將到期'];
+  const scopeData = {}, totalData = {};
+  STATUS.forEach(s => totalData[s] = 0);
+  scopes.forEach(sc => { scopeData[sc] = {}; STATUS.forEach(s => scopeData[sc][s] = 0); });
+  allData.forEach(r => {
+    const pd = getPriceData(r); const sc = pd.scope||''; if(!sc) return;
+    const cost = (parseFloat(r['庫存數量'])||0) * pd.price;
+    const f = classify(r);
+    const st = f.expired ? '過期品' : f.soon ? '即將到期' : f.long ? '長期在庫' : '正常';
+    scopeData[sc]['全部'] += cost; scopeData[sc][st] += cost;
+    totalData['全部'] += cost; totalData[st] += cost;
+  });
+  const fmtCost = v => v > 0 ? '$'+fmtNum(Math.round(v)) : '<span class="cost-zero">-</span>';
+  let html = '<thead><tr><th>核算範圍</th><th style="color:var(--purple)">全部成本</th><th>正常</th><th style="color:#C03030">過期品</th><th style="color:#B05010">長期在庫</th><th style="color:var(--coral)">即將到期</th></tr></thead><tbody>';
+  scopes.forEach(sc => {
+    const d = scopeData[sc];
+    html += '<tr><td>'+sc+'</td><td style="font-weight:700;color:var(--purple)">'+fmtCost(d['全部'])+'</td><td>'+fmtCost(d['正常'])+'</td><td style="color:#C03030">'+fmtCost(d['過期品'])+'</td><td style="color:#B05010">'+fmtCost(d['長期在庫'])+'</td><td style="color:var(--coral)">'+fmtCost(d['即將到期'])+'</td></tr>';
+  });
+  html += '<tr><td>合計</td><td>'+fmtCost(totalData['全部'])+'</td><td>'+fmtCost(totalData['正常'])+'</td><td>'+fmtCost(totalData['過期品'])+'</td><td>'+fmtCost(totalData['長期在庫'])+'</td><td>'+fmtCost(totalData['即將到期'])+'</td></tr></tbody>';
+  document.getElementById('scopeCostTbl').innerHTML = html;
+}
+
 // ─── RECOMPUTE KPI ────────────────────────────────────────────
 function recompute(){
   if(!allData.length) return;
@@ -945,6 +1148,7 @@ function recompute(){
   document.getElementById('seg-track').textContent   = `🟢 追蹤(181-210天) ${seg.track}筆`;
 
   ['all','expired','long','soon'].forEach(k => renderTable(k));
+  renderScopeCostTable();
 }
 
 // ─── BUILD FILTERS ────────────────────────────────────────────
@@ -1202,6 +1406,19 @@ function updatePriceField(key, field, val){
   recompute();
 }
 
+
+// ─── PRICE FILE DROP ──────────────────────────────────────────
+function handlePriceDrop(e){
+  e.preventDefault();
+  const zone = document.getElementById('priceDrop');
+  zone.style.borderColor = 'var(--border)';
+  zone.style.background = 'white';
+  const file = e.dataTransfer.files[0];
+  if(!file) return;
+  if(!file.name.match(/\.xlsx?$/i)){ showToast('❌ 請上傳 .xlsx 檔案'); return; }
+  const fakeInput = { files: [file] };
+  loadPriceFile(fakeInput);
+}
 // ─── LOAD PRICE FILE ─────────────────────────────────────────
 function loadPriceFile(input){
   const file = input.files[0]; if(!file) return;
@@ -1230,6 +1447,7 @@ function loadPriceFile(input){
       });
       recompute();
       renderPrices();
+      const ds = document.getElementById('priceDropStatus'); if(ds) ds.textContent = `✅ 已匯入 ${count} 筆`;
       showToast(`✅ 匯入 ${count} 筆（單價＋核算範圍）`);
     }catch(err){ showToast('❌ 讀取失敗：'+err.message, 4000); }
     input.value='';
@@ -1243,7 +1461,8 @@ function switchTab(key, btn){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-'+key).classList.add('active');
-  if(key!=='prices' && allData.length) renderTable(key);
+  if(key==='diff') renderDiff();
+  else if(key!=='prices' && allData.length) renderTable(key);
 }
 
 // ─── EXPORT EXCEL ─────────────────────────────────────────────
@@ -1507,6 +1726,153 @@ async function loadPricesFromGithub(){
 }
 
 
+
+// ─── DIFF COMPARE ────────────────────────────────────────────
+let diffDataA = null; // 期初
+let diffDataB = null; // 期末
+let diffResults = [];
+
+function loadDiffFile(slot, input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const wb  = XLSX.read(e.target.result, {type:'binary', cellDates:true});
+      const ws  = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
+      if(slot==='A'){ diffDataA = raw; document.getElementById('diffLabelA').textContent = `✅ ${file.name}（${raw.length}筆）`; }
+      else          { diffDataB = raw; document.getElementById('diffLabelB').textContent = `✅ ${file.name}（${raw.length}筆）`; }
+      showToast(`✅ 已載入 ${slot==='A'?'期初':'期末'} 資料`);
+    }catch(err){ showToast('❌ 讀取失敗：'+err.message,4000); }
+    input.value='';
+  };
+  reader.readAsBinaryString(file);
+}
+
+function diffKey(r){ return `${String(r['產品名稱']||'').trim()}__${String(r['批號']||'').trim()}__${String(r['倉庫名稱']||'').trim()}`; }
+
+function runDiff(){
+  if(!diffDataA || !diffDataB){ showToast('❌ 請先上傳期初與期末兩份資料'); return; }
+
+  const mapA = {}, mapB = {};
+  diffDataA.forEach(r => { mapA[diffKey(r)] = r; });
+  diffDataB.forEach(r => { mapB[diffKey(r)] = r; });
+
+  const allKeys = new Set([...Object.keys(mapA), ...Object.keys(mapB)]);
+  diffResults = [];
+
+  allKeys.forEach(k => {
+    const a = mapA[k], b = mapB[k];
+    const base = b || a;
+    const qtyA = parseFloat((a||{})['庫存數量'])||0;
+    const qtyB = parseFloat((b||{})['庫存數量'])||0;
+    let changeType = 'same';
+    if(!a && b)      changeType = 'new';
+    else if(a && !b) changeType = 'gone';
+    else if(qtyB > qtyA) changeType = 'up';
+    else if(qtyB < qtyA) changeType = 'down';
+    diffResults.push({ ...base, _qtyA: qtyA, _qtyB: qtyB, _diff: qtyB - qtyA, _changeType: changeType });
+  });
+
+  // 建篩選器
+  const ws = [...new Set(diffResults.map(r=>r['倉庫名稱']||'').filter(Boolean))].sort();
+  const cs = [...new Set(diffResults.map(r=>r['產品類別']||'').filter(Boolean))].sort();
+  const dw = document.getElementById('diffWarehouse');
+  const dc = document.getElementById('diffCategory');
+  dw.innerHTML = '<option value="">全部倉庫</option>' + ws.map(w=>`<option>${w}</option>`).join('');
+  dc.innerHTML = '<option value="">全部類別</option>' + cs.map(x=>`<option>${x}</option>`).join('');
+
+  // 統計
+  const stats = {new:0,gone:0,up:0,down:0,same:0};
+  diffResults.forEach(r => stats[r._changeType]++);
+  document.getElementById('diffNew').textContent  = stats.new;
+  document.getElementById('diffGone').textContent = stats.gone;
+  document.getElementById('diffUp').textContent   = stats.up;
+  document.getElementById('diffDown').textContent = stats.down;
+  document.getElementById('diffSame').textContent = stats.same;
+  document.getElementById('diffStats').style.display = 'flex';
+
+  renderDiff();
+  showToast(`✅ 比較完成，共 ${diffResults.length} 筆`);
+}
+
+function renderDiff(){
+  const filter    = document.getElementById('diffFilter')?.value||'';
+  const warehouse = document.getElementById('diffWarehouse')?.value||'';
+  const category  = document.getElementById('diffCategory')?.value||'';
+  const wrap = document.getElementById('tbl-diff-wrap');
+  const countEl = document.getElementById('diffCount');
+
+  if(!diffResults.length){
+    wrap.innerHTML = '<div class="empty-state"><div class="icon">📊</div><p>請上傳兩份資料後執行比較</p></div>';
+    return;
+  }
+
+  let rows = diffResults.filter(r => {
+    if(filter    && r._changeType !== filter)   return false;
+    if(warehouse && r['倉庫名稱'] !== warehouse) return false;
+    if(category  && r['產品類別'] !== category)  return false;
+    return true;
+  });
+
+  const chgLabel = { new:'🟢 新增', gone:'🔴 消失', up:'🔵 增加', down:'🟠 減少', same:'⚪ 不變' };
+  const chgCls   = { new:'chg-new', gone:'chg-gone', up:'chg-up', down:'chg-down', same:'chg-same' };
+  const rowCls   = { new:'diff-new', gone:'diff-gone', up:'diff-up', down:'diff-down', same:'' };
+
+  let html = `<table><thead><tr>`;
+  const diffCols = ['類別','產品代碼','產品名稱','規格','倉庫','批號','入庫日期','期初數量','期末數量','增減','變化'];
+  const hdrColor = '#6B5B95';
+  diffCols.forEach(h => { html += `<th style="background:${hdrColor}">${h}</th>`; });
+  html += `</tr></thead><tbody>`;
+
+  rows.forEach(r => {
+    const lotDate = parseLotDate(r['批號']);
+    const lotDisp = lotDate ? fmtDate(lotDate) : '—';
+    const diffVal = r._diff > 0 ? `+${fmtNum(r._diff)}` : fmtNum(r._diff);
+    const diffColor = r._diff > 0 ? 'color:#2A7A10;font-weight:700' : r._diff < 0 ? 'color:#C03030;font-weight:700' : 'color:var(--muted)';
+    html += `<tr class="${rowCls[r._changeType]||''}">
+      <td><span class="badge badge-gray">${r['產品類別']||'—'}</span></td>
+      <td style="font-weight:700;color:var(--purple)">${r['產品代碼']||'—'}</td>
+      <td>${r['產品名稱']||'—'}</td>
+      <td style="color:var(--muted);font-size:11px">${r['產品規格']||'—'}</td>
+      <td>${r['倉庫名稱']||'—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${r['批號']||'—'}</td>
+      <td>${lotDisp}</td>
+      <td style="text-align:right">${r._changeType==='new'?'—':fmtNum(r._qtyA)}</td>
+      <td style="text-align:right">${r._changeType==='gone'?'—':fmtNum(r._qtyB)}</td>
+      <td style="text-align:right;${diffColor}">${r._changeType==='new'?'新增':r._changeType==='gone'?'消失':diffVal}</td>
+      <td><span class="chg-badge ${chgCls[r._changeType]}">${chgLabel[r._changeType]}</span></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  countEl.textContent = `${rows.length} 筆`;
+}
+
+function exportDiffExcel(){
+  if(!diffResults.length){ showToast('❌ 請先執行差異比較'); return; }
+  const rows = diffResults.map(r => {
+    const lotDate = parseLotDate(r['批號']);
+    return {
+      '產品類別': r['產品類別']||'',
+      '產品代碼': r['產品代碼']||'',
+      '產品名稱': r['產品名稱']||'',
+      '產品規格': r['產品規格']||'',
+      '倉庫名稱': r['倉庫名稱']||'',
+      '批號':     r['批號']||'',
+      '入庫日期': lotDate ? fmtDate(lotDate) : '',
+      '期初數量': r._changeType==='new' ? '' : r._qtyA,
+      '期末數量': r._changeType==='gone'? '' : r._qtyB,
+      '增減':     r._changeType==='new'?'新增':r._changeType==='gone'?'消失':r._diff,
+      '變化狀態': {new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'}[r._changeType],
+    };
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '庫存差異比較');
+  XLSX.writeFile(wb, '庫存差異比較.xlsx');
+  showToast('✅ 已匯出差異比較表');
+}
+
 // ─── PRICE JSON SAVE / LOAD (for GitHub) ──────────────────────
 function savePriceJson(){
   if(!Object.keys(prices).length){ showToast('❌ 尚無單價資料'); return; }
@@ -1613,7 +1979,7 @@ async function writeToSheets(){
     const dataRows = buildExportRows(scope);
     statusEl.textContent = `(${i+1}/4) 寫入「${sheetName}」… ${dataRows.length} 筆`;
     try{
-      const payload = { sheetName, sheetId, headers, rows: dataRows, headerColor: color };
+      const payload = { sheetName, sheetId, headers, rows: dataRows, headerColor: color, sendEmail: sendEmail && i===sheets.length-1, emailTo, emailSubject: emailSubj, totalRows: dataRows.length, sheetTitle: sheetName };
       const resp = await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
       const result = await resp.text();
       if(result.includes('success') || result.includes('OK') || resp.ok){
@@ -1655,6 +2021,17 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
     headerRange.setFontWeight('bold');
     sheet.setFrozenRows(1);
     sheet.autoResizeColumns(1, data.headers.length);
+    // 發送郵件通知
+    if (data.sendEmail && data.emailTo) {
+      var emails = data.emailTo.split(',').map(function(e){ return e.trim(); });
+      var subject = data.emailSubject || '庫存健康報告';
+      var body = '庫存分析已完成，請至 Google Sheets 查看。\n\n';
+      body += '已寫入4個分頁：全部庫存、過期品、長期在庫、即將到期\n';
+      body += '寫入時間：' + new Date().toLocaleString('zh-TW') + '\n';
+      emails.forEach(function(email){
+        if(email) GmailApp.sendEmail(email, subject, body);
+      });
+    }
     return ContentService.createTextOutput('success');
   } catch(err) {
     return ContentService.createTextOutput('error: ' + err.message);
