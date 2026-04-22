@@ -1989,16 +1989,31 @@
                     </div>
 
                     <!-- 2. 租金計算結果 -->
-                    <div class="section-title" style="margin-top:1rem;">📤 2️⃣ 租金計算結果 (上/下期)</div>
-                    <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">上傳上期或下期結果，帶出分攤單價</p>
-                    <div style="border:2px dashed #8dcc7a; border-radius:10px; padding:0.6rem; background:white; margin-bottom:0.8rem;"
-                        ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'rental_result_file',this)">
-                        <input type="file" id="rental_result_file" accept=".xlsx"
-                            onchange="rentalResultFileChanged(this)"
-                            style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
-                        <div id="rental_result_label" style="font-size:0.7rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                    <div class="section-title" style="margin-top:1rem;">📤 2️⃣ 租金計算結果</div>
+                    <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">上傳上期＋下期，母件總計兩期加總</p>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.4rem;">
+                        <div>
+                            <div style="font-size:0.72rem; color:#6aa85a; font-weight:700; margin-bottom:0.3rem;">上期</div>
+                            <div style="border:2px dashed #8dcc7a; border-radius:8px; padding:0.5rem; background:white;"
+                                ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'rental_upper_file',this)">
+                                <input type="file" id="rental_upper_file" accept=".xlsx"
+                                    onchange="rentalResultFileChanged(this,'upper')"
+                                    style="width:100%; font-size:0.7rem; border:none; background:transparent;" />
+                                <div id="rental_upper_label" style="font-size:0.68rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size:0.72rem; color:#6aa85a; font-weight:700; margin-bottom:0.3rem;">下期</div>
+                            <div style="border:2px dashed #8dcc7a; border-radius:8px; padding:0.5rem; background:white;"
+                                ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'rental_lower_file',this)">
+                                <input type="file" id="rental_lower_file" accept=".xlsx"
+                                    onchange="rentalResultFileChanged(this,'lower')"
+                                    style="width:100%; font-size:0.7rem; border:none; background:transparent;" />
+                                <div id="rental_lower_label" style="font-size:0.68rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                            </div>
+                        </div>
                     </div>
-                    <div id="rental_result_status" style="font-size:0.8rem; color:#6aa85a;"></div>
+                    <div id="rental_result_status" style="font-size:0.78rem; color:#6aa85a;"></div>
 
                     <!-- 3. 加工單 -->
                     <div class="section-title" style="margin-top:1rem;">📤 3️⃣ 加工單 (可選)</div>
@@ -5620,13 +5635,15 @@ function profitFileChanged(input) {
 }
 window.profitFileChanged = profitFileChanged;
 
-// 租金計算結果上傳
-function rentalResultFileChanged(input) {
+// 租金計算結果上傳（上期/下期）
+function rentalResultFileChanged(input, period) {
     if (!input.files[0]) return;
     const file = input.files[0];
-    ledgerFiles['rental_result_file'] = file;
-    const lbl = document.getElementById('rental_result_label');
-    if (lbl) { lbl.textContent = '✅ ' + file.name; lbl.style.color = '#6aa85a'; }
+    const fileId = period === 'upper' ? 'rental_upper_file' : 'rental_lower_file';
+    ledgerFiles[fileId] = file;
+    const lblId = period === 'upper' ? 'rental_upper_label' : 'rental_lower_label';
+    const lbl = document.getElementById(lblId);
+    if (lbl) { lbl.textContent = '✅ ' + file.name; lbl.style.color = '#4a9a37'; }
 }
 window.rentalResultFileChanged = rentalResultFileChanged;
 
@@ -5676,25 +5693,42 @@ async function calcProfit() {
             if (name && batch) ledgerPriceMap[`${name}|${batch}`] = r.分攤單價 || 0;
         });
 
-        // 第2層：讀取租金計算結果，建立 產品名稱|批號 -> 分攤單價 的對應表
-        const rentalFile = ledgerFiles['rental_result_file'];
-        const rentalPriceMap = {}; // 產品名稱|批號 -> 分攤單價（從租金計算結果讀）
-        if (rentalFile) {
+        // 第2層：讀取租金計算結果（上期＋下期），建立 產品名稱|批號 -> 兩期總計加總
+        const rentalCostMap = {}; // 產品名稱|批號 -> 母件租金成本（上期總計+下期總計）
+        const upperFile = ledgerFiles['rental_upper_file'];
+        const lowerFile = ledgerFiles['rental_lower_file'];
+        let rentalLoadCount = 0;
+
+        const addRentalRows = (rows) => {
+            rows.forEach(r => {
+                const name  = String(r['產品名稱']||'').trim();
+                const batch = String(r['批號']||'').trim();
+                const cost  = parseFloat(r['總計']) || 0;
+                if (!name || !batch) return;
+                const key = `${name}|${batch}`;
+                rentalCostMap[key] = (rentalCostMap[key] || 0) + cost;
+            });
+        };
+
+        if (upperFile) {
             try {
-                const rentalRows = await readExcelSheet(rentalFile, null);
-                rentalRows.forEach(r => {
-                    const name  = String(r['產品名稱']||'').trim();
-                    const batch = String(r['批號']||'').trim();
-                    const price = parseFloat(r['分攤單價']) || 0;
-                    if (name && batch && price > 0) rentalPriceMap[`${name}|${batch}`] = price;
-                });
-                document.getElementById('rental_result_status').textContent = `✅ 已載入 ${rentalRows.length} 筆`;
-            } catch(e) {
-                document.getElementById('rental_result_status').textContent = `⚠️ 讀取失敗`;
-            }
-        } else {
-            document.getElementById('rental_result_status').textContent = '';
+                const rows = await readExcelSheet(upperFile, null);
+                addRentalRows(rows);
+                rentalLoadCount += rows.length;
+            } catch(e) {}
         }
+        if (lowerFile) {
+            try {
+                const rows = await readExcelSheet(lowerFile, null);
+                addRentalRows(rows);
+                rentalLoadCount += rows.length;
+            } catch(e) {}
+        }
+
+        const hasRental = upperFile || lowerFile;
+        document.getElementById('rental_result_status').textContent = hasRental
+            ? `✅ 已載入 ${rentalLoadCount} 筆（${upperFile?'上期':''}${upperFile&&lowerFile?'＋':''}${lowerFile?'下期':''}）`
+            : '';
 
         // 第3層：讀取加工單，計算每個子件批號的租金單價
         // 邏輯：母件名稱+批號 → 查 rentalPriceMap 得分攤單價 → × 母件數量 = 母件租金成本
@@ -5729,11 +5763,11 @@ async function calcProfit() {
 
                     if (!childSummary[childBatch]) childSummary[childBatch] = { totalCost: 0, totalQty: 0, counted: new Set() };
 
-                    // 母件租金成本：每一行都累加（不同母件批號各自計算）
-                    const motherPrice = rentalPriceMap[`${motherName}|${motherBatch}`] || 0;
+                    // 母件租金成本：直接從 rentalCostMap 取兩期加總的總計
                     const costKey = `${motherName}|${motherBatch}`;
                     if (!childSummary[childBatch].counted.has(costKey)) {
-                        childSummary[childBatch].totalCost += motherPrice * motherQty;
+                        const motherTotalCost = rentalCostMap[costKey] || 0;
+                        childSummary[childBatch].totalCost += motherTotalCost;
                         childSummary[childBatch].counted.add(costKey);
                     }
 
@@ -5766,17 +5800,12 @@ async function calcProfit() {
             
             let rentPrice = '', rentCost = '', rentSource = '';
             
-            // 查加工成品單價
+            // 查加工成品單價（子件批號直接比對）
             if (processingUnitPriceMap[batch]) {
                 rentPrice = processingUnitPriceMap[batch];
                 rentSource = '加工成品';
             }
-            // 查租金計算結果
-            else if (rentalPriceMap[key]) {
-                rentPrice = rentalPriceMap[key];
-                rentSource = '租金結果';
-            }
-            // 查總帳
+            // 查總帳分攤單價（產品名稱+批號）
             else if (ledgerPriceMap[key]) {
                 rentPrice = ledgerPriceMap[key];
                 rentSource = '總帳';
