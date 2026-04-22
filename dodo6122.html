@@ -4277,6 +4277,7 @@ async function previewMonthly() {
                 <div style="display:flex; gap:0.5rem;">
                     <button onclick="exportPreview()" style="background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">📥 匯出 Excel</button>
                     <button onclick="exportPreviewPDF()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">🖨️ 匯出 PDF</button>
+                    <button onclick="uploadOutboundToSheets()" style="background:#6B5B95; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">☁️ 上傳出庫明細</button>
                     <button onclick="confirmMonthly()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.5rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 確認導入總帳</button>
                 </div>
             </div>
@@ -4786,6 +4787,83 @@ window.exportPreviewPDF = function() {
     win.document.close();
 };
 
+// ===== 上傳出庫明細到 Google Sheets（可在確認導入前獨立執行）=====
+async function uploadOutboundToSheets(priceHistoryOverride) {
+    const appsScriptUrl = localStorage.getItem('outbound_script_url') || '';
+    if (!appsScriptUrl) {
+        alert('請先設定「出庫明細 Script 網址」\n（月結算總帳頁面 → ☁️ 設定出庫明細 Script 網址）');
+        return false;
+    }
+    const { d1, d2 } = window._pendingMonthlyRaw || {};
+    const allRentalRows = [...(d1||[]), ...(d2||[])];
+    if (allRentalRows.length === 0) {
+        alert('請先執行「預覽月結算」後再上傳');
+        return false;
+    }
+    const label = (window._pendingMonthly || {}).label || document.getElementById('ledger_month_label').value.trim() || '本月';
+
+    // 讀取分攤單價（優先用傳入的，否則讀 localStorage 歷史 + 快照）
+    let priceMap = priceHistoryOverride || {};
+    if (!priceHistoryOverride) {
+        try { priceMap = JSON.parse(localStorage.getItem('rental_price_history_v1') || '{}'); } catch(e) {}
+        const snapshot = [];
+        try { snapshot.push(...JSON.parse(localStorage.getItem(LS_PROFIT_SNAPSHOT_KEY) || '[]')); } catch(e) {}
+        const ledger = lsLoadLedgerRows() || [];
+        [...snapshot, ...ledger].forEach(r => {
+            const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
+            if (k && r.分攤單價) priceMap[k] = r.分攤單價;
+        });
+    }
+
+    // 解析業務屬性明細
+    const outboundRows = [];
+    allRentalRows.forEach(r => {
+        const attr = String(r['業務屬性明細']||'');
+        const name = String(r['產品名稱']||'').trim();
+        const batch = String(r['批號']||'').trim();
+        const category = String(r['產品類別']||'');
+        const unitPrice = priceMap[`${name}|${batch}`] || 0;
+        const outSection = attr.split('|').filter(s => s.includes('[出庫]')).join('|');
+        const re = /【([^】]+)】(\d+(?:\.\d+)?)/g;
+        let match;
+        while ((match = re.exec(outSection)) !== null) {
+            const outType = match[1].trim();
+            const qty = parseFloat(match[2]) || 0;
+            const rentCost = Math.round(unitPrice * qty);
+            outboundRows.push([label, category, name, batch, outType, qty, unitPrice, rentCost]);
+        }
+    });
+
+    if (outboundRows.length === 0) {
+        alert('沒有解析到出庫明細資料，請確認上/下期檔案有上傳');
+        return false;
+    }
+
+    // 上傳
+    const statusEl = document.getElementById('ledger_status_monthly');
+    if (statusEl) statusEl.innerHTML = '<span style="color:#6B5B95;">⏳ 上傳出庫明細中...</span>';
+    try {
+        const sheetId = '1oFvWIB1rgXAsEvj8dGvTbBp2UilPMAhkvwo9GO4paHQ';
+        const headers = ['月份','產品類別','產品名稱','批號','出庫類型','出庫數量','分攤單價','租金費用'];
+        const payload = { sheetName: '出庫明細', sheetId, headers, rows: outboundRows, headerColor: '#6B5B95', appendMode: true };
+        const params = new URLSearchParams();
+        params.append('data', JSON.stringify(payload));
+        const resp = await fetch(appsScriptUrl, { method: 'POST', body: params });
+        const result = await resp.text();
+        if (result.includes('success')) {
+            if (statusEl) statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 出庫明細已上傳（${outboundRows.length} 筆）→ 確認無誤後再點「確認導入總帳」</span>`;
+            return true;
+        } else {
+            if (statusEl) statusEl.innerHTML = `<span style="color:#e8836a;">⚠️ 上傳回應異常：${result.slice(0,80)}</span>`;
+            return false;
+        }
+    } catch(e) {
+        if (statusEl) statusEl.innerHTML = `<span style="color:#e8836a;">❌ 上傳失敗：${e.message}</span>`;
+        return false;
+    }
+}
+window.uploadOutboundToSheets = uploadOutboundToSheets;
+
 async function confirmMonthly() {
     if (!window._pendingMonthly) return;
     const { preview: allPreview, label } = window._pendingMonthly;
@@ -4855,45 +4933,8 @@ async function confirmMonthly() {
         const snapshotRows = Object.values(finalMap);
         try { localStorage.setItem(LS_PROFIT_SNAPSHOT_KEY, JSON.stringify(snapshotRows)); } catch(e) {}
 
-        // ② 解析出庫明細 → 寫入 Google Sheets
-        try {
-            const { d1, d2 } = window._pendingMonthlyRaw || {};
-            const allRentalRows = [...(d1||[]), ...(d2||[])];
-            const outboundRows = [];
-            const outRegex = /【([^】]+)】(\d+(?:\.\d+)?)/g;
-
-            allRentalRows.forEach(r => {
-                const attr = String(r['業務屬性明細']||'');
-                const name = String(r['產品名稱']||'').trim();
-                const batch = String(r['批號']||'').trim();
-                const category = String(r['產品類別']||'');
-                const priceKey = `${name}|${batch}`;
-                const unitPrice = priceHistory[priceKey] || 0;
-                let match;
-                outRegex.lastIndex = 0;
-                // 只取 [出庫] 區段
-                const outSection = attr.split('|').filter(s => s.includes('[出庫]')).join('|');
-                const re2 = /【([^】]+)】(\d+(?:\.\d+)?)/g;
-                while ((match = re2.exec(outSection)) !== null) {
-                    const outType = match[1].trim();
-                    const qty = parseFloat(match[2]) || 0;
-                    const rentCost = Math.round(unitPrice * qty);
-                    outboundRows.push([label, category, name, batch, outType, qty, unitPrice, rentCost]);
-                }
-            });
-
-            if (outboundRows.length > 0) {
-                const appsScriptUrl = localStorage.getItem('outbound_script_url') || '';
-                const sheetId = '1oFvWIB1rgXAsEvj8dGvTbBp2UilPMAhkvwo9GO4paHQ';
-                if (appsScriptUrl) {
-                    const headers = ['月份','產品類別','產品名稱','批號','出庫類型','出庫數量','分攤單價','租金費用'];
-                    const payload = { sheetName: '出庫明細', sheetId, headers, rows: outboundRows, headerColor: '#6B5B95', appendMode: true };
-                    const params = new URLSearchParams();
-                    params.append('data', JSON.stringify(payload));
-                    await fetch(appsScriptUrl, { method: 'POST', body: params }).catch(()=>{});
-                }
-            }
-        } catch(e) { console.error('出庫明細寫入失敗', e); }
+        // ② 出庫明細上傳（傳入已算好的 priceHistory，不重複讀取）
+        await uploadOutboundToSheets(priceHistory).catch(e => console.error('出庫明細寫入失敗', e));
 
         await saveLedgerRows(finalRows);
         await saveMonthlyRecord(label, {
