@@ -1924,6 +1924,8 @@
                     <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
                     <hr style="border:none; border-top:1px solid #f0e0f0; margin:0.8rem 0;">
                     <button onclick="setGitHubToken()" style="width:100%; background:none; border:1.5px solid #aaa; color:#888; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">🔑 設定 GitHub Token</button>
+                    <button onclick="setOutboundScriptUrl()" style="width:100%; background:none; border:1.5px solid #6B5B95; color:#6B5B95; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">☁️ 設定出庫明細 Script 網址</button>
+                    <button onclick="copyOutboundAppsScript()" style="width:100%; background:none; border:1.5px solid #7ec8e3; color:#2a6a82; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">📋 複製出庫明細 Apps Script 程式碼</button>
                     <button onclick="clearLedger()" style="width:100%; background:none; border:1.5px solid #e8836a; color:#e8836a; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem;">🗑️ 清除總帳資料</button>
                 </div>
 
@@ -3501,10 +3503,18 @@ const APPS_SCRIPT_CODE = [
   'function handleRequest(e) {',
   '  try {',
   '    var raw = "";',
-  '    if (e.parameter && e.parameter.payload) {',
+  '    if (e.parameter && e.parameter.data) {',
+  '      raw = e.parameter.data;',
+  '    } else if (e.parameter && e.parameter.payload) {',
   '      raw = e.parameter.payload;',
   '    } else if (e.postData && e.postData.contents) {',
   '      raw = e.postData.contents;',
+  '      var params = {};',
+  '      e.postData.contents.split("&").forEach(function(p){',
+  '        var kv = p.split("=");',
+  '        if(kv.length===2) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1].replace(/\\+/g," "));',
+  '      });',
+  '      if(params.data) raw = params.data;',
   '    }',
   '    if (!raw) return ContentService.createTextOutput("error: no data");',
   '    var data = JSON.parse(raw);',
@@ -3512,24 +3522,44 @@ const APPS_SCRIPT_CODE = [
   '    var sheetName = data.sheetName || "庫存分析結果";',
   '    var sheet = ss.getSheetByName(sheetName);',
   '    if (!sheet) sheet = ss.insertSheet(sheetName);',
-  '    sheet.clearContents();',
-  '    var allRows = [data.headers].concat(data.rows);',
-  '    if (allRows.length > 0) {',
-  '      sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);',
-  '    }',
   '    var headerColor = data.headerColor || "#6B5B95";',
-  '    var headerRange = sheet.getRange(1, 1, 1, data.headers.length);',
-  '    headerRange.setBackground(headerColor);',
-  '    headerRange.setFontColor("#FFFFFF");',
-  '    headerRange.setFontWeight("bold");',
-  '    sheet.setFrozenRows(1);',
-  '    sheet.autoResizeColumns(1, data.headers.length);',
+  '',
+  '    if (data.appendMode) {',
+  '      // 追加模式：只在第一次（空表）加標頭，之後直接追加資料列',
+  '      var lastRow = sheet.getLastRow();',
+  '      if (lastRow === 0) {',
+  '        // 空表，先寫標頭',
+  '        sheet.getRange(1, 1, 1, data.headers.length).setValues([data.headers]);',
+  '        var headerRange = sheet.getRange(1, 1, 1, data.headers.length);',
+  '        headerRange.setBackground(headerColor);',
+  '        headerRange.setFontColor("#FFFFFF");',
+  '        headerRange.setFontWeight("bold");',
+  '        sheet.setFrozenRows(1);',
+  '        lastRow = 1;',
+  '      }',
+  '      if (data.rows && data.rows.length > 0) {',
+  '        sheet.getRange(lastRow + 1, 1, data.rows.length, data.rows[0].length).setValues(data.rows);',
+  '        sheet.autoResizeColumns(1, data.headers.length);',
+  '      }',
+  '    } else {',
+  '      // 覆蓋模式（原有邏輯）',
+  '      sheet.clearContents();',
+  '      var allRows = [data.headers].concat(data.rows);',
+  '      if (allRows.length > 0) {',
+  '        sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);',
+  '      }',
+  '      var headerRange = sheet.getRange(1, 1, 1, data.headers.length);',
+  '      headerRange.setBackground(headerColor);',
+  '      headerRange.setFontColor("#FFFFFF");',
+  '      headerRange.setFontWeight("bold");',
+  '      sheet.setFrozenRows(1);',
+  '      sheet.autoResizeColumns(1, data.headers.length);',
+  '    }',
+  '',
   '    if (data.sendEmail && data.emailTo) {',
   '      var emails = data.emailTo.split(",").map(function(addr){ return addr.trim(); });',
   '      var subject = data.emailSubject || "庫存健康報告";',
-  '      var body = "庫存分析已完成，請至 Google Sheets 查看。" + "\n\n"',
-  '               + "已寫入4個分頁：全部庫存、過期品、長期在庫、即將到期" + "\n"',
-  '               + "寫入時間：" + new Date().toLocaleString() + "\n";',
+  '      var body = "庫存分析已完成，請至 Google Sheets 查看。\n\n寫入時間：" + new Date().toLocaleString();',
   '      emails.forEach(function(addr){',
   '        if (addr) GmailApp.sendEmail(addr, subject, body);',
   '      });',
@@ -3816,6 +3846,79 @@ async function syncToGitHub() {
     }
 }
 
+// ===== 出庫明細 Apps Script 設定 =====
+const OUTBOUND_APPS_SCRIPT_CODE = `function doGet(e) { return handleRequest(e); }
+function doPost(e) { return handleRequest(e); }
+
+function handleRequest(e) {
+  try {
+    var raw = "";
+    if (e.parameter && e.parameter.data) {
+      raw = e.parameter.data;
+    } else if (e.postData && e.postData.contents) {
+      var params = {};
+      e.postData.contents.split("&").forEach(function(p) {
+        var kv = p.split("=");
+        if (kv.length === 2) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1].replace(/\\+/g, " "));
+      });
+      if (params.data) raw = params.data;
+    }
+    if (!raw) return ContentService.createTextOutput("error: no data");
+    var data = JSON.parse(raw);
+    var ss = SpreadsheetApp.openById("1oFvWIB1rgXAsEvj8dGvTbBp2UilPMAhkvwo9GO4paHQ");
+    var sheetName = data.sheetName || "出庫明細";
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) sheet = ss.insertSheet(sheetName);
+    var headerColor = data.headerColor || "#6B5B95";
+
+    // 追加模式：第一次寫標頭，之後每月追加
+    var lastRow = sheet.getLastRow();
+    if (lastRow === 0) {
+      var headerRange = sheet.getRange(1, 1, 1, data.headers.length);
+      headerRange.setValues([data.headers]);
+      headerRange.setBackground(headerColor);
+      headerRange.setFontColor("#FFFFFF");
+      headerRange.setFontWeight("bold");
+      sheet.setFrozenRows(1);
+      lastRow = 1;
+    }
+    if (data.rows && data.rows.length > 0) {
+      sheet.getRange(lastRow + 1, 1, data.rows.length, data.rows[0].length).setValues(data.rows);
+      sheet.autoResizeColumns(1, data.headers.length);
+    }
+    return ContentService.createTextOutput("success").setMimeType(ContentService.MimeType.TEXT);
+  } catch(err) {
+    return ContentService.createTextOutput("error: " + err.message);
+  }
+}`;
+
+window.copyOutboundAppsScript = function() {
+    navigator.clipboard.writeText(OUTBOUND_APPS_SCRIPT_CODE).then(() => {
+        alert('✅ 程式碼已複製！\n\n請按以下步驟：\n1. 開啟試算表 → 擴充功能 → Apps Script\n2. 全選舊程式碼 → 刪除 → 貼上\n3. 部署 → 新增部署 → 網頁應用程式 → 存取權選「任何人」\n4. 複製部署網址 → 點「設定出庫明細 Script 網址」貼上');
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = OUTBOUND_APPS_SCRIPT_CODE;
+        document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert('✅ 程式碼已複製！請依說明完成部署。');
+    });
+};
+window.copyOutboundAppsScript = window.copyOutboundAppsScript;
+
+window.setOutboundScriptUrl = function() {
+    const current = localStorage.getItem('outbound_script_url') || '';
+    const url = prompt('請輸入出庫明細 Apps Script 部署網址：\n（部署後從 Apps Script 複製）', current);
+    if (url === null) return;
+    if (url.trim() === '') {
+        localStorage.removeItem('outbound_script_url');
+        alert('已清除網址');
+    } else {
+        localStorage.setItem('outbound_script_url', url.trim());
+        alert('✅ 網址已儲存！');
+    }
+};
+
 // ===== 設定 GitHub Token =====
 window.setGitHubToken = function() {
     const current = localStorage.getItem('github_token');
@@ -4065,6 +4168,7 @@ async function previewMonthly() {
     try {
         const d1 = f1 ? await readExcel(f1, false) : [];
         const d2 = f2 ? await readExcel(f2, false) : [];
+        window._pendingMonthlyRaw = { d1, d2 };
 
         statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取總帳...</span>';
         const existingRows = lsLoadLedgerRows() || [];
@@ -4738,9 +4842,58 @@ async function confirmMonthly() {
         // 刪除本期結存=0的（已出清，無論有無結餘）
         const finalRows = Object.values(finalMap).filter(r => r.本期結存 > 0);
 
+        // ① 分攤單價歷史（永久保留，只增不刪，供利潤分析使用）
+        let priceHistory = {};
+        try { priceHistory = JSON.parse(localStorage.getItem('rental_price_history_v1') || '{}'); } catch(e) {}
+        Object.values(finalMap).forEach(r => {
+            const key = String(r.產品名稱||'').trim() + '|' + String(r.批號||'').trim();
+            if (key && r.分攤單價) priceHistory[key] = r.分攤單價;
+        });
+        try { localStorage.setItem('rental_price_history_v1', JSON.stringify(priceHistory)); } catch(e) {}
+
         // 保存利潤快照（含結存=0，供利潤分析使用）
-        const snapshotRows = Object.values(finalMap); // 不過濾，保留全部
+        const snapshotRows = Object.values(finalMap);
         try { localStorage.setItem(LS_PROFIT_SNAPSHOT_KEY, JSON.stringify(snapshotRows)); } catch(e) {}
+
+        // ② 解析出庫明細 → 寫入 Google Sheets
+        try {
+            const { d1, d2 } = window._pendingMonthlyRaw || {};
+            const allRentalRows = [...(d1||[]), ...(d2||[])];
+            const outboundRows = [];
+            const outRegex = /【([^】]+)】(\d+(?:\.\d+)?)/g;
+
+            allRentalRows.forEach(r => {
+                const attr = String(r['業務屬性明細']||'');
+                const name = String(r['產品名稱']||'').trim();
+                const batch = String(r['批號']||'').trim();
+                const category = String(r['產品類別']||'');
+                const priceKey = `${name}|${batch}`;
+                const unitPrice = priceHistory[priceKey] || 0;
+                let match;
+                outRegex.lastIndex = 0;
+                // 只取 [出庫] 區段
+                const outSection = attr.split('|').filter(s => s.includes('[出庫]')).join('|');
+                const re2 = /【([^】]+)】(\d+(?:\.\d+)?)/g;
+                while ((match = re2.exec(outSection)) !== null) {
+                    const outType = match[1].trim();
+                    const qty = parseFloat(match[2]) || 0;
+                    const rentCost = Math.round(unitPrice * qty);
+                    outboundRows.push([label, category, name, batch, outType, qty, unitPrice, rentCost]);
+                }
+            });
+
+            if (outboundRows.length > 0) {
+                const appsScriptUrl = localStorage.getItem('outbound_script_url') || '';
+                const sheetId = '1oFvWIB1rgXAsEvj8dGvTbBp2UilPMAhkvwo9GO4paHQ';
+                if (appsScriptUrl) {
+                    const headers = ['月份','產品類別','產品名稱','批號','出庫類型','出庫數量','分攤單價','租金費用'];
+                    const payload = { sheetName: '出庫明細', sheetId, headers, rows: outboundRows, headerColor: '#6B5B95', appendMode: true };
+                    const params = new URLSearchParams();
+                    params.append('data', JSON.stringify(payload));
+                    await fetch(appsScriptUrl, { method: 'POST', body: params }).catch(()=>{});
+                }
+            }
+        } catch(e) { console.error('出庫明細寫入失敗', e); }
 
         await saveLedgerRows(finalRows);
         await saveMonthlyRecord(label, {
@@ -5677,20 +5830,23 @@ async function calcProfit() {
         if (!profitRows || profitRows.length === 0) { statusEl.innerHTML = '<span style="color:#e8836a;">❌ 讀取失敗或空白</span>'; return; }
         profitHeaders = Object.keys(profitRows[0]);
 
-        // 第1層：建立總帳分攤單價表
+        // 第1層：分攤單價歷史（永久保留）+ 快照 + 主檔，三層合併
+        let priceHistory = {};
+        try { priceHistory = JSON.parse(localStorage.getItem('rental_price_history_v1') || '{}'); } catch(e) {}
         const ledgerRows = lsLoadLedgerRows() || [];
         let snapshotRows = [];
         try { snapshotRows = JSON.parse(localStorage.getItem(LS_PROFIT_SNAPSHOT_KEY) || '[]'); } catch(e) {}
-        const ledgerPriceMap = {}; // 產品名稱|批號 -> 分攤單價
+        // 歷史為基礎，快照和主檔覆蓋（最新值優先）
+        const ledgerPriceMap = Object.assign({}, priceHistory);
         ledgerRows.forEach(r => {
             const name  = String(r.產品名稱||'').trim();
             const batch = String(r.批號||'').trim();
-            if (name && batch) ledgerPriceMap[`${name}|${batch}`] = r.分攤單價 || 0;
+            if (name && batch && r.分攤單價) ledgerPriceMap[`${name}|${batch}`] = r.分攤單價;
         });
         snapshotRows.forEach(r => {
             const name  = String(r.產品名稱||'').trim();
             const batch = String(r.批號||'').trim();
-            if (name && batch) ledgerPriceMap[`${name}|${batch}`] = r.分攤單價 || 0;
+            if (name && batch && r.分攤單價) ledgerPriceMap[`${name}|${batch}`] = r.分攤單價;
         });
 
         // 第2層：讀取租金計算結果（上期＋下期），建立 產品名稱|批號 -> 兩期總計加總
