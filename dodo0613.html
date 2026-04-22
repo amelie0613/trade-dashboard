@@ -5522,6 +5522,7 @@ let profitCalcData = [];  // 計算後（含租金單價、租金費用）
 
 function profitFileChanged(input) {
     if (input.files[0]) {
+        ledgerFiles['profit_file'] = input.files[0];
         const lbl = document.getElementById('profit_file_label');
         if (lbl) { lbl.textContent = '✅ ' + input.files[0].name; lbl.style.color = '#4a9a37'; }
     }
@@ -5530,7 +5531,7 @@ window.profitFileChanged = profitFileChanged;
 
 async function calcProfit() {
     const input = document.getElementById('profit_file');
-    const file = input && input.files[0];
+    const file = ledgerFiles['profit_file'] || (input && input.files[0]);
     if (!file) { alert('請先上傳利潤明細表'); return; }
 
     const codeCol  = document.getElementById('pcol_code').value.trim()  || '產品';
