@@ -1982,6 +1982,10 @@
                         <div id="profit_file_label" style="font-size:0.75rem; color:#5b9dba; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
                     </div>
                     <div id="profit_upload_status" style="margin-top:0.5rem; font-size:0.82rem;"></div>
+                    <div id="profit_sheet_selector" style="display:none; margin-top:0.6rem;">
+                        <label style="font-size:0.8rem; color:#8a6a7a; font-weight:700;">📋 選擇工作表：</label>
+                        <select id="profit_sheet_select" style="margin-left:0.4rem; font-size:0.82rem; border:1.5px solid #7ec8e3; border-radius:8px; padding:0.25rem 0.5rem; background:white; color:#2a3a5a;"></select>
+                    </div>
                 </div>
                 <!-- 設定與操作 -->
                 <div>
@@ -4963,6 +4967,25 @@ function readExcel(file, isIOTable = false) {
     });
 }
 
+// 讀取指定 sheet 名稱（供利潤分析使用）
+function readExcelSheet(file, sheetName) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const wb = window.XLSX.read(e.target.result, { type: 'array' });
+                const ws = sheetName && wb.Sheets[sheetName]
+                    ? wb.Sheets[sheetName]
+                    : wb.Sheets[wb.SheetNames[0]];
+                const json = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
+                resolve(json);
+            } catch (err) { reject(err); }
+        };
+        reader.onerror = () => reject(new Error('檔案讀取失敗'));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
 function calculateRental(rentalData, ioData, weightData) {
     const config = getConfig();
     const result = [];
@@ -5522,11 +5545,34 @@ let profitHeaders = [];   // 原始欄位
 let profitCalcData = [];  // 計算後（含租金單價、租金費用）
 
 function profitFileChanged(input) {
-    if (input.files[0]) {
-        ledgerFiles['profit_file'] = input.files[0];
-        const lbl = document.getElementById('profit_file_label');
-        if (lbl) { lbl.textContent = '✅ ' + input.files[0].name; lbl.style.color = '#4a9a37'; }
-    }
+    if (!input.files[0]) return;
+    const file = input.files[0];
+    ledgerFiles['profit_file'] = file;
+    const lbl = document.getElementById('profit_file_label');
+    if (lbl) { lbl.textContent = '✅ ' + file.name; lbl.style.color = '#4a9a37'; }
+
+    // 讀取 sheet 名稱，顯示選單
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const wb = window.XLSX.read(e.target.result, { type: 'array' });
+            const sheetNames = wb.SheetNames;
+            const sel = document.getElementById('profit_sheet_select');
+            sel.innerHTML = '';
+            // 過濾掉月結算 sheet
+            const validSheets = sheetNames.filter(name => !name.includes('月結算') && !name.includes('月結'));
+            const displaySheets = validSheets.length > 0 ? validSheets : sheetNames;
+            displaySheets.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                sel.appendChild(opt);
+            });
+            sel.selectedIndex = 0;
+            document.getElementById('profit_sheet_selector').style.display = 'block';
+        } catch(err) { console.error(err); }
+    };
+    reader.readAsArrayBuffer(file);
 }
 window.profitFileChanged = profitFileChanged;
 
@@ -5544,8 +5590,9 @@ async function calcProfit() {
     statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取中...</span>';
 
     try {
-        // 讀取利潤表
-        const profitRows = await readExcel(file, false);
+        // 讀取利潤表（依選擇的 sheet）
+        const sheetName = document.getElementById('profit_sheet_select')?.value || null;
+        const profitRows = await readExcelSheet(file, sheetName);
         if (!profitRows || profitRows.length === 0) { statusEl.innerHTML = '<span style="color:#e8836a;">❌ 讀取失敗或空白</span>'; return; }
         profitHeaders = Object.keys(profitRows[0]);
 
