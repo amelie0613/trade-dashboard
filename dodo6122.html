@@ -3868,25 +3868,43 @@ function handleRequest(e) {
     var ss = SpreadsheetApp.openById("1oFvWIB1rgXAsEvj8dGvTbBp2UilPMAhkvwo9GO4paHQ");
     var sheetName = data.sheetName || "出庫明細";
     var sheet = ss.getSheetByName(sheetName);
-    if (!sheet) sheet = ss.insertSheet(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+    }
     var headerColor = data.headerColor || "#6B5B95";
-
-    // 追加模式：第一次寫標頭，之後每月追加
     var lastRow = sheet.getLastRow();
+
+    // 第一次（空表）：寫標頭
     if (lastRow === 0) {
-      var headerRange = sheet.getRange(1, 1, 1, data.headers.length);
-      headerRange.setValues([data.headers]);
-      headerRange.setBackground(headerColor);
-      headerRange.setFontColor("#FFFFFF");
-      headerRange.setFontWeight("bold");
+      var hr = sheet.getRange(1, 1, 1, data.headers.length);
+      hr.setValues([data.headers]);
+      hr.setBackground(headerColor);
+      hr.setFontColor("#FFFFFF");
+      hr.setFontWeight("bold");
       sheet.setFrozenRows(1);
       lastRow = 1;
     }
+
+    // 刪除同月份的舊資料（月份欄在第1欄 A）
+    if (data.month && lastRow > 1) {
+      var allData = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      var rowsToDelete = [];
+      for (var i = allData.length - 1; i >= 0; i--) {
+        if (String(allData[i][0]) === String(data.month)) {
+          rowsToDelete.push(i + 2); // +2 因為從第2列開始，且 i 是0-based
+        }
+      }
+      rowsToDelete.forEach(function(r) { sheet.deleteRow(r); });
+    }
+
+    // 追加新資料
     if (data.rows && data.rows.length > 0) {
-      sheet.getRange(lastRow + 1, 1, data.rows.length, data.rows[0].length).setValues(data.rows);
+      var newLastRow = sheet.getLastRow();
+      sheet.getRange(newLastRow + 1, 1, data.rows.length, data.rows[0].length).setValues(data.rows);
       sheet.autoResizeColumns(1, data.headers.length);
     }
-    return ContentService.createTextOutput("success").setMimeType(ContentService.MimeType.TEXT);
+
+    return ContentService.createTextOutput("success:" + (data.rows ? data.rows.length : 0)).setMimeType(ContentService.MimeType.TEXT);
   } catch(err) {
     return ContentService.createTextOutput("error: " + err.message);
   }
@@ -4802,36 +4820,48 @@ async function uploadOutboundToSheets(priceHistoryOverride) {
     }
     const label = (window._pendingMonthly || {}).label || document.getElementById('ledger_month_label').value.trim() || '本月';
 
-    // 讀取分攤單價：優先用本次預覽計算出的新值，再補歷史
+    // 讀取分攤單價：本次預覽算出的新值最優先，歷史/快照補沒有的
     let priceMap = priceHistoryOverride || {};
     if (!priceHistoryOverride) {
-        // 先載入歷史（舊值打底）
+        // 1. 歷史打底
         try { priceMap = JSON.parse(localStorage.getItem('rental_price_history_v1') || '{}'); } catch(e) {}
-        // 用本次預覽的新分攤單價覆蓋（最新最準確）
-        const pendingPreview = (window._pendingMonthly || {}).preview || [];
-        pendingPreview.forEach(r => {
-            const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
-            if (k && r.分攤單價) priceMap[k] = r.分攤單價;
-        });
-        // 再補快照和主檔（避免遺漏）
+        // 2. 快照和主檔補沒有的（不蓋歷史）
         const snapshot = [];
         try { snapshot.push(...JSON.parse(localStorage.getItem(LS_PROFIT_SNAPSHOT_KEY) || '[]')); } catch(e) {}
         const ledger = lsLoadLedgerRows() || [];
         [...snapshot, ...ledger].forEach(r => {
             const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
-            // 只補沒有的，不蓋掉預覽的新值
             if (k && r.分攤單價 && !priceMap[k]) priceMap[k] = r.分攤單價;
+        });
+        // 3. 本次預覽的新分攤單價最後覆蓋（無條件，確保用最新值）
+        const pendingPreview = (window._pendingMonthly || {}).preview || [];
+        pendingPreview.forEach(r => {
+            const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
+            if (k && r.分攤單價 > 0) priceMap[k] = r.分攤單價; // 有值才覆蓋，0不蓋
         });
     }
 
     // 解析業務屬性明細
+    // 解析業務屬性明細
+    // 從 _pendingMonthly.preview 建立最終分攤單價 map（最準確，與月結算完全一致）
+    const previewPriceMap = {};
+    ((window._pendingMonthly || {}).preview || []).forEach(r => {
+        const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
+        if (k) previewPriceMap[k] = r.分攤單價 || 0;
+    });
+
     const outboundRows = [];
     allRentalRows.forEach(r => {
         const attr = String(r['業務屬性明細']||'');
         const name = String(r['產品名稱']||'').trim();
-        const batch = String(r['批號']||'').trim();
+        // 批號強制轉字串並去掉浮點數尾綴（例如 20260326.0 → 20260326）
+        const batch = String(r['批號']||'').trim().replace(/\.0$/, '');
         const category = String(r['產品類別']||'');
-        const unitPrice = priceMap[`${name}|${batch}`] || 0;
+        const key = `${name}|${batch}`;
+        // 優先用 preview 的最終分攤單價（與月結算完全一致），再補 priceMap
+        const unitPrice = (previewPriceMap[key] > 0 ? previewPriceMap[key] : null)
+                       ?? (priceMap[key] > 0 ? priceMap[key] : null)
+                       ?? 0;
         const outSection = attr.split('|').filter(s => s.includes('[出庫]')).join('|');
         const re = /【([^】]+)】(\d+(?:\.\d+)?)/g;
         let match;
@@ -4854,20 +4884,24 @@ async function uploadOutboundToSheets(priceHistoryOverride) {
     try {
         const sheetId = '1oFvWIB1rgXAsEvj8dGvTbBp2UilPMAhkvwo9GO4paHQ';
         const headers = ['月份','產品類別','產品名稱','批號','出庫類型','出庫數量','分攤單價','租金費用'];
-        const payload = { sheetName: '出庫明細', sheetId, headers, rows: outboundRows, headerColor: '#6B5B95', appendMode: true };
+        const payload = { sheetName: '出庫明細', sheetId, headers, rows: outboundRows, headerColor: '#6B5B95', month: label };
         const params = new URLSearchParams();
         params.append('data', JSON.stringify(payload));
         const resp = await fetch(appsScriptUrl, { method: 'POST', body: params });
         const result = await resp.text();
-        if (result.includes('success')) {
-            if (statusEl) statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 出庫明細已上傳（${outboundRows.length} 筆）→ 確認無誤後再點「確認導入總帳」</span>`;
+        if (result.startsWith('success')) {
+            const count = result.split(':')[1] || outboundRows.length;
+            if (statusEl) statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ ${label} 出庫明細已上傳 ${count} 筆（Google Sheets 已更新）→ 確認無誤後再點「確認導入總帳」</span>`;
+            if (typeof showToast === 'function') showToast(`✅ ${label} 出庫明細已上傳 Google Sheets（${count} 筆）`);
             return true;
         } else {
             if (statusEl) statusEl.innerHTML = `<span style="color:#e8836a;">⚠️ 上傳回應異常：${result.slice(0,80)}</span>`;
+            if (typeof showToast === 'function') showToast(`⚠️ 上傳失敗，請檢查 Script 網址設定`);
             return false;
         }
     } catch(e) {
         if (statusEl) statusEl.innerHTML = `<span style="color:#e8836a;">❌ 上傳失敗：${e.message}</span>`;
+        if (typeof showToast === 'function') showToast(`❌ 上傳失敗：${e.message}`);
         return false;
     }
 }
