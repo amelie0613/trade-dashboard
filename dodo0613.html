@@ -4123,7 +4123,8 @@ async function previewMonthly() {
             html += `<tr style="${rowStyle}" data-preview-row="${rowIdx}">
                 <td style="white-space:nowrap;">${r.產品名稱}</td>
                 <td style="white-space:nowrap;">${r.批號}</td>
-                <td style="white-space:nowrap;">${r.採購部門}</td>
+                          <td style="white-space:nowrap; text-align:right;">${r.分攤單價 !== undefined ? parseFloat(r.分攤單價).toFixed(5) : '-'}</td>
+                          <td style="white-space:nowrap;">${r.採購部門||''}</td>
                 ${numCell('總檔結存')}
                 ${numCell('上期結存')}
                 ${numCell('本期入庫')}
@@ -4661,7 +4662,8 @@ async function viewLedger() {
                     <th style="white-space:nowrap;">產品類別</th>
                     <th style="white-space:nowrap;">產品代碼</th>
                     <th>產品名稱</th>
-                    <th style="white-space:nowrap;">批號</th>
+                                <th style="white-space:nowrap;">批號</th>
+                                <th style="white-space:nowrap; text-align:right;">分攤單價</th>
                     <th style="white-space:nowrap;">採購部門</th>
                     <th style="text-align:right; white-space:nowrap;">總檔結存</th>
                     <th class="highlight" style="text-align:right; white-space:nowrap;">總檔租金結餘</th>
