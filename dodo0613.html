@@ -4387,7 +4387,7 @@ window.exportPreviewPDF = function() {
     const win = window.open('', '_blank');
 
     // 只取需要的欄位
-    const cols = ['產品名稱','批號','採購部門','上期結存','本期入庫','本期出庫','本期結存','總檔租金結餘',`${label}上`,`${label}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)'];
+    const cols = ['產品名稱','批號','採購部門','上期結存','本期入庫','本期出庫','本期結存','總檔租金結餘',`${label}上`,`${label}下`,'租金總計','月租金(出庫)','月租金(結餘)'];
     
     // 合計列
     const sumMap = {
@@ -4397,7 +4397,6 @@ window.exportPreviewPDF = function() {
         '本期結存': preview.reduce((s,r)=>s+(r.本期結存||0),0),
         '總檔租金結餘': preview.reduce((s,r)=>s+(r.前期結餘||0),0),
         '租金總計': preview.reduce((s,r)=>s+(r.租金總計||0),0),
-        '分攤單價': 0, // 每筆不同，不合計
         '月租金(出庫)': preview.reduce((s,r)=>s+(r.月租金出庫||0),0),
         '月租金(結餘)': preview.reduce((s,r)=>s+(r.月租金結餘||0),0),
     };
@@ -4408,7 +4407,6 @@ window.exportPreviewPDF = function() {
         '總檔租金結餘':'前期結餘',
         '月租金(出庫)':'月租金出庫',
         '月租金(結餘)':'月租金結餘',
-        '分攤單價':'分攤單價',
         [`${label}上`]:'上半期',
         [`${label}下`]:'下半期',
     };
@@ -4511,8 +4509,10 @@ window.exportPreviewPDF = function() {
 async function confirmMonthly() {
     if (!window._pendingMonthly) return;
     const { preview: allPreview, label } = window._pendingMonthly;
-    // 導入時才過濾掉本期結存=0的（已出清）
-    const preview = allPreview.filter(r => r.本期結存 > 0);
+    // 全部品項都處理（本期結存=0 由 finalRows 刪除，不在這裡過濾）
+    const preview = allPreview;
+
+
     const resultsEl = document.getElementById('ledger_results');
     resultsEl.innerHTML = '<p style="text-align:center; padding:2rem; color:#2a6a82;">⏳ 寫入 Firebase 中...</p>';
 
@@ -4634,7 +4634,6 @@ async function viewLedger() {
                         onblur="this.style.borderBottomColor='transparent'; this.style.background='transparent';" />
                 </td>
                 <td style="white-space:nowrap;">${r.批號}</td>
-                <td style="white-space:nowrap; text-align:right;">${r.分攤單價 !== undefined ? parseFloat(r.分攤單價).toFixed(5) : '-'}</td>
                 <td style="white-space:nowrap;">${r.採購部門||''}</td>
                 <td style="text-align:right; white-space:nowrap;">${r.總檔結存 !== undefined ? r.總檔結存 : (r.本期結存 !== undefined ? r.本期結存 : '-')}</td>
                 <td style="font-weight:700; color:#c0507a; white-space:nowrap; text-align:right;">${(r.月租金結餘 ?? r.前期結餘 ?? 0).toLocaleString()}</td>
@@ -4665,7 +4664,6 @@ async function viewLedger() {
                     <th style="white-space:nowrap;">產品代碼</th>
                     <th>產品名稱</th>
                     <th style="white-space:nowrap;">批號</th>
-                    <th style="white-space:nowrap; text-align:right;">分攤單價</th>
                     <th style="white-space:nowrap;">採購部門</th>
                     <th style="text-align:right; white-space:nowrap;">總檔結存</th>
                     <th class="highlight" style="text-align:right; white-space:nowrap;">總檔租金結餘</th>
