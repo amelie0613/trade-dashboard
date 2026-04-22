@@ -1826,6 +1826,8 @@
 
 <!-- ===== 月結算總帳頁面 ===== -->
 <div id="page_ledger" style="display:none;">
+<!-- 月結算專用提示 -->
+<div id="rental_toast" style="position:fixed; bottom:28px; right:28px; background:#6B5B95; color:white; padding:12px 22px; border-radius:14px; font-size:13px; font-weight:700; box-shadow:0 8px 30px rgba(107,91,149,.35); transform:translateY(80px); opacity:0; transition:all .3s cubic-bezier(.4,0,.2,1); z-index:9999;"></div>
 <div class="container">
     <div class="header">
         <div class="flower-band">
@@ -1892,6 +1894,7 @@
                         <button onclick="previewMonthly()" class="btn-primary" style="flex:none; padding:0.6rem 1.2rem; margin-bottom:0;">🔍 預覽月結算</button>
                     </div>
                     <div id="ledger_status_monthly" style="margin-top:0.5rem; font-size:0.82rem;"></div>
+                    <div id="outbound_reconcile"></div>
                 </div>
 
                 <!-- 手動上傳總檔 -->
@@ -4806,6 +4809,19 @@ window.exportPreviewPDF = function() {
 };
 
 // ===== 上傳出庫明細到 Google Sheets（可在確認導入前獨立執行）=====
+function rentalToast(msg, dur = 3000) {
+    const t = document.getElementById('rental_toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.style.transform = 'translateY(0)';
+    t.style.opacity = '1';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => {
+        t.style.transform = 'translateY(80px)';
+        t.style.opacity = '0';
+    }, dur);
+}
+
 async function uploadOutboundToSheets(priceHistoryOverride) {
     const appsScriptUrl = localStorage.getItem('outbound_script_url') || '';
     if (!appsScriptUrl) {
@@ -4892,16 +4908,83 @@ async function uploadOutboundToSheets(priceHistoryOverride) {
         if (result.startsWith('success')) {
             const count = result.split(':')[1] || outboundRows.length;
             if (statusEl) statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ ${label} 出庫明細已上傳 ${count} 筆（Google Sheets 已更新）→ 確認無誤後再點「確認導入總帳」</span>`;
-            if (typeof showToast === 'function') showToast(`✅ ${label} 出庫明細已上傳 Google Sheets（${count} 筆）`);
+            rentalToast(`✅ ${label} 出庫明細已上傳 Google Sheets（${count} 筆）`);
+
+            // 對帳：出庫明細合計 vs 月結算月租金出庫
+            const preview = (window._pendingMonthly || {}).preview || [];
+            // 建立月結算查詢表 key -> 月租金出庫
+            const ledgerOutMap = {};
+            preview.forEach(r => {
+                const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
+                ledgerOutMap[k] = r.月租金出庫 || 0;
+            });
+            // 出庫明細按 key 加總
+            const detailSumMap = {};
+            outboundRows.forEach(row => {
+                const k = `${row[2]}|${row[3]}`; // 品名|批號
+                detailSumMap[k] = (detailSumMap[k] || 0) + (row[7] || 0);
+            });
+            // 找差異
+            const diffs = [];
+            const allKeys = new Set([...Object.keys(ledgerOutMap), ...Object.keys(detailSumMap)]);
+            allKeys.forEach(k => {
+                const ledgerOut = ledgerOutMap[k] || 0;
+                const detailOut = detailSumMap[k] || 0;
+                if (ledgerOut === 0 && detailOut === 0) return;
+                const diff = detailOut - ledgerOut;
+                if (Math.abs(diff) > 0) diffs.push({ k, ledgerOut, detailOut, diff });
+            });
+            diffs.sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff));
+
+            const reconcileEl = document.getElementById('outbound_reconcile');
+            if (reconcileEl) {
+                if (diffs.length === 0) {
+                    reconcileEl.innerHTML = `<div style="color:#4a9a37; font-weight:700; padding:0.6rem; background:#f0faf0; border-radius:8px; margin-top:0.8rem;">✅ 對帳完全一致，無差異</div>`;
+                } else {
+                    const totalDiff = diffs.reduce((s,d) => s + d.diff, 0);
+                    let rows = diffs.map(d => {
+                        const [name, batch] = d.k.split('|');
+                        const color = d.diff > 0 ? '#e8836a' : '#7ec8e3';
+                        return `<tr>
+                            <td style="white-space:nowrap;">${name}</td>
+                            <td style="white-space:nowrap; color:#8a6a7a;">${batch}</td>
+                            <td style="text-align:right;">${d.ledgerOut.toLocaleString()}</td>
+                            <td style="text-align:right;">${d.detailOut.toLocaleString()}</td>
+                            <td style="text-align:right; font-weight:800; color:${color};">${d.diff > 0 ? '+' : ''}${d.diff.toLocaleString()}</td>
+                        </tr>`;
+                    }).join('');
+                    reconcileEl.innerHTML = `
+                        <div style="margin-top:0.8rem;">
+                            <div style="font-weight:800; color:#8a5aa0; margin-bottom:0.5rem; font-size:0.85rem;">
+                                📊 對帳結果：共 ${diffs.length} 筆有差異，總差異 <span style="color:${totalDiff > 0 ? '#e8836a' : '#7ec8e3'};">${totalDiff > 0 ? '+' : ''}${totalDiff.toLocaleString()}</span> 元
+                                <span style="font-size:0.75rem; color:#aaa; font-weight:400;">（出庫明細合計 - 月結算月租金出庫）</span>
+                            </div>
+                            <div style="overflow-x:auto;">
+                                <table style="font-size:0.78rem; width:100%; border-collapse:collapse;">
+                                    <thead>
+                                        <tr style="background:#f5f0ff;">
+                                            <th style="text-align:left; padding:0.3rem 0.5rem; white-space:nowrap;">產品名稱</th>
+                                            <th style="text-align:left; padding:0.3rem 0.5rem; white-space:nowrap;">批號</th>
+                                            <th style="text-align:right; padding:0.3rem 0.5rem; white-space:nowrap;">月結算月租金出庫</th>
+                                            <th style="text-align:right; padding:0.3rem 0.5rem; white-space:nowrap;">出庫明細合計</th>
+                                            <th style="text-align:right; padding:0.3rem 0.5rem; white-space:nowrap;">差異</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${rows}</tbody>
+                                </table>
+                            </div>
+                        </div>`;
+                }
+            }
             return true;
         } else {
             if (statusEl) statusEl.innerHTML = `<span style="color:#e8836a;">⚠️ 上傳回應異常：${result.slice(0,80)}</span>`;
-            if (typeof showToast === 'function') showToast(`⚠️ 上傳失敗，請檢查 Script 網址設定`);
+            rentalToast('⚠️ 上傳失敗，請檢查 Script 網址設定');
             return false;
         }
     } catch(e) {
         if (statusEl) statusEl.innerHTML = `<span style="color:#e8836a;">❌ 上傳失敗：${e.message}</span>`;
-        if (typeof showToast === 'function') showToast(`❌ 上傳失敗：${e.message}`);
+        rentalToast(`❌ 上傳失敗：${e.message}`);
         return false;
     }
 }
