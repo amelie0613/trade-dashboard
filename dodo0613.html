@@ -3642,6 +3642,7 @@ const LEDGER_COL = 'ledger';
 const MONTHLY_COL = 'monthly_records';
 const LS_KEY = 'rental_ledger_rows_v2';
 const LS_BACKUP_KEY = 'rental_ledger_backup_v2';
+const LS_PROFIT_SNAPSHOT_KEY = 'rental_profit_snapshot_v2'; // 利潤分析用快照（含結存=0）
 
 // ===== localStorage 主要操作 =====
 function lsSaveLedgerRows(rows) {
@@ -4688,6 +4689,10 @@ async function confirmMonthly() {
         // 刪除本期結存=0的（已出清，無論有無結餘）
         const finalRows = Object.values(finalMap).filter(r => r.本期結存 > 0);
 
+        // 保存利潤快照（含結存=0，供利潤分析使用）
+        const snapshotRows = Object.values(finalMap); // 不過濾，保留全部
+        try { localStorage.setItem(LS_PROFIT_SNAPSHOT_KEY, JSON.stringify(snapshotRows)); } catch(e) {}
+
         await saveLedgerRows(finalRows);
         await saveMonthlyRecord(label, {
             count: newRows.length,
@@ -5596,13 +5601,21 @@ async function calcProfit() {
         if (!profitRows || profitRows.length === 0) { statusEl.innerHTML = '<span style="color:#e8836a;">❌ 讀取失敗或空白</span>'; return; }
         profitHeaders = Object.keys(profitRows[0]);
 
-        // 讀取總帳分攤單價（產品代碼+批號 -> 分攤單價）
+        // 讀取總帳分攤單價：快照（含結存=0）優先，主檔補充
         const ledgerRows = lsLoadLedgerRows() || [];
+        let snapshotRows = [];
+        try { snapshotRows = JSON.parse(localStorage.getItem(LS_PROFIT_SNAPSHOT_KEY) || '[]'); } catch(e) {}
+        // 合併：快照為主，主檔補沒有的
         const priceMap = {};
         ledgerRows.forEach(r => {
-            const code  = String(r.產品代碼||'').padStart(4,'0');
+            const code = String(r.產品代碼||'').padStart(4,'0');
             const batch = String(r.批號||'').trim();
             if (code && batch) priceMap[`${code}|${batch}`] = r.分攤單價 || 0;
+        });
+        snapshotRows.forEach(r => {
+            const code = String(r.產品代碼||'').padStart(4,'0');
+            const batch = String(r.批號||'').trim();
+            if (code && batch) priceMap[`${code}|${batch}`] = r.分攤單價 || 0; // 快照蓋主檔
         });
 
         let matched = 0, unmatched = 0, rentTotal = 0;
