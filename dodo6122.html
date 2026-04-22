@@ -3598,6 +3598,7 @@ const ledgerFiles = {};
 let files = { file1: null, file2: null, file3: null };
 let rentalTableData = null;
 let calculatedData = null;
+let rentalIoData = null; // 出入庫記錄表，供匯出出庫明細用
 
 ['file1', 'file2', 'file3'].forEach((id, idx) => {
     const fileInput = document.getElementById(id);
@@ -5278,6 +5279,7 @@ async function processFiles() {
         const data3 = await readExcel(files.file3, false);  // 重量表
 
         rentalTableData = data1;
+        rentalIoData = data2; // 保存出入庫記錄表
         const result = calculateRental(data1, data2, data3);
         calculatedData = result;
         
@@ -5905,6 +5907,30 @@ function exportResults() {
     const ws = window.XLSX.utils.json_to_sheet(exportData);
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, "租金計算結果");
+
+    // 第二個 sheet：出庫明細（從出入庫記錄表抓精確數量）
+    if (rentalIoData && rentalIoData.length > 0) {
+        const config = getConfig();
+        const outboundDetail = [];
+        rentalIoData.forEach(io => {
+            const type = String(io[config.col_type] || io['業務屬性'] || '').trim();
+            const isOut = type && (type.includes('調撥出庫') || type.includes('銷售出貨') ||
+                                   type.includes('拆解出庫') || type.includes('出庫') || type.includes('出貨'));
+            if (!isOut) return;
+            const name  = String(io[config.col_product2] || io['產品名稱'] || '').trim();
+            const batch = String(io[config.col_batch2]   || io['批號']     || '').trim();
+            const qty   = parseFloat(io['數量'] || 0) || 0;
+            const date  = String(io[config.col_date]     || io['單據日期'] || '').trim();
+            const dept  = String(io['部門名稱'] || '').trim();
+            if (!name || !batch) return;
+            outboundDetail.push({ '單據日期': date, '產品名稱': name, '批號': batch, '出庫類型': type, '數量': qty, '部門': dept });
+        });
+        if (outboundDetail.length > 0) {
+            const ws2 = window.XLSX.utils.json_to_sheet(outboundDetail);
+            window.XLSX.utils.book_append_sheet(wb, ws2, "出庫明細");
+        }
+    }
+
     const filename = `租金計算_${new Date().toISOString().slice(0,10)}.xlsx`;
     window.XLSX.writeFile(wb, filename);
     showStatus('✅ 檔案已下載！', 'success');
