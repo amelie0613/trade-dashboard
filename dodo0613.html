@@ -3925,9 +3925,10 @@ window.doUploadLedger = async function() {
             批號: String(r['批號']||'').trim(),
             庫存狀態: String(r['庫存狀態']||''),
             採購部門: String(r['採購部門']||''),
-            總檔結存: parseFloat(r['本期結存'])||0,
-            總檔租金結餘: parseFloat(r['月租金(結餘)'])||0,
-            前期結餘: parseFloat(r['月租金(結餘)'])||0,
+            總檔結存: parseFloat(r['本期結存'] ?? r['總檔結存'])||0,
+            分攤單價: parseFloat(r['分攤單價'])||0,
+            總檔租金結餘: parseFloat(r['月租金結餘'] ?? r['月租金(結餘)'] ?? r['總檔租金結餘'])||0,
+            前期結餘: parseFloat(r['月租金結餘'] ?? r['月租金(結餘)'] ?? r['前期結餘'])||0,
             月結歷史: {},
             備註: String(r['備註']||''),
             updatedAt: new Date().toISOString()
