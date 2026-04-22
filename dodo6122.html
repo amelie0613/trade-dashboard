@@ -4802,16 +4802,25 @@ async function uploadOutboundToSheets(priceHistoryOverride) {
     }
     const label = (window._pendingMonthly || {}).label || document.getElementById('ledger_month_label').value.trim() || '本月';
 
-    // 讀取分攤單價（優先用傳入的，否則讀 localStorage 歷史 + 快照）
+    // 讀取分攤單價：優先用本次預覽計算出的新值，再補歷史
     let priceMap = priceHistoryOverride || {};
     if (!priceHistoryOverride) {
+        // 先載入歷史（舊值打底）
         try { priceMap = JSON.parse(localStorage.getItem('rental_price_history_v1') || '{}'); } catch(e) {}
+        // 用本次預覽的新分攤單價覆蓋（最新最準確）
+        const pendingPreview = (window._pendingMonthly || {}).preview || [];
+        pendingPreview.forEach(r => {
+            const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
+            if (k && r.分攤單價) priceMap[k] = r.分攤單價;
+        });
+        // 再補快照和主檔（避免遺漏）
         const snapshot = [];
         try { snapshot.push(...JSON.parse(localStorage.getItem(LS_PROFIT_SNAPSHOT_KEY) || '[]')); } catch(e) {}
         const ledger = lsLoadLedgerRows() || [];
         [...snapshot, ...ledger].forEach(r => {
             const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
-            if (k && r.分攤單價) priceMap[k] = r.分攤單價;
+            // 只補沒有的，不蓋掉預覽的新值
+            if (k && r.分攤單價 && !priceMap[k]) priceMap[k] = r.分攤單價;
         });
     }
 
