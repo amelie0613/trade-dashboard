@@ -5474,11 +5474,11 @@ function calculateRental(rentalData, ioData, weightData) {
         
         // 生成備註：各業務屬性的出庫數量
         const outboundRemark = Object.entries(outboundByType)
-            .map(([type, qty]) => `【${type}】${Math.round(qty)}`)
+            .map(([type, qty]) => `【${type}】${qty % 1 === 0 ? qty : qty}`)
             .join(' / ') || '';
         
         const inboundRemark = Object.entries(inboundByType)
-            .map(([type, qty]) => `【${type}】${Math.round(qty)}`)
+            .map(([type, qty]) => `【${type}】${qty % 1 === 0 ? qty : qty}`)
             .join(' / ') || '';
         
         let fullRemark = '';
