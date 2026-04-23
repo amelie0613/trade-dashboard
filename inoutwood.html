@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>大漁水產 — 原魚入庫紀錄表</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Microsoft JhengHei','微軟正黑體',sans-serif;background:#f0f2f5;min-height:100vh;padding:20px;}
+h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
+.subtitle{font-size:12px;color:#888;margin-bottom:20px;}
+.tab-bar{display:flex;background:#fff;border-radius:10px;padding:4px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);gap:4px;}
+.tab{flex:1;padding:9px 0;font-size:13px;font-weight:500;text-align:center;cursor:pointer;border-radius:7px;border:none;background:none;color:#888;transition:all .15s;}
+.tab.active{background:#1a56db;color:#fff;}
+.page{display:none;}.page.active{display:block;}
+.card{background:#fff;border-radius:12px;padding:18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07);}
+.sec-title{font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.field label{display:block;font-size:12px;color:#666;margin-bottom:4px;}
+.field input,.field select{height:38px;width:100%;padding:0 11px;font-size:14px;border:1px solid #dde1e7;border-radius:8px;background:#fafafa;color:#1a1a1a;outline:none;font-family:inherit;}
+.field input:focus,.field select:focus{border-color:#1a56db;background:#fff;}
+.spec-box{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.fixed-badge{background:#f0f2f5;border:1px solid #dde1e7;border-radius:8px;padding:0 14px;height:38px;display:flex;align-items:center;font-size:14px;font-weight:600;color:#555;}
+.spec-input{width:54px!important;text-align:center;padding:0 4px!important;}
+.divider{height:1px;background:#f0f2f5;margin:12px 0;}
+.fish-tags{display:flex;flex-wrap:wrap;gap:6px;}
+.ftag{border:1px solid #dde1e7;border-radius:20px;padding:6px 15px;font-size:13px;cursor:pointer;background:#fafafa;color:#444;transition:all .15s;font-family:inherit;}
+.ftag:hover{border-color:#1a56db;color:#1a56db;}
+.ftag.active{background:#1a56db;color:#fff;border-color:#1a56db;}
+.quick-tag{border:1px solid #dde1e7;border-radius:20px;padding:5px 13px;font-size:12px;cursor:pointer;background:#fafafa;color:#555;font-family:inherit;}
+.quick-tag:hover{border-color:#1a56db;color:#1a56db;}
+.srow{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #eee;border-radius:8px;margin-bottom:5px;background:#fafafa;}
+.srow .fname{flex:1;font-size:13px;font-weight:500;color:#1a1a1a;}
+.srow .fspec{font-size:11px;color:#888;margin-top:1px;}
+.cnt-btn{width:28px;height:28px;border:1px solid #dde1e7;border-radius:7px;background:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#444;}
+.cnt-btn:hover{background:#f0f2f5;}
+.cnt-val{font-size:14px;font-weight:600;min-width:22px;text-align:center;color:#1a1a1a;}
+.rm{background:none;border:none;cursor:pointer;color:#bbb;font-size:18px;padding:0 2px;line-height:1;}
+.rm:hover{color:#e53e3e;}
+.empty-hint{font-size:13px;color:#bbb;padding:14px 0;text-align:center;}
+.cnt-row{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.cnt-label{font-size:13px;color:#666;white-space:nowrap;}
+.print-btn{background:#1a56db;color:#fff;border:none;border-radius:10px;height:46px;width:100%;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:.02em;}
+.print-btn:hover{background:#1447c0;}
+.add-row{display:flex;gap:8px;margin-top:8px;}
+.add-row input{flex:1;height:36px;padding:0 10px;font-size:13px;border:1px solid #dde1e7;border-radius:8px;background:#fafafa;font-family:inherit;outline:none;}
+.add-row input:focus{border-color:#1a56db;background:#fff;}
+.add-btn{height:36px;padding:0 16px;background:#1a56db;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;white-space:nowrap;font-family:inherit;}
+.add-btn:hover{background:#1447c0;}
+.admin-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #eee;border-radius:8px;margin-bottom:4px;background:#fafafa;}
+.admin-row span{flex:1;font-size:13px;color:#1a1a1a;}
+.hint{font-size:11px;color:#aaa;margin-top:6px;}
+
+@media print {
+  body{background:#fff;padding:0;}
+  #print-area{display:block!important;}
+  .no-print{display:none!important;}
+}
+#print-area{display:none;}
+</style>
+</head>
+<body>
+
+<div class="no-print">
+<h1>大漁水產有限公司</h1>
+<p class="subtitle">原魚入庫紀錄表 — 離線版</p>
+
+<div class="tab-bar">
+  <button class="tab active" onclick="showPage('main')">📋 製單</button>
+  <button class="tab" onclick="showPage('admin')">⚙️ 後台管理</button>
+</div>
+
+<!-- 製單 -->
+<div class="page active" id="page-main">
+  <div class="card">
+    <div class="sec-title">基本資訊</div>
+    <div class="grid2" style="margin-bottom:10px;">
+      <div class="field"><label>日期</label><input type="date" id="date"/></div>
+      <div class="field"><label>船名</label><input type="text" id="ship" placeholder="船名..." list="ships-dl"/><datalist id="ships-dl"></datalist></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>洋區</label><input type="text" id="zone" placeholder="例：太平洋"/></div>
+      <div class="field"><label>溫層</label><input type="text" id="temp" placeholder="例：-60度"/></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec-title">規格設定（整張單統一）</div>
+    <div class="spec-box">
+      <span class="fixed-badge">GG</span>
+      <span class="fixed-badge">DR</span>
+      <span style="color:#ccc;font-size:16px;">|</span>
+      <input class="spec-input field" type="text" id="s1" placeholder="—"/>
+      <input class="spec-input field" type="text" id="s2" placeholder="—"/>
+      <input class="spec-input field" type="text" id="s3" placeholder="—"/>
+      <input class="spec-input field" type="text" id="s4" placeholder="—"/>
+      <input class="spec-input field" type="text" id="s5" placeholder="—"/>
+    </div>
+    <div style="margin-top:10px;">
+      <div style="font-size:12px;color:#666;margin-bottom:6px;">快選規格：</div>
+      <div class="fish-tags" id="spec-quick-tags"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec-title">點選魚種加入清單</div>
+    <div class="fish-tags" id="fish-tags"></div>
+    <div class="divider"></div>
+    <div id="selected-list"><div class="empty-hint">尚未選擇魚種</div></div>
+    <div class="cnt-row">
+      <span class="cnt-label">每種預設筆數：</span>
+      <button class="cnt-btn" onclick="adjDefault(-1)">−</button>
+      <span class="cnt-val" id="default-cnt">5</span>
+      <button class="cnt-btn" onclick="adjDefault(1)">＋</button>
+    </div>
+  </div>
+
+  <button class="print-btn no-print" onclick="doPrint()">列印入庫紀錄表</button>
+</div>
+
+<!-- 後台 -->
+<div class="page" id="page-admin">
+  <div class="card">
+    <div class="sec-title">魚種清單管理</div>
+    <div id="admin-fish-list"></div>
+    <div class="add-row">
+      <input type="text" id="new-fish" placeholder="輸入新魚種名稱..." onkeydown="if(event.key==='Enter')addFish()"/>
+      <button class="add-btn" onclick="addFish()">新增</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="sec-title">快選規格管理</div>
+    <div id="admin-spec-list"></div>
+    <div style="margin-top:10px;">
+      <div style="font-size:12px;color:#666;margin-bottom:6px;">新增規格（數字以空格分隔）</div>
+      <div class="add-row">
+        <input type="text" id="new-spec-label" placeholder="名稱（選填）" style="max-width:120px;"/>
+        <input type="text" id="new-spec-vals" placeholder="例：40 25 15 15 10 10" onkeydown="if(event.key==='Enter')addSpec()"/>
+        <button class="add-btn" onclick="addSpec()">新增</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="sec-title">常用船名管理</div>
+    <div id="admin-ship-list"></div>
+    <div class="add-row">
+      <input type="text" id="new-ship" placeholder="輸入船名..." onkeydown="if(event.key==='Enter')addShip()"/>
+      <button class="add-btn" onclick="addShip()">新增</button>
+    </div>
+  </div>
+  <div class="card" style="background:#fffbe6;border:1px solid #ffe58f;">
+    <div class="sec-title" style="color:#d48806;">💾 資料備份</div>
+    <p style="font-size:13px;color:#666;margin-bottom:10px;">將目前的魚種、規格、船名設定存成文字，下次可貼回還原。</p>
+    <div style="display:flex;gap:8px;">
+      <button class="add-btn" onclick="exportData()">匯出設定</button>
+      <button class="add-btn" style="background:#52c41a;" onclick="importData()">匯入設定</button>
+    </div>
+    <textarea id="backup-area" style="width:100%;height:80px;margin-top:10px;font-size:12px;border:1px solid #dde1e7;border-radius:8px;padding:8px;font-family:monospace;resize:vertical;" placeholder="匯出的設定會顯示在這裡，也可以在此貼入設定後點匯入"></textarea>
+  </div>
+</div>
+</div>
+
+<!-- 列印區域 -->
+<div id="print-area"></div>
+
+<script>
+// 預設資料
+let fishList = JSON.parse(localStorage.getItem('fishList') || '["石橋","黑旗","大目串","南方黑鮪魚","馬加鯊","劍旗","鬼頭刀","紅皮刀","馬加舅","旗魚","黃鰭鮪","長鰭鮪","煙仔虎","白北"]');
+let specList = JSON.parse(localStorage.getItem('specList') || '[{"label":"40 25 15 15 10 10","vals":["40","25","15","15","10","10"]},{"label":"80 15 15 10 10","vals":["80","15","15","10","10"]},{"label":"25 20 15 10 10","vals":["25","20","15","10","10"]},{"label":"30 120 150","vals":["30","120","150"]},{"label":"5↑ 5↓","vals":["5↑","5↓"]},{"label":"10↑ 10↓","vals":["10↑","10↓"]}]');
+let shipList = JSON.parse(localStorage.getItem('shipList') || '["新華豐","新華豐系列","宏洋輪","沅滿金","榮發回","上禽","穩弘668(穩勝)"]');
+let selected = [];
+let defaultCnt = 5;
+
+function save() {
+  localStorage.setItem('fishList', JSON.stringify(fishList));
+  localStorage.setItem('specList', JSON.stringify(specList));
+  localStorage.setItem('shipList', JSON.stringify(shipList));
+}
+
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  document.querySelectorAll('.tab')[p === 'main' ? 0 : 1].classList.add('active');
+  if (p === 'admin') renderAdmin();
+}
+
+function getSpec() {
+  const parts = ['GG', 'DR', ...['s1','s2','s3','s4','s5'].map(id => document.getElementById(id).value).filter(v => v)];
+  return parts.join(' ');
+}
+
+function setSpec(vals) {
+  ['s1','s2','s3','s4','s5'].forEach((id, i) => { document.getElementById(id).value = vals[i] || ''; });
+  renderSelected();
+}
+
+function renderFishTags() {
+  document.getElementById('fish-tags').innerHTML = fishList.map(f => {
+    const on = selected.find(s => s.name === f);
+    return `<button class="ftag${on ? ' active' : ''}" onclick="toggleFish('${f}')">${f}</button>`;
+  }).join('');
+}
+
+function renderSpecQuick() {
+  document.getElementById('spec-quick-tags').innerHTML = specList.map(sp =>
+    `<button class="quick-tag" onclick="setSpec(${JSON.stringify(sp.vals)})">${sp.label}</button>`
+  ).join('');
+}
+
+function renderShipDl() {
+  document.getElementById('ships-dl').innerHTML = shipList.map(s => `<option value="${s}"/>`).join('');
+}
+
+function renderSelected() {
+  const el = document.getElementById('selected-list');
+  if (!selected.length) { el.innerHTML = '<div class="empty-hint">尚未選擇魚種</div>'; return; }
+  const spec = getSpec();
+  el.innerHTML = selected.map((s, i) => `
+    <div class="srow">
+      <div style="flex:1;">
+        <div class="fname">${s.name}</div>
+        <div class="fspec">${spec} · ${s.cnt} 筆</div>
+      </div>
+      <button class="cnt-btn" onclick="adjFish(${i},-1)">−</button>
+      <span class="cnt-val">${s.cnt}</span>
+      <button class="cnt-btn" onclick="adjFish(${i},1)">＋</button>
+      <button class="rm" onclick="removeFish(${i})">✕</button>
+    </div>`).join('');
+}
+
+['s1','s2','s3','s4','s5'].forEach(id => {
+  document.getElementById(id).addEventListener('input', renderSelected);
+});
+
+function toggleFish(name) {
+  const idx = selected.findIndex(s => s.name === name);
+  if (idx >= 0) selected.splice(idx, 1);
+  else selected.push({ name, cnt: defaultCnt });
+  renderFishTags(); renderSelected();
+}
+function removeFish(i) { selected.splice(i, 1); renderFishTags(); renderSelected(); }
+function adjFish(i, d) { selected[i].cnt = Math.max(1, selected[i].cnt + d); renderSelected(); }
+function adjDefault(d) { defaultCnt = Math.max(1, defaultCnt + d); document.getElementById('default-cnt').textContent = defaultCnt; }
+
+function renderAdmin() {
+  document.getElementById('admin-fish-list').innerHTML = fishList.length
+    ? fishList.map((f, i) => `<div class="admin-row"><span>${f}</span><button class="rm" onclick="delFish(${i})">✕</button></div>`).join('')
+    : '<div class="empty-hint">尚無魚種</div>';
+  document.getElementById('admin-spec-list').innerHTML = specList.length
+    ? specList.map((sp, i) => `<div class="admin-row"><span>${sp.label}</span><button class="rm" onclick="delSpec(${i})">✕</button></div>`).join('')
+    : '<div class="empty-hint">尚無快選規格</div>';
+  document.getElementById('admin-ship-list').innerHTML = shipList.length
+    ? shipList.map((s, i) => `<div class="admin-row"><span>${s}</span><button class="rm" onclick="delShip(${i})">✕</button></div>`).join('')
+    : '<div class="empty-hint">尚無船名</div>';
+}
+
+function addFish() {
+  const inp = document.getElementById('new-fish'), v = inp.value.trim();
+  if (!v || fishList.includes(v)) return;
+  fishList.push(v); inp.value = ''; save(); renderAdmin(); renderFishTags();
+}
+function delFish(i) { const n = fishList[i]; fishList.splice(i, 1); selected = selected.filter(s => s.name !== n); save(); renderAdmin(); renderFishTags(); renderSelected(); }
+
+function addSpec() {
+  const lbl = document.getElementById('new-spec-label').value.trim();
+  const raw = document.getElementById('new-spec-vals').value.trim();
+  if (!raw) return;
+  const vals = raw.split(/\s+/).filter(v => v);
+  specList.push({ label: lbl || vals.join(' '), vals });
+  document.getElementById('new-spec-label').value = '';
+  document.getElementById('new-spec-vals').value = '';
+  save(); renderAdmin(); renderSpecQuick();
+}
+function delSpec(i) { specList.splice(i, 1); save(); renderAdmin(); renderSpecQuick(); }
+
+function addShip() {
+  const inp = document.getElementById('new-ship'), v = inp.value.trim();
+  if (!v || shipList.includes(v)) return;
+  shipList.push(v); inp.value = ''; save(); renderAdmin(); renderShipDl();
+}
+function delShip(i) { shipList.splice(i, 1); save(); renderAdmin(); renderShipDl(); }
+
+function exportData() {
+  document.getElementById('backup-area').value = JSON.stringify({ fishList, specList, shipList }, null, 2);
+}
+function importData() {
+  try {
+    const d = JSON.parse(document.getElementById('backup-area').value);
+    if (d.fishList) fishList = d.fishList;
+    if (d.specList) specList = d.specList;
+    if (d.shipList) shipList = d.shipList;
+    save(); renderAdmin(); renderFishTags(); renderSpecQuick(); renderShipDl();
+    alert('匯入成功！');
+  } catch(e) { alert('格式錯誤，請確認內容正確'); }
+}
+
+function doPrint() {
+  const date = document.getElementById('date').value;
+  const ship = document.getElementById('ship').value;
+  const zone = document.getElementById('zone').value;
+  const temp = document.getElementById('temp').value;
+  const spec = getSpec();
+  const dateStr = date ? (() => { const d = new Date(date); return `${d.getFullYear()}年${String(d.getMonth()+1).padStart(2,'0')}月${String(d.getDate()).padStart(2,'0')}日`; })() : '';
+
+  let rows = ''; let num = 1;
+  selected.forEach(s => {
+    for (let i = 0; i < s.cnt; i++) {
+      rows += `<tr style="height:28px;">
+        <td style="text-align:center;border:1px solid #000;padding:3px 2px;">${num++}</td>
+        <td style="border:1px solid #000;padding:3px 8px;">${s.name}</td>
+        <td style="text-align:center;border:1px solid #000;padding:3px 2px;font-size:11px;">${spec}</td>
+        <td style="border:1px solid #000;"></td><td style="border:1px solid #000;"></td>
+        <td style="border:1px solid #000;"></td><td style="border:1px solid #000;"></td>
+        <td style="border:1px solid #000;"></td><td style="border:1px solid #000;"></td>
+      </tr>`;
+    }
+  });
+
+  const pa = document.getElementById('print-area');
+  pa.innerHTML = `
+    <div style="font-family:'標楷體','DFKai-SB',serif;font-size:13px;">
+      <h1 style="text-align:center;font-size:20px;letter-spacing:8px;margin:0 0 2px;">大 漁 水 產 有 限 公 司</h1>
+      <h2 style="text-align:center;font-size:15px;letter-spacing:4px;margin:0 0 12px;font-weight:normal;">原 魚 入 庫 紀 錄 表</h2>
+      <div style="display:flex;gap:28px;margin-bottom:8px;border-bottom:1px solid #000;padding-bottom:5px;">
+        <span>日期：${dateStr}</span><span>船名：${ship}</span><span>洋區：${zone}</span><span>溫層：${temp}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr>
+          <th style="width:36px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">序號</th>
+          <th style="width:80px;border:1px solid #000;padding:4px;background:#f5f5f5;">品名</th>
+          <th style="width:160px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">頭　　規格</th>
+          <th style="width:50px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">桶號</th>
+          <th style="width:50px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">桶重</th>
+          <th style="width:50px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">總重</th>
+          <th style="width:50px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">魚重</th>
+          <th style="width:60px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">儲位</th>
+          <th style="width:70px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">回磅魚重</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:24px;display:flex;justify-content:space-between;font-size:12px;">
+        <span>廠長：________________</span>
+        <span>倉管：________________</span>
+        <span>製表人：________________</span>
+      </div>
+    </div>`;
+  window.print();
+}
+
+// 初始化
+document.getElementById('date').valueAsDate = new Date();
+renderFishTags(); renderSpecQuick(); renderShipDl();
+</script>
+</body>
+</html>
