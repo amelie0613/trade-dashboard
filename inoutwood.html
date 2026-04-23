@@ -107,12 +107,7 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
     <div class="fish-tags" id="fish-tags"></div>
     <div class="divider"></div>
     <div id="selected-list"><div class="empty-hint">尚未選擇魚種</div></div>
-    <div class="cnt-row">
-      <span class="cnt-label">每種預設筆數：</span>
-      <button class="cnt-btn" onclick="adjDefault(-1)">−</button>
-      <span class="cnt-val" id="default-cnt">5</span>
-      <button class="cnt-btn" onclick="adjDefault(1)">＋</button>
-    </div>
+
   </div>
 
   <button class="print-btn no-print" onclick="doPrint()">列印入庫紀錄表</button>
@@ -169,7 +164,7 @@ let fishList = JSON.parse(localStorage.getItem('fishList') || '["石橋","黑旗
 let specList = JSON.parse(localStorage.getItem('specList') || '[{"label":"40 25 15 15 10 10","vals":["40","25","15","15","10","10"]},{"label":"80 15 15 10 10","vals":["80","15","15","10","10"]},{"label":"25 20 15 10 10","vals":["25","20","15","10","10"]},{"label":"30 120 150","vals":["30","120","150"]},{"label":"5↑ 5↓","vals":["5↑","5↓"]},{"label":"10↑ 10↓","vals":["10↑","10↓"]}]');
 let shipList = JSON.parse(localStorage.getItem('shipList') || '["新華豐","新華豐系列","宏洋輪","沅滿金","榮發回","上禽","穩弘668(穩勝)"]');
 let selected = [];
-let defaultCnt = 5;
+let defaultCnt = 20;
 
 function save() {
   localStorage.setItem('fishList', JSON.stringify(fishList));
@@ -191,7 +186,11 @@ function getSpec() {
 }
 
 function setSpec(vals) {
-  ['s1','s2','s3','s4','s5'].forEach((id, i) => { document.getElementById(id).value = vals[i] || ''; });
+  ['s1','s2','s3','s4','s5'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.value = vals[i] || '';
+    el.dispatchEvent(new Event('input'));
+  });
   renderSelected();
 }
 
@@ -223,7 +222,7 @@ function renderSelected() {
         <div class="fspec">${spec} · ${s.cnt} 筆</div>
       </div>
       <button class="cnt-btn" onclick="adjFish(${i},-1)">−</button>
-      <span class="cnt-val">${s.cnt}</span>
+      <input class="cnt-val" type="number" min="1" value="${s.cnt}" style="width:44px;text-align:center;border:1px solid #dde1e7;border-radius:6px;font-size:14px;font-weight:600;padding:0 4px;height:28px;" onchange="setFishCnt(${i},this.value)" oninput="setFishCnt(${i},this.value)"/>
       <button class="cnt-btn" onclick="adjFish(${i},1)">＋</button>
       <button class="rm" onclick="removeFish(${i})">✕</button>
     </div>`).join('');
@@ -240,6 +239,7 @@ function toggleFish(name) {
   renderFishTags(); renderSelected();
 }
 function removeFish(i) { selected.splice(i, 1); renderFishTags(); renderSelected(); }
+function setFishCnt(i, v) { const n = parseInt(v); if (n >= 1) { selected[i].cnt = n; renderSelected(); } }
 function adjFish(i, d) { selected[i].cnt = Math.max(1, selected[i].cnt + d); renderSelected(); }
 function adjDefault(d) { defaultCnt = Math.max(1, defaultCnt + d); document.getElementById('default-cnt').textContent = defaultCnt; }
 
@@ -300,16 +300,21 @@ function doPrint() {
   const ship = document.getElementById('ship').value;
   const zone = document.getElementById('zone').value;
   const temp = document.getElementById('temp').value;
-  const spec = getSpec();
+  const specVals = ['s1','s2','s3','s4','s5'].map(id => document.getElementById(id).value).filter(v => v);
   const dateStr = date ? (() => { const d = new Date(date); return `${d.getFullYear()}年${String(d.getMonth()+1).padStart(2,'0')}月${String(d.getDate()).padStart(2,'0')}日`; })() : '';
+
+  // spec header cells: each value gets its own <th>
+  const specHeaders = specVals.map(v => `<th style="border:1px solid #000;padding:4px 3px;text-align:center;background:#f5f5f5;min-width:28px;">${v}</th>`).join('');
 
   let rows = ''; let num = 1;
   selected.forEach(s => {
     for (let i = 0; i < s.cnt; i++) {
-      rows += `<tr style="height:28px;">
+      const specCells = specVals.map(v => `<td style="border:1px solid #000;text-align:center;padding:3px 2px;">${v}</td>`).join('');
+      rows += `<tr style="height:26px;">
         <td style="text-align:center;border:1px solid #000;padding:3px 2px;">${num++}</td>
         <td style="border:1px solid #000;padding:3px 8px;">${s.name}</td>
-        <td style="text-align:center;border:1px solid #000;padding:3px 2px;font-size:11px;">${spec}</td>
+        <td style="text-align:center;border:1px solid #000;padding:3px 2px;">GG DR</td>
+        ${specCells}
         <td style="border:1px solid #000;"></td><td style="border:1px solid #000;"></td>
         <td style="border:1px solid #000;"></td><td style="border:1px solid #000;"></td>
         <td style="border:1px solid #000;"></td><td style="border:1px solid #000;"></td>
@@ -319,27 +324,28 @@ function doPrint() {
 
   const pa = document.getElementById('print-area');
   pa.innerHTML = `
-    <div style="font-family:'標楷體','DFKai-SB',serif;font-size:13px;">
-      <h1 style="text-align:center;font-size:20px;letter-spacing:8px;margin:0 0 2px;">大 漁 水 產 有 限 公 司</h1>
-      <h2 style="text-align:center;font-size:15px;letter-spacing:4px;margin:0 0 12px;font-weight:normal;">原 魚 入 庫 紀 錄 表</h2>
-      <div style="display:flex;gap:28px;margin-bottom:8px;border-bottom:1px solid #000;padding-bottom:5px;">
+    <div style="font-family:'標楷體','DFKai-SB',serif;font-size:13px;padding:10mm 12mm;">
+      <h1 style="text-align:center;font-size:22px;letter-spacing:10px;margin:0 0 4px;">大 漁 水 產 有 限 公 司</h1>
+      <h2 style="text-align:center;font-size:15px;letter-spacing:6px;margin:0 0 14px;font-weight:normal;">原 魚 入 庫 紀 錄 表</h2>
+      <div style="border:1px solid #000;padding:6px 10px;margin-bottom:10px;display:flex;gap:40px;font-size:13px;">
         <span>日期：${dateStr}</span><span>船名：${ship}</span><span>洋區：${zone}</span><span>溫層：${temp}</span>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr>
           <th style="width:36px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">序號</th>
           <th style="width:80px;border:1px solid #000;padding:4px;background:#f5f5f5;">品名</th>
-          <th style="width:160px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">頭　　規格</th>
-          <th style="width:50px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">桶號</th>
-          <th style="width:50px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">桶重</th>
-          <th style="width:50px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">總重</th>
-          <th style="width:50px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">魚重</th>
-          <th style="width:60px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">儲位</th>
-          <th style="width:70px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">回磅魚重</th>
+          <th style="width:52px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">頭</th>
+          ${specHeaders}
+          <th style="width:46px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">桶號</th>
+          <th style="width:46px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">桶重</th>
+          <th style="width:46px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">總重</th>
+          <th style="width:46px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">魚重</th>
+          <th style="width:56px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">儲位</th>
+          <th style="width:64px;border:1px solid #000;padding:4px 2px;text-align:center;background:#f5f5f5;">回磅魚重</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="margin-top:24px;display:flex;justify-content:space-between;font-size:12px;">
+      <div style="margin-top:28px;display:flex;justify-content:space-between;font-size:13px;">
         <span>廠長：________________</span>
         <span>倉管：________________</span>
         <span>製表人：________________</span>
