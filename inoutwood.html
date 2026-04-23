@@ -44,8 +44,8 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
 .add-row input:focus{border-color:#1a56db;background:#fff;}
 .add-btn{height:36px;padding:0 16px;background:#1a56db;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;white-space:nowrap;font-family:inherit;}
 .add-btn:hover{background:#1447c0;}
-.admin-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #eee;border-radius:8px;margin-bottom:4px;background:#fafafa;}
-.admin-row span{flex:1;font-size:13px;color:#1a1a1a;text-align:left;}
+.admin-row{display:flex;align-items:center;justify-content:flex-start;gap:8px;padding:7px 10px;border:1px solid #eee;border-radius:8px;margin-bottom:4px;background:#fafafa;}
+.admin-row span{flex:1;font-size:13px;color:#1a1a1a;text-align:left;display:block;}
 .fish-spec-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #dce8ff;border-radius:8px;margin-bottom:5px;background:#f5f8ff;}
 .fish-spec-row .fsname{font-weight:600;font-size:13px;min-width:72px;color:#1a1a2e;}
 .fish-spec-row .fsval{flex:1;font-size:12px;color:#555;font-family:monospace;}
@@ -655,8 +655,8 @@ function renderAdmin() {
         ondragover="fishDragOver(event)"
         ondrop="fishDrop(event,${i})"
         ondragend="fishDragEnd(event)">
-        <span style="color:#bbb;font-size:16px;cursor:grab;padding-right:4px;user-select:none;">⠿</span>
-        <span style="flex:1;text-align:left;">${f}</span>
+        <span style="color:#bbb;font-size:16px;cursor:grab;padding-right:4px;user-select:none;flex-shrink:0;">⠿</span>
+        <span style="flex:1;text-align:left;display:block;margin-right:auto;">${f}</span>
         <button onclick="moveFish(${i},-1)" ${isFirst?'disabled':''} style="width:24px;height:24px;border:1px solid #dde1e7;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:${isFirst?'#ccc':'#555'};">↑</button>
         <button onclick="moveFish(${i},1)" ${isLast?'disabled':''} style="width:24px;height:24px;border:1px solid #dde1e7;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:${isLast?'#ccc':'#555'};">↓</button>
         <button class="rm" onclick="delFish(${i})">✕</button>
