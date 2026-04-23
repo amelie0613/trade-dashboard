@@ -656,7 +656,7 @@ function renderAdmin() {
         ondrop="fishDrop(event,${i})"
         ondragend="fishDragEnd(event)">
         <span style="color:#bbb;font-size:16px;cursor:grab;padding-right:4px;user-select:none;">⠿</span>
-        <span style="flex:1;">${f}</span>
+        <span style="flex:1;text-align:left;">${f}</span>
         <button onclick="moveFish(${i},-1)" ${isFirst?'disabled':''} style="width:24px;height:24px;border:1px solid #dde1e7;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:${isFirst?'#ccc':'#555'};">↑</button>
         <button onclick="moveFish(${i},1)" ${isLast?'disabled':''} style="width:24px;height:24px;border:1px solid #dde1e7;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:${isLast?'#ccc':'#555'};">↓</button>
         <button class="rm" onclick="delFish(${i})">✕</button>
