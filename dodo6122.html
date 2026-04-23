@@ -1310,36 +1310,88 @@
   <!-- TAB: diff -->
   <div class="tab-content" id="tab-diff">
     <div class="table-wrap">
-      <div class="table-toolbar" style="flex-wrap:wrap;gap:12px;">
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:11px;font-weight:700;color:var(--muted);">📅 期初庫存（舊資料）</label>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <button class="btn btn-ghost" style="font-size:12px;" onclick="document.getElementById('diffFileA').click()">📂 上傳期初 xlsx</button>
-            <input type="file" id="diffFileA" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('A',this)">
-            <span id="diffLabelA" style="font-size:12px;color:var(--muted);">未載入</span>
-          </div>
+      <!-- 上傳區 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;padding:18px 18px 0;">
+        <!-- 本期期末 -->
+        <div id="diffCardA" onclick="document.getElementById('diffFileA').click()"
+             ondragover="event.preventDefault();this.style.borderColor='var(--pink)'"
+             ondragleave="this.style.borderColor=''"
+             ondrop="diffHandleDrop(event,'A')"
+             style="border:2px dashed var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:.2s;background:var(--card);">
+          <input type="file" id="diffFileA" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('A',this)">
+          <div style="font-size:26px;margin-bottom:8px;">📅</div>
+          <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin-bottom:4px;">本期期末</div>
+          <div style="font-size:14px;font-weight:700;">本期期末庫存</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">讀取「本期結存」欄</div>
+          <div id="diffLabelA" style="font-size:12px;font-weight:700;color:var(--muted);margin-top:8px;">等待上傳…</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:11px;font-weight:700;color:var(--muted);">📅 期末庫存（新資料）</label>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <button class="btn btn-ghost" style="font-size:12px;" onclick="document.getElementById('diffFileB').click()">📂 上傳期末 xlsx</button>
-            <input type="file" id="diffFileB" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('B',this)">
-            <span id="diffLabelB" style="font-size:12px;color:var(--muted);">未載入</span>
-          </div>
+        <!-- 上期期末 -->
+        <div id="diffCardB" onclick="document.getElementById('diffFileB').click()"
+             ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
+             ondragleave="this.style.borderColor=''"
+             ondrop="diffHandleDrop(event,'B')"
+             style="border:2px dashed var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:.2s;background:var(--card);">
+          <input type="file" id="diffFileB" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('B',this)">
+          <div style="font-size:26px;margin-bottom:8px;">📁</div>
+          <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin-bottom:4px;">上期期末</div>
+          <div style="font-size:14px;font-weight:700;">上期期末庫存</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">讀取「本期結存」欄</div>
+          <div id="diffLabelB" style="font-size:12px;font-weight:700;color:var(--muted);margin-top:8px;">等待上傳…</div>
         </div>
-        <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end;">
-          <button class="btn btn-primary" onclick="runDiff()">🔍 執行比較</button>
-          <button class="btn btn-green" onclick="exportDiffExcel()">📤 匯出差異表</button>
+        <!-- 單價表 -->
+        <div id="diffCardP"
+             ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
+             ondragleave="this.style.borderColor=''"
+             ondrop="diffHandleDrop(event,'P')"
+             style="border:2px dashed var(--border);border-radius:14px;padding:16px;transition:.2s;background:var(--card);">
+          <input type="file" id="diffFileP" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('P',this)">
+          <div style="font-size:26px;margin-bottom:8px;">💰</div>
+          <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin-bottom:4px;">單價設定（選填）</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:8px;">單價表</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px;" onclick="document.getElementById('diffFileP').click()">📂 上傳 xlsx</button>
+            <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px;" onclick="diffLoadPriceFromGithub()">☁️ 從 GitHub 載入</button>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;">使用單價設定頁籤的 GitHub 設定</div>
+          <div id="diffLabelP" style="font-size:12px;font-weight:700;color:var(--muted);margin-top:8px;">可不上傳</div>
         </div>
       </div>
+
+      <!-- 執行列 -->
+      <div style="display:flex;gap:10px;align-items:center;padding:14px 18px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="diffBtnRun" onclick="runDiff()" disabled>▶ 執行差異比較</button>
+        <button class="btn btn-green" id="diffBtnExport" onclick="exportDiffExcel()" disabled>📤 匯出差異表</button>
+      </div>
+
+      <!-- 成本摘要 -->
+      <div id="diffCostSummary" style="display:none;margin:0 18px 14px;padding:14px 18px;background:#f5f0fd;border-radius:12px;border-left:4px solid var(--purple);">
+        <div style="font-size:12px;font-weight:900;color:var(--purple);margin-bottom:10px;">💰 成本差異摘要</div>
+        <div style="display:flex;gap:28px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);">本期總庫存成本</div>
+            <div id="diffCostA" style="font-size:20px;font-weight:900;color:var(--purple);">—</div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);">上期總庫存成本</div>
+            <div id="diffCostB" style="font-size:20px;font-weight:900;color:var(--purple);">—</div>
+          </div>
+          <div id="diffCostDiffBox">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);">成本差異（本期－上期）</div>
+            <div id="diffCostDiff" style="font-size:20px;font-weight:900;">—</div>
+          </div>
+        </div>
+      </div>
+
       <!-- 差異統計 -->
-      <div id="diffStats" style="display:none;padding:12px 18px;background:var(--bg);border-bottom:1px solid var(--border);display:flex;gap:16px;flex-wrap:wrap;">
-        <span style="font-size:12px;">🟢 新增：<strong id="diffNew" style="color:var(--green)">0</strong> 筆</span>
-        <span style="font-size:12px;">🔴 消失：<strong id="diffGone" style="color:var(--red)">0</strong> 筆</span>
-        <span style="font-size:12px;">🔵 數量增加：<strong id="diffUp" style="color:#4488CC">0</strong> 筆</span>
-        <span style="font-size:12px;">🟠 數量減少：<strong id="diffDown" style="color:var(--orange)">0</strong> 筆</span>
-        <span style="font-size:12px;">⚪ 無變化：<strong id="diffSame" style="color:var(--muted)">0</strong> 筆</span>
+      <div id="diffStats" style="display:none;padding:10px 18px;background:var(--bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;gap:16px;flex-wrap:wrap;">
+        <span style="font-size:12px;">🟢 新增：<strong id="diffNew" style="color:var(--green)">0</strong></span>
+        <span style="font-size:12px;">🔴 消失：<strong id="diffGone" style="color:var(--red)">0</strong></span>
+        <span style="font-size:12px;">🔵 數量增加：<strong id="diffUp" style="color:#4488CC">0</strong></span>
+        <span style="font-size:12px;">🟠 數量減少：<strong id="diffDown" style="color:var(--orange)">0</strong></span>
+        <span style="font-size:12px;">⚪ 無變化：<strong id="diffSame" style="color:var(--muted)">0</strong></span>
       </div>
+
+      <!-- 篩選列 -->
       <div style="display:flex;gap:8px;padding:10px 18px;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap;">
         <select class="filter-select" id="diffFilter" onchange="renderDiff()">
           <option value="">全部變化</option>
@@ -1353,8 +1405,9 @@
         <select class="filter-select" id="diffCategory" onchange="renderDiff()"><option value="">全部類別</option></select>
         <span class="tbl-count" id="diffCount">0 筆</span>
       </div>
+
       <div class="tbl-scroll" id="tbl-diff-wrap">
-        <div class="empty-state"><div class="icon">📊</div><p>請上傳期初與期末庫存 xlsx，再按「執行比較」</p></div>
+        <div class="empty-state"><div class="icon">📊</div><p>請上傳本期期末與上期期末兩份 xlsx，再按「執行差異比較」</p></div>
       </div>
     </div>
   </div>
@@ -1826,8 +1879,6 @@
 
 <!-- ===== 月結算總帳頁面 ===== -->
 <div id="page_ledger" style="display:none;">
-<!-- 月結算專用提示 -->
-<div id="rental_toast" style="position:fixed; bottom:28px; right:28px; background:#6B5B95; color:white; padding:12px 22px; border-radius:14px; font-size:13px; font-weight:700; box-shadow:0 8px 30px rgba(107,91,149,.35); transform:translateY(80px); opacity:0; transition:all .3s cubic-bezier(.4,0,.2,1); z-index:9999;"></div>
 <div class="container">
     <div class="header">
         <div class="flower-band">
@@ -1894,7 +1945,6 @@
                         <button onclick="previewMonthly()" class="btn-primary" style="flex:none; padding:0.6rem 1.2rem; margin-bottom:0;">🔍 預覽月結算</button>
                     </div>
                     <div id="ledger_status_monthly" style="margin-top:0.5rem; font-size:0.82rem;"></div>
-                    <div id="outbound_reconcile"></div>
                 </div>
 
                 <!-- 手動上傳總檔 -->
@@ -1927,8 +1977,6 @@
                     <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
                     <hr style="border:none; border-top:1px solid #f0e0f0; margin:0.8rem 0;">
                     <button onclick="setGitHubToken()" style="width:100%; background:none; border:1.5px solid #aaa; color:#888; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">🔑 設定 GitHub Token</button>
-                    <button onclick="setOutboundScriptUrl()" style="width:100%; background:none; border:1.5px solid #6B5B95; color:#6B5B95; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">☁️ 設定出庫明細 Script 網址</button>
-                    <button onclick="copyOutboundAppsScript()" style="width:100%; background:none; border:1.5px solid #7ec8e3; color:#2a6a82; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">📋 複製出庫明細 Apps Script 程式碼</button>
                     <button onclick="clearLedger()" style="width:100%; background:none; border:1.5px solid #e8836a; color:#e8836a; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem;">🗑️ 清除總帳資料</button>
                 </div>
 
@@ -1994,31 +2042,16 @@
                     </div>
 
                     <!-- 2. 租金計算結果 -->
-                    <div class="section-title" style="margin-top:1rem;">📤 2️⃣ 租金計算結果</div>
-                    <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">上傳上期＋下期，母件總計兩期加總</p>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.4rem;">
-                        <div>
-                            <div style="font-size:0.72rem; color:#6aa85a; font-weight:700; margin-bottom:0.3rem;">上期</div>
-                            <div style="border:2px dashed #8dcc7a; border-radius:8px; padding:0.5rem; background:white;"
-                                ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'rental_upper_file',this)">
-                                <input type="file" id="rental_upper_file" accept=".xlsx"
-                                    onchange="rentalResultFileChanged(this,'upper')"
-                                    style="width:100%; font-size:0.7rem; border:none; background:transparent;" />
-                                <div id="rental_upper_label" style="font-size:0.68rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
-                            </div>
-                        </div>
-                        <div>
-                            <div style="font-size:0.72rem; color:#6aa85a; font-weight:700; margin-bottom:0.3rem;">下期</div>
-                            <div style="border:2px dashed #8dcc7a; border-radius:8px; padding:0.5rem; background:white;"
-                                ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'rental_lower_file',this)">
-                                <input type="file" id="rental_lower_file" accept=".xlsx"
-                                    onchange="rentalResultFileChanged(this,'lower')"
-                                    style="width:100%; font-size:0.7rem; border:none; background:transparent;" />
-                                <div id="rental_lower_label" style="font-size:0.68rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
-                            </div>
-                        </div>
+                    <div class="section-title" style="margin-top:1rem;">📤 2️⃣ 租金計算結果 (上/下期)</div>
+                    <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">上傳上期或下期結果，帶出分攤單價</p>
+                    <div style="border:2px dashed #8dcc7a; border-radius:10px; padding:0.6rem; background:white; margin-bottom:0.8rem;"
+                        ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'rental_result_file',this)">
+                        <input type="file" id="rental_result_file" accept=".xlsx"
+                            onchange="rentalResultFileChanged(this)"
+                            style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
+                        <div id="rental_result_label" style="font-size:0.7rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
                     </div>
-                    <div id="rental_result_status" style="font-size:0.78rem; color:#6aa85a;"></div>
+                    <div id="rental_result_status" style="font-size:0.8rem; color:#6aa85a;"></div>
 
                     <!-- 3. 加工單 -->
                     <div class="section-title" style="margin-top:1rem;">📤 3️⃣ 加工單 (可選)</div>
@@ -3035,31 +3068,120 @@ async function loadPricesFromGithub(){
 
 
 // ─── DIFF COMPARE ────────────────────────────────────────────
-let diffDataA = null; // 期初
-let diffDataB = null; // 期末
+let diffDataA = null; // 本期期末
+let diffDataB = null; // 上期期末
+let diffPriceMap = {}; // 差異比較用單價 key=產品名稱__批號
 let diffResults = [];
+
+// ── 差異比較：從 GitHub 載入單價（複用單價設定頁籤的設定）──
+async function diffLoadPriceFromGithub(){
+  const token = localStorage.getItem('github_token');
+  const owner = localStorage.getItem('gh_price_owner') || 'amelie0613';
+  const repo  = localStorage.getItem('gh_price_repo')  || 'trade-dashboard';
+  const path  = localStorage.getItem('gh_price_path')  || 'prices.json';
+
+  if(!token){
+    showToast('⚠️ 請先到「單價設定」頁籤完成 GitHub 設定', 3500);
+    return;
+  }
+
+  document.getElementById('diffLabelP').textContent = '⏳ 從 GitHub 載入中…';
+  try{
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+    const resp = await fetch(apiUrl, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if(!resp.ok) throw new Error('HTTP ' + resp.status + '（找不到備份檔）');
+    const data = await resp.json();
+    const rows = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
+
+    let count = 0;
+    diffPriceMap = {};
+    if(Array.isArray(rows)){
+      // xlsx 匯出格式：array of rows
+      rows.forEach(r => {
+        const name = String(r['產品名稱']||'').trim();
+        const lot  = String(r['批號']||'').trim();
+        if(!name||!lot) return;
+        const endCost   = parseFloat(r['期末單位成本']);
+        const startCost = parseFloat(r['期初單位成本']);
+        const price = (!isNaN(endCost)&&endCost>0) ? endCost : (!isNaN(startCost)&&startCost>0) ? startCost : parseFloat(r['單價'])||0;
+        const scope = String(r['存貨核算範圍名稱']||r['核算範圍']||'').trim();
+        diffPriceMap[`${name}__${lot}`] = { price, scope };
+        count++;
+      });
+    } else {
+      // JSON 備份格式：{ "名稱__批號": { price, scope, ... } }
+      Object.entries(rows).forEach(([k, v]) => {
+        const price = typeof v === 'object' ? (v.price||0) : (parseFloat(v)||0);
+        const scope = typeof v === 'object' ? (v.scope||'') : '';
+        diffPriceMap[k] = { price, scope };
+        count++;
+      });
+    }
+
+    document.getElementById('diffLabelP').textContent = `✅ GitHub 載入 ${count} 筆單價`;
+    document.getElementById('diffCardP').style.borderColor = 'var(--green)';
+    showToast(`✅ 從 GitHub 載入 ${count} 筆單價`);
+  } catch(err){
+    document.getElementById('diffLabelP').textContent = '❌ 載入失敗';
+    showToast('❌ ' + err.message, 4000);
+  }
+}
+
+function diffHandleDrop(e, slot){
+  e.preventDefault();
+  processFile_diff(slot, e.dataTransfer.files[0]);
+}
 
 function loadDiffFile(slot, input){
   const file = input.files[0]; if(!file) return;
+  processFile_diff(slot, file);
+  input.value='';
+}
+
+function processFile_diff(slot, file){
+  if(!file) return;
   const reader = new FileReader();
   reader.onload = e => {
     try{
       const wb  = XLSX.read(e.target.result, {type:'binary', cellDates:true});
       const ws  = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
-      if(slot==='A'){ diffDataA = raw; document.getElementById('diffLabelA').textContent = `✅ ${file.name}（${raw.length}筆）`; }
-      else          { diffDataB = raw; document.getElementById('diffLabelB').textContent = `✅ ${file.name}（${raw.length}筆）`; }
-      showToast(`✅ 已載入 ${slot==='A'?'期初':'期末'} 資料`);
+
+      if(slot === 'P'){
+        // 單價表
+        let count = 0;
+        diffPriceMap = {};
+        raw.forEach(r => {
+          const name = String(r['產品名稱']||'').trim();
+          const lot  = String(r['批號']||'').trim();
+          const endCost   = parseFloat(r['期末單位成本']);
+          const startCost = parseFloat(r['期初單位成本']);
+          const price = (!isNaN(endCost) && endCost > 0)    ? endCost
+                      : (!isNaN(startCost) && startCost > 0) ? startCost
+                      : parseFloat(r['單價']) || 0;
+          const scope = String(r['存貨核算範圍名稱']||r['核算範圍']||'').trim();
+          if(name && lot){ diffPriceMap[`${name}__${lot}`] = { price, scope }; count++; }
+        });
+        document.getElementById('diffLabelP').textContent = `✅ 已載入 ${count} 筆單價`;
+        document.getElementById('diffCardP').style.borderColor = 'var(--green)';
+        showToast(`✅ 單價表載入 ${count} 筆`);
+      } else {
+        if(slot==='A'){ diffDataA = raw; document.getElementById('diffLabelA').textContent = `✅ ${file.name}（${raw.length}筆）`; document.getElementById('diffCardA').style.borderColor='var(--purple)'; }
+        else          { diffDataB = raw; document.getElementById('diffLabelB').textContent = `✅ ${file.name}（${raw.length}筆）`; document.getElementById('diffCardB').style.borderColor='var(--blue)'; }
+        showToast(`✅ 已載入 ${slot==='A'?'本期期末':'上期期末'} 資料（${raw.length}筆）`);
+      }
+      if(diffDataA && diffDataB) document.getElementById('diffBtnRun').disabled = false;
     }catch(err){ showToast('❌ 讀取失敗：'+err.message,4000); }
-    input.value='';
   };
   reader.readAsBinaryString(file);
 }
 
-function diffKey(r){ return `${String(r['產品名稱']||'').trim()}__${String(r['批號']||'').trim()}__${String(r['倉庫名稱']||'').trim()}`; }
+function diffKey(r){ return `${String(r['產品名稱']||'').trim()}__${String(r['批號']||'').trim()}__${String(r['倉庫']||r['倉庫名稱']||'').trim()}`; }
 
 function runDiff(){
-  if(!diffDataA || !diffDataB){ showToast('❌ 請先上傳期初與期末兩份資料'); return; }
+  if(!diffDataA || !diffDataB){ showToast('❌ 請先上傳本期與上期兩份資料'); return; }
 
   const mapA = {}, mapB = {};
   diffDataA.forEach(r => { mapA[diffKey(r)] = r; });
@@ -3069,25 +3191,45 @@ function runDiff(){
   diffResults = [];
 
   allKeys.forEach(k => {
-    const a = mapA[k], b = mapB[k];
-    const base = b || a;
-    const qtyA = parseFloat((a||{})['庫存數量'])||0;
-    const qtyB = parseFloat((b||{})['庫存數量'])||0;
+    const a = mapA[k];   // 本期期末
+    const b = mapB[k];   // 上期期末
+    const base = a || b;
+    // 讀取「本期結存」作為各期的數量快照
+    const qtyA = a ? (parseFloat(a['本期結存'])||0) : 0;
+    const qtyB = b ? (parseFloat(b['本期結存'])||0) : 0;
+    const diff = qtyA - qtyB;
     let changeType = 'same';
-    if(!a && b)      changeType = 'new';
-    else if(a && !b) changeType = 'gone';
-    else if(qtyB > qtyA) changeType = 'up';
-    else if(qtyB < qtyA) changeType = 'down';
-    diffResults.push({ ...base, _qtyA: qtyA, _qtyB: qtyB, _diff: qtyB - qtyA, _changeType: changeType });
+    if(!b && a)       changeType = 'new';
+    else if(a && !b)  changeType = 'gone';
+    else if(diff > 0) changeType = 'up';
+    else if(diff < 0) changeType = 'down';
+
+    // 單價 & 成本
+    const pName = String(base['產品名稱']||'').trim();
+    const pLot  = String(base['批號']||'').trim();
+    const pInfo = diffPriceMap[`${pName}__${pLot}`] || null;
+    const unitPrice = pInfo ? pInfo.price : null;
+    const scope     = pInfo ? pInfo.scope : '';
+    const costA    = unitPrice !== null ? qtyA * unitPrice : null;
+    const costB    = unitPrice !== null ? qtyB * unitPrice : null;
+    const costDiff = (costA !== null && costB !== null) ? costA - costB : null;
+
+    diffResults.push({
+      _changeType: changeType,
+      _qtyA: qtyA, _qtyB: qtyB, _diff: diff,
+      _unitPrice: unitPrice, _costA: costA, _costB: costB, _costDiff: costDiff, _scope: scope,
+      產品類別: base['產品類別']||'', 產品代碼: base['產品代碼']||'',
+      產品名稱: pName, 產品規格: base['產品規格']||'',
+      倉庫: base['倉庫']||base['倉庫名稱']||'', 批號: pLot,
+      基本單位: base['基本單位']||'',
+    });
   });
 
-  // 建篩選器
-  const ws = [...new Set(diffResults.map(r=>r['倉庫名稱']||'').filter(Boolean))].sort();
-  const cs = [...new Set(diffResults.map(r=>r['產品類別']||'').filter(Boolean))].sort();
-  const dw = document.getElementById('diffWarehouse');
-  const dc = document.getElementById('diffCategory');
-  dw.innerHTML = '<option value="">全部倉庫</option>' + ws.map(w=>`<option>${w}</option>`).join('');
-  dc.innerHTML = '<option value="">全部類別</option>' + cs.map(x=>`<option>${x}</option>`).join('');
+  // 篩選器
+  const whs = [...new Set(diffResults.map(r=>r.倉庫).filter(Boolean))].sort();
+  const cats = [...new Set(diffResults.map(r=>r.產品類別).filter(Boolean))].sort();
+  document.getElementById('diffWarehouse').innerHTML = '<option value="">全部倉庫</option>' + whs.map(w=>`<option>${w}</option>`).join('');
+  document.getElementById('diffCategory').innerHTML  = '<option value="">全部類別</option>' + cats.map(x=>`<option>${x}</option>`).join('');
 
   // 統計
   const stats = {new:0,gone:0,up:0,down:0,same:0};
@@ -3099,6 +3241,20 @@ function runDiff(){
   document.getElementById('diffSame').textContent = stats.same;
   document.getElementById('diffStats').style.display = 'flex';
 
+  // 成本摘要
+  if(Object.keys(diffPriceMap).length > 0){
+    let totalA = 0, totalB = 0;
+    diffResults.forEach(r => { if(r._costA!==null) totalA+=r._costA; if(r._costB!==null) totalB+=r._costB; });
+    const totalDiff = totalA - totalB;
+    document.getElementById('diffCostA').textContent = '$' + Math.round(totalA).toLocaleString('zh-TW');
+    document.getElementById('diffCostB').textContent = '$' + Math.round(totalB).toLocaleString('zh-TW');
+    const diffEl = document.getElementById('diffCostDiff');
+    diffEl.textContent = (totalDiff>=0?'+':'') + Math.round(totalDiff).toLocaleString('zh-TW') + ' 元';
+    diffEl.style.color = totalDiff > 0 ? 'var(--green)' : totalDiff < 0 ? 'var(--red)' : 'var(--muted)';
+    document.getElementById('diffCostSummary').style.display = 'block';
+  }
+
+  document.getElementById('diffBtnExport').disabled = false;
   renderDiff();
   showToast(`✅ 比較完成，共 ${diffResults.length} 筆`);
 }
@@ -3108,7 +3264,6 @@ function renderDiff(){
   const warehouse = document.getElementById('diffWarehouse')?.value||'';
   const category  = document.getElementById('diffCategory')?.value||'';
   const wrap = document.getElementById('tbl-diff-wrap');
-  const countEl = document.getElementById('diffCount');
 
   if(!diffResults.length){
     wrap.innerHTML = '<div class="empty-state"><div class="icon">📊</div><p>請上傳兩份資料後執行比較</p></div>';
@@ -3116,63 +3271,104 @@ function renderDiff(){
   }
 
   let rows = diffResults.filter(r => {
-    if(filter    && r._changeType !== filter)   return false;
-    if(warehouse && r['倉庫名稱'] !== warehouse) return false;
-    if(category  && r['產品類別'] !== category)  return false;
+    if(filter    && r._changeType !== filter) return false;
+    if(warehouse && r.倉庫 !== warehouse)      return false;
+    if(category  && r.產品類別 !== category)   return false;
     return true;
   });
 
-  const chgLabel = { new:'🟢 新增', gone:'🔴 消失', up:'🔵 增加', down:'🟠 減少', same:'⚪ 不變' };
-  const chgCls   = { new:'chg-new', gone:'chg-gone', up:'chg-up', down:'chg-down', same:'chg-same' };
-  const rowCls   = { new:'diff-new', gone:'diff-gone', up:'diff-up', down:'diff-down', same:'' };
+  document.getElementById('diffCount').textContent = `${rows.length} 筆`;
 
-  let html = `<table><thead><tr>`;
-  const diffCols = ['類別','產品代碼','產品名稱','規格','倉庫','批號','入庫日期','期初數量','期末數量','增減','變化'];
+  const hasPrices = Object.keys(diffPriceMap).length > 0;
+  const chgLabel = { new:'🟢 新增', gone:'🔴 消失', up:'🔵 增加', down:'🟠 減少', same:'⚪ 不變' };
+  const badgeCls = { new:'badge-pink', gone:'badge-red', up:'badge-blue', down:'badge-orange', same:'badge-gray' };
+  const rowCls   = { new:'diff-new', gone:'diff-gone', up:'diff-up', down:'diff-down', same:'' };
   const hdrColor = '#6B5B95';
-  diffCols.forEach(h => { html += `<th style="background:${hdrColor}">${h}</th>`; });
+
+  let html = `<table><thead><tr>
+    <th style="background:${hdrColor}">變化</th>
+    <th style="background:${hdrColor}">類別</th>
+    <th style="background:${hdrColor}">產品代碼</th>
+    <th style="background:${hdrColor}">產品名稱</th>
+    <th style="background:${hdrColor}">規格</th>
+    <th style="background:${hdrColor}">倉庫</th>
+    <th style="background:${hdrColor}">批號</th>
+    <th style="background:${hdrColor}">單位</th>
+    <th style="background:${hdrColor}">本期結存(A)</th>
+    <th style="background:${hdrColor}">上期結存(B)</th>
+    <th style="background:${hdrColor}">差異(A−B)</th>`;
+  if(hasPrices){
+    html += `<th style="background:${hdrColor}">單價</th>
+    <th style="background:${hdrColor}">本期成本</th>
+    <th style="background:${hdrColor}">上期成本</th>
+    <th style="background:${hdrColor}">成本差異</th>
+    <th style="background:${hdrColor}">核算範圍</th>`;
+  }
   html += `</tr></thead><tbody>`;
 
   rows.forEach(r => {
-    const lotDate = parseLotDate(r['批號']);
-    const lotDisp = lotDate ? fmtDate(lotDate) : '—';
-    const diffVal = r._diff > 0 ? `+${fmtNum(r._diff)}` : fmtNum(r._diff);
-    const diffColor = r._diff > 0 ? 'color:#2A7A10;font-weight:700' : r._diff < 0 ? 'color:#C03030;font-weight:700' : 'color:var(--muted)';
+    const diffVal   = r._diff > 0 ? `+${fmtNum(r._diff)}` : fmtNum(r._diff);
+    const diffStyle = r._diff > 0 ? 'color:#2A7A10;font-weight:700' : r._diff < 0 ? 'color:#C03030;font-weight:700' : 'color:var(--muted)';
+    const qtyATxt   = r._changeType==='gone' ? '<span style="color:var(--muted)">—</span>' : fmtNum(r._qtyA);
+    const qtyBTxt   = r._changeType==='new'  ? '<span style="color:var(--muted)">—</span>' : fmtNum(r._qtyB);
     html += `<tr class="${rowCls[r._changeType]||''}">
-      <td><span class="badge badge-gray">${r['產品類別']||'—'}</span></td>
-      <td style="font-weight:700;color:var(--purple)">${r['產品代碼']||'—'}</td>
-      <td>${r['產品名稱']||'—'}</td>
-      <td style="color:var(--muted);font-size:11px">${r['產品規格']||'—'}</td>
-      <td>${r['倉庫名稱']||'—'}</td>
-      <td style="font-size:11px;color:var(--muted)">${r['批號']||'—'}</td>
-      <td>${lotDisp}</td>
-      <td style="text-align:right">${r._changeType==='new'?'—':fmtNum(r._qtyA)}</td>
-      <td style="text-align:right">${r._changeType==='gone'?'—':fmtNum(r._qtyB)}</td>
-      <td style="text-align:right;${diffColor}">${r._changeType==='new'?'新增':r._changeType==='gone'?'消失':diffVal}</td>
-      <td><span class="chg-badge ${chgCls[r._changeType]}">${chgLabel[r._changeType]}</span></td>
-    </tr>`;
+      <td><span class="badge ${badgeCls[r._changeType]}">${chgLabel[r._changeType]}</span></td>
+      <td><span class="badge badge-gray">${r.產品類別||'—'}</span></td>
+      <td style="font-weight:700;color:var(--purple)">${r.產品代碼||'—'}</td>
+      <td>${r.產品名稱||'—'}</td>
+      <td style="color:var(--muted);font-size:11px">${r.產品規格||'—'}</td>
+      <td>${r.倉庫||'—'}</td>
+      <td style="font-size:11px;color:var(--muted)">${r.批號||'—'}</td>
+      <td style="color:var(--muted)">${r.基本單位||'—'}</td>
+      <td style="text-align:right">${qtyATxt}</td>
+      <td style="text-align:right">${qtyBTxt}</td>
+      <td style="text-align:right;${diffStyle}">${diffVal}</td>`;
+    if(hasPrices){
+      const costDiffTxt = r._costDiff !== null
+        ? (r._costDiff > 0 ? `+$${Math.round(r._costDiff).toLocaleString('zh-TW')}` : `$${Math.round(r._costDiff).toLocaleString('zh-TW')}`)
+        : '—';
+      const cdStyle = r._costDiff > 0 ? 'color:#0f7a38;font-weight:800'
+                    : r._costDiff < 0 ? 'color:#b02020;font-weight:800'
+                    : 'color:var(--muted)';
+      html += `
+      <td style="text-align:right">${r._unitPrice !== null ? fmtNum(r._unitPrice) : '—'}</td>
+      <td style="text-align:right">${r._costA !== null ? '$'+Math.round(r._costA).toLocaleString('zh-TW') : '—'}</td>
+      <td style="text-align:right">${r._costB !== null ? '$'+Math.round(r._costB).toLocaleString('zh-TW') : '—'}</td>
+      <td style="text-align:right;${cdStyle}">${costDiffTxt}</td>
+      <td style="font-size:11px;color:var(--muted)">${r._scope||'—'}</td>`;
+    }
+    html += `</tr>`;
   });
   html += '</tbody></table>';
   wrap.innerHTML = html;
-  countEl.textContent = `${rows.length} 筆`;
 }
 
 function exportDiffExcel(){
   if(!diffResults.length){ showToast('❌ 請先執行差異比較'); return; }
+  const hasPrices = Object.keys(diffPriceMap).length > 0;
   const rows = diffResults.map(r => {
-    const lotDate = parseLotDate(r['批號']);
-    return {
-      '產品類別': r['產品類別']||'',
-      '產品代碼': r['產品代碼']||'',
-      '產品名稱': r['產品名稱']||'',
-      '產品規格': r['產品規格']||'',
-      '倉庫名稱': r['倉庫名稱']||'',
-      '批號':     r['批號']||'',
-      '入庫日期': lotDate ? fmtDate(lotDate) : '',
-      '期初數量': r._changeType==='new' ? '' : r._qtyA,
-      '期末數量': r._changeType==='gone'? '' : r._qtyB,
-      '增減':     r._changeType==='new'?'新增':r._changeType==='gone'?'消失':r._diff,
-      '變化狀態': {new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'}[r._changeType],
+    const chgLabel = {new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'};
+    const obj = {
+      '變化狀態':    chgLabel[r._changeType],
+      '產品類別':    r.產品類別||'',
+      '產品代碼':    r.產品代碼||'',
+      '產品名稱':    r.產品名稱||'',
+      '產品規格':    r.產品規格||'',
+      '倉庫':        r.倉庫||'',
+      '批號':        r.批號||'',
+      '基本單位':    r.基本單位||'',
+      '本期結存(A)': r._changeType==='gone' ? '' : r._qtyA,
+      '上期結存(B)': r._changeType==='new'  ? '' : r._qtyB,
+      '差異(A-B)':   r._changeType==='new'||r._changeType==='gone' ? '' : r._diff,
     };
+    if(hasPrices){
+      obj['單價']        = r._unitPrice !== null ? r._unitPrice : '';
+      obj['本期成本(A)'] = r._costA !== null ? r._costA : '';
+      obj['上期成本(B)'] = r._costB !== null ? r._costB : '';
+      obj['成本差異']    = r._costDiff !== null ? r._costDiff : '';
+      obj['核算範圍']    = r._scope||'';
+    }
+    return obj;
   });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '庫存差異比較');
@@ -3506,18 +3702,10 @@ const APPS_SCRIPT_CODE = [
   'function handleRequest(e) {',
   '  try {',
   '    var raw = "";',
-  '    if (e.parameter && e.parameter.data) {',
-  '      raw = e.parameter.data;',
-  '    } else if (e.parameter && e.parameter.payload) {',
+  '    if (e.parameter && e.parameter.payload) {',
   '      raw = e.parameter.payload;',
   '    } else if (e.postData && e.postData.contents) {',
   '      raw = e.postData.contents;',
-  '      var params = {};',
-  '      e.postData.contents.split("&").forEach(function(p){',
-  '        var kv = p.split("=");',
-  '        if(kv.length===2) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1].replace(/\\+/g," "));',
-  '      });',
-  '      if(params.data) raw = params.data;',
   '    }',
   '    if (!raw) return ContentService.createTextOutput("error: no data");',
   '    var data = JSON.parse(raw);',
@@ -3525,44 +3713,24 @@ const APPS_SCRIPT_CODE = [
   '    var sheetName = data.sheetName || "庫存分析結果";',
   '    var sheet = ss.getSheetByName(sheetName);',
   '    if (!sheet) sheet = ss.insertSheet(sheetName);',
-  '    var headerColor = data.headerColor || "#6B5B95";',
-  '',
-  '    if (data.appendMode) {',
-  '      // 追加模式：只在第一次（空表）加標頭，之後直接追加資料列',
-  '      var lastRow = sheet.getLastRow();',
-  '      if (lastRow === 0) {',
-  '        // 空表，先寫標頭',
-  '        sheet.getRange(1, 1, 1, data.headers.length).setValues([data.headers]);',
-  '        var headerRange = sheet.getRange(1, 1, 1, data.headers.length);',
-  '        headerRange.setBackground(headerColor);',
-  '        headerRange.setFontColor("#FFFFFF");',
-  '        headerRange.setFontWeight("bold");',
-  '        sheet.setFrozenRows(1);',
-  '        lastRow = 1;',
-  '      }',
-  '      if (data.rows && data.rows.length > 0) {',
-  '        sheet.getRange(lastRow + 1, 1, data.rows.length, data.rows[0].length).setValues(data.rows);',
-  '        sheet.autoResizeColumns(1, data.headers.length);',
-  '      }',
-  '    } else {',
-  '      // 覆蓋模式（原有邏輯）',
-  '      sheet.clearContents();',
-  '      var allRows = [data.headers].concat(data.rows);',
-  '      if (allRows.length > 0) {',
-  '        sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);',
-  '      }',
-  '      var headerRange = sheet.getRange(1, 1, 1, data.headers.length);',
-  '      headerRange.setBackground(headerColor);',
-  '      headerRange.setFontColor("#FFFFFF");',
-  '      headerRange.setFontWeight("bold");',
-  '      sheet.setFrozenRows(1);',
-  '      sheet.autoResizeColumns(1, data.headers.length);',
+  '    sheet.clearContents();',
+  '    var allRows = [data.headers].concat(data.rows);',
+  '    if (allRows.length > 0) {',
+  '      sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);',
   '    }',
-  '',
+  '    var headerColor = data.headerColor || "#6B5B95";',
+  '    var headerRange = sheet.getRange(1, 1, 1, data.headers.length);',
+  '    headerRange.setBackground(headerColor);',
+  '    headerRange.setFontColor("#FFFFFF");',
+  '    headerRange.setFontWeight("bold");',
+  '    sheet.setFrozenRows(1);',
+  '    sheet.autoResizeColumns(1, data.headers.length);',
   '    if (data.sendEmail && data.emailTo) {',
   '      var emails = data.emailTo.split(",").map(function(addr){ return addr.trim(); });',
   '      var subject = data.emailSubject || "庫存健康報告";',
-  '      var body = "庫存分析已完成，請至 Google Sheets 查看。\n\n寫入時間：" + new Date().toLocaleString();',
+  '      var body = "庫存分析已完成，請至 Google Sheets 查看。" + "\n\n"',
+  '               + "已寫入4個分頁：全部庫存、過期品、長期在庫、即將到期" + "\n"',
+  '               + "寫入時間：" + new Date().toLocaleString() + "\n";',
   '      emails.forEach(function(addr){',
   '        if (addr) GmailApp.sendEmail(addr, subject, body);',
   '      });',
@@ -3598,7 +3766,6 @@ const ledgerFiles = {};
 let files = { file1: null, file2: null, file3: null };
 let rentalTableData = null;
 let calculatedData = null;
-let rentalIoData = null; // 出入庫記錄表，供匯出出庫明細用
 
 ['file1', 'file2', 'file3'].forEach((id, idx) => {
     const fileInput = document.getElementById(id);
@@ -3850,97 +4017,6 @@ async function syncToGitHub() {
     }
 }
 
-// ===== 出庫明細 Apps Script 設定 =====
-const OUTBOUND_APPS_SCRIPT_CODE = `function doGet(e) { return handleRequest(e); }
-function doPost(e) { return handleRequest(e); }
-
-function handleRequest(e) {
-  try {
-    var raw = "";
-    if (e.parameter && e.parameter.data) {
-      raw = e.parameter.data;
-    } else if (e.postData && e.postData.contents) {
-      var params = {};
-      e.postData.contents.split("&").forEach(function(p) {
-        var kv = p.split("=");
-        if (kv.length === 2) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1].replace(/\\+/g, " "));
-      });
-      if (params.data) raw = params.data;
-    }
-    if (!raw) return ContentService.createTextOutput("error: no data");
-    var data = JSON.parse(raw);
-    var ss = SpreadsheetApp.openById("1oFvWIB1rgXAsEvj8dGvTbBp2UilPMAhkvwo9GO4paHQ");
-    var sheetName = data.sheetName || "出庫明細";
-    var sheet = ss.getSheetByName(sheetName);
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-    }
-    var headerColor = data.headerColor || "#6B5B95";
-    var lastRow = sheet.getLastRow();
-
-    // 第一次（空表）：寫標頭
-    if (lastRow === 0) {
-      var hr = sheet.getRange(1, 1, 1, data.headers.length);
-      hr.setValues([data.headers]);
-      hr.setBackground(headerColor);
-      hr.setFontColor("#FFFFFF");
-      hr.setFontWeight("bold");
-      sheet.setFrozenRows(1);
-      lastRow = 1;
-    }
-
-    // 刪除同月份的舊資料（月份欄在第1欄 A）
-    if (data.month && lastRow > 1) {
-      var allData = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-      var rowsToDelete = [];
-      for (var i = allData.length - 1; i >= 0; i--) {
-        if (String(allData[i][0]) === String(data.month)) {
-          rowsToDelete.push(i + 2); // +2 因為從第2列開始，且 i 是0-based
-        }
-      }
-      rowsToDelete.forEach(function(r) { sheet.deleteRow(r); });
-    }
-
-    // 追加新資料
-    if (data.rows && data.rows.length > 0) {
-      var newLastRow = sheet.getLastRow();
-      sheet.getRange(newLastRow + 1, 1, data.rows.length, data.rows[0].length).setValues(data.rows);
-      sheet.autoResizeColumns(1, data.headers.length);
-    }
-
-    return ContentService.createTextOutput("success:" + (data.rows ? data.rows.length : 0)).setMimeType(ContentService.MimeType.TEXT);
-  } catch(err) {
-    return ContentService.createTextOutput("error: " + err.message);
-  }
-}`;
-
-window.copyOutboundAppsScript = function() {
-    navigator.clipboard.writeText(OUTBOUND_APPS_SCRIPT_CODE).then(() => {
-        alert('✅ 程式碼已複製！\n\n請按以下步驟：\n1. 開啟試算表 → 擴充功能 → Apps Script\n2. 全選舊程式碼 → 刪除 → 貼上\n3. 部署 → 新增部署 → 網頁應用程式 → 存取權選「任何人」\n4. 複製部署網址 → 點「設定出庫明細 Script 網址」貼上');
-    }).catch(() => {
-        const ta = document.createElement('textarea');
-        ta.value = OUTBOUND_APPS_SCRIPT_CODE;
-        document.body.appendChild(ta);
-        ta.select(); document.execCommand('copy');
-        document.body.removeChild(ta);
-        alert('✅ 程式碼已複製！請依說明完成部署。');
-    });
-};
-window.copyOutboundAppsScript = window.copyOutboundAppsScript;
-
-window.setOutboundScriptUrl = function() {
-    const current = localStorage.getItem('outbound_script_url') || '';
-    const url = prompt('請輸入出庫明細 Apps Script 部署網址：\n（部署後從 Apps Script 複製）', current);
-    if (url === null) return;
-    if (url.trim() === '') {
-        localStorage.removeItem('outbound_script_url');
-        alert('已清除網址');
-    } else {
-        localStorage.setItem('outbound_script_url', url.trim());
-        alert('✅ 網址已儲存！');
-    }
-};
-
 // ===== 設定 GitHub Token =====
 window.setGitHubToken = function() {
     const current = localStorage.getItem('github_token');
@@ -4190,7 +4266,6 @@ async function previewMonthly() {
     try {
         const d1 = f1 ? await readExcel(f1, false) : [];
         const d2 = f2 ? await readExcel(f2, false) : [];
-        window._pendingMonthlyRaw = { d1, d2 };
 
         statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取總帳...</span>';
         const existingRows = lsLoadLedgerRows() || [];
@@ -4299,7 +4374,6 @@ async function previewMonthly() {
                 <div style="display:flex; gap:0.5rem;">
                     <button onclick="exportPreview()" style="background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">📥 匯出 Excel</button>
                     <button onclick="exportPreviewPDF()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">🖨️ 匯出 PDF</button>
-                    <button onclick="uploadOutboundToSheets()" style="background:#6B5B95; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">☁️ 上傳出庫明細</button>
                     <button onclick="confirmMonthly()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.5rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 確認導入總帳</button>
                 </div>
             </div>
@@ -4809,188 +4883,6 @@ window.exportPreviewPDF = function() {
     win.document.close();
 };
 
-// ===== 上傳出庫明細到 Google Sheets（可在確認導入前獨立執行）=====
-function rentalToast(msg, dur = 3000) {
-    const t = document.getElementById('rental_toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.style.transform = 'translateY(0)';
-    t.style.opacity = '1';
-    clearTimeout(t._timer);
-    t._timer = setTimeout(() => {
-        t.style.transform = 'translateY(80px)';
-        t.style.opacity = '0';
-    }, dur);
-}
-
-async function uploadOutboundToSheets(priceHistoryOverride) {
-    const appsScriptUrl = localStorage.getItem('outbound_script_url') || '';
-    if (!appsScriptUrl) {
-        alert('請先設定「出庫明細 Script 網址」\n（月結算總帳頁面 → ☁️ 設定出庫明細 Script 網址）');
-        return false;
-    }
-    const { d1, d2 } = window._pendingMonthlyRaw || {};
-    const allRentalRows = [...(d1||[]), ...(d2||[])];
-    if (allRentalRows.length === 0) {
-        alert('請先執行「預覽月結算」後再上傳');
-        return false;
-    }
-    const label = (window._pendingMonthly || {}).label || document.getElementById('ledger_month_label').value.trim() || '本月';
-
-    // 讀取分攤單價：本次預覽算出的新值最優先，歷史/快照補沒有的
-    let priceMap = priceHistoryOverride || {};
-    if (!priceHistoryOverride) {
-        // 1. 歷史打底
-        try { priceMap = JSON.parse(localStorage.getItem('rental_price_history_v1') || '{}'); } catch(e) {}
-        // 2. 快照和主檔補沒有的（不蓋歷史）
-        const snapshot = [];
-        try { snapshot.push(...JSON.parse(localStorage.getItem(LS_PROFIT_SNAPSHOT_KEY) || '[]')); } catch(e) {}
-        const ledger = lsLoadLedgerRows() || [];
-        [...snapshot, ...ledger].forEach(r => {
-            const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
-            if (k && r.分攤單價 && !priceMap[k]) priceMap[k] = r.分攤單價;
-        });
-        // 3. 本次預覽的新分攤單價最後覆蓋（無條件，確保用最新值）
-        const pendingPreview = (window._pendingMonthly || {}).preview || [];
-        pendingPreview.forEach(r => {
-            const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
-            if (k && r.分攤單價 > 0) priceMap[k] = r.分攤單價; // 有值才覆蓋，0不蓋
-        });
-    }
-
-    // 解析業務屬性明細
-    // 解析業務屬性明細
-    // 從 _pendingMonthly.preview 建立最終分攤單價 map（最準確，與月結算完全一致）
-    const previewPriceMap = {};
-    ((window._pendingMonthly || {}).preview || []).forEach(r => {
-        const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
-        if (k) previewPriceMap[k] = r.分攤單價 || 0;
-    });
-
-    const outboundRows = [];
-    allRentalRows.forEach(r => {
-        const attr = String(r['業務屬性明細']||'');
-        const name = String(r['產品名稱']||'').trim();
-        // 批號強制轉字串並去掉浮點數尾綴（例如 20260326.0 → 20260326）
-        const batch = String(r['批號']||'').trim().replace(/\.0$/, '');
-        const category = String(r['產品類別']||'');
-        const key = `${name}|${batch}`;
-        // 優先用 preview 的最終分攤單價（與月結算完全一致），再補 priceMap
-        const unitPrice = (previewPriceMap[key] > 0 ? previewPriceMap[key] : null)
-                       ?? (priceMap[key] > 0 ? priceMap[key] : null)
-                       ?? 0;
-        const outSection = attr.split('|').filter(s => s.includes('[出庫]')).join('|');
-        const re = /【([^】]+)】(\d+(?:\.\d+)?)/g;
-        let match;
-        while ((match = re.exec(outSection)) !== null) {
-            const outType = match[1].trim();
-            const qty = parseFloat(match[2]) || 0;
-            const rentCost = Math.round(unitPrice * qty);
-            outboundRows.push([label, category, name, batch, outType, qty, unitPrice, rentCost]);
-        }
-    });
-
-    if (outboundRows.length === 0) {
-        alert('沒有解析到出庫明細資料，請確認上/下期檔案有上傳');
-        return false;
-    }
-
-    // 上傳
-    const statusEl = document.getElementById('ledger_status_monthly');
-    if (statusEl) statusEl.innerHTML = '<span style="color:#6B5B95;">⏳ 上傳出庫明細中...</span>';
-    try {
-        const sheetId = '1oFvWIB1rgXAsEvj8dGvTbBp2UilPMAhkvwo9GO4paHQ';
-        const headers = ['月份','產品類別','產品名稱','批號','出庫類型','出庫數量','分攤單價','租金費用'];
-        const payload = { sheetName: '出庫明細', sheetId, headers, rows: outboundRows, headerColor: '#6B5B95', month: label };
-        const params = new URLSearchParams();
-        params.append('data', JSON.stringify(payload));
-        const resp = await fetch(appsScriptUrl, { method: 'POST', body: params });
-        const result = await resp.text();
-        if (result.startsWith('success')) {
-            const count = result.split(':')[1] || outboundRows.length;
-            if (statusEl) statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ ${label} 出庫明細已上傳 ${count} 筆（Google Sheets 已更新）→ 確認無誤後再點「確認導入總帳」</span>`;
-            rentalToast(`✅ ${label} 出庫明細已上傳 Google Sheets（${count} 筆）`);
-
-            // 對帳：出庫明細合計 vs 月結算月租金出庫
-            const preview = (window._pendingMonthly || {}).preview || [];
-            // 建立月結算查詢表 key -> 月租金出庫
-            const ledgerOutMap = {};
-            preview.forEach(r => {
-                const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
-                ledgerOutMap[k] = r.月租金出庫 || 0;
-            });
-            // 出庫明細按 key 加總
-            const detailSumMap = {};
-            outboundRows.forEach(row => {
-                const k = `${row[2]}|${row[3]}`; // 品名|批號
-                detailSumMap[k] = (detailSumMap[k] || 0) + (row[7] || 0);
-            });
-            // 找差異
-            const diffs = [];
-            const allKeys = new Set([...Object.keys(ledgerOutMap), ...Object.keys(detailSumMap)]);
-            allKeys.forEach(k => {
-                const ledgerOut = ledgerOutMap[k] || 0;
-                const detailOut = detailSumMap[k] || 0;
-                if (ledgerOut === 0 && detailOut === 0) return;
-                const diff = detailOut - ledgerOut;
-                if (Math.abs(diff) > 0) diffs.push({ k, ledgerOut, detailOut, diff });
-            });
-            diffs.sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff));
-
-            const reconcileEl = document.getElementById('outbound_reconcile');
-            if (reconcileEl) {
-                if (diffs.length === 0) {
-                    reconcileEl.innerHTML = `<div style="color:#4a9a37; font-weight:700; padding:0.6rem; background:#f0faf0; border-radius:8px; margin-top:0.8rem;">✅ 對帳完全一致，無差異</div>`;
-                } else {
-                    const totalDiff = diffs.reduce((s,d) => s + d.diff, 0);
-                    let rows = diffs.map(d => {
-                        const [name, batch] = d.k.split('|');
-                        const color = d.diff > 0 ? '#e8836a' : '#7ec8e3';
-                        return `<tr>
-                            <td style="white-space:nowrap;">${name}</td>
-                            <td style="white-space:nowrap; color:#8a6a7a;">${batch}</td>
-                            <td style="text-align:right;">${d.ledgerOut.toLocaleString()}</td>
-                            <td style="text-align:right;">${d.detailOut.toLocaleString()}</td>
-                            <td style="text-align:right; font-weight:800; color:${color};">${d.diff > 0 ? '+' : ''}${d.diff.toLocaleString()}</td>
-                        </tr>`;
-                    }).join('');
-                    reconcileEl.innerHTML = `
-                        <div style="margin-top:0.8rem;">
-                            <div style="font-weight:800; color:#8a5aa0; margin-bottom:0.5rem; font-size:0.85rem;">
-                                📊 對帳結果：共 ${diffs.length} 筆有差異，總差異 <span style="color:${totalDiff > 0 ? '#e8836a' : '#7ec8e3'};">${totalDiff > 0 ? '+' : ''}${totalDiff.toLocaleString()}</span> 元
-                                <span style="font-size:0.75rem; color:#aaa; font-weight:400;">（出庫明細合計 - 月結算月租金出庫）</span>
-                            </div>
-                            <div style="overflow-x:auto;">
-                                <table style="font-size:0.78rem; width:100%; border-collapse:collapse;">
-                                    <thead>
-                                        <tr style="background:#f5f0ff;">
-                                            <th style="text-align:left; padding:0.3rem 0.5rem; white-space:nowrap;">產品名稱</th>
-                                            <th style="text-align:left; padding:0.3rem 0.5rem; white-space:nowrap;">批號</th>
-                                            <th style="text-align:right; padding:0.3rem 0.5rem; white-space:nowrap;">月結算月租金出庫</th>
-                                            <th style="text-align:right; padding:0.3rem 0.5rem; white-space:nowrap;">出庫明細合計</th>
-                                            <th style="text-align:right; padding:0.3rem 0.5rem; white-space:nowrap;">差異</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>${rows}</tbody>
-                                </table>
-                            </div>
-                        </div>`;
-                }
-            }
-            return true;
-        } else {
-            if (statusEl) statusEl.innerHTML = `<span style="color:#e8836a;">⚠️ 上傳回應異常：${result.slice(0,80)}</span>`;
-            rentalToast('⚠️ 上傳失敗，請檢查 Script 網址設定');
-            return false;
-        }
-    } catch(e) {
-        if (statusEl) statusEl.innerHTML = `<span style="color:#e8836a;">❌ 上傳失敗：${e.message}</span>`;
-        rentalToast(`❌ 上傳失敗：${e.message}`);
-        return false;
-    }
-}
-window.uploadOutboundToSheets = uploadOutboundToSheets;
-
 async function confirmMonthly() {
     if (!window._pendingMonthly) return;
     const { preview: allPreview, label } = window._pendingMonthly;
@@ -5047,21 +4939,9 @@ async function confirmMonthly() {
         // 刪除本期結存=0的（已出清，無論有無結餘）
         const finalRows = Object.values(finalMap).filter(r => r.本期結存 > 0);
 
-        // ① 分攤單價歷史（永久保留，只增不刪，供利潤分析使用）
-        let priceHistory = {};
-        try { priceHistory = JSON.parse(localStorage.getItem('rental_price_history_v1') || '{}'); } catch(e) {}
-        Object.values(finalMap).forEach(r => {
-            const key = String(r.產品名稱||'').trim() + '|' + String(r.批號||'').trim();
-            if (key && r.分攤單價) priceHistory[key] = r.分攤單價;
-        });
-        try { localStorage.setItem('rental_price_history_v1', JSON.stringify(priceHistory)); } catch(e) {}
-
         // 保存利潤快照（含結存=0，供利潤分析使用）
-        const snapshotRows = Object.values(finalMap);
+        const snapshotRows = Object.values(finalMap); // 不過濾，保留全部
         try { localStorage.setItem(LS_PROFIT_SNAPSHOT_KEY, JSON.stringify(snapshotRows)); } catch(e) {}
-
-        // ② 出庫明細上傳（傳入已算好的 priceHistory，不重複讀取）
-        await uploadOutboundToSheets(priceHistory).catch(e => console.error('出庫明細寫入失敗', e));
 
         await saveLedgerRows(finalRows);
         await saveMonthlyRecord(label, {
@@ -5279,7 +5159,6 @@ async function processFiles() {
         const data3 = await readExcel(files.file3, false);  // 重量表
 
         rentalTableData = data1;
-        rentalIoData = data2; // 保存出入庫記錄表
         const result = calculateRental(data1, data2, data3);
         calculatedData = result;
         
@@ -5474,11 +5353,11 @@ function calculateRental(rentalData, ioData, weightData) {
         
         // 生成備註：各業務屬性的出庫數量
         const outboundRemark = Object.entries(outboundByType)
-            .map(([type, qty]) => `【${type}】${qty % 1 === 0 ? qty : qty}`)
+            .map(([type, qty]) => `【${type}】${Math.round(qty)}`)
             .join(' / ') || '';
         
         const inboundRemark = Object.entries(inboundByType)
-            .map(([type, qty]) => `【${type}】${qty % 1 === 0 ? qty : qty}`)
+            .map(([type, qty]) => `【${type}】${Math.round(qty)}`)
             .join(' / ') || '';
         
         let fullRemark = '';
@@ -5907,30 +5786,6 @@ function exportResults() {
     const ws = window.XLSX.utils.json_to_sheet(exportData);
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, "租金計算結果");
-
-    // 第二個 sheet：出庫明細（從出入庫記錄表抓精確數量）
-    if (rentalIoData && rentalIoData.length > 0) {
-        const config = getConfig();
-        const outboundDetail = [];
-        rentalIoData.forEach(io => {
-            const type = String(io[config.col_type] || io['業務屬性'] || '').trim();
-            const isOut = type && (type.includes('調撥出庫') || type.includes('銷售出貨') ||
-                                   type.includes('拆解出庫') || type.includes('出庫') || type.includes('出貨'));
-            if (!isOut) return;
-            const name  = String(io[config.col_product2] || io['產品名稱'] || '').trim();
-            const batch = String(io[config.col_batch2]   || io['批號']     || '').trim();
-            const qty   = parseFloat(io['數量'] || 0) || 0;
-            const date  = String(io[config.col_date]     || io['單據日期'] || '').trim();
-            const dept  = String(io['部門名稱'] || '').trim();
-            if (!name || !batch) return;
-            outboundDetail.push({ '單據日期': date, '產品名稱': name, '批號': batch, '出庫類型': type, '數量': qty, '部門': dept });
-        });
-        if (outboundDetail.length > 0) {
-            const ws2 = window.XLSX.utils.json_to_sheet(outboundDetail);
-            window.XLSX.utils.book_append_sheet(wb, ws2, "出庫明細");
-        }
-    }
-
     const filename = `租金計算_${new Date().toISOString().slice(0,10)}.xlsx`;
     window.XLSX.writeFile(wb, filename);
     showStatus('✅ 檔案已下載！', 'success');
@@ -5981,15 +5836,13 @@ function profitFileChanged(input) {
 }
 window.profitFileChanged = profitFileChanged;
 
-// 租金計算結果上傳（上期/下期）
-function rentalResultFileChanged(input, period) {
+// 租金計算結果上傳
+function rentalResultFileChanged(input) {
     if (!input.files[0]) return;
     const file = input.files[0];
-    const fileId = period === 'upper' ? 'rental_upper_file' : 'rental_lower_file';
-    ledgerFiles[fileId] = file;
-    const lblId = period === 'upper' ? 'rental_upper_label' : 'rental_lower_label';
-    const lbl = document.getElementById(lblId);
-    if (lbl) { lbl.textContent = '✅ ' + file.name; lbl.style.color = '#4a9a37'; }
+    ledgerFiles['rental_result_file'] = file;
+    const lbl = document.getElementById('rental_result_label');
+    if (lbl) { lbl.textContent = '✅ ' + file.name; lbl.style.color = '#6aa85a'; }
 }
 window.rentalResultFileChanged = rentalResultFileChanged;
 
@@ -6023,61 +5876,41 @@ async function calcProfit() {
         if (!profitRows || profitRows.length === 0) { statusEl.innerHTML = '<span style="color:#e8836a;">❌ 讀取失敗或空白</span>'; return; }
         profitHeaders = Object.keys(profitRows[0]);
 
-        // 第1層：分攤單價歷史（永久保留）+ 快照 + 主檔，三層合併
-        let priceHistory = {};
-        try { priceHistory = JSON.parse(localStorage.getItem('rental_price_history_v1') || '{}'); } catch(e) {}
+        // 第1層：建立總帳分攤單價表
         const ledgerRows = lsLoadLedgerRows() || [];
         let snapshotRows = [];
         try { snapshotRows = JSON.parse(localStorage.getItem(LS_PROFIT_SNAPSHOT_KEY) || '[]'); } catch(e) {}
-        // 歷史為基礎，快照和主檔覆蓋（最新值優先）
-        const ledgerPriceMap = Object.assign({}, priceHistory);
+        const ledgerPriceMap = {}; // 產品名稱|批號 -> 分攤單價
         ledgerRows.forEach(r => {
             const name  = String(r.產品名稱||'').trim();
             const batch = String(r.批號||'').trim();
-            if (name && batch && r.分攤單價) ledgerPriceMap[`${name}|${batch}`] = r.分攤單價;
+            if (name && batch) ledgerPriceMap[`${name}|${batch}`] = r.分攤單價 || 0;
         });
         snapshotRows.forEach(r => {
             const name  = String(r.產品名稱||'').trim();
             const batch = String(r.批號||'').trim();
-            if (name && batch && r.分攤單價) ledgerPriceMap[`${name}|${batch}`] = r.分攤單價;
+            if (name && batch) ledgerPriceMap[`${name}|${batch}`] = r.分攤單價 || 0;
         });
 
-        // 第2層：讀取租金計算結果（上期＋下期），建立 產品名稱|批號 -> 兩期總計加總
-        const rentalCostMap = {}; // 產品名稱|批號 -> 母件租金成本（上期總計+下期總計）
-        const upperFile = ledgerFiles['rental_upper_file'];
-        const lowerFile = ledgerFiles['rental_lower_file'];
-        let rentalLoadCount = 0;
-
-        const addRentalRows = (rows) => {
-            rows.forEach(r => {
-                const name  = String(r['產品名稱']||'').trim();
-                const batch = String(r['批號']||'').trim();
-                const cost  = parseFloat(r['總計']) || 0;
-                if (!name || !batch) return;
-                const key = `${name}|${batch}`;
-                rentalCostMap[key] = (rentalCostMap[key] || 0) + cost;
-            });
-        };
-
-        if (upperFile) {
+        // 第2層：讀取租金計算結果，建立 產品名稱|批號 -> 分攤單價 的對應表
+        const rentalFile = ledgerFiles['rental_result_file'];
+        const rentalPriceMap = {}; // 產品名稱|批號 -> 分攤單價（從租金計算結果讀）
+        if (rentalFile) {
             try {
-                const rows = await readExcelSheet(upperFile, null);
-                addRentalRows(rows);
-                rentalLoadCount += rows.length;
-            } catch(e) {}
+                const rentalRows = await readExcelSheet(rentalFile, null);
+                rentalRows.forEach(r => {
+                    const name  = String(r['產品名稱']||'').trim();
+                    const batch = String(r['批號']||'').trim();
+                    const price = parseFloat(r['分攤單價']) || 0;
+                    if (name && batch && price > 0) rentalPriceMap[`${name}|${batch}`] = price;
+                });
+                document.getElementById('rental_result_status').textContent = `✅ 已載入 ${rentalRows.length} 筆`;
+            } catch(e) {
+                document.getElementById('rental_result_status').textContent = `⚠️ 讀取失敗`;
+            }
+        } else {
+            document.getElementById('rental_result_status').textContent = '';
         }
-        if (lowerFile) {
-            try {
-                const rows = await readExcelSheet(lowerFile, null);
-                addRentalRows(rows);
-                rentalLoadCount += rows.length;
-            } catch(e) {}
-        }
-
-        const hasRental = upperFile || lowerFile;
-        document.getElementById('rental_result_status').textContent = hasRental
-            ? `✅ 已載入 ${rentalLoadCount} 筆（${upperFile?'上期':''}${upperFile&&lowerFile?'＋':''}${lowerFile?'下期':''}）`
-            : '';
 
         // 第3層：讀取加工單，計算每個子件批號的租金單價
         // 邏輯：母件名稱+批號 → 查 rentalPriceMap 得分攤單價 → × 母件數量 = 母件租金成本
@@ -6112,11 +5945,11 @@ async function calcProfit() {
 
                     if (!childSummary[childBatch]) childSummary[childBatch] = { totalCost: 0, totalQty: 0, counted: new Set() };
 
-                    // 母件租金成本：直接從 rentalCostMap 取兩期加總的總計
+                    // 母件租金成本：每一行都累加（不同母件批號各自計算）
+                    const motherPrice = rentalPriceMap[`${motherName}|${motherBatch}`] || 0;
                     const costKey = `${motherName}|${motherBatch}`;
                     if (!childSummary[childBatch].counted.has(costKey)) {
-                        const motherTotalCost = rentalCostMap[costKey] || 0;
-                        childSummary[childBatch].totalCost += motherTotalCost;
+                        childSummary[childBatch].totalCost += motherPrice * motherQty;
                         childSummary[childBatch].counted.add(costKey);
                     }
 
@@ -6149,12 +5982,17 @@ async function calcProfit() {
             
             let rentPrice = '', rentCost = '', rentSource = '';
             
-            // 查加工成品單價（子件批號直接比對）
+            // 查加工成品單價
             if (processingUnitPriceMap[batch]) {
                 rentPrice = processingUnitPriceMap[batch];
                 rentSource = '加工成品';
             }
-            // 查總帳分攤單價（產品名稱+批號）
+            // 查租金計算結果
+            else if (rentalPriceMap[key]) {
+                rentPrice = rentalPriceMap[key];
+                rentSource = '租金結果';
+            }
+            // 查總帳
             else if (ledgerPriceMap[key]) {
                 rentPrice = ledgerPriceMap[key];
                 rentSource = '總帳';
