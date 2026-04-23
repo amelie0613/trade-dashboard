@@ -237,6 +237,34 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
       </div>
     </div>
 
+    <!-- 基本資訊列欄寬 -->
+    <div style="margin-bottom:14px;border-top:1px solid #f0f0f0;padding-top:12px;">
+      <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:4px;">基本資訊列欄寬</div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:8px;">四欄合計應為 100%</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">日期欄</label>
+          <input type="number" id="cw-date" min="10" max="60" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">船名欄</label>
+          <input type="number" id="cw-ship" min="10" max="60" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">洋區欄</label>
+          <input type="number" id="cw-zone" min="10" max="60" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">溫層欄</label>
+          <input type="number" id="cw-temp" min="10" max="60" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
+        </div>
+      </div>
+    </div>
+
     <!-- 行高 -->
     <div style="margin-bottom:14px;border-top:1px solid #f0f0f0;padding-top:12px;">
       <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:8px;">行高</div>
@@ -292,7 +320,8 @@ let fishSpecMap = JSON.parse(localStorage.getItem('fishSpecMap') || '{}');
 const LAYOUT_DEFAULTS = {
   fsCompany:36, fsFormtitle:24, fsInfo:20, fsThead:20, fsData:20, fsSign:14,
   cwSeq:44, cwName:82, cwGg:28, cwDr:28, cwSpec:132,
-  rhData:9.5, rhThead:9, rhBlank:34
+  rhData:9.5, rhThead:9, rhBlank:34,
+  cwDate:25, cwShip:22, cwZone:31, cwTemp:22
 };
 // 使用者自訂預設（「儲存為設定值」寫入這裡）
 let userDefaults = Object.assign({}, LAYOUT_DEFAULTS,
@@ -316,6 +345,10 @@ function _readLayoutInputs() {
     rhData:      +document.getElementById('rh-data').value      || LAYOUT_DEFAULTS.rhData,
     rhThead:     +document.getElementById('rh-thead').value     || LAYOUT_DEFAULTS.rhThead,
     rhBlank:     +document.getElementById('rh-blank').value     || LAYOUT_DEFAULTS.rhBlank,
+    cwDate:      +document.getElementById('cw-date').value      || LAYOUT_DEFAULTS.cwDate,
+    cwShip:      +document.getElementById('cw-ship').value      || LAYOUT_DEFAULTS.cwShip,
+    cwZone:      +document.getElementById('cw-zone').value      || LAYOUT_DEFAULTS.cwZone,
+    cwTemp:      +document.getElementById('cw-temp').value      || LAYOUT_DEFAULTS.cwTemp,
   };
 }
 
@@ -363,6 +396,10 @@ function fillLayoutInputs() {
   document.getElementById('rh-data').value      = layoutCfg.rhData;
   document.getElementById('rh-thead').value     = layoutCfg.rhThead;
   document.getElementById('rh-blank').value     = layoutCfg.rhBlank;
+  document.getElementById('cw-date').value      = layoutCfg.cwDate  || LAYOUT_DEFAULTS.cwDate;
+  document.getElementById('cw-ship').value      = layoutCfg.cwShip  || LAYOUT_DEFAULTS.cwShip;
+  document.getElementById('cw-zone').value      = layoutCfg.cwZone  || LAYOUT_DEFAULTS.cwZone;
+  document.getElementById('cw-temp').value      = layoutCfg.cwTemp  || LAYOUT_DEFAULTS.cwTemp;
 }
 let selected = [];
 let defaultCnt = 20;
@@ -672,10 +709,10 @@ function doPrint() {
         <h2 style="text-align:center;font-size:${L.fsFormtitle}px;letter-spacing:6px;margin:0 0 6px;font-weight:normal;">原 魚 入 庫 紀 錄 表</h2>
         <table style="width:100%;border-collapse:collapse;margin-bottom:5px;table-layout:fixed;">
           <tr>
-            <td style="padding:5px 10px;font-size:${L.fsInfo}px;width:25%;">日期：${dateStr}</td>
-            <td style="padding:5px 10px;font-size:${L.fsInfo}px;width:22%;">船名：${ship}</td>
-            <td style="padding:5px 10px;font-size:${L.fsInfo}px;width:31%;">洋區：${zone}</td>
-            <td style="padding:5px 10px;font-size:${L.fsInfo}px;width:22%;">溫層：${temp}</td>
+            <td style="padding:5px 10px;font-size:${L.fsInfo}px;width:${L.cwDate||25}%;">日期：${dateStr}</td>
+            <td style="padding:5px 10px;font-size:${L.fsInfo}px;width:${L.cwShip||22}%;">船名：${ship}</td>
+            <td style="padding:5px 10px;font-size:${L.fsInfo}px;width:${L.cwZone||31}%;">洋區：${zone}</td>
+            <td style="padding:5px 10px;font-size:${L.fsInfo}px;width:${L.cwTemp||22}%;">溫層：${temp}</td>
           </tr>
         </table>
       </div>
