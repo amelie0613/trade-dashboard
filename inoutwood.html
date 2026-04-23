@@ -164,6 +164,98 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
     </div>
   </div>
 
+  <div class="card" style="border:2px solid #e8e0ff;">
+    <div class="sec-title" style="color:#6f42c1;font-size:12px;">📐 列印版面設定</div>
+    <p style="font-size:12px;color:#888;margin-bottom:14px;">調整後點「儲存設定」，下次列印即套用。</p>
+
+    <!-- 字體大小 -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:8px;">字體大小</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">公司名稱</label>
+          <input type="number" id="fs-company" min="14" max="48" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">表單名稱</label>
+          <input type="number" id="fs-formtitle" min="12" max="36" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">基本資訊列</label>
+          <input type="number" id="fs-info" min="10" max="28" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">表頭</label>
+          <input type="number" id="fs-thead" min="10" max="28" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">資料列</label>
+          <input type="number" id="fs-data" min="10" max="28" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">簽名列</label>
+          <input type="number" id="fs-sign" min="10" max="24" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">px</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 欄寬 -->
+    <div style="margin-bottom:14px;border-top:1px solid #f0f0f0;padding-top:12px;">
+      <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:8px;">欄寬</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">序號欄</label>
+          <input type="number" id="cw-seq" min="24" max="80" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">品名欄</label>
+          <input type="number" id="cw-name" min="40" max="160" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">頭欄</label>
+          <input type="number" id="cw-head" min="24" max="100" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">規格區塊</label>
+          <input type="number" id="cw-spec" min="60" max="300" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">px</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 行高 -->
+    <div style="margin-bottom:14px;border-top:1px solid #f0f0f0;padding-top:12px;">
+      <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:8px;">行高</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">資料列高</label>
+          <input type="number" id="rh-data" min="5" max="20" step="0.5" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">mm</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">空白備用區</label>
+          <input type="number" id="rh-blank" min="10" max="80" step="1" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">mm</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="add-btn" onclick="saveLayout()">儲存設定</button>
+      <button class="add-btn" style="background:#888;" onclick="resetLayout()">還原預設</button>
+      <span id="layout-saved-msg" style="font-size:12px;color:#52c41a;display:none;">✓ 已儲存</span>
+    </div>
+  </div>
+
   <div class="card" style="background:#fffbe6;border:1px solid #ffe58f;">
     <div class="sec-title" style="color:#d48806;">💾 資料備份</div>
     <p style="font-size:13px;color:#666;margin-bottom:10px;">將目前的魚種、規格、船名、魚種規格設定存成文字，下次可貼回還原。</p>
@@ -184,6 +276,60 @@ let fishList = JSON.parse(localStorage.getItem('fishList') || '["石橋","黑旗
 let specList = JSON.parse(localStorage.getItem('specList') || '[{"label":"40 25 15 15 10 10","vals":["40","25","15","15","10","10"]},{"label":"80 15 15 10 10","vals":["80","15","15","10","10"]},{"label":"25 20 15 10 10","vals":["25","20","15","10","10"]},{"label":"30 120 150","vals":["30","120","150"]},{"label":"5↑ 5↓","vals":["5↑","5↓"]},{"label":"10↑ 10↓","vals":["10↑","10↓"]}]');
 let shipList = JSON.parse(localStorage.getItem('shipList') || '["新華豐","新華豐系列","宏洋輪","沅滿金","榮發回","上禽","穩弘668(穩勝)"]');
 let fishSpecMap = JSON.parse(localStorage.getItem('fishSpecMap') || '{}');
+
+// ── 版面設定預設值 ──
+const LAYOUT_DEFAULTS = {
+  fsCompany:36, fsFormtitle:24, fsInfo:20, fsThead:20, fsData:20, fsSign:14,
+  cwSeq:44, cwName:82, cwHead:52, cwSpec:132,
+  rhData:9.5, rhBlank:34
+};
+let layoutCfg = Object.assign({}, LAYOUT_DEFAULTS,
+  JSON.parse(localStorage.getItem('layoutCfg') || '{}'));
+
+function saveLayout() {
+  layoutCfg = {
+    fsCompany:   +document.getElementById('fs-company').value   || LAYOUT_DEFAULTS.fsCompany,
+    fsFormtitle: +document.getElementById('fs-formtitle').value || LAYOUT_DEFAULTS.fsFormtitle,
+    fsInfo:      +document.getElementById('fs-info').value      || LAYOUT_DEFAULTS.fsInfo,
+    fsThead:     +document.getElementById('fs-thead').value     || LAYOUT_DEFAULTS.fsThead,
+    fsData:      +document.getElementById('fs-data').value      || LAYOUT_DEFAULTS.fsData,
+    fsSign:      +document.getElementById('fs-sign').value      || LAYOUT_DEFAULTS.fsSign,
+    cwSeq:       +document.getElementById('cw-seq').value       || LAYOUT_DEFAULTS.cwSeq,
+    cwName:      +document.getElementById('cw-name').value      || LAYOUT_DEFAULTS.cwName,
+    cwHead:      +document.getElementById('cw-head').value      || LAYOUT_DEFAULTS.cwHead,
+    cwSpec:      +document.getElementById('cw-spec').value      || LAYOUT_DEFAULTS.cwSpec,
+    rhData:      +document.getElementById('rh-data').value      || LAYOUT_DEFAULTS.rhData,
+    rhBlank:     +document.getElementById('rh-blank').value     || LAYOUT_DEFAULTS.rhBlank,
+  };
+  localStorage.setItem('layoutCfg', JSON.stringify(layoutCfg));
+  const msg = document.getElementById('layout-saved-msg');
+  msg.style.display='inline'; setTimeout(()=>msg.style.display='none', 2000);
+}
+
+function resetLayout() {
+  if (!confirm('確定還原所有版面設定為預設值？')) return;
+  layoutCfg = Object.assign({}, LAYOUT_DEFAULTS);
+  localStorage.removeItem('layoutCfg');
+  fillLayoutInputs();
+  const msg = document.getElementById('layout-saved-msg');
+  msg.style.display='inline'; msg.textContent='✓ 已還原';
+  setTimeout(()=>{ msg.style.display='none'; msg.textContent='✓ 已儲存'; }, 2000);
+}
+
+function fillLayoutInputs() {
+  document.getElementById('fs-company').value   = layoutCfg.fsCompany;
+  document.getElementById('fs-formtitle').value = layoutCfg.fsFormtitle;
+  document.getElementById('fs-info').value      = layoutCfg.fsInfo;
+  document.getElementById('fs-thead').value     = layoutCfg.fsThead;
+  document.getElementById('fs-data').value      = layoutCfg.fsData;
+  document.getElementById('fs-sign').value      = layoutCfg.fsSign;
+  document.getElementById('cw-seq').value       = layoutCfg.cwSeq;
+  document.getElementById('cw-name').value      = layoutCfg.cwName;
+  document.getElementById('cw-head').value      = layoutCfg.cwHead;
+  document.getElementById('cw-spec').value      = layoutCfg.cwSpec;
+  document.getElementById('rh-data').value      = layoutCfg.rhData;
+  document.getElementById('rh-blank').value     = layoutCfg.rhBlank;
+}
 let selected = [];
 let defaultCnt = 20;
 
@@ -400,7 +546,7 @@ function addShip() {
 function delShip(i) { shipList.splice(i,1); save(); renderAdmin(); renderShipDl(); }
 
 function exportData() {
-  document.getElementById('backup-area').value=JSON.stringify({fishList,specList,shipList,fishSpecMap},null,2);
+  document.getElementById('backup-area').value=JSON.stringify({fishList,specList,shipList,fishSpecMap,layoutCfg},null,2);
 }
 function importData() {
   try {
@@ -409,6 +555,7 @@ function importData() {
     if(d.specList) specList=d.specList;
     if(d.shipList) shipList=d.shipList;
     if(d.fishSpecMap) fishSpecMap=d.fishSpecMap;
+    if(d.layoutCfg) { layoutCfg=Object.assign({},LAYOUT_DEFAULTS,d.layoutCfg); localStorage.setItem('layoutCfg',JSON.stringify(layoutCfg)); fillLayoutInputs(); }
     save(); renderAdmin(); renderFishTags(); renderSpecQuick(); renderShipDl();
     alert('匯入成功！');
   } catch(e){ alert('格式錯誤，請確認內容正確'); }
@@ -422,115 +569,119 @@ function doPrint() {
   const temp=document.getElementById('temp').value;
   const dateStr=date?(()=>{const d=new Date(date);return `${d.getFullYear()}年${String(d.getMonth()+1).padStart(2,'0')}月${String(d.getDate()).padStart(2,'0')}日`;})():'';
 
-  // ── A4 高度計算 ──
-  // A4 = 297mm，@96dpi = 1122px；上下邊距各10mm = 38px → 可用 1046px
-  // 標題區(h1+h2+margin) = 74px
-  // 基本資訊列 = 34px
-  // 表頭雙列 = 46px
-  // 簽名區(margin+text) = 36px
-  // 空白備用區 = 56px
-  // 剩餘給20資料列：1046 - 74 - 34 - 46 - 36 - 56 = 800px → 每列 40px
-  const ROW_H = 40; // px，每資料列高度
-  const BLANK_H = 56; // px，空白備用區
+  // 從版面設定讀取
+  const L = layoutCfg;
+  const ROW_H        = L.rhData + 'mm';
+  const BLANK_H      = L.rhBlank + 'mm';
+  const SPEC_ZONE_W  = L.cwSpec + 'px';
 
-  // 固定6規格欄，不足補空
-  const SPEC_COLS = 6;
-  const tdB='border:1px solid #000;';
-  const thB='border:1px solid #000;padding:6px 2px;text-align:center;background:#efefef;font-size:13px;font-weight:bold;vertical-align:middle;';
+  const tdB = 'border:1px solid #000;';
+  const thB = `${tdB}padding:3px 2px;text-align:center;background:#efefef;font-size:${L.fsThead}px;font-weight:bold;vertical-align:middle;`;
+  const specCellStyle = `border-right:1px solid #000;text-align:center;font-size:${L.fsData}px;padding:0;`;
 
-  // 計算總列數，至少20
   let totalRows=0; selected.forEach(s=>totalRows+=s.cnt);
   const minRows=Math.max(20, totalRows);
 
-  // 欄寬：固定欄 + 規格6欄(各22px) + 剩餘按1:1:1:1:2
-  // 固定：序號44 + 品名82 + GG36 + DR36 = 198px；規格6×22=132px；合計330px
-  // A4寬186mm可用(210-12-12mm邊距)=186mm≈703px；剩餘=703-330=373px；6份→每份≈62px
-  const COL = {
-    seq:  '44px', name: '82px', gg: '36px', dr: '36px',
-    spec: '22px',
-    tono: '8.33%', toju: '8.33%', soju: '8.33%', gyoju: '8.33%', biju: '16.67%'
-  };
+  // 規格子表格產生器：傳入 vals 陣列，回傳撐滿 SPEC_ZONE_W 的子表格
+  function specSubTable(vals) {
+    if (!vals || vals.length===0) return '';
+    const cells = vals.map((v,vi) => {
+      // 最後一格不加右框（外框已有）
+      const isLast = vi===vals.length-1;
+      const style = isLast
+        ? `text-align:center;font-size:20px;padding:0;`
+        : specCellStyle;
+      return `<td style="${style}">${v}</td>`;
+    }).join('');
+    return `<table style="width:100%;height:100%;border-collapse:collapse;table-layout:fixed;"><tbody><tr>${cells}</tr></tbody></table>`;
+  }
+
+  // 表頭規格欄：顯示「規　　格」文字，下方一列空白（視覺上維持雙列表頭）
+  const headSpecCell = `<td style="${tdB}width:${SPEC_ZONE_W};padding:0;vertical-align:middle;text-align:center;background:#efefef;font-size:20px;font-weight:bold;" rowspan="1">規　　格</td>`;
 
   let rows=''; let num=1;
+
   selected.forEach(s=>{
     for(let i=0;i<s.cnt;i++){
-      const specTDs = Array.from({length:SPEC_COLS},(_,vi)=>{
-        const v = (s.vals[vi]!==undefined && s.vals[vi]!=='') ? s.vals[vi] : '';
-        return `<td style="${tdB}text-align:center;font-size:13px;padding:0;">${v}</td>`;
-      }).join('');
-      rows+=`<tr style="height:${ROW_H}px;">
-        <td style="${tdB}text-align:center;font-size:13px;padding:0;">${num++}</td>
-        <td style="${tdB}padding:0 6px;font-size:13px;">${s.name}</td>
-        <td style="${tdB}text-align:center;font-size:13px;padding:0;">GG</td>
-        <td style="${tdB}text-align:center;font-size:13px;padding:0;">DR</td>
-        ${specTDs}
-        <td style="${tdB}"></td><td style="${tdB}"></td>
-        <td style="${tdB}"></td><td style="${tdB}"></td>
-        <td style="${tdB}"></td>
+      const specContent = specSubTable(s.vals);
+      rows+=`<tr style="height:${ROW_H};">
+        <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;width:${L.cwSeq}px;">${num++}</td>
+        <td style="${tdB}padding:0 5px;font-size:${L.fsData}px;width:${L.cwName}px;">${s.name}</td>
+        <td style="${tdB}text-align:center;font-size:${Math.round(L.fsData*0.75)}px;padding:0;vertical-align:middle;line-height:1.3;width:${L.cwHead}px;">GG<br>DR</td>
+        <td style="${tdB}padding:0;width:${SPEC_ZONE_W};">${specContent}</td>
+        <td style="${tdB}width:8.33%;"></td>
+        <td style="${tdB}width:8.33%;"></td>
+        <td style="${tdB}width:8.33%;"></td>
+        <td style="${tdB}width:8.33%;"></td>
+        <td style="${tdB}width:16.67%;"></td>
       </tr>`;
     }
   });
-  // 補空白列到 minRows
-  const specEmpty=Array.from({length:SPEC_COLS},()=>`<td style="${tdB}"></td>`).join('');
+
+  // 補空白資料列（無規格值，規格欄整格空白）
   for(let i=num;i<=minRows;i++){
-    rows+=`<tr style="height:${ROW_H}px;">
-      <td style="${tdB}text-align:center;font-size:13px;padding:0;">${i}</td>
-      <td style="${tdB}"></td><td style="${tdB}"></td><td style="${tdB}"></td>
-      ${specEmpty}
-      <td style="${tdB}"></td><td style="${tdB}"></td>
-      <td style="${tdB}"></td><td style="${tdB}"></td><td style="${tdB}"></td>
+    rows+=`<tr style="height:${ROW_H};">
+      <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;width:${L.cwSeq}px;">${i}</td>
+      <td style="${tdB}width:${L.cwName}px;"></td>
+      <td style="${tdB}width:${L.cwHead}px;"></td>
+      <td style="${tdB}width:${SPEC_ZONE_W};"></td>
+      <td style="${tdB}width:8.33%;"></td>
+      <td style="${tdB}width:8.33%;"></td>
+      <td style="${tdB}width:8.33%;"></td>
+      <td style="${tdB}width:8.33%;"></td>
+      <td style="${tdB}width:16.67%;"></td>
     </tr>`;
   }
 
+  // 3行空白合併列
+  rows+=`<tr style="height:${BLANK_H};">
+    <td colspan="9" style="${tdB}vertical-align:top;padding:4px 6px;"></td>
+  </tr>`;
+
   document.getElementById('print-area').innerHTML=`
-    <div style="font-family:'標楷體','DFKai-SB',serif;width:100%;height:277mm;display:flex;flex-direction:column;padding-top:6mm;">
+    <div style="font-family:'標楷體','DFKai-SB',serif;width:100%;height:277mm;
+                display:flex;flex-direction:column;padding-top:4mm;box-sizing:border-box;">
       <div style="flex-shrink:0;">
-        <h1 style="text-align:center;font-size:26px;letter-spacing:12px;margin:0 0 4px;font-weight:bold;">大 漁 水 產 有 限 公 司</h1>
-        <h2 style="text-align:center;font-size:17px;letter-spacing:8px;margin:0 0 12px;font-weight:normal;">原 魚 入 庫 紀 錄 表</h2>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:8px;table-layout:fixed;">
+        <h1 style="text-align:center;font-size:${L.fsCompany}px;letter-spacing:8px;margin:0 0 3px;font-weight:bold;">大 漁 水 產 有 限 公 司</h1>
+        <h2 style="text-align:center;font-size:${L.fsFormtitle}px;letter-spacing:6px;margin:0 0 6px;font-weight:normal;">原 魚 入 庫 紀 錄 表</h2>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:5px;table-layout:fixed;">
           <tr>
-            <td style="${tdB}padding:8px 12px;font-size:14px;width:25%;">日期：${dateStr}</td>
-            <td style="${tdB}padding:8px 12px;font-size:14px;width:22%;">船名：${ship}</td>
-            <td style="${tdB}padding:8px 12px;font-size:14px;width:31%;">洋區：${zone}</td>
-            <td style="${tdB}padding:8px 12px;font-size:14px;width:22%;">溫層：${temp}</td>
+            <td style="${tdB}padding:5px 10px;font-size:${L.fsInfo}px;width:25%;">日期：${dateStr}</td>
+            <td style="${tdB}padding:5px 10px;font-size:${L.fsInfo}px;width:22%;">船名：${ship}</td>
+            <td style="${tdB}padding:5px 10px;font-size:${L.fsInfo}px;width:31%;">洋區：${zone}</td>
+            <td style="${tdB}padding:5px 10px;font-size:${L.fsInfo}px;width:22%;">溫層：${temp}</td>
           </tr>
         </table>
       </div>
       <table style="width:100%;border-collapse:collapse;table-layout:fixed;flex-shrink:0;">
         <colgroup>
-          <col style="width:${COL.seq}">
-          <col style="width:${COL.name}">
-          <col style="width:${COL.gg}">
-          <col style="width:${COL.dr}">
-          <col style="width:${COL.spec}"><col style="width:${COL.spec}"><col style="width:${COL.spec}">
-          <col style="width:${COL.spec}"><col style="width:${COL.spec}"><col style="width:${COL.spec}">
-          <col style="width:${COL.tono}">
-          <col style="width:${COL.toju}">
-          <col style="width:${COL.soju}">
-          <col style="width:${COL.gyoju}">
-          <col style="width:${COL.biju}">
+          <col style="width:${L.cwSeq}px">
+          <col style="width:${L.cwName}px">
+          <col style="width:${L.cwHead}px">
+          <col style="width:${SPEC_ZONE_W}">
+          <col style="width:8.33%">
+          <col style="width:8.33%">
+          <col style="width:8.33%">
+          <col style="width:8.33%">
+          <col style="width:16.67%">
         </colgroup>
         <thead>
-          <tr style="height:28px;">
-            <th style="${thB}" rowspan="2">序號</th>
-            <th style="${thB}" rowspan="2">品名</th>
-            <th style="${thB}" rowspan="2">GG</th>
-            <th style="${thB}" rowspan="2">DR</th>
-            <th style="${thB};padding:4px 1px;" colspan="${SPEC_COLS}">規　　格</th>
-            <th style="${thB}" rowspan="2">桶號</th>
-            <th style="${thB}" rowspan="2">桶重</th>
-            <th style="${thB}" rowspan="2">總重</th>
-            <th style="${thB}" rowspan="2">魚重</th>
-            <th style="${thB}" rowspan="2">備註</th>
-          </tr>
-          <tr style="height:16px;">
-            ${Array.from({length:SPEC_COLS},()=>`<th style="${tdB}background:#efefef;"></th>`).join('')}
+          <tr>
+            <th style="${thB}">序號</th>
+            <th style="${thB}">品名</th>
+            <th style="${thB}">頭</th>
+            <th style="${thB}">規　　格</th>
+            <th style="${thB}">桶號</th>
+            <th style="${thB}">桶重</th>
+            <th style="${thB}">總重</th>
+            <th style="${thB}">魚重</th>
+            <th style="${thB}">備註</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="border-left:1px solid #000;border-right:1px solid #000;border-bottom:1px solid #000;height:${BLANK_H}px;flex-shrink:0;"></div>
-      <div style="margin-top:auto;padding-top:10px;display:flex;justify-content:space-between;font-size:14px;padding-left:6px;padding-right:6px;flex-shrink:0;">
+      <div style="margin-top:auto;padding-top:6px;display:flex;justify-content:space-between;
+                  font-size:${L.fsSign}px;padding-left:6px;padding-right:6px;flex-shrink:0;">
         <span>廠長：____________________</span>
         <span>倉管：____________________</span>
         <span>製表人：____________________</span>
@@ -541,7 +692,7 @@ function doPrint() {
 
 // 初始化
 document.getElementById('date').valueAsDate=new Date();
-renderFishTags(); renderSpecQuick(); renderShipDl();
+renderFishTags(); renderSpecQuick(); renderShipDl(); fillLayoutInputs();
 </script>
 </body>
 </html>
