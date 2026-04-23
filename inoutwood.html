@@ -207,32 +207,33 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
 
     <!-- 欄寬 -->
     <div style="margin-bottom:14px;border-top:1px solid #f0f0f0;padding-top:12px;">
-      <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:8px;">欄寬</div>
+      <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:4px;">欄寬</div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:8px;">所有欄位合計建議 100%</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <label style="font-size:12px;color:#666;min-width:72px;">序號欄</label>
-          <input type="number" id="cw-seq" min="24" max="80" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
-          <span style="font-size:11px;color:#aaa;">px</span>
+          <input type="number" id="cw-seq" min="2" max="15" step="0.5" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <label style="font-size:12px;color:#666;min-width:72px;">品名欄</label>
-          <input type="number" id="cw-name" min="40" max="160" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
-          <span style="font-size:11px;color:#aaa;">px</span>
+          <input type="number" id="cw-name" min="5" max="30" step="0.5" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <label style="font-size:12px;color:#666;min-width:72px;">GG 欄寬</label>
-          <input type="number" id="cw-gg" min="16" max="80" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
-          <span style="font-size:11px;color:#aaa;">px</span>
+          <input type="number" id="cw-gg" min="2" max="15" step="0.5" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <label style="font-size:12px;color:#666;min-width:72px;">DR 欄寬</label>
-          <input type="number" id="cw-dr" min="16" max="80" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
-          <span style="font-size:11px;color:#aaa;">px</span>
+          <input type="number" id="cw-dr" min="2" max="15" step="0.5" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <label style="font-size:12px;color:#666;min-width:72px;">規格區塊</label>
-          <input type="number" id="cw-spec" min="60" max="300" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
-          <span style="font-size:11px;color:#aaa;">px</span>
+          <input type="number" id="cw-spec" min="5" max="40" step="0.5" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
         </div>
       </div>
     </div>
@@ -265,7 +266,38 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
       </div>
     </div>
 
-    <!-- 行高 -->
+    <!-- 後段欄寬（桶號~備註） -->
+    <div style="margin-bottom:14px;border-top:1px solid #f0f0f0;padding-top:12px;">
+      <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:4px;">後段欄寬（桶號 ～ 備註）</div>
+      <div style="font-size:11px;color:#aaa;margin-bottom:8px;">五欄合計建議 48%（其餘給序號/品名/頭/規格）</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">桶號</label>
+          <input type="number" id="cw-tono" min="3" max="30" step="0.5" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">桶重</label>
+          <input type="number" id="cw-toju" min="3" max="30" step="0.5" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">總重</label>
+          <input type="number" id="cw-soju" min="3" max="30" step="0.5" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">魚重</label>
+          <input type="number" id="cw-gyoju" min="3" max="30" step="0.5" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="font-size:12px;color:#666;min-width:72px;">備註</label>
+          <input type="number" id="cw-biju" min="3" max="40" step="0.5" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <span style="font-size:11px;color:#aaa;">%</span>
+        </div>
+      </div>
+    </div>
     <div style="margin-bottom:14px;border-top:1px solid #f0f0f0;padding-top:12px;">
       <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:8px;">行高</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
@@ -319,9 +351,10 @@ let fishSpecMap = JSON.parse(localStorage.getItem('fishSpecMap') || '{}');
 // ── 版面設定預設值 ──
 const LAYOUT_DEFAULTS = {
   fsCompany:36, fsFormtitle:24, fsInfo:20, fsThead:20, fsData:20, fsSign:14,
-  cwSeq:44, cwName:82, cwGg:28, cwDr:28, cwSpec:132,
+  cwSeq:5, cwName:11, cwGg:4, cwDr:4, cwSpec:18,
   rhData:9.5, rhThead:9, rhBlank:34,
-  cwDate:25, cwShip:22, cwZone:31, cwTemp:22
+  cwDate:25, cwShip:22, cwZone:31, cwTemp:22,
+  cwTono:8, cwToju:8, cwSoju:8, cwGyoju:8, cwBiju:16
 };
 // 使用者自訂預設（「儲存為設定值」寫入這裡）
 let userDefaults = Object.assign({}, LAYOUT_DEFAULTS,
@@ -349,6 +382,11 @@ function _readLayoutInputs() {
     cwShip:      +document.getElementById('cw-ship').value      || LAYOUT_DEFAULTS.cwShip,
     cwZone:      +document.getElementById('cw-zone').value      || LAYOUT_DEFAULTS.cwZone,
     cwTemp:      +document.getElementById('cw-temp').value      || LAYOUT_DEFAULTS.cwTemp,
+    cwTono:      +document.getElementById('cw-tono').value      || LAYOUT_DEFAULTS.cwTono,
+    cwToju:      +document.getElementById('cw-toju').value      || LAYOUT_DEFAULTS.cwToju,
+    cwSoju:      +document.getElementById('cw-soju').value      || LAYOUT_DEFAULTS.cwSoju,
+    cwGyoju:     +document.getElementById('cw-gyoju').value     || LAYOUT_DEFAULTS.cwGyoju,
+    cwBiju:      +document.getElementById('cw-biju').value      || LAYOUT_DEFAULTS.cwBiju,
   };
 }
 
@@ -400,6 +438,11 @@ function fillLayoutInputs() {
   document.getElementById('cw-ship').value      = layoutCfg.cwShip  || LAYOUT_DEFAULTS.cwShip;
   document.getElementById('cw-zone').value      = layoutCfg.cwZone  || LAYOUT_DEFAULTS.cwZone;
   document.getElementById('cw-temp').value      = layoutCfg.cwTemp  || LAYOUT_DEFAULTS.cwTemp;
+  document.getElementById('cw-tono').value      = layoutCfg.cwTono  || LAYOUT_DEFAULTS.cwTono;
+  document.getElementById('cw-toju').value      = layoutCfg.cwToju  || LAYOUT_DEFAULTS.cwToju;
+  document.getElementById('cw-soju').value      = layoutCfg.cwSoju  || LAYOUT_DEFAULTS.cwSoju;
+  document.getElementById('cw-gyoju').value     = layoutCfg.cwGyoju || LAYOUT_DEFAULTS.cwGyoju;
+  document.getElementById('cw-biju').value      = layoutCfg.cwBiju  || LAYOUT_DEFAULTS.cwBiju;
 }
 let selected = [];
 let defaultCnt = 20;
@@ -645,7 +688,7 @@ function doPrint() {
   const ROW_H       = L.rhData   + 'mm';
   const THEAD_H     = L.rhThead  + 'mm';
   const BLANK_H     = L.rhBlank  + 'mm';
-  const SPEC_ZONE_W = L.cwSpec   + 'px';
+  const SPEC_ZONE_W = (L.cwSpec||18) + '%';
 
   const tdB = 'border:1px solid #000;';
   const thB = `${tdB}padding:2px 2px;text-align:center;background:#efefef;font-size:${L.fsThead}px;font-weight:bold;vertical-align:middle;`;
@@ -670,30 +713,30 @@ function doPrint() {
   selected.forEach(s=>{
     for(let i=0;i<s.cnt;i++){
       rows+=`<tr style="height:${ROW_H};">
-        <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;width:${L.cwSeq}px;">${num++}</td>
-        <td style="${tdB}padding:0 5px;font-size:${L.fsData}px;width:${L.cwName}px;">${s.name}</td>
-        <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;vertical-align:middle;width:${L.cwGg}px;">GG</td>
-        <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;vertical-align:middle;width:${L.cwDr}px;">DR</td>
+        <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;width:${L.cwSeq||5}%;">${num++}</td>
+        <td style="${tdB}padding:0 5px;font-size:${L.fsData}px;width:${L.cwName||11}%;">${s.name}</td>
+        <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;vertical-align:middle;width:${L.cwGg||4}%;">GG</td>
+        <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;vertical-align:middle;width:${L.cwDr||4}%;">DR</td>
         <td style="${tdB}padding:0;width:${SPEC_ZONE_W};">${specSubTable(s.vals)}</td>
-        <td style="${tdB}width:8.33%;"></td>
-        <td style="${tdB}width:8.33%;"></td>
-        <td style="${tdB}width:8.33%;"></td>
-        <td style="${tdB}width:8.33%;"></td>
-        <td style="${tdB}width:16.67%;"></td>
+        <td style="${tdB}width:${L.cwTono||8}%;"></td>
+        <td style="${tdB}width:${L.cwToju||8}%;"></td>
+        <td style="${tdB}width:${L.cwSoju||8}%;"></td>
+        <td style="${tdB}width:${L.cwGyoju||8}%;"></td>
+        <td style="${tdB}width:${L.cwBiju||16}%;"></td>
       </tr>`;
     }
   });
   // 補空白列
   for(let i=num;i<=minRows;i++){
     rows+=`<tr style="height:${ROW_H};">
-      <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;width:${L.cwSeq}px;">${i}</td>
-      <td style="${tdB}width:${L.cwName}px;"></td>
-      <td style="${tdB}width:${L.cwGg}px;"></td>
-      <td style="${tdB}width:${L.cwDr}px;"></td>
+      <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;width:${L.cwSeq||5}%;">${i}</td>
+      <td style="${tdB}width:${L.cwName||11}%;"></td>
+      <td style="${tdB}width:${L.cwGg||4}%;"></td>
+      <td style="${tdB}width:${L.cwDr||4}%;"></td>
       <td style="${tdB}width:${SPEC_ZONE_W};"></td>
-      <td style="${tdB}width:8.33%;"></td><td style="${tdB}width:8.33%;"></td>
-      <td style="${tdB}width:8.33%;"></td><td style="${tdB}width:8.33%;"></td>
-      <td style="${tdB}width:16.67%;"></td>
+      <td style="${tdB}width:${L.cwTono||8}%;"></td><td style="${tdB}width:${L.cwToju||8}%;"></td>
+      <td style="${tdB}width:${L.cwSoju||8}%;"></td><td style="${tdB}width:${L.cwGyoju||8}%;"></td>
+      <td style="${tdB}width:${L.cwBiju||16}%;"></td>
     </tr>`;
   }
   // 空白備用合併列
@@ -718,16 +761,16 @@ function doPrint() {
       </div>
       <table style="width:100%;border-collapse:collapse;table-layout:fixed;flex-shrink:0;">
         <colgroup>
-          <col style="width:${L.cwSeq}px">
-          <col style="width:${L.cwName}px">
-          <col style="width:${L.cwGg}px">
-          <col style="width:${L.cwDr}px">
+          <col style="width:${L.cwSeq||5}%">
+          <col style="width:${L.cwName||11}%">
+          <col style="width:${L.cwGg||4}%">
+          <col style="width:${L.cwDr||4}%">
           <col style="width:${SPEC_ZONE_W}">
-          <col style="width:8.33%">
-          <col style="width:8.33%">
-          <col style="width:8.33%">
-          <col style="width:8.33%">
-          <col style="width:16.67%">
+          <col style="width:${L.cwTono||8}%">
+          <col style="width:${L.cwToju||8}%">
+          <col style="width:${L.cwSoju||8}%">
+          <col style="width:${L.cwGyoju||8}%">
+          <col style="width:${L.cwBiju||16}%">
         </colgroup>
         <thead>
           <tr style="height:${THEAD_H};">
