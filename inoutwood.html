@@ -115,7 +115,10 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
 <!-- 後台 -->
 <div class="page" id="page-admin">
   <div class="card">
-    <div class="sec-title">魚種清單管理</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div class="sec-title" style="margin-bottom:0;">魚種清單管理</div>
+      <button onclick="sortFishAZ()" style="font-size:11px;padding:3px 10px;border:1px solid #dde1e7;border-radius:6px;background:#fafafa;color:#555;cursor:pointer;font-family:inherit;">A→Z 排序</button>
+    </div>
     <div id="admin-fish-list"></div>
     <div class="add-row">
       <input type="text" id="new-fish" placeholder="輸入新魚種名稱..." onkeydown="if(event.key==='Enter')addFish()"/>
@@ -193,15 +196,53 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
           <span style="font-size:11px;color:#aaa;">px</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <label style="font-size:12px;color:#666;min-width:72px;">資料列</label>
-          <input type="number" id="fs-data" min="10" max="28" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <label style="font-size:12px;color:#666;min-width:72px;">資料列（全）</label>
+          <input type="number" id="fs-data" min="8" max="28" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;" oninput="applyMasterFsData(this.value)"/>
           <span style="font-size:11px;color:#aaa;">px</span>
+          <span style="font-size:10px;color:#bbb;">← 同步套用全欄</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <label style="font-size:12px;color:#666;min-width:72px;">簽名列</label>
-          <input type="number" id="fs-sign" min="10" max="24" style="width:64px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+          <input type="number" id="fs-sign" min="10" max="24" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
           <span style="font-size:11px;color:#aaa;">px</span>
         </div>
+      </div>
+      <!-- 各欄獨立字級 -->
+      <div style="margin-top:10px;border-top:1px dashed #e8e8e8;padding-top:10px;">
+        <div style="font-size:11px;color:#888;margin-bottom:8px;">資料列各欄獨立字級</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:12px;color:#666;min-width:72px;">序號</label>
+            <input type="number" id="fs-seq" min="8" max="28" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+            <span style="font-size:11px;color:#aaa;">px</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:12px;color:#666;min-width:72px;">品名</label>
+            <input type="number" id="fs-name" min="8" max="28" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+            <span style="font-size:11px;color:#aaa;">px</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:12px;color:#666;min-width:72px;">GG / DR</label>
+            <input type="number" id="fs-ggdr" min="8" max="28" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+            <span style="font-size:11px;color:#aaa;">px</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:12px;color:#666;min-width:72px;">規格值</label>
+            <input type="number" id="fs-spec" min="8" max="28" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+            <span style="font-size:11px;color:#aaa;">px</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:12px;color:#666;min-width:72px;">桶號～魚重</label>
+            <input type="number" id="fs-tail" min="8" max="28" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+            <span style="font-size:11px;color:#aaa;">px</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:12px;color:#666;min-width:72px;">備註</label>
+            <input type="number" id="fs-note" min="8" max="28" style="width:54px;height:32px;padding:0 6px;font-size:13px;border:1px solid #dde1e7;border-radius:6px;text-align:center;"/>
+            <span style="font-size:11px;color:#aaa;">px</span>
+          </div>
+        </div>
+      </div>
       </div>
     </div>
 
@@ -351,6 +392,7 @@ let fishSpecMap = JSON.parse(localStorage.getItem('fishSpecMap') || '{}');
 // ── 版面設定預設值 ──
 const LAYOUT_DEFAULTS = {
   fsCompany:36, fsFormtitle:24, fsInfo:20, fsThead:20, fsData:20, fsSign:14,
+  fsSeq:20, fsName:20, fsGgdr:20, fsSpec:20, fsTail:20, fsNote:20,
   cwSeq:5, cwName:11, cwGg:4, cwDr:4, cwSpec:18,
   rhData:9.5, rhThead:9, rhBlank:34,
   cwDate:25, cwShip:22, cwZone:31, cwTemp:22,
@@ -370,6 +412,12 @@ function _readLayoutInputs() {
     fsThead:     +document.getElementById('fs-thead').value     || LAYOUT_DEFAULTS.fsThead,
     fsData:      +document.getElementById('fs-data').value      || LAYOUT_DEFAULTS.fsData,
     fsSign:      +document.getElementById('fs-sign').value      || LAYOUT_DEFAULTS.fsSign,
+    fsSeq:       +document.getElementById('fs-seq').value       || LAYOUT_DEFAULTS.fsSeq,
+    fsName:      +document.getElementById('fs-name').value      || LAYOUT_DEFAULTS.fsName,
+    fsGgdr:      +document.getElementById('fs-ggdr').value      || LAYOUT_DEFAULTS.fsGgdr,
+    fsSpec:      +document.getElementById('fs-spec').value      || LAYOUT_DEFAULTS.fsSpec,
+    fsTail:      +document.getElementById('fs-tail').value      || LAYOUT_DEFAULTS.fsTail,
+    fsNote:      +document.getElementById('fs-note').value      || LAYOUT_DEFAULTS.fsNote,
     cwSeq:       +document.getElementById('cw-seq').value       || LAYOUT_DEFAULTS.cwSeq,
     cwName:      +document.getElementById('cw-name').value      || LAYOUT_DEFAULTS.cwName,
     cwGg:        +document.getElementById('cw-gg').value        || LAYOUT_DEFAULTS.cwGg,
@@ -426,6 +474,13 @@ function fillLayoutInputs() {
   document.getElementById('fs-thead').value     = layoutCfg.fsThead;
   document.getElementById('fs-data').value      = layoutCfg.fsData;
   document.getElementById('fs-sign').value      = layoutCfg.fsSign;
+  const fd = layoutCfg.fsData;
+  document.getElementById('fs-seq').value       = layoutCfg.fsSeq  || fd;
+  document.getElementById('fs-name').value      = layoutCfg.fsName || fd;
+  document.getElementById('fs-ggdr').value      = layoutCfg.fsGgdr || fd;
+  document.getElementById('fs-spec').value      = layoutCfg.fsSpec || fd;
+  document.getElementById('fs-tail').value      = layoutCfg.fsTail || fd;
+  document.getElementById('fs-note').value      = layoutCfg.fsNote || fd;
   document.getElementById('cw-seq').value       = layoutCfg.cwSeq;
   document.getElementById('cw-name').value      = layoutCfg.cwName;
   document.getElementById('cw-gg').value        = layoutCfg.cwGg;
@@ -444,6 +499,13 @@ function fillLayoutInputs() {
   document.getElementById('cw-gyoju').value     = layoutCfg.cwGyoju || LAYOUT_DEFAULTS.cwGyoju;
   document.getElementById('cw-biju').value      = layoutCfg.cwBiju  || LAYOUT_DEFAULTS.cwBiju;
 }
+function applyMasterFsData(v) {
+  if (!v) return;
+  ['fs-seq','fs-name','fs-ggdr','fs-spec','fs-tail','fs-note'].forEach(id => {
+    document.getElementById(id).value = v;
+  });
+}
+
 let selected = [];
 let defaultCnt = 20;
 
@@ -580,9 +642,26 @@ function adjFish(i,d) { selected[i].cnt=Math.max(1,selected[i].cnt+d); renderSel
 
 // ── 後台 ──
 function renderAdmin() {
-  document.getElementById('admin-fish-list').innerHTML = fishList.length
-    ? fishList.map((f,i)=>`<div class="admin-row"><span>${f}</span><button class="rm" onclick="delFish(${i})">✕</button></div>`).join('')
-    : '<div class="empty-hint">尚無魚種</div>';
+  const el = document.getElementById('admin-fish-list');
+  if (!fishList.length) {
+    el.innerHTML = '<div class="empty-hint">尚無魚種</div>';
+  } else {
+    el.innerHTML = fishList.map((f,i) => {
+      const isFirst = i===0, isLast = i===fishList.length-1;
+      return `<div class="admin-row" draggable="true" data-idx="${i}"
+        style="cursor:grab;"
+        ondragstart="fishDragStart(event,${i})"
+        ondragover="fishDragOver(event)"
+        ondrop="fishDrop(event,${i})"
+        ondragend="fishDragEnd(event)">
+        <span style="color:#bbb;font-size:16px;cursor:grab;padding-right:4px;user-select:none;">⠿</span>
+        <span style="flex:1;">${f}</span>
+        <button onclick="moveFish(${i},-1)" ${isFirst?'disabled':''} style="width:24px;height:24px;border:1px solid #dde1e7;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:${isFirst?'#ccc':'#555'};">↑</button>
+        <button onclick="moveFish(${i},1)" ${isLast?'disabled':''} style="width:24px;height:24px;border:1px solid #dde1e7;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:${isLast?'#ccc':'#555'};">↓</button>
+        <button class="rm" onclick="delFish(${i})">✕</button>
+      </div>`;
+    }).join('');
+  }
 
   const fsEntries = fishList.filter(f => fishSpecMap[f]);
   document.getElementById('admin-fish-spec-list').innerHTML = fsEntries.length
@@ -619,6 +698,48 @@ function delFish(i) {
   const n=fishList[i]; fishList.splice(i,1); delete fishSpecMap[n];
   selected=selected.filter(s=>s.name!==n);
   save(); renderAdmin(); renderFishTags(); renderSelected();
+}
+
+function moveFish(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= fishList.length) return;
+  [fishList[i], fishList[j]] = [fishList[j], fishList[i]];
+  save(); renderAdmin(); renderFishTags();
+}
+
+function sortFishAZ() {
+  fishList.sort((a,b) => a.localeCompare(b, 'zh-TW'));
+  save(); renderAdmin(); renderFishTags();
+}
+
+// ── 拖曳排序 ──
+let _dragIdx = null;
+function fishDragStart(e, i) {
+  _dragIdx = i;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.style.opacity = '0.4';
+}
+function fishDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  // highlight drop target
+  document.querySelectorAll('#admin-fish-list .admin-row').forEach(r => r.style.borderColor='');
+  e.currentTarget.style.borderColor = '#1a56db';
+}
+function fishDrop(e, toIdx) {
+  e.preventDefault();
+  if (_dragIdx === null || _dragIdx === toIdx) return;
+  const moved = fishList.splice(_dragIdx, 1)[0];
+  fishList.splice(toIdx, 0, moved);
+  _dragIdx = null;
+  save(); renderAdmin(); renderFishTags();
+}
+function fishDragEnd(e) {
+  _dragIdx = null;
+  document.querySelectorAll('#admin-fish-list .admin-row').forEach(r => {
+    r.style.opacity = '';
+    r.style.borderColor = '';
+  });
 }
 
 function addFishSpec() {
@@ -692,7 +813,7 @@ function doPrint() {
 
   const tdB = 'border:1px solid #000;';
   const thB = `${tdB}padding:2px 2px;text-align:center;background:#efefef;font-size:${L.fsThead}px;font-weight:bold;vertical-align:middle;`;
-  const specCellStyle = `border-right:1px solid #000;text-align:center;font-size:${L.fsData}px;padding:0;`;
+  const specCellStyle = `border-right:1px solid #000;text-align:center;font-size:${L.fsSpec||L.fsData}px;padding:0;`;
 
   let totalRows=0; selected.forEach(s=>totalRows+=s.cnt);
   const minRows=Math.max(20, totalRows);
@@ -702,7 +823,7 @@ function doPrint() {
     if (!vals || vals.length===0) return '';
     const cells = vals.map((v,vi) => {
       const isLast = vi===vals.length-1;
-      const style = isLast ? `text-align:center;font-size:${L.fsData}px;padding:0;`
+      const style = isLast ? `text-align:center;font-size:${L.fsSpec||L.fsData}px;padding:0;`
                            : specCellStyle;
       return `<td style="${style}">${v}</td>`;
     }).join('');
@@ -713,23 +834,23 @@ function doPrint() {
   selected.forEach(s=>{
     for(let i=0;i<s.cnt;i++){
       rows+=`<tr style="height:${ROW_H};">
-        <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;width:${L.cwSeq||5}%;">${num++}</td>
-        <td style="${tdB}padding:0 5px;font-size:${L.fsData}px;width:${L.cwName||11}%;">${s.name}</td>
-        <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;vertical-align:middle;width:${L.cwGg||4}%;">GG</td>
-        <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;vertical-align:middle;width:${L.cwDr||4}%;">DR</td>
+        <td style="${tdB}text-align:center;font-size:${L.fsSeq||L.fsData}px;padding:0;width:${L.cwSeq||5}%;">${num++}</td>
+        <td style="${tdB}padding:0 5px;font-size:${L.fsName||L.fsData}px;width:${L.cwName||11}%;">${s.name}</td>
+        <td style="${tdB}text-align:center;font-size:${L.fsGgdr||L.fsData}px;padding:0;vertical-align:middle;width:${L.cwGg||4}%;">GG</td>
+        <td style="${tdB}text-align:center;font-size:${L.fsGgdr||L.fsData}px;padding:0;vertical-align:middle;width:${L.cwDr||4}%;">DR</td>
         <td style="${tdB}padding:0;width:${SPEC_ZONE_W};">${specSubTable(s.vals)}</td>
-        <td style="${tdB}width:${L.cwTono||8}%;"></td>
-        <td style="${tdB}width:${L.cwToju||8}%;"></td>
-        <td style="${tdB}width:${L.cwSoju||8}%;"></td>
-        <td style="${tdB}width:${L.cwGyoju||8}%;"></td>
-        <td style="${tdB}width:${L.cwBiju||16}%;"></td>
+        <td style="${tdB}width:${L.cwTono||8}%;font-size:${L.fsTail||L.fsData}px;"></td>
+        <td style="${tdB}width:${L.cwToju||8}%;font-size:${L.fsTail||L.fsData}px;"></td>
+        <td style="${tdB}width:${L.cwSoju||8}%;font-size:${L.fsTail||L.fsData}px;"></td>
+        <td style="${tdB}width:${L.cwGyoju||8}%;font-size:${L.fsTail||L.fsData}px;"></td>
+        <td style="${tdB}width:${L.cwBiju||16}%;font-size:${L.fsNote||L.fsData}px;"></td>
       </tr>`;
     }
   });
   // 補空白列
   for(let i=num;i<=minRows;i++){
     rows+=`<tr style="height:${ROW_H};">
-      <td style="${tdB}text-align:center;font-size:${L.fsData}px;padding:0;width:${L.cwSeq||5}%;">${i}</td>
+      <td style="${tdB}text-align:center;font-size:${L.fsSeq||L.fsData}px;padding:0;width:${L.cwSeq||5}%;">${i}</td>
       <td style="${tdB}width:${L.cwName||11}%;"></td>
       <td style="${tdB}width:${L.cwGg||4}%;"></td>
       <td style="${tdB}width:${L.cwDr||4}%;"></td>
