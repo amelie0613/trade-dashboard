@@ -53,10 +53,13 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
 .fsedit:hover{background:#1a56db;color:#fff;}
 
 @media print {
-  body{background:#fff;padding:0;}
+  html,body{background:#fff;padding:0;margin:0;}
   #print-area{display:block!important;}
   .no-print{display:none!important;}
-  @page{size:A4 portrait;margin:10mm 12mm;}
+  @page{
+    size:A4 portrait;
+    margin:10mm 12mm;
+  }
 }
 #print-area{display:none;}
 </style>
@@ -87,21 +90,9 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
   </div>
 
   <div class="card">
-    <div class="sec-title">規格設定（整張單統一）</div>
-    <div class="spec-box">
-      <span class="fixed-badge">GG</span>
-      <span class="fixed-badge">DR</span>
-      <span style="color:#ccc;font-size:16px;">|</span>
-      <input class="spec-input field" type="text" id="s1" placeholder="—"/>
-      <input class="spec-input field" type="text" id="s2" placeholder="—"/>
-      <input class="spec-input field" type="text" id="s3" placeholder="—"/>
-      <input class="spec-input field" type="text" id="s4" placeholder="—"/>
-      <input class="spec-input field" type="text" id="s5" placeholder="—"/>
-    </div>
-    <div style="margin-top:10px;">
-      <div style="font-size:12px;color:#666;margin-bottom:6px;">快選規格：</div>
-      <div id="spec-quick-tags" class="fish-tags"></div>
-    </div>
+    <div class="sec-title">規格快選（點選帶入個別魚種規格）</div>
+    <div id="spec-quick-tags" class="fish-tags"></div>
+    <div style="margin-top:8px;font-size:11px;color:#aaa;">點選魚種後，再點快選可套用；或直接在下方各魚種的規格欄手動輸入</div>
   </div>
 
   <div class="card">
@@ -112,6 +103,13 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
   </div>
 
   <button class="print-btn no-print" onclick="doPrint()">列印入庫紀錄表</button>
+  <div class="no-print" style="margin-top:10px;background:#fffbe6;border:1px solid #ffe58f;border-radius:10px;padding:12px 16px;">
+    <div style="font-size:12px;font-weight:600;color:#d48806;margin-bottom:6px;">📋 如何關閉列印時的網址 / 日期 / 頁碼？</div>
+    <div style="font-size:12px;color:#666;line-height:1.8;">
+      列印對話框出現後 → 展開「<b>更多設定</b>」→ 找到「<b>頁首與頁尾</b>」→ 取消勾選 / 設為無<br>
+      <span style="color:#aaa;">（Chrome / Edge 適用；設定一次後瀏覽器會記住）</span>
+    </div>
+  </div>
 </div>
 
 <!-- 後台 -->
@@ -204,16 +202,41 @@ function showPage(p) {
   if (p === 'admin') renderAdmin();
 }
 
-function getSpec() {
-  return ['GG','DR',...['s1','s2','s3','s4','s5'].map(id=>document.getElementById(id).value).filter(v=>v)].join(' ');
+
+function setSpec(vals) {
+  if (!selected.length) return;
+  // 套用到最後一筆
+  selected[selected.length-1].vals = [...vals];
+  renderSelected();
 }
 
-// 快選規格 — 直接設值，不 dispatch event（避免無限迴圈），手動 renderSelected
-function setSpec(vals) {
-  ['s1','s2','s3','s4','s5'].forEach((id,i) => {
-    document.getElementById(id).value = vals[i] || '';
-  });
+// 套用快選到指定魚種
+function applySpecToFish(i, vals) {
+  selected[i].vals = [...vals];
   renderSelected();
+}
+
+// 更新單一魚種的某個規格欄
+function updateFishSpecVal(i, vi, val) {
+  if (!selected[i]) return;
+  selected[i].vals[vi] = val;
+}
+
+// 刪除魚種某個規格欄
+function removeFishSpecVal(i, vi) {
+  selected[i].vals.splice(vi, 1);
+  renderSelected();
+}
+
+// 新增一個規格欄
+function addFishSpecVal(i) {
+  selected[i].vals.push('');
+  renderSelected();
+  // focus 最後一個新增的 input
+  setTimeout(()=>{
+    const inputs = document.querySelectorAll(`.spec-val-input[data-fish="${i}"]`);
+    if (inputs.length) inputs[inputs.length-1].focus();
+  }, 50);
 }
 
 function renderFishTags() {
@@ -229,7 +252,6 @@ function renderSpecQuick() {
   const el = document.getElementById('spec-quick-tags');
   if (!specList.length) { el.innerHTML = '<span style="font-size:12px;color:#bbb;">尚無快選規格，可至後台管理新增</span>'; return; }
   el.innerHTML = specList.map(sp => {
-    const j = JSON.stringify(sp.vals).replace(/"/g,'&quot;');
     return `<button class="quick-tag" onclick='setSpec(${JSON.stringify(sp.vals)})'>${sp.label}</button>`;
   }).join('');
 }
@@ -241,38 +263,59 @@ function renderShipDl() {
 function renderSelected() {
   const el = document.getElementById('selected-list');
   if (!selected.length) { el.innerHTML = '<div class="empty-hint">尚未選擇魚種</div>'; return; }
-  const specLabel = getSpec();
-  el.innerHTML = selected.map((s,i) => `
-    <div class="srow">
-      <div style="flex:1;">
-        <div class="fname">${s.name}</div>
-        <div class="fspec">${specLabel} · ${s.cnt} 筆</div>
-      </div>
-      <button class="cnt-btn" onclick="adjFish(${i},-1)">−</button>
-      <input type="number" min="1" value="${s.cnt}"
-        style="width:46px;text-align:center;border:1px solid #dde1e7;border-radius:6px;font-size:14px;font-weight:600;padding:0 4px;height:28px;font-family:inherit;"
-        onchange="setFishCnt(${i},this.value)" oninput="setFishCnt(${i},this.value)"/>
-      <button class="cnt-btn" onclick="adjFish(${i},1)">＋</button>
-      <button class="rm" onclick="removeFish(${i})">✕</button>
-    </div>`).join('');
-}
+  el.innerHTML = selected.map((s,i) => {
+    const specLabel = 'GG DR ' + (s.vals.length ? s.vals.join(' ') : '（未設定）');
+    // 規格欄 inputs
+    const specInputs = s.vals.map((v,vi) => `
+      <input class="spec-val-input" data-fish="${i}" type="text" value="${v}"
+        style="width:42px;text-align:center;border:1px solid #c8d8ff;border-radius:5px;font-size:13px;padding:2px 3px;height:28px;font-family:inherit;background:#f5f8ff;"
+        onchange="updateFishSpecVal(${i},${vi},this.value)"
+        oninput="updateFishSpecVal(${i},${vi},this.value)"/>
+      <button onclick="removeFishSpecVal(${i},${vi})" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:13px;padding:0 1px;line-height:1;" title="刪除此欄">×</button>
+    `).join('');
 
-['s1','s2','s3','s4','s5'].forEach(id => {
-  document.getElementById(id).addEventListener('input', renderSelected);
-});
+    // 快選下拉（小）
+    const qBtns = specList.length ? `
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;">
+        ${specList.map(sp=>`<button onclick="applySpecToFish(${i},${JSON.stringify(sp.vals).replace(/"/g,"'")})" style="border:1px solid #1a56db;border-radius:14px;padding:2px 10px;font-size:11px;background:#f0f4ff;color:#1a56db;cursor:pointer;font-family:inherit;">${sp.label}</button>`).join('')}
+      </div>` : '';
+
+    return `
+    <div class="srow" style="flex-direction:column;align-items:stretch;gap:6px;padding:10px 12px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;font-size:14px;font-weight:600;color:#1a1a1a;">${s.name}</div>
+        <button class="cnt-btn" onclick="adjFish(${i},-1)">−</button>
+        <input type="number" min="1" value="${s.cnt}"
+          style="width:46px;text-align:center;border:1px solid #dde1e7;border-radius:6px;font-size:14px;font-weight:600;padding:0 4px;height:28px;font-family:inherit;"
+          onchange="setFishCnt(${i},this.value)" oninput="setFishCnt(${i},this.value)"/>
+        <button class="cnt-btn" onclick="adjFish(${i},1)">＋</button>
+        <button class="rm" onclick="removeFish(${i})">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:#888;white-space:nowrap;">規格：</span>
+        <span style="border:1px solid #dde1e7;border-radius:5px;padding:2px 7px;font-size:12px;background:#f5f5f5;color:#666;">GG</span>
+        <span style="border:1px solid #dde1e7;border-radius:5px;padding:2px 7px;font-size:12px;background:#f5f5f5;color:#666;">DR</span>
+        ${specInputs}
+        <button onclick="addFishSpecVal(${i})" style="border:1px dashed #1a56db;border-radius:5px;padding:2px 8px;font-size:12px;background:none;color:#1a56db;cursor:pointer;height:28px;font-family:inherit;">＋欄</button>
+      </div>
+      ${qBtns}
+    </div>`;
+  }).join('');
+}
 
 function toggleFish(name) {
   const idx = selected.findIndex(s => s.name === name);
   if (idx >= 0) {
     selected.splice(idx, 1);
   } else {
-    selected.push({ name, cnt: defaultCnt });
-    if (fishSpecMap[name]) setSpec(fishSpecMap[name]);
+    // 帶入預設規格（若有）
+    const defaultVals = fishSpecMap[name] ? [...fishSpecMap[name]] : [];
+    selected.push({ name, cnt: defaultCnt, vals: defaultVals });
   }
   renderFishTags(); renderSelected();
 }
 function removeFish(i) { selected.splice(i,1); renderFishTags(); renderSelected(); }
-function setFishCnt(i,v) { const n=parseInt(v); if(n>=1){selected[i].cnt=n; renderSelected();} }
+function setFishCnt(i,v) { const n=parseInt(v); if(n>=1){selected[i].cnt=n;} }
 function adjFish(i,d) { selected[i].cnt=Math.max(1,selected[i].cnt+d); renderSelected(); }
 
 // ── 後台 ──
@@ -377,61 +420,85 @@ function doPrint() {
   const ship=document.getElementById('ship').value;
   const zone=document.getElementById('zone').value;
   const temp=document.getElementById('temp').value;
-  const specVals=['s1','s2','s3','s4','s5'].map(id=>document.getElementById(id).value).filter(v=>v);
   const dateStr=date?(()=>{const d=new Date(date);return `${d.getFullYear()}年${String(d.getMonth()+1).padStart(2,'0')}月${String(d.getDate()).padStart(2,'0')}日`;})():'';
 
+  // 找出所有魚種中最多的規格欄數
+  const maxSpecCols = selected.reduce((m,s)=>Math.max(m, s.vals.length), 0);
+
   const thStyle='border:1px solid #000;padding:7px 4px;text-align:center;background:#efefef;font-size:14px;font-weight:bold;';
-  const specTH=specVals.map(v=>`<th style="${thStyle}min-width:32px;">${v}</th>`).join('');
+  const tdB='border:1px solid #000;';
+
+  // 動態欄標題（用規格欄的代號，或空白）
+  const specTH = Array.from({length:maxSpecCols},(_,i)=>`<th style="${thStyle}min-width:30px;">規${i+1}</th>`).join('');
+
+  // 計算總列數，至少20
+  let totalRows=0; selected.forEach(s=>totalRows+=s.cnt);
+  const minRows=Math.max(20, totalRows);
 
   let rows=''; let num=1;
   selected.forEach(s=>{
     for(let i=0;i<s.cnt;i++){
-      const specTDs=specVals.map(v=>`<td style="border:1px solid #000;text-align:center;font-size:13px;padding:4px 2px;">${v}</td>`).join('');
-      rows+=`<tr style="height:36px;">
-        <td style="border:1px solid #000;text-align:center;font-size:13px;padding:3px;">${num++}</td>
-        <td style="border:1px solid #000;padding:3px 8px;font-size:13px;">${s.name}</td>
-        <td style="border:1px solid #000;text-align:center;font-size:13px;padding:3px;">GG</td>
-        <td style="border:1px solid #000;text-align:center;font-size:13px;padding:3px;">DR</td>
+      // 每隻魚的規格格，不足 maxSpecCols 補空格
+      const specTDs = Array.from({length:maxSpecCols},(_,vi)=>{
+        const v = s.vals[vi] !== undefined ? s.vals[vi] : '';
+        return `<td style="${tdB}text-align:center;font-size:13px;padding:4px 2px;">${v}</td>`;
+      }).join('');
+      rows+=`<tr>
+        <td style="${tdB}text-align:center;font-size:13px;padding:3px;">${num++}</td>
+        <td style="${tdB}padding:3px 8px;font-size:13px;">${s.name}</td>
+        <td style="${tdB}text-align:center;font-size:13px;padding:3px;">GG</td>
+        <td style="${tdB}text-align:center;font-size:13px;padding:3px;">DR</td>
         ${specTDs}
-        <td style="border:1px solid #000;"></td>
-        <td style="border:1px solid #000;"></td>
-        <td style="border:1px solid #000;"></td>
-        <td style="border:1px solid #000;"></td>
-        <td style="border:1px solid #000;"></td>
-        <td style="border:1px solid #000;"></td>
+        <td style="${tdB}"></td>
+        <td style="${tdB}"></td>
+        <td style="${tdB}"></td>
+        <td style="${tdB}"></td>
+        <td style="${tdB}"></td>
       </tr>`;
     }
   });
+  // 補空白列
+  const specEmptyCols=Array.from({length:maxSpecCols},()=>`<td style="${tdB}"></td>`).join('');
+  for(let i=num;i<=minRows;i++){
+    rows+=`<tr>
+      <td style="${tdB}text-align:center;font-size:13px;padding:3px;">${i}</td>
+      <td style="${tdB}"></td><td style="${tdB}"></td><td style="${tdB}"></td>
+      ${specEmptyCols}
+      <td style="${tdB}"></td><td style="${tdB}"></td>
+      <td style="${tdB}"></td><td style="${tdB}"></td><td style="${tdB}"></td>
+    </tr>`;
+  }
 
   document.getElementById('print-area').innerHTML=`
-    <div style="font-family:'標楷體','DFKai-SB',serif;width:100%;">
-      <h1 style="text-align:center;font-size:28px;letter-spacing:14px;margin:0 0 6px;font-weight:bold;">大 漁 水 產 有 限 公 司</h1>
-      <h2 style="text-align:center;font-size:18px;letter-spacing:8px;margin:0 0 12px;font-weight:normal;">原 魚 入 庫 紀 錄 表</h2>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
-        <tr>
-          <td style="border:1px solid #000;padding:8px 14px;font-size:14px;width:25%;">日期：${dateStr}</td>
-          <td style="border:1px solid #000;padding:8px 14px;font-size:14px;width:25%;">船名：${ship}</td>
-          <td style="border:1px solid #000;padding:8px 14px;font-size:14px;width:25%;">洋區：${zone}</td>
-          <td style="border:1px solid #000;padding:8px 14px;font-size:14px;width:25%;">溫層：${temp}</td>
-        </tr>
-      </table>
-      <table style="width:100%;border-collapse:collapse;">
+    <div style="font-family:'標楷體','DFKai-SB',serif;width:100%;min-height:257mm;display:flex;flex-direction:column;">
+      <div>
+        <h1 style="text-align:center;font-size:26px;letter-spacing:12px;margin:0 0 4px;font-weight:bold;">大 漁 水 產 有 限 公 司</h1>
+        <h2 style="text-align:center;font-size:17px;letter-spacing:8px;margin:0 0 10px;font-weight:normal;">原 魚 入 庫 紀 錄 表</h2>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+          <tr>
+            <td style="${tdB}padding:7px 12px;font-size:14px;width:20%;">日期：${dateStr}</td>
+            <td style="${tdB}padding:7px 12px;font-size:14px;width:20%;">船名：${ship}</td>
+            <td style="${tdB}padding:7px 12px;font-size:14px;width:30%;">洋區：${zone}</td>
+            <td style="${tdB}padding:7px 12px;font-size:14px;width:15%;">溫層：${temp}</td>
+          </tr>
+        </table>
+      </div>
+      <table style="width:100%;border-collapse:collapse;flex:1;table-layout:fixed;">
         <thead><tr>
           <th style="${thStyle}width:42px;">序號</th>
-          <th style="${thStyle}width:88px;">品名</th>
-          <th style="${thStyle}width:40px;">GG</th>
-          <th style="${thStyle}width:40px;">DR</th>
+          <th style="${thStyle}width:80px;">品名</th>
+          <th style="${thStyle}width:38px;">GG</th>
+          <th style="${thStyle}width:38px;">DR</th>
           ${specTH}
-          <th style="${thStyle}width:54px;">桶號</th>
-          <th style="${thStyle}width:54px;">桶重</th>
-          <th style="${thStyle}width:54px;">總重</th>
-          <th style="${thStyle}width:54px;">魚重</th>
-          <th style="${thStyle}width:60px;">儲位</th>
-          <th style="${thStyle}width:72px;">回磅魚重</th>
+          <th style="${thStyle}width:52px;">桶號</th>
+          <th style="${thStyle}width:52px;">桶重</th>
+          <th style="${thStyle}width:52px;">總重</th>
+          <th style="${thStyle}width:52px;">魚重</th>
+          <th style="${thStyle}">備註</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="margin-top:36px;display:flex;justify-content:space-between;font-size:15px;padding:0 10px;">
+      <div style="margin-top:20px;display:flex;justify-content:space-between;font-size:15px;padding:0 6px;">
         <span>廠長：____________________</span>
         <span>倉管：____________________</span>
         <span>製表人：____________________</span>
