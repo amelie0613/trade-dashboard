@@ -422,83 +422,115 @@ function doPrint() {
   const temp=document.getElementById('temp').value;
   const dateStr=date?(()=>{const d=new Date(date);return `${d.getFullYear()}年${String(d.getMonth()+1).padStart(2,'0')}月${String(d.getDate()).padStart(2,'0')}日`;})():'';
 
-  // 找出所有魚種中最多的規格欄數
-  const maxSpecCols = selected.reduce((m,s)=>Math.max(m, s.vals.length), 0);
+  // ── A4 高度計算 ──
+  // A4 = 297mm，@96dpi = 1122px；上下邊距各10mm = 38px → 可用 1046px
+  // 標題區(h1+h2+margin) = 74px
+  // 基本資訊列 = 34px
+  // 表頭雙列 = 46px
+  // 簽名區(margin+text) = 36px
+  // 空白備用區 = 56px
+  // 剩餘給20資料列：1046 - 74 - 34 - 46 - 36 - 56 = 800px → 每列 40px
+  const ROW_H = 40; // px，每資料列高度
+  const BLANK_H = 56; // px，空白備用區
 
-  const thStyle='border:1px solid #000;padding:7px 4px;text-align:center;background:#efefef;font-size:14px;font-weight:bold;';
+  // 固定6規格欄，不足補空
+  const SPEC_COLS = 6;
   const tdB='border:1px solid #000;';
-
-  // 動態欄標題（用規格欄的代號，或空白）
-  const specTH = Array.from({length:maxSpecCols},(_,i)=>`<th style="${thStyle}min-width:30px;">規${i+1}</th>`).join('');
+  const thB='border:1px solid #000;padding:6px 2px;text-align:center;background:#efefef;font-size:13px;font-weight:bold;vertical-align:middle;';
 
   // 計算總列數，至少20
   let totalRows=0; selected.forEach(s=>totalRows+=s.cnt);
   const minRows=Math.max(20, totalRows);
 
+  // 欄寬：固定欄 + 規格6欄(各22px) + 剩餘按1:1:1:1:2
+  // 固定：序號44 + 品名82 + GG36 + DR36 = 198px；規格6×22=132px；合計330px
+  // A4寬186mm可用(210-12-12mm邊距)=186mm≈703px；剩餘=703-330=373px；6份→每份≈62px
+  const COL = {
+    seq:  '44px', name: '82px', gg: '36px', dr: '36px',
+    spec: '22px',
+    tono: '8.33%', toju: '8.33%', soju: '8.33%', gyoju: '8.33%', biju: '16.67%'
+  };
+
   let rows=''; let num=1;
   selected.forEach(s=>{
     for(let i=0;i<s.cnt;i++){
-      // 每隻魚的規格格，不足 maxSpecCols 補空格
-      const specTDs = Array.from({length:maxSpecCols},(_,vi)=>{
-        const v = s.vals[vi] !== undefined ? s.vals[vi] : '';
-        return `<td style="${tdB}text-align:center;font-size:13px;padding:4px 2px;">${v}</td>`;
+      const specTDs = Array.from({length:SPEC_COLS},(_,vi)=>{
+        const v = (s.vals[vi]!==undefined && s.vals[vi]!=='') ? s.vals[vi] : '';
+        return `<td style="${tdB}text-align:center;font-size:13px;padding:0;">${v}</td>`;
       }).join('');
-      rows+=`<tr>
-        <td style="${tdB}text-align:center;font-size:13px;padding:3px;">${num++}</td>
-        <td style="${tdB}padding:3px 8px;font-size:13px;">${s.name}</td>
-        <td style="${tdB}text-align:center;font-size:13px;padding:3px;">GG</td>
-        <td style="${tdB}text-align:center;font-size:13px;padding:3px;">DR</td>
+      rows+=`<tr style="height:${ROW_H}px;">
+        <td style="${tdB}text-align:center;font-size:13px;padding:0;">${num++}</td>
+        <td style="${tdB}padding:0 6px;font-size:13px;">${s.name}</td>
+        <td style="${tdB}text-align:center;font-size:13px;padding:0;">GG</td>
+        <td style="${tdB}text-align:center;font-size:13px;padding:0;">DR</td>
         ${specTDs}
-        <td style="${tdB}"></td>
-        <td style="${tdB}"></td>
-        <td style="${tdB}"></td>
-        <td style="${tdB}"></td>
+        <td style="${tdB}"></td><td style="${tdB}"></td>
+        <td style="${tdB}"></td><td style="${tdB}"></td>
         <td style="${tdB}"></td>
       </tr>`;
     }
   });
-  // 補空白列
-  const specEmptyCols=Array.from({length:maxSpecCols},()=>`<td style="${tdB}"></td>`).join('');
+  // 補空白列到 minRows
+  const specEmpty=Array.from({length:SPEC_COLS},()=>`<td style="${tdB}"></td>`).join('');
   for(let i=num;i<=minRows;i++){
-    rows+=`<tr>
-      <td style="${tdB}text-align:center;font-size:13px;padding:3px;">${i}</td>
+    rows+=`<tr style="height:${ROW_H}px;">
+      <td style="${tdB}text-align:center;font-size:13px;padding:0;">${i}</td>
       <td style="${tdB}"></td><td style="${tdB}"></td><td style="${tdB}"></td>
-      ${specEmptyCols}
+      ${specEmpty}
       <td style="${tdB}"></td><td style="${tdB}"></td>
       <td style="${tdB}"></td><td style="${tdB}"></td><td style="${tdB}"></td>
     </tr>`;
   }
 
   document.getElementById('print-area').innerHTML=`
-    <div style="font-family:'標楷體','DFKai-SB',serif;width:100%;min-height:257mm;display:flex;flex-direction:column;">
-      <div>
+    <div style="font-family:'標楷體','DFKai-SB',serif;width:100%;height:277mm;display:flex;flex-direction:column;padding-top:6mm;">
+      <div style="flex-shrink:0;">
         <h1 style="text-align:center;font-size:26px;letter-spacing:12px;margin:0 0 4px;font-weight:bold;">大 漁 水 產 有 限 公 司</h1>
-        <h2 style="text-align:center;font-size:17px;letter-spacing:8px;margin:0 0 10px;font-weight:normal;">原 魚 入 庫 紀 錄 表</h2>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+        <h2 style="text-align:center;font-size:17px;letter-spacing:8px;margin:0 0 12px;font-weight:normal;">原 魚 入 庫 紀 錄 表</h2>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:8px;table-layout:fixed;">
           <tr>
-            <td style="${tdB}padding:7px 12px;font-size:14px;width:20%;">日期：${dateStr}</td>
-            <td style="${tdB}padding:7px 12px;font-size:14px;width:20%;">船名：${ship}</td>
-            <td style="${tdB}padding:7px 12px;font-size:14px;width:30%;">洋區：${zone}</td>
-            <td style="${tdB}padding:7px 12px;font-size:14px;width:15%;">溫層：${temp}</td>
+            <td style="${tdB}padding:8px 12px;font-size:14px;width:25%;">日期：${dateStr}</td>
+            <td style="${tdB}padding:8px 12px;font-size:14px;width:22%;">船名：${ship}</td>
+            <td style="${tdB}padding:8px 12px;font-size:14px;width:31%;">洋區：${zone}</td>
+            <td style="${tdB}padding:8px 12px;font-size:14px;width:22%;">溫層：${temp}</td>
           </tr>
         </table>
       </div>
-      <table style="width:100%;border-collapse:collapse;flex:1;table-layout:fixed;">
-        <thead><tr>
-          <th style="${thStyle}width:42px;">序號</th>
-          <th style="${thStyle}width:80px;">品名</th>
-          <th style="${thStyle}width:38px;">GG</th>
-          <th style="${thStyle}width:38px;">DR</th>
-          ${specTH}
-          <th style="${thStyle}width:52px;">桶號</th>
-          <th style="${thStyle}width:52px;">桶重</th>
-          <th style="${thStyle}width:52px;">總重</th>
-          <th style="${thStyle}width:52px;">魚重</th>
-          <th style="${thStyle}">備註</th>
-        </tr></thead>
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;flex-shrink:0;">
+        <colgroup>
+          <col style="width:${COL.seq}">
+          <col style="width:${COL.name}">
+          <col style="width:${COL.gg}">
+          <col style="width:${COL.dr}">
+          <col style="width:${COL.spec}"><col style="width:${COL.spec}"><col style="width:${COL.spec}">
+          <col style="width:${COL.spec}"><col style="width:${COL.spec}"><col style="width:${COL.spec}">
+          <col style="width:${COL.tono}">
+          <col style="width:${COL.toju}">
+          <col style="width:${COL.soju}">
+          <col style="width:${COL.gyoju}">
+          <col style="width:${COL.biju}">
+        </colgroup>
+        <thead>
+          <tr style="height:28px;">
+            <th style="${thB}" rowspan="2">序號</th>
+            <th style="${thB}" rowspan="2">品名</th>
+            <th style="${thB}" rowspan="2">GG</th>
+            <th style="${thB}" rowspan="2">DR</th>
+            <th style="${thB};padding:4px 1px;" colspan="${SPEC_COLS}">規　　格</th>
+            <th style="${thB}" rowspan="2">桶號</th>
+            <th style="${thB}" rowspan="2">桶重</th>
+            <th style="${thB}" rowspan="2">總重</th>
+            <th style="${thB}" rowspan="2">魚重</th>
+            <th style="${thB}" rowspan="2">備註</th>
+          </tr>
+          <tr style="height:16px;">
+            ${Array.from({length:SPEC_COLS},()=>`<th style="${tdB}background:#efefef;"></th>`).join('')}
+          </tr>
+        </thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="margin-top:20px;display:flex;justify-content:space-between;font-size:15px;padding:0 6px;">
+      <div style="border-left:1px solid #000;border-right:1px solid #000;border-bottom:1px solid #000;height:${BLANK_H}px;flex-shrink:0;"></div>
+      <div style="margin-top:auto;padding-top:10px;display:flex;justify-content:space-between;font-size:14px;padding-left:6px;padding-right:6px;flex-shrink:0;">
         <span>廠長：____________________</span>
         <span>倉管：____________________</span>
         <span>製表人：____________________</span>
