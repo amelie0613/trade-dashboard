@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>出庫計算機</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSystemFont,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:15px;color:#1c1c1e}
+.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Header ── */
+.header{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:12px 16px;position:sticky;top:0;z-index:200}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.header-title{font-size:17px;font-weight:600;letter-spacing:-0.3px}
+.badge{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#e1f5ee;color:#0f6e56}
+
+/* Summary cards horizontal scroll */
+.summary-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.summary-scroll::-webkit-scrollbar{display:none}
+.sum-card{background:#f2f2f7;border-radius:10px;padding:9px 14px;flex-shrink:0;min-width:130px}
+.sum-label{font-size:11px;color:#8e8e93;margin-bottom:2px;white-space:nowrap}
+.sum-value{font-size:20px;font-weight:600;color:#1c1c1e;white-space:nowrap}
+.sum-unit{font-size:11px;color:#8e8e93;font-weight:400;margin-left:2px}
+
+/* ── Tabs ── */
+.tab-bar{display:flex;background:#fff;border-bottom:0.5px solid #d1d1d6;position:sticky;top:88px;z-index:190}
+.tab{flex:1;padding:11px 4px;text-align:center;font-size:13px;cursor:pointer;color:#8e8e93;border-bottom:2.5px solid transparent;transition:color .15s,border-color .15s;font-weight:500}
+.tab.active{color:#1d9e75;border-bottom-color:#1d9e75}
+
+/* ── Filter chips ── */
+.filter-bar{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:10px 16px;display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.filter-bar::-webkit-scrollbar{display:none}
+.chip{border:1px solid #d1d1d6;border-radius:20px;padding:5px 13px;font-size:13px;cursor:pointer;white-space:nowrap;background:#fff;color:#3a3a3c;transition:all .15s;-webkit-user-select:none;user-select:none}
+.chip.active{background:#1d9e75;border-color:#1d9e75;color:#fff;font-weight:600}
+
+/* ── Search ── */
+.search-wrap{padding:10px 16px;background:#fff;border-bottom:0.5px solid #d1d1d6}
+.search-input{width:100%;border:1px solid #d1d1d6;border-radius:10px;padding:8px 14px;font-size:15px;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none}
+.search-input:focus{border-color:#1d9e75}
+
+/* ── List ── */
+.group-header{font-size:12px;font-weight:600;color:#0f6e56;background:#e8f7f1;padding:6px 16px;border-bottom:0.5px solid #c3e8d8;letter-spacing:.2px}
+.item-row{background:#fff;border-bottom:0.5px solid #f2f2f7;padding:11px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-user-select:none;user-select:none;transition:background .1s}
+.item-row:active{background:#f2f2f7}
+.check-box{width:24px;height:24px;border-radius:7px;border:2px solid #c7c7cc;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:14px;color:#fff}
+.check-box.on{background:#1d9e75;border-color:#1d9e75}
+.item-body{flex:1;min-width:0}
+.item-name{font-size:14px;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1c1c1e}
+.item-meta{font-size:12px;color:#8e8e93;display:flex;gap:10px;flex-wrap:wrap}
+.item-meta span{white-space:nowrap}
+.item-right{text-align:right;flex-shrink:0}
+.item-qty{font-size:16px;font-weight:700;color:#1d9e75}
+.item-unit{font-size:11px;color:#8e8e93}
+.empty{text-align:center;padding:48px 16px;color:#8e8e93;font-size:14px}
+
+/* ── Settings ── */
+.sec-title{padding:12px 16px 6px;font-size:12px;color:#8e8e93;letter-spacing:.4px;text-transform:uppercase;font-weight:500}
+.settings-block{background:#fff;border-top:0.5px solid #d1d1d6;border-bottom:0.5px solid #d1d1d6}
+.set-row{padding:13px 16px;display:flex;align-items:center;gap:12px;border-bottom:0.5px solid #f2f2f7;cursor:pointer;-webkit-user-select:none;user-select:none}
+.set-row:last-child{border-bottom:none}
+.drag-handle{font-size:17px;color:#c7c7cc;width:22px;text-align:center;cursor:grab}
+.toggle{width:24px;height:24px;border-radius:7px;border:2px solid #c7c7cc;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;transition:all .15s;flex-shrink:0}
+.toggle.on{background:#1d9e75;border-color:#1d9e75}
+.set-name{flex:1;font-size:15px}
+.set-order{font-size:12px;color:#c7c7cc}
+.save-btn{margin:14px 16px;display:block;width:calc(100% - 32px);padding:13px;background:#1d9e75;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;-webkit-appearance:none}
+.save-btn:active{opacity:.85}
+
+/* ── Export ── */
+.export-area{padding:16px;display:flex;flex-direction:column;gap:12px}
+.ex-card{background:#fff;border-radius:14px;padding:16px;border:0.5px solid #d1d1d6}
+.ex-title{font-size:15px;font-weight:600;margin-bottom:5px;color:#1c1c1e}
+.ex-desc{font-size:13px;color:#8e8e93;line-height:1.6;margin-bottom:12px}
+.gh-input{border:1px solid #d1d1d6;border-radius:10px;padding:9px 13px;font-size:14px;width:100%;margin-bottom:8px;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none}
+.gh-input:focus{border-color:#1d9e75}
+.ex-btn{width:100%;padding:12px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;border:1px solid #d1d1d6;background:#f2f2f7;color:#1c1c1e;-webkit-appearance:none;margin-top:2px}
+.ex-btn.primary{background:#1d9e75;border-color:#1d9e75;color:#fff}
+.ex-btn:active{opacity:.8}
+.gh-status{margin-top:8px;font-size:13px;color:#8e8e93;text-align:center}
+.preview-table{width:100%;font-size:12px;border-collapse:collapse;margin-top:10px}
+.preview-table th{text-align:left;padding:5px 8px;border-bottom:1px solid #e5e5ea;color:#8e8e93;font-weight:500}
+.preview-table td{padding:5px 8px;border-bottom:0.5px solid #f2f2f7;color:#1c1c1e}
+
+/* ── Welcome screen ── */
+.welcome{position:fixed;inset:0;background:#f2f2f7;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px}
+.welcome-icon{font-size:56px;margin-bottom:16px}
+.welcome-title{font-size:22px;font-weight:700;margin-bottom:8px;color:#1c1c1e}
+.welcome-desc{font-size:14px;color:#8e8e93;text-align:center;line-height:1.7;margin-bottom:32px}
+.welcome-btn{background:#1d9e75;color:#fff;border:none;border-radius:14px;padding:15px 36px;font-size:17px;font-weight:600;cursor:pointer;-webkit-appearance:none}
+.welcome-btn:active{opacity:.85}
+.welcome-note{font-size:12px;color:#c7c7cc;margin-top:16px;text-align:center}
+
+.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:0.5px solid #d1d1d6;padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:300}
+.bottom-bar .btn{flex:1;padding:11px 8px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid #d1d1d6;background:#f2f2f7;color:#1c1c1e;-webkit-appearance:none;white-space:nowrap}
+.bottom-bar .btn.green{background:#1d9e75;border-color:#1d9e75;color:#fff}
+.bottom-bar .btn:active{opacity:.8}
+
+/* ── Import modal ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:400;align-items:flex-end}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:20px 20px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));width:100%;max-height:85vh;overflow-y:auto}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:14px;text-align:center}
+.modal-close{float:right;font-size:22px;cursor:pointer;color:#8e8e93;line-height:1;margin-top:-4px}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<!-- WELCOME SCREEN -->
+<div class="welcome" id="welcome-screen">
+  <div class="welcome-icon">📦</div>
+  <div class="welcome-title">出庫計算機</div>
+  <div class="welcome-desc">請選擇庫存 Excel 檔案<br>（.xlsx 格式）開始作業</div>
+  <input type="file" accept=".xlsx" id="welcome-xlsx" style="display:none" onchange="importXLSX(event, true)">
+  <button class="welcome-btn" onclick="document.getElementById('welcome-xlsx').click()">選擇 Excel 檔案</button>
+  <div class="welcome-note" id="welcome-note">需要 SheetJS 支援，請確認網路連線（僅首次需要）</div>
+</div>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div class="header-title">出庫計算機</div>
+      <span class="badge" id="badge">0 項已選</span>
+    </div>
+    <div class="summary-scroll" id="summary-scroll">
+      <div class="sum-card">
+        <div class="sum-label">尚未選取項目</div>
+        <div class="sum-value">0<span class="sum-unit">公斤</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tab-bar">
+    <div class="tab active" id="tab-list" onclick="switchTab('list')">庫存清單</div>
+    <div class="tab" id="tab-settings" onclick="switchTab('settings')">欄位設定</div>
+    <div class="tab" id="tab-export" onclick="switchTab('export')">存檔匯出</div>
+  </div>
+
+  <!-- VIEW: LIST -->
+  <div id="view-list">
+    <div class="filter-bar" id="filter-bar"></div>
+    <div class="search-wrap">
+      <input class="search-input" type="search" placeholder="搜尋產品、批號、儲位…" id="search-input" oninput="renderList()">
+    </div>
+    <div id="list-area" style="padding-bottom:80px"></div>
+  </div>
+
+  <!-- VIEW: SETTINGS -->
+  <div id="view-settings" style="display:none;padding-bottom:80px">
+    <div class="sec-title">顯示欄位（點擊開關、拖曳排序）</div>
+    <div class="settings-block" id="col-list"></div>
+    <button class="save-btn" onclick="saveColSettings()">儲存並套用</button>
+    <div class="sec-title" style="margin-top:8px">更換資料</div>
+    <div style="padding:0 16px 16px">
+      <button class="ex-btn" onclick="document.getElementById('import-xlsx').click()">匯入新 Excel 資料表</button>
+      <input type="file" accept=".xlsx" id="import-xlsx" style="display:none" onchange="importXLSX(event)">
+    </div>
+  </div>
+
+  <!-- VIEW: EXPORT -->
+  <div id="view-export" style="display:none;padding-bottom:80px">
+    <div class="export-area">
+
+      <div class="ex-card">
+        <div class="ex-title">儲存到 GitHub</div>
+        <div class="ex-desc">上傳已選出庫清單（JSON格式），回辦公室後可匯入 Excel 列印。</div>
+        <input class="gh-input" type="password" id="gh-token" placeholder="GitHub Personal Access Token">
+        <input class="gh-input" type="text" id="gh-repo" placeholder="帳號/倉庫名稱  例：user/warehouse">
+        <input class="gh-input" type="text" id="gh-filename" value="出庫單.json" placeholder="檔案名稱">
+        <button class="ex-btn primary" onclick="saveToGitHub()">上傳到 GitHub</button>
+        <div class="gh-status" id="gh-status"></div>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-title">下載 JSON 備份</div>
+        <div class="ex-desc">儲存到手機，回辦公室後用 Excel 的「資料→取得資料→從 JSON」開啟，即可列印出庫清單。</div>
+        <button class="ex-btn" onclick="downloadJSON()">下載 JSON 檔案</button>
+      </div>
+
+      <div class="ex-card">
+        <div class="ex-title">載入舊清單</div>
+        <div class="ex-desc">讀取之前儲存的 JSON 出庫單，還原勾選狀態繼續作業。</div>
+        <input type="file" accept=".json" id="import-json" style="display:none" onchange="importJSON(event)">
+        <button class="ex-btn" onclick="document.getElementById('import-json').click()">選擇 JSON 檔案</button>
+      </div>
+
+      <div class="ex-card" id="export-preview" style="display:none">
+        <div class="ex-title" id="preview-title"></div>
+        <div style="overflow-x:auto" id="preview-body"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- .app -->
+
+<!-- BOTTOM BAR -->
+<div class="bottom-bar">
+  <button class="btn" onclick="clearAll()">清除選取</button>
+  <button class="btn" onclick="selectAll()">全選目前</button>
+  <button class="btn green" onclick="switchTab('export')">匯出 (<span id="sel-count">0</span>)</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let data = [];
+let checked = new Set();
+let activeLocation = '全部';
+let dragSrc = null;
+let colSettings = [
+  {key:'批號',      label:'批號',    visible:true},
+  {key:'儲位名稱',  label:'儲位',    visible:true},
+  {key:'倉庫名稱',  label:'倉庫',    visible:false},
+  {key:'產品代碼',  label:'產品代碼',visible:false},
+  {key:'產品類別',  label:'產品類別',visible:false},
+  {key:'基本單位名稱',label:'單位',  visible:false},
+  {key:'核算組織名稱',label:'組織',  visible:false},
+];
+
+// ═══════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════
+function switchTab(t){
+  ['list','settings','export'].forEach(n=>{
+    document.getElementById('view-'+n).style.display = n===t ? '' : 'none';
+    document.getElementById('tab-'+n).className = 'tab'+(n===t?' active':'');
+  });
+  if(t==='settings') renderColSettings();
+  if(t==='export')   renderExportPreview();
+}
+
+// ═══════════════════════════════════════════
+//  FILTERS
+// ═══════════════════════════════════════════
+function getLocations(){
+  return ['全部',...[...new Set(data.map(r=>r['儲位名稱']))].sort()];
+}
+function renderFilters(){
+  document.getElementById('filter-bar').innerHTML = getLocations().map(l=>
+    `<div class="chip ${activeLocation===l?'active':''}" onclick="setLocation(${JSON.stringify(l)})">${l}</div>`
+  ).join('');
+}
+function setLocation(loc){ activeLocation=loc; renderFilters(); renderList(); }
+
+// ═══════════════════════════════════════════
+//  LIST
+// ═══════════════════════════════════════════
+function getFiltered(){
+  const q = document.getElementById('search-input').value.trim().toLowerCase();
+  return data.filter(r=>{
+    const locOk = activeLocation==='全部' || r['儲位名稱']===activeLocation;
+    const qOk   = !q || Object.values(r).some(v=>String(v).toLowerCase().includes(q));
+    return locOk && qOk;
+  });
+}
+
+function renderList(){
+  const filtered = getFiltered();
+  const el = document.getElementById('list-area');
+  if(!filtered.length){ el.innerHTML='<div class="empty">沒有符合的資料</div>'; updateSummary(); return; }
+
+  const metaCols = colSettings.filter(c=>c.visible);
+  const groups = {};
+  filtered.forEach(r=>{ const n=r['產品名稱']; if(!groups[n])groups[n]=[]; groups[n].push(r); });
+
+  let html='';
+  Object.entries(groups).forEach(([name,rows])=>{
+    html += `<div class="group-header">${name}</div>`;
+    rows.forEach(r=>{
+      const id  = r._id;
+      const chk = checked.has(id);
+      const meta = metaCols.map(c=>`<span>${c.label}: ${r[c.key]||'-'}</span>`).join('');
+      html += `<div class="item-row" onclick="toggleCheck(${id})">
+        <div class="check-box ${chk?'on':''}">${chk?'✓':''}</div>
+        <div class="item-body">
+          <div class="item-name">${r['產品名稱']}</div>
+          <div class="item-meta">${meta}</div>
+        </div>
+        <div class="item-right">
+          <div class="item-qty">${(r['庫存數量']||0).toLocaleString()}</div>
+          <div class="item-unit">${r['基本單位名稱']}</div>
+        </div>
+      </div>`;
+    });
+  });
+  el.innerHTML = html;
+  updateSummary();
+}
+
+function toggleCheck(id){
+  checked.has(id) ? checked.delete(id) : checked.add(id);
+  renderList();
+}
+function clearAll(){ checked.clear(); renderList(); }
+function selectAll(){
+  getFiltered().forEach(r=>checked.add(r._id));
+  renderList();
+}
+
+// ═══════════════════════════════════════════
+//  SUMMARY CARDS  (per-product breakdown)
+// ═══════════════════════════════════════════
+function updateSummary(){
+  const sel = data.filter(r=>checked.has(r._id));
+  document.getElementById('badge').textContent = sel.length+' 項已選';
+  document.getElementById('sel-count').textContent = sel.length;
+
+  const byProduct = {};
+  sel.forEach(r=>{
+    const n = r['產品名稱'];
+    if(!byProduct[n]) byProduct[n]={qty:0,unit:r['基本單位名稱']};
+    byProduct[n].qty += (r['庫存數量']||0);
+  });
+  const keys = Object.keys(byProduct);
+  const scroll = document.getElementById('summary-scroll');
+
+  if(!keys.length){
+    scroll.innerHTML = `<div class="sum-card"><div class="sum-label">尚未選取項目</div><div class="sum-value">0<span class="sum-unit">公斤</span></div></div>`;
+    return;
+  }
+  scroll.innerHTML = keys.map(k=>
+    `<div class="sum-card">
+      <div class="sum-label">${k} — 重量</div>
+      <div class="sum-value">${byProduct[k].qty.toLocaleString()}<span class="sum-unit">${byProduct[k].unit}</span></div>
+    </div>`
+  ).join('');
+}
+
+// ═══════════════════════════════════════════
+//  COLUMN SETTINGS
+// ═══════════════════════════════════════════
+function renderColSettings(){
+  document.getElementById('col-list').innerHTML = colSettings.map((c,i)=>
+    `<div class="set-row" draggable="true" data-i="${i}"
+        ondragstart="dragStart(event,${i})" ondragover="dragOver(event)" ondrop="dragDrop(event,${i})">
+      <div class="drag-handle">≡</div>
+      <div class="toggle ${c.visible?'on':''}" onclick="toggleCol(event,${i})">${c.visible?'✓':''}</div>
+      <div class="set-name">${c.label}</div>
+      <div class="set-order">#${i+1}</div>
+    </div>`
+  ).join('');
+}
+function toggleCol(e,i){ e.stopPropagation(); colSettings[i].visible=!colSettings[i].visible; renderColSettings(); }
+function dragStart(e,i){ dragSrc=i; e.dataTransfer.effectAllowed='move'; }
+function dragOver(e){ e.preventDefault(); }
+function dragDrop(e,i){
+  e.preventDefault();
+  if(dragSrc===null||dragSrc===i) return;
+  const m=colSettings.splice(dragSrc,1)[0];
+  colSettings.splice(i,0,m);
+  dragSrc=null; renderColSettings();
+}
+function saveColSettings(){ renderList(); switchTab('list'); }
+
+// ═══════════════════════════════════════════
+//  EXPORT / IMPORT
+// ═══════════════════════════════════════════
+function getSelectedData(){ return data.filter(r=>checked.has(r._id)); }
+
+function renderExportPreview(){
+  const sel = getSelectedData();
+  const card = document.getElementById('export-preview');
+  const body = document.getElementById('preview-body');
+  const title = document.getElementById('preview-title');
+  if(!sel.length){ card.style.display='none'; return; }
+  card.style.display='';
+  title.textContent = `已選清單預覽（${sel.length} 筆）`;
+  body.innerHTML = `<table class="preview-table">
+    <tr><th>產品名稱</th><th>儲位</th><th>批號</th><th>數量</th><th>單位</th></tr>
+    ${sel.map(r=>`<tr>
+      <td>${r['產品名稱']}</td>
+      <td>${r['儲位名稱']}</td>
+      <td>${r['批號']}</td>
+      <td style="text-align:right;font-weight:600;color:#1d9e75">${(r['庫存數量']||0).toLocaleString()}</td>
+      <td>${r['基本單位名稱']}</td>
+    </tr>`).join('')}
+  </table>`;
+}
+
+function buildExportPayload(){
+  const sel = getSelectedData();
+  // product subtotals
+  const byProduct={};
+  sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
+  return { exportDate: new Date().toISOString(), subtotals: byProduct, items: sel };
+}
+
+function downloadJSON(){
+  const sel = getSelectedData();
+  if(!sel.length){ alert('請先勾選要出庫的項目'); return; }
+  const blob = new Blob([JSON.stringify(buildExportPayload(),null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '出庫單_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+}
+
+async function saveToGitHub(){
+  const token    = document.getElementById('gh-token').value.trim();
+  const repo     = document.getElementById('gh-repo').value.trim();
+  const filename = document.getElementById('gh-filename').value.trim();
+  const status   = document.getElementById('gh-status');
+  if(!token||!repo||!filename){ status.textContent='請填寫所有欄位'; return; }
+  const sel = getSelectedData();
+  if(!sel.length){ status.textContent='請先勾選項目'; return; }
+  status.textContent='上傳中…';
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(buildExportPayload(),null,2))));
+  try{
+    let sha='';
+    const chk = await fetch(`https://api.github.com/repos/${repo}/contents/${encodeURIComponent(filename)}`,
+      {headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
+    if(chk.ok){ const j=await chk.json(); sha=j.sha; }
+    const res = await fetch(`https://api.github.com/repos/${repo}/contents/${encodeURIComponent(filename)}`,{
+      method:'PUT',
+      headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+      body: JSON.stringify({message:'出庫單 '+new Date().toISOString().slice(0,10), content, sha:sha||undefined})
+    });
+    if(res.ok) status.innerHTML='<span style="color:#1d9e75;font-weight:600">✓ 上傳成功！</span>';
+    else{ const j=await res.json(); status.textContent='錯誤: '+j.message; }
+  }catch(e){ status.textContent='網路錯誤: '+e.message; }
+}
+
+function importJSON(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const obj=JSON.parse(ev.target.result);
+      const items=obj.items||obj;
+      checked.clear();
+      items.forEach(item=>{
+        const idx=data.findIndex(r=>r['批號']===item['批號']&&r['儲位名稱']===item['儲位名稱']&&r['產品名稱']===item['產品名稱']);
+        if(idx>=0) checked.add(data[idx]._id);
+      });
+      renderList(); switchTab('list');
+    }catch{ alert('JSON 格式錯誤，請確認檔案正確'); }
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
+// ═══════════════════════════════════════════
+//  IMPORT XLSX  (replace embedded data)
+// ═══════════════════════════════════════════
+function importXLSX(e, fromWelcome){
+  const file=e.target.files[0]; if(!file) return;
+  if(typeof XLSX==='undefined'){ alert('無法載入 SheetJS，請確認網路連線後重試。'); return; }
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const wb=XLSX.read(ev.target.result,{type:'binary'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+    if(rows.length){
+      data=rows.map((r,i)=>({
+        核算組織名稱:r['核算組織名稱']||'',
+        產品類別:r['產品類別']||'',
+        產品代碼:String(r['產品代碼']||''),
+        產品名稱:r['產品名稱']||'',
+        產品規格:r['產品規格']||'',
+        庫存數量:Number(r['庫存數量'])||0,
+        基本單位名稱:r['基本單位名稱']||'',
+        倉庫名稱:r['倉庫名稱']||'',
+        批號:String(r['批號']||''),
+        儲位名稱:String(r['儲位名稱']||''),
+        _id:i
+      }));
+      checked.clear(); activeLocation='全部';
+      renderFilters(); renderList();
+      if(fromWelcome){
+        document.getElementById('welcome-screen').style.display='none';
+      } else {
+        switchTab('list');
+        alert('資料匯入完成！共 '+rows.length+' 筆');
+      }
+    }
+  };
+  reader.readAsBinaryString(file);
+  e.target.value='';
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+renderFilters();
+renderList();
+</script>
+
+<!--
+  ╔══════════════════════════════════════════╗
+  ║  離線使用說明                             ║
+  ║  1. 直接用手機瀏覽器開啟此 HTML 檔案      ║
+  ║  2. 勾選要出庫的項目                      ║
+  ║  3. 上方卡片即時顯示各產品重量合計        ║
+  ║  4. 至「存檔匯出」下載 JSON 或上傳 GitHub ║
+  ║  5. 回辦公室後開啟 Excel                  ║
+  ║     → 資料 → 取得資料 → 從 JSON 匯入     ║
+  ╚══════════════════════════════════════════╝
+-->
+</body>
+</html>
