@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>出庫計算機（修正版）</title>
+
+<style>
+body{font-family:sans-serif;background:#f2f2f7;margin:0}
+.header{background:#fff;padding:10px;border-bottom:1px solid #ddd}
+.badge{padding:5px 10px;border-radius:10px;background:#eee;margin-right:5px;font-size:12px}
+.row{display:flex;gap:10px;padding:10px;border-bottom:1px solid #eee;align-items:center}
+.remain-ok{color:#0f6e56}
+.remain-over{color:#d00}
+.remain-na{color:#999}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <span class="badge" id="badge-container">貨櫃容量 —</span>
+  <span class="badge" id="badge-selected-weight" style="display:none">已選 0</span>
+  <span class="badge" id="badge">0 項已選</span>
+</div>
+
+<div style="padding:10px">
+  貨櫃容量：
+  <input type="number" id="input-capacity">
+</div>
+
+<div id="list"></div>
+
+<script>
+
+// ===== 原始資料 =====
+let data = [
+  { _id:1, '產品名稱':'鮭魚', '庫存數量':100, '基本單位名稱':'公斤' },
+  { _id:2, '產品名稱':'鮪魚', '庫存數量':200, '基本單位名稱':'公斤' }
+];
+
+let checked = new Set();
+let plannedQty = {};
+let containerCapacity = localStorage.getItem('containerCapacity') || '';
+
+// ===== 初始化 =====
+document.getElementById('input-capacity').value = containerCapacity;
+updateContainerBadge();
+
+document.getElementById('input-capacity').oninput = function(){
+  containerCapacity = this.value;
+  localStorage.setItem('containerCapacity', containerCapacity);
+  updateContainerBadge();
+};
+
+// ===== 貨櫃容量 =====
+function updateContainerBadge(){
+  const el = document.getElementById('badge-container');
+  if(containerCapacity){
+    el.textContent = '貨櫃容量 ' + containerCapacity + ' 公斤';
+  }else{
+    el.textContent = '貨櫃容量 —';
+  }
+}
+
+// =====================
+// 🔥 修正 1：唯一入口
+// =====================
+function setPlanned(name, val){
+  plannedQty[name] = (val === '') ? '' : Number(val);
+  updateSummary();
+}
+
+// =====================
+// 勾選
+// =====================
+function toggleCheck(id){
+  if(checked.has(id)){
+    checked.delete(id);
+  }else{
+    checked.add(id);
+  }
+  updateSummary();
+  render();
+}
+
+// =====================
+// 🔥 修正 2：唯一計算中心
+// =====================
+function updateSummary(){
+
+  const sel = data.filter(r => checked.has(r._id));
+  document.getElementById('badge').textContent = sel.length + ' 項已選';
+
+  const byProduct = {};
+  sel.forEach(r=>{
+    const n = r['產品名稱'];
+    if(!byProduct[n]){
+      byProduct[n] = { qty:0, unit:r['基本單位名稱'] };
+    }
+    byProduct[n].qty += r['庫存數量'];
+  });
+
+  // ===== 已選重量 =====
+  const keys = Object.keys(byProduct);
+  const weightBadge = document.getElementById('badge-selected-weight');
+
+  if(keys.length){
+    const units = [...new Set(keys.map(k => byProduct[k].unit))];
+
+    if(units.length === 1){
+      const total = keys.reduce((s,k)=>s+byProduct[k].qty,0);
+      weightBadge.textContent = '已選 ' + total.toLocaleString() + ' ' + units[0];
+    }else{
+      weightBadge.textContent = '已選 ' + keys
+        .map(k => byProduct[k].qty.toLocaleString() + byProduct[k].unit)
+        .join(' / ');
+    }
+
+    weightBadge.style.display = '';
+  }else{
+    weightBadge.style.display = 'none';
+  }
+
+  renderPlannedSection(byProduct);
+}
+
+// =====================
+// 🔥 修正 3：剩餘數量
+// =====================
+function renderPlannedSection(byProduct){
+  data.forEach((item, idx)=>{
+    const name = item['產品名稱'];
+    const selected = byProduct[name] ? byProduct[name].qty : 0;
+    const planned = plannedQty[name];
+
+    const el = document.getElementById('remain-'+idx);
+    if(!el) return;
+
+    if(planned !== undefined && planned !== '' && !isNaN(Number(planned))){
+      const remain = Number(planned) - selected;
+
+      el.className = (remain < 0) ? 'remain-over' : 'remain-ok';
+      el.textContent = remain;
+    }else{
+      el.className = 'remain-na';
+      el.textContent = '—';
+    }
+  });
+}
+
+// =====================
+// UI
+// =====================
+function render(){
+  const el = document.getElementById('list');
+  el.innerHTML = '';
+
+  data.forEach((item, idx)=>{
+    const name = item['產品名稱'];
+    const planned = plannedQty[name] ?? '';
+
+    const div = document.createElement('div');
+    div.className = 'row';
+
+    div.innerHTML = `
+      <input type="checkbox" onclick="toggleCheck(${item._id})">
+      <div style="width:80px">${name}</div>
+      <input type="number" value="${planned}"
+        oninput="setPlanned('${name}', this.value)">
+      <div id="remain-${idx}" class="remain-na">—</div>
+    `;
+
+    el.appendChild(div);
+  });
+}
+
+// ===== 啟動 =====
+render();
+
+</script>
+
+</body>
+</html>
