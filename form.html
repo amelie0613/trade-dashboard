@@ -102,6 +102,7 @@ textarea{height:72px;resize:none;line-height:1.6;}
 .bnew{padding:14px 32px;border-radius:12px;background:linear-gradient(135deg,#0369a1,var(--teal));color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
@@ -487,6 +488,8 @@ const fd = {};
 // ── Firebase 初始化（Firestore）────────────────────────
 var _fbApp = null;
 var _fbDb  = null;
+var _fbAuthReady = false; // 認證完成旗標
+
 function getFirebaseDb(){
   if(_fbDb) return _fbDb;
   if(!window.firebase){
@@ -498,6 +501,39 @@ function getFirebaseDb(){
   }
   _fbDb = firebase.firestore();
   return _fbDb;
+}
+
+// ★ 修復：先完成 Anonymous Auth，再執行 Firestore 寫入
+// Firestore Security Rules 需要 auth，沒有 signIn 就會被拒絕
+function ensureAuth(){
+  return new Promise(function(resolve, reject){
+    if(_fbAuthReady){ resolve(); return; }
+    var app;
+    try { app = firebase.app(); } catch(e) { app = firebase.initializeApp(FIREBASE_CONFIG); }
+    _fbApp = app;
+    _fbDb  = app.firestore();
+    firebase.auth().onAuthStateChanged(function(user){
+      if(user){
+        _fbAuthReady = true;
+        console.log('✅ Firebase Auth 已登入（uid:', user.uid, '）');
+        resolve();
+      } else {
+        // 匿名登入（Firestore Rules 允許 request.auth != null 即可）
+        firebase.auth().signInAnonymously()
+          .then(function(uc){
+            _fbAuthReady = true;
+            console.log('✅ Firebase 匿名登入成功（uid:', uc.user.uid, '）');
+            resolve();
+          })
+          .catch(function(e){
+            console.warn('⚠️ 匿名登入失敗，嘗試無驗證模式：', e.message);
+            // 若 Anonymous Auth 未開啟，仍嘗試寫入（部分 Rules 允許）
+            _fbAuthReady = true;
+            resolve();
+          });
+      }
+    });
+  });
 }
 
 // ── 遞迴清除所有 undefined ─────────────────────────────
@@ -574,10 +610,14 @@ function buildFirestoreDoc(payload){
 
 // ── 寫入 Firestore（cases/{formId}）───────────────────
 async function writeFirebase(payload){
+  // ★ 先確保認證完成，再寫入（避免 Rules 拒絕）
+  await ensureAuth();
   var db = getFirebaseDb();
   if(!db) throw new Error('Firestore 未初始化');
   var doc    = sanitizeForFirebase(buildFirestoreDoc(payload));
   var formId = payload.formId;
+  if(!formId) throw new Error('formId 為空，無法寫入');
+  console.log('🔄 Firestore 寫入中：', formId, '欄位：', Object.keys(doc));
   await db.collection('cases').doc(formId).set(doc);
   console.log('✅ Firestore 寫入成功：' + formId);
 }
@@ -663,6 +703,35 @@ function backupToGAS(payload){
   }).catch(function(e){
     console.warn('⚠️ GAS 備份失敗（不影響主流程）：', e);
   });
+}
+
+// ★ 修復：改用 JSONP GET 通知 GAS（完全繞過 CORS，確保 GAS 收到資料並發信）
+function notifyGASviaJSONP(payload){
+  var cbName = '_gcb_'+Date.now();
+  var script  = document.createElement('script');
+  var done    = false;
+  var timer   = setTimeout(function(){
+    if(done) return; done = true;
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+    console.warn('⚠️ GAS JSONP 通知逾時（不影響主流程）');
+  }, 15000);
+  window[cbName] = function(d){
+    clearTimeout(timer); done = true;
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+    console.log('✅ GAS JSONP 通知完成：', d);
+  };
+  // 把 payload 序列化為 URL 參數（GAS GET 端需要 JSON 解析）
+  var qs = '?callback='+cbName+'&payload='+encodeURIComponent(JSON.stringify(payload))+'&_='+Date.now();
+  script.src = SCRIPT_URL + qs;
+  script.onerror = function(){
+    clearTimeout(timer); done = true;
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+    console.warn('⚠️ GAS JSONP script error');
+  };
+  document.head.appendChild(script);
 }
 
 // ── JSONP 工具（繞過 CORS）────────────────────────────
@@ -1065,24 +1134,30 @@ async function submitForm(){
   };
 
   try {
-    // ① 主要：寫入 Firebase（失敗則整個流程停止）
+    // ① 主要：寫入 Firebase（ensureAuth 在內部處理）
     await writeFirebase(payload);
 
-    // ② 備份：非同步送 GAS（fire-and-forget，含發信通知老闆）
-    // 加入 action:'newCase' 讓 GAS Apps Script 發信給老闆
+    // ② GAS 通知（action: newCase → 老闆收信）
+    // ★ 改用 JSONP GET 方式，完全繞過 CORS，確保 GAS 能收到資料
     var gasPayload = Object.assign({}, payload, { action: 'newCase' });
-    backupToGAS(gasPayload);
+    notifyGASviaJSONP(gasPayload);
 
     showPage('success');
   } catch(e) {
     console.error('Firebase 寫入失敗：', e);
-    // Firebase 失敗時降級：直接走原本 GAS（確保不漏資料）
-    try {
-      fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
-      showPage('success');
-    } catch(e2) {
-      showPage('success');
+    var errMsg = e.message || e.toString();
+    // ★ 顯示真實錯誤（幫助診斷）
+    if(errMsg.indexOf('permission')>=0 || errMsg.indexOf('PERMISSION')>=0){
+      alert('⚠️ Firebase 寫入被拒絕（Security Rules）\n\n請確認：\n1. Firebase Console → Authentication → 已開啟「匿名登入」\n2. Firestore Rules 允許 request.auth != null\n\n技術錯誤：' + errMsg);
+    } else if(errMsg.indexOf('未初始化')>=0){
+      alert('⚠️ Firebase 未初始化，請檢查網路連線後重試');
+    } else {
+      alert('⚠️ 資料送出失敗：' + errMsg + '\n\n即將嘗試備援通道...');
     }
+    // Firebase 失敗時降級：用 JSONP 直接送 GAS 存底
+    var fallbackPayload = Object.assign({}, payload, { action: 'newCase' });
+    notifyGASviaJSONP(fallbackPayload);
+    showPage('success');
   }
   btn.disabled=false;
   btn.innerHTML='📤 送出回報（通知老闆審核）';

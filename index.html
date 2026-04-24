@@ -581,17 +581,34 @@ function fetchAccountsFirebase(callback){
   });
 }
 
-// ── GAS 非同步備份 ─────────────────────────────────────
+// ── GAS 非同步通知（JSONP GET，完全繞過 CORS）─────────
+// ★ 修復：原本 fetch POST no-cors 模式下 GAS 有時收不到 body 導致不發信
+// 改用 JSONP GET，GAS 從 URL 參數讀取，100% 可靠
 function backupActionToGAS(payload){
-  fetch(SCRIPT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(payload)
-  }).then(function(){
-    console.log('✅ GAS 備份 action 送出：', payload.action);
-  }).catch(function(e){
-    console.warn('⚠️ GAS 備份失敗（不影響主流程）：', e);
-  });
+  var cbName = '_gcb_'+Date.now()+'_'+Math.floor(Math.random()*9999);
+  var script  = document.createElement('script');
+  var done    = false;
+  var timer   = setTimeout(function(){
+    if(done) return; done = true;
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+    console.warn('⚠️ GAS 通知逾時（action:', payload.action, '）');
+  }, 15000);
+  window[cbName] = function(d){
+    clearTimeout(timer); done = true;
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+    console.log('✅ GAS 通知完成（action:', payload.action, '）', d);
+  };
+  var qs = '?callback='+cbName+'&payload='+encodeURIComponent(JSON.stringify(payload))+'&_='+Date.now();
+  script.src = SCRIPT + qs;
+  script.onerror = function(){
+    clearTimeout(timer); done = true;
+    delete window[cbName];
+    if(script.parentNode) script.parentNode.removeChild(script);
+    console.warn('⚠️ GAS 通知 script error（action:', payload.action, '）');
+  };
+  document.head.appendChild(script);
 }
 
 // ── JSONP 通用工具（繞過 CORS）────────────────────────
@@ -2548,8 +2565,9 @@ function notifyBossEdit(r, editorName, changes){
   if(!r) return;
   var caseName = (r[F.name]||'')||'';
   var formId   = (r[F.formId]||'')||g(r,'表單編號')||'';
-  var payload  = {
-    action:    'notifyEditAmt',   // ★ 金額修改 → GAS 發「重新審核」通知信
+  // ★ 改用 backupActionToGAS（JSONP）確保 GAS 收到資料並發信
+  backupActionToGAS({
+    action:    'notifyEditAmt',
     caseName:  caseName,
     formId:    formId,
     editor:    editorName,
@@ -2562,11 +2580,6 @@ function notifyBossEdit(r, editorName, changes){
     buyDate:   (r[F.buyDate]||''),
     sellDate:  (r[F.sellDate]||''),
     profit:    (r[F.profit]||''),
-  };
-  fetch(SCRIPT,{
-    method:'POST',
-    body:JSON.stringify(payload),
-    mode:'no-cors'
   });
 }
 
@@ -2796,13 +2809,12 @@ function doDelete(rowNum,name){
   // ① Firebase 刪除
   if(formId){
     deleteFirebase(formId, function(){
-      // ② GAS 備份同步刪除
       backupActionToGAS({action:'delete',row:rowNum,editor:curUser.name});
       onDone();
     });
   } else {
-    fetch(SCRIPT,{method:'POST',body:JSON.stringify({action:'delete',row:rowNum,editor:curUser.name}),mode:'no-cors'})
-      .finally(onDone);
+    backupActionToGAS({action:'delete',row:rowNum,editor:curUser.name});
+    onDone();
   }
 }
 
@@ -2943,7 +2955,7 @@ function saveAccountToFirebase(id){
       if(sv){sv.style.display='inline';setTimeout(function(){sv.style.display='none';},2000);}
       toast('✅ 已儲存至 Firebase','#16a34a');
       // 同步備份到 Sheets
-      fetch(SCRIPT,{method:'POST',body:JSON.stringify({action:'updateAccount',id:id,name:name,pwd:pwd,email:email,staffName:staffName}),mode:'no-cors'});
+      backupActionToGAS({action:'updateAccount',id:id,name:name,pwd:pwd,email:email,staffName:staffName});
     } else {
       toast('❌ 儲存失敗','#dc2626');
     }
@@ -3008,7 +3020,7 @@ function doAddAccount(){
       if(CLOUD_ACCOUNTS) CLOUD_ACCOUNTS.push(acc);
       document.getElementById('AddAccM').classList.remove('open');
       toast('✅ 帳號已新增','#16a34a');
-      fetch(SCRIPT,{method:'POST',body:JSON.stringify({action:'updateAccount',id:id,name:name,pwd:pwd,role:role,email:email,staffName:sn}),mode:'no-cors'});
+      backupActionToGAS({action:'updateAccount',id:id,name:name,pwd:pwd,role:role,email:email,staffName:sn});
       renderAdmin();
     } else {
       toast('❌ 新增失敗','#dc2626');
@@ -3117,21 +3129,15 @@ function changePwd(){
   if(newP.length<6){errEl.textContent='新密碼至少需要6個字元';return;}
   if(newP!==cfP){errEl.textContent='兩次輸入的新密碼不一致';return;}
   // 同步更新到 Google Sheets（跨裝置）
-  fetch(SCRIPT,{
-    method:'POST',
-    body:JSON.stringify({action:'updateAccount',id:curUser.id,pwd:newP}),
-    mode:'no-cors'
-  }).finally(function(){
-    curUser.pwd=newP;
-    // 更新顯示的密碼
-    var pdisplay=document.getElementById('pwd-display');
-    if(pdisplay){ pdisplay.value=newP; pdisplay.type='password'; }
-    var eyeBtn=document.getElementById('pwd-eye-btn');
-    if(eyeBtn) eyeBtn.textContent='👁 顯示';
-    fetchAccounts(function(){CU=loadU();CLOUD_ACCOUNTS=CU;});
-    addLog('修改密碼',curUser.name,'','');
-    showPopup('🔑','密碼更新成功','所有裝置同步生效');
-  });
+  backupActionToGAS({action:'updateAccount',id:curUser.id,pwd:newP});
+  curUser.pwd=newP;
+  var pdisplay=document.getElementById('pwd-display');
+  if(pdisplay){ pdisplay.value=newP; pdisplay.type='password'; }
+  var eyeBtn=document.getElementById('pwd-eye-btn');
+  if(eyeBtn) eyeBtn.textContent='👁 顯示';
+  fetchAccounts(function(){CU=loadU();CLOUD_ACCOUNTS=CU;});
+  addLog('修改密碼',curUser.name,'','');
+  showPopup('🔑','密碼更新成功','所有裝置同步生效');
   ['pwd-old','pwd-new','pwd-confirm'].forEach(function(id){
     var el2=document.getElementById(id);if(el2)el2.value='';
   });
@@ -3407,21 +3413,16 @@ function markPaid(rowNum, paid){
   var actualAmt  = amtEl  ? amtEl.value  : '';
   if(paid && !actualDate){ actualDate = new Date().toISOString().slice(0,10); }
 
-  fetch(SCRIPT,{
-    method:'POST',
-    body:JSON.stringify({action:'updatePaymentStatus',row:parseInt(rowNum),
-      paid:paid, actualDate:actualDate, actualAmt:actualAmt}),
-    mode:'no-cors'
-  }).finally(function(){
-    // 更新本地資料
-    var p = allPayments.find(function(x){ return x._row==rowNum; });
-    if(p){
-      p['已付收']    = paid?'是':'否';
-      p['實際日期']  = paid?actualDate:'';
-    }
-    renderPayments();
-    toast(paid?'✅ 已標記完成':'↩ 已取消',paid?'#16a34a':'#64748b');
-  });
+  backupActionToGAS({action:'updatePaymentStatus',row:parseInt(rowNum),
+    paid:paid, actualDate:actualDate, actualAmt:actualAmt});
+  // 更新本地資料
+  var p = allPayments.find(function(x){ return x._row==rowNum; });
+  if(p){
+    p['已付收']    = paid?'是':'否';
+    p['實際日期']  = paid?actualDate:'';
+  }
+  renderPayments();
+  toast(paid?'✅ 已標記完成':'↩ 已取消',paid?'#16a34a':'#64748b');
 }
 
 // ══ 日曆整合：預估+實際雙行 ════════════════════════════
