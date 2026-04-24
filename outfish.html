@@ -116,17 +116,20 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
   <div class="wcard">
     <div class="wcard-title">&#x1F4C2; 本機模式（單機使用）</div>
     <div class="wcard-desc">從此裝置選取 Excel 檔案，僅限本機，不需登入。</div>
-    <input type="file" accept=".xlsx" id="welcome-xlsx" style="display:none" onchange="importXLSX(event,true)">
-    <button class="wbtn gray" onclick="document.getElementById('welcome-xlsx').click()">選擇 Excel 檔案</button>
+    <label class="wbtn gray" style="display:block;text-align:center;position:relative;overflow:hidden">
+      選擇 Excel 檔案
+      <input type="file" accept=".xlsx" onchange="importXLSX(event,true)" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer">
+    </label>
   </div>
   <div id="welcome-msg" style="font-size:13px;color:#ff9500;text-align:center;margin-top:8px;max-width:340px;line-height:1.5"></div>
 
-  <!-- 靜態寫死 file input，避免 iOS Safari 動態插入無法觸發 -->
-  <input type="file" accept=".xlsx" id="welcome-xlsx2" style="position:absolute;width:1px;height:1px;opacity:0" onchange="importAndUpload(event)">
   <div id="welcome-upload-card" class="wcard" style="display:none;margin-top:10px">
     <div class="wcard-title">&#x1F4E4; 上傳庫存到雲端</div>
     <div class="wcard-desc">選取 Excel 後，將自動上傳到您的 Google Drive，之後任何手機登入皆可讀取。</div>
-    <label for="welcome-xlsx2" style="display:block;text-align:center;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;background:#1d9e75;color:#fff">選擇 Excel 並上傳到雲端</label>
+    <label style="display:block;text-align:center;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;background:#1d9e75;color:#fff;position:relative;overflow:hidden">
+      選擇 Excel 並上傳到雲端
+      <input type="file" accept=".xlsx" onchange="importAndUpload(event)" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer">
+    </label>
   </div>
 </div>
 
