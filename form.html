@@ -1850,6 +1850,8 @@ function submitSellPart(){
     sellStaff:    staffName,
     transferTo:   staffName,
     fillPart:     fp,
+    // ★ 補填完成後固定為採購+銷售(三角貿易)
+    type:         '採購+銷售(三角貿易)',
     buyer:        fd.buyer    ||'',
     sellCur:      sellPeriodsFinal.length ? sellPeriodsFinal[0].cur : 'TWD',
     sellAmt:      sellPeriodsFinal.reduce(function(s,p){return s+(parseFloat(p.amt)||0);},0),
