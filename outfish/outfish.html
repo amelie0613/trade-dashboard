@@ -388,6 +388,8 @@ async function gdLoadInventory(){
   }catch(e){ hideLoading(); showWelcomeMsg('⚠️ 讀取雲端失敗：'+e.message); }
 }
 
+function resetPlannedRows(){ document.getElementById('planned-rows').innerHTML=''; plannedQty={}; }
+
 function _showUploadCard(){
   // 卡片已靜態寫在 HTML 裡，只需顯示
   const card = document.getElementById('welcome-upload-card');
@@ -409,7 +411,7 @@ async function importAndUpload(e){
       document.getElementById('loading-text').textContent='上傳庫存到雲端…';
       const existing=await gdFindFile(INVENTORY_FILENAME);
       await gdWriteFile(INVENTORY_FILENAME,data,existing?.id);
-      checked.clear();
+      checked.clear(); resetPlannedRows();
       renderList(); hideLoading(); enterApp();
     }catch(err){ hideLoading(); alert('失敗：'+err.message); }
   };
@@ -536,29 +538,45 @@ function renderPlannedSection(byProduct){
   const rowsEl=document.getElementById('planned-rows');
   if(!allProducts.length){ sec.style.display='none'; return; }
   sec.style.display='';
-  rowsEl.innerHTML=allProducts.map(name=>{
-    const planned=plannedQty[name]!==undefined&&plannedQty[name]!==''?plannedQty[name]:'';
-    const selected=(byProduct&&byProduct[name])?byProduct[name].qty:0;
+
+  // 第一次：建立所有列（含輸入框）
+  allProducts.forEach(name=>{
     const unit=(byProduct&&byProduct[name])?byProduct[name].unit:(data.find(r=>r['產品名稱']===name)||{})['基本單位名稱']||'公斤';
-    let remainHtml='';
-    if(planned!==''&&!isNaN(Number(planned))){
-      const remain=Number(planned)-selected;
-      const cls=remain<0?'remain-over':'remain-ok';
-      remainHtml='<div class="remain-cell '+cls+'"><span class="remain-num">'+(remain>=0?'':'')+remain.toLocaleString()+'</span><span class="remain-unit">'+unit+'</span></div>';
-    } else {
-      remainHtml='<div class="remain-cell remain-na"><span class="remain-num">—</span></div>';
+    const rowId='planned-row-'+name.replace(/\W/g,'_');
+    if(!document.getElementById(rowId)){
+      const planned=plannedQty[name]!==undefined&&plannedQty[name]!==''?plannedQty[name]:'';
+      const div=document.createElement('div');
+      div.className='planned-row'; div.id=rowId;
+      div.innerHTML='<div class="planned-label">'+name+'</div>'
+        +'<div class="planned-input-wrap"><input class="planned-input" type="number" placeholder="數量" value="'+planned+'" onchange="setPlanned('+JSON.stringify(name)+',this.value)" oninput="setPlanned('+JSON.stringify(name)+',this.value)"><span class="planned-unit">'+unit+'</span></div>'
+        +'<div class="remain-cell remain-na" id="remain-'+rowId+'"><span class="remain-num">—</span></div>';
+      rowsEl.appendChild(div);
     }
-    return '<div class="planned-row">'
-      +'<div class="planned-label">'+name+'</div>'
-      +'<div class="planned-input-wrap"><input class="planned-input" type="number" placeholder="數量" value="'+planned+'" onchange="setPlanned('+JSON.stringify(name)+',this.value)" oninput="setPlanned('+JSON.stringify(name)+',this.value)"><span class="planned-unit">'+unit+'</span></div>'
-      +remainHtml
-      +'</div>';
-  }).join('');
+    // 每次只更新剩餘數量欄，不動輸入框
+    const selected=(byProduct&&byProduct[name])?byProduct[name].qty:0;
+    const planned=plannedQty[name];
+    const remainEl=document.getElementById('remain-'+rowId);
+    if(remainEl){
+      if(planned!==undefined&&planned!==''&&!isNaN(Number(planned))){
+        const remain=Number(planned)-selected;
+        const cls=remain<0?'remain-over':'remain-ok';
+        remainEl.className='remain-cell '+cls;
+        remainEl.innerHTML='<span class="remain-num">'+remain.toLocaleString()+'</span><span class="remain-unit">'+unit+'</span>';
+      } else {
+        remainEl.className='remain-cell remain-na';
+        remainEl.innerHTML='<span class="remain-num">—</span>';
+      }
+    }
+  });
 }
 
 function setPlanned(name, val){
   plannedQty[name]=(val==='')?'':Number(val);
-  updateSummary();
+  // 只更新剩餘數量，不重建整個 planned section
+  const sel=data.filter(r=>checked.has(r._id));
+  const byProduct={};
+  sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
+  renderPlannedSection(byProduct);
 }
 
 function renderColSettings(){
@@ -641,7 +659,7 @@ function importXLSX(e,fromWelcome){
       const wb=XLSX.read(ev.target.result,{type:'binary'}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
       if(!rows.length){ hideLoading(); alert('Excel 沒有資料'); return; }
       data=rows.map((r,i)=>({核算組織名稱:r['核算組織名稱']||'',產品類別:r['產品類別']||'',產品代碼:String(r['產品代碼']||''),產品名稱:r['產品名稱']||'',產品規格:r['產品規格']||'',庫存數量:Number(r['庫存數量'])||0,基本單位名稱:r['基本單位名稱']||'',倉庫名稱:r['倉庫名稱']||'',批號:String(r['批號']||''),儲位名稱:String(r['儲位名稱']||''),_id:i}));
-      checked.clear(); renderList(); hideLoading(); enterApp();
+      checked.clear(); resetPlannedRows(); renderList(); hideLoading(); enterApp();
       if(!fromWelcome) alert('✅ 匯入完成，共 '+rows.length+' 筆');
     }catch(err){ hideLoading(); alert('讀取失敗：'+err.message); }
   };
