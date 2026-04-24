@@ -173,7 +173,8 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
       <div class="header-top">
         <div class="header-title">出庫計算機</div>
         <div style="display:flex;align-items:center;gap:6px">
-          <span class="badge badge-total" id="badge-total" onclick="editGrossWeight()" style="cursor:pointer" title="點擊設定毛重限制">毛重限制 —</span>
+          <span class="badge badge-total" id="badge-container">貨櫃容量 —</span>
+          <span class="badge" id="badge-selected-weight" style="background:#e1f5ee;color:#0f6e56;display:none">已選 0 公斤</span>
           <span class="badge" id="badge">0 項已選</span>
         </div>
       </div>
@@ -204,7 +205,14 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
     <div id="list-area" style="padding-bottom:80px"></div>
   </div>
   <div id="view-settings" style="display:none;padding-bottom:80px">
-    <div class="sec-title">顯示欄位（點擊開關、拖曳排序）</div>
+    <div class="sec-title">貨櫃設定</div>
+    <div class="settings-block">
+      <div class="set-row" style="cursor:default">
+        <div class="set-name" style="font-size:14px">貨櫃容量（公斤）</div>
+        <input id="input-container-capacity" type="number" placeholder="輸入公斤數" style="width:120px;border:1px solid #d1d1d6;border-radius:8px;padding:5px 10px;font-size:14px;text-align:right;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none" oninput="saveContainerCapacity(this.value)">
+      </div>
+    </div>
+    <div class="sec-title" style="margin-top:8px">顯示欄位（點擊開關、拖曳排序）</div>
     <div class="settings-block" id="col-list"></div>
     <button class="save-btn" onclick="saveColSettings()">儲存並套用</button>
     <div class="sec-title" style="margin-top:8px">更換庫存資料</div>
@@ -255,7 +263,6 @@ const ORDER_FILENAME     = '出庫計算機_出庫單.json';
 
 let data=[], checked=new Set(), dragSrc=null;
 let plannedQty={}; // productName -> planned number
-let grossWeight=''; // 毛重限制固定值
 let gdToken=null, gdUserName='';
 
 // ── Token 持久化（24小時）──
@@ -465,7 +472,7 @@ function setGdStatus(type,msg){ const el=document.getElementById('gd-status'); e
 
 function switchTab(t){
   ['list','settings','export'].forEach(n=>{ document.getElementById('view-'+n).style.display=n===t?'':'none'; document.getElementById('tab-'+n).className='tab'+(n===t?' active':''); });
-  if(t==='settings') renderColSettings();
+  if(t==='settings'){ renderColSettings(); const inp=document.getElementById('input-container-capacity'); if(inp) inp.value=containerCapacity; }
   if(t==='export'){ renderExportPreview(); updateGdUI(); }
 }
 
@@ -497,23 +504,23 @@ function toggleCheck(id){ checked.has(id)?checked.delete(id):checked.add(id); re
 function clearAll(){ checked.clear(); renderList(); }
 function selectAll(){ getFiltered().forEach(r=>checked.add(r._id)); renderList(); }
 
-function updateGrossWeightBadge(){
-  const el=document.getElementById('badge-total');
-  if(grossWeight!==''&&!isNaN(Number(grossWeight))){
-    el.textContent='毛重限制 '+Number(grossWeight).toLocaleString()+' 公斤';
+let containerCapacity=''; // 貨櫃容量固定值（從設定頁輸入）
+
+function updateContainerBadge(){
+  const el=document.getElementById('badge-container');
+  if(containerCapacity!==''&&!isNaN(Number(containerCapacity))){
+    el.textContent='貨櫃容量 '+Number(containerCapacity).toLocaleString()+' 公斤';
     el.style.background='#FAEEDA'; el.style.color='#633806';
   } else {
-    el.textContent='毛重限制 — 點擊設定';
+    el.textContent='貨櫃容量 — 請至欄位設定';
     el.style.background='#f2f2f7'; el.style.color='#8e8e93';
   }
 }
 
-function editGrossWeight(){
-  const val=prompt('請輸入毛重限制（公斤）：', grossWeight!==''?grossWeight:'');
-  if(val===null) return;
-  grossWeight=(val.trim()==='')?'':val.trim();
-  localStorage.setItem('grossWeight', grossWeight);
-  updateGrossWeightBadge();
+function saveContainerCapacity(val){
+  containerCapacity=(val==='')?'':val;
+  localStorage.setItem('containerCapacity', containerCapacity);
+  updateContainerBadge();
 }
 
 function updateSummary(){
@@ -522,8 +529,23 @@ function updateSummary(){
   const byProduct={};
   sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
 
-  // 已選數量卡片
+  // 已選總重量 badge
   const keys=Object.keys(byProduct);
+  const weightBadge=document.getElementById('badge-selected-weight');
+  if(keys.length){
+    const units=[...new Set(keys.map(k=>byProduct[k].unit))];
+    if(units.length===1){
+      const total=keys.reduce((s,k)=>s+byProduct[k].qty,0);
+      weightBadge.textContent='已選 '+total.toLocaleString()+' '+units[0];
+    } else {
+      weightBadge.textContent='已選 '+keys.map(k=>byProduct[k].qty.toLocaleString()+byProduct[k].unit).join(' / ');
+    }
+    weightBadge.style.display='';
+  } else {
+    weightBadge.style.display='none';
+  }
+
+  // 已選數量卡片
   const sumBar=document.getElementById('summary-bar');
   const scroll=document.getElementById('summary-scroll');
   if(keys.length){
@@ -670,9 +692,9 @@ function importXLSX(e,fromWelcome){
 }
 
 // ── 啟動時自動還原登入狀態 ──
-const _savedGW=localStorage.getItem('grossWeight');
-if(_savedGW!==null){ grossWeight=_savedGW; }
-updateGrossWeightBadge();
+const _savedCC=localStorage.getItem('containerCapacity');
+if(_savedCC!==null){ containerCapacity=_savedCC; }
+updateContainerBadge();
 if(loadToken()){
   updateGdUI();
   gdLoadInventory();
