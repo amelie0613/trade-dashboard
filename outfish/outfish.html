@@ -102,18 +102,32 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
 .spinner{width:38px;height:38px;border:3px solid #e5e5ea;border-top-color:#1d9e75;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:14px;color:#8e8e93}
-.planned-section{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:10px 16px}
-.planned-title{font-size:12px;color:#8e8e93;margin-bottom:6px;font-weight:500;letter-spacing:.3px}
-.planned-rows{display:flex;flex-direction:column;gap:6px}
-.planned-row{display:flex;align-items:center;gap:8px}
-.planned-label{font-size:13px;font-weight:600;color:#1c1c1e;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.planned-input{width:90px;border:1px solid #d1d1d6;border-radius:8px;padding:5px 10px;font-size:14px;font-weight:600;text-align:right;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none;flex-shrink:0}
+.planned-section{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:8px 16px 10px}
+.planned-header-row{display:grid;grid-template-columns:1fr 130px 110px;gap:8px;padding:0 0 5px 0;border-bottom:0.5px solid #e5e5ea;margin-bottom:4px}
+.planned-col-label{font-size:11px;color:#8e8e93;font-weight:500}
+.planned-col-input{font-size:11px;color:#8e8e93;font-weight:500;text-align:center}
+.planned-col-remain{font-size:11px;color:#8e8e93;font-weight:500;text-align:center}
+.planned-rows{display:flex;flex-direction:column;gap:5px}
+.planned-row{display:grid;grid-template-columns:1fr 130px 110px;gap:8px;align-items:center}
+.planned-label{font-size:13px;font-weight:600;color:#1c1c1e;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.planned-input-wrap{display:flex;align-items:center;gap:4px}
+.planned-input{flex:1;min-width:0;border:1.5px solid #d1d1d6;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:600;text-align:right;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none}
 .planned-input:focus{border-color:#1d9e75;background:#fff}
-.planned-unit{font-size:12px;color:#8e8e93;width:24px;flex-shrink:0}
-.remain-badge{font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;flex-shrink:0;min-width:62px;text-align:right}
-.remain-ok{background:#e1f5ee;color:#0f6e56}
-.remain-over{background:#ffe5e5;color:#d00}
-.remain-na{background:#f2f2f7;color:#8e8e93}
+.planned-unit{font-size:11px;color:#8e8e93;white-space:nowrap}
+.remain-cell{display:flex;align-items:center;gap:4px;justify-content:center}
+.remain-num{font-size:14px;font-weight:700;min-width:52px;text-align:right}
+.remain-ok .remain-num{color:#0f6e56}
+.remain-over .remain-num{color:#d00}
+.remain-na .remain-num{color:#c7c7cc}
+.remain-unit{font-size:11px;color:#8e8e93}
+.badge-total{background:#fff3cd;color:#856404}
+.summary-bar{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:8px 16px}
+.summary-scroll{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.summary-scroll::-webkit-scrollbar{display:none}
+.sum-card{background:#f2f2f7;border-radius:10px;padding:7px 12px;flex-shrink:0;min-width:110px}
+.sum-label{font-size:11px;color:#8e8e93;margin-bottom:1px;white-space:nowrap}
+.sum-value{font-size:18px;font-weight:600;color:#1c1c1e;white-space:nowrap}
+.sum-unit{font-size:11px;color:#8e8e93;font-weight:400;margin-left:2px}
 </style>
 </head>
 <body>
@@ -158,18 +172,24 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
     <div class="header">
       <div class="header-top">
         <div class="header-title">出庫計算機</div>
-        <span class="badge" id="badge">0 項已選</span>
-      </div>
-      <div class="summary-scroll" id="summary-scroll">
-        <div class="sum-card">
-          <div class="sum-label">尚未選取項目</div>
-          <div class="sum-value">0<span class="sum-unit">公斤</span></div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="badge badge-total" id="badge-total" style="display:none">總計 0 kg</span>
+          <span class="badge" id="badge">0 項已選</span>
         </div>
       </div>
     </div>
+    <!-- 預計出貨量 + 剩餘數量 table block -->
     <div class="planned-section" id="planned-section" style="display:none">
-      <div class="planned-title">預計出貨數量</div>
+      <div class="planned-header-row">
+        <div class="planned-col-label">魚種</div>
+        <div class="planned-col-input">預計出貨量</div>
+        <div class="planned-col-remain">剩餘數量</div>
+      </div>
       <div class="planned-rows" id="planned-rows"></div>
+    </div>
+    <!-- 已選數量卡片 -->
+    <div class="summary-bar" id="summary-bar" style="display:none">
+      <div class="summary-scroll" id="summary-scroll"></div>
     </div>
     <div class="tab-bar">
       <div class="tab active" id="tab-list"     onclick="switchTab('list')">庫存清單</div>
@@ -224,8 +244,7 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
 <div class="bottom-bar" id="bottom-bar" style="display:none">
   <button class="btn" onclick="clearAll()">清除選取</button>
   <button class="btn" onclick="selectAll()">全選目前</button>
-  <button class="btn" onclick="saveAndBackup()">💾 儲存</button>
-  <button class="btn green" onclick="switchTab('export')">匯出 (<span id="sel-count">0</span>)</button>
+  <button class="btn green" onclick="saveAndBackup()">💾 儲存</button>
 </div>
 
 <script>
@@ -478,38 +497,60 @@ function selectAll(){ getFiltered().forEach(r=>checked.add(r._id)); renderList()
 function updateSummary(){
   const sel=data.filter(r=>checked.has(r._id));
   document.getElementById('badge').textContent=sel.length+' 項已選';
-  document.getElementById('sel-count').textContent=sel.length;
   const byProduct={};
   sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
-  const keys=Object.keys(byProduct); const scroll=document.getElementById('summary-scroll');
-  if(!keys.length){ scroll.innerHTML='<div class="sum-card"><div class="sum-label">尚未選取項目</div><div class="sum-value">0<span class="sum-unit">公斤</span></div></div>'; }
-  else { scroll.innerHTML=keys.map(k=>'<div class="sum-card"><div class="sum-label">'+k+' — 已選</div><div class="sum-value">'+byProduct[k].qty.toLocaleString()+'<span class="sum-unit">'+byProduct[k].unit+'</span></div></div>').join(''); }
+
+  // 總出貨數量 badge (sum of all selected, assume same unit or show multi)
+  const totalBadge=document.getElementById('badge-total');
+  const keys=Object.keys(byProduct);
+  if(keys.length){
+    // 若只有一種單位就加總，否則分開顯示
+    const units=[...new Set(keys.map(k=>byProduct[k].unit))];
+    if(units.length===1){
+      const total=keys.reduce((s,k)=>s+byProduct[k].qty,0);
+      totalBadge.textContent='毛重限制 '+total.toLocaleString()+' '+units[0];
+    } else {
+      totalBadge.textContent='毛重限制 '+keys.map(k=>byProduct[k].qty.toLocaleString()+byProduct[k].unit).join(' / ');
+    }
+    totalBadge.style.display='';
+  } else {
+    totalBadge.style.display='none';
+  }
+
+  // 已選數量卡片
+  const sumBar=document.getElementById('summary-bar');
+  const scroll=document.getElementById('summary-scroll');
+  if(keys.length){
+    scroll.innerHTML=keys.map(k=>'<div class="sum-card"><div class="sum-label">'+k+' — 已選</div><div class="sum-value">'+byProduct[k].qty.toLocaleString()+'<span class="sum-unit">'+byProduct[k].unit+'</span></div></div>').join('');
+    sumBar.style.display='';
+  } else {
+    sumBar.style.display='none';
+  }
+
   renderPlannedSection(byProduct);
 }
 
 function renderPlannedSection(byProduct){
-  // collect all product names from data
   const allProducts=[...new Set(data.map(r=>r['產品名稱']))].sort();
   const sec=document.getElementById('planned-section');
-  const rows=document.getElementById('planned-rows');
+  const rowsEl=document.getElementById('planned-rows');
   if(!allProducts.length){ sec.style.display='none'; return; }
   sec.style.display='';
-  rows.innerHTML=allProducts.map(name=>{
-    const planned=plannedQty[name]||'';
+  rowsEl.innerHTML=allProducts.map(name=>{
+    const planned=plannedQty[name]!==undefined&&plannedQty[name]!==''?plannedQty[name]:'';
     const selected=(byProduct&&byProduct[name])?byProduct[name].qty:0;
-    const unit=(byProduct&&byProduct[name])?byProduct[name].unit:([...data.filter(r=>r['產品名稱']===name)][0]||{})['基本單位名稱']||'';
+    const unit=(byProduct&&byProduct[name])?byProduct[name].unit:(data.find(r=>r['產品名稱']===name)||{})['基本單位名稱']||'公斤';
     let remainHtml='';
     if(planned!==''&&!isNaN(Number(planned))){
       const remain=Number(planned)-selected;
-      const cls=remain<0?'remain-over':remain===0?'remain-ok':'remain-ok';
-      remainHtml='<span class="remain-badge '+cls+'">'+(remain>0?'+':'')+remain.toLocaleString()+' '+unit+'</span>';
+      const cls=remain<0?'remain-over':'remain-ok';
+      remainHtml='<div class="remain-cell '+cls+'"><span class="remain-num">'+(remain>=0?'':'')+remain.toLocaleString()+'</span><span class="remain-unit">'+unit+'</span></div>';
     } else {
-      remainHtml='<span class="remain-badge remain-na">—</span>';
+      remainHtml='<div class="remain-cell remain-na"><span class="remain-num">—</span></div>';
     }
     return '<div class="planned-row">'
       +'<div class="planned-label">'+name+'</div>'
-      +'<input class="planned-input" type="number" placeholder="數量" value="'+planned+'" onchange="setPlanned('+JSON.stringify(name)+',this.value)" oninput="setPlanned('+JSON.stringify(name)+',this.value)">'
-      +'<div class="planned-unit">'+unit+'</div>'
+      +'<div class="planned-input-wrap"><input class="planned-input" type="number" placeholder="數量" value="'+planned+'" onchange="setPlanned('+JSON.stringify(name)+',this.value)" oninput="setPlanned('+JSON.stringify(name)+',this.value)"><span class="planned-unit">'+unit+'</span></div>'
       +remainHtml
       +'</div>';
   }).join('');
