@@ -3037,17 +3037,71 @@ function doDelete(rowNum,name){
     rows=rows.filter(function(r){return r._row!==rowNum;});
     addLog('刪除案件',curUser.name,name,'');
     closeD();onLoad();
-    toast('🗑️ 案件已刪除','#64748b');
+    toast('🗑️ 案件已刪除並封存','#64748b');
   }
+
+  // 組合完整案件資料，供 GAS 封存用
+  var fullData = r ? Object.assign({}, r) : {};
 
   // ① Firebase 刪除
   if(formId){
     deleteFirebase(formId, function(){
-      backupActionToGAS({action:'delete',row:rowNum,editor:curUser.name});
+      // ★ 傳完整案件資料給 GAS 封存到 DeletedCases 分頁
+      backupActionToGAS({
+        action:    'delete',
+        formId:    formId,
+        editor:    curUser.name,
+        deletedAt: new Date().toLocaleString('zh-TW', {hour12:false}),
+        // 完整案件資料
+        caseName:    r ? g(r,'name')      : name,
+        staff:       r ? (r[F.staff]||'') : '',
+        type:        r ? g(r,'type')      : '',
+        status:      r ? (r[F.status]||''): '',
+        supplier:    r ? (r['供應商（賣方）']||r.supplier||'') : '',
+        buyer:       r ? (r['客戶（買方）']  ||r.buyer   ||'') : '',
+        buyCur:      r ? (r[F.buyCur]||'TWD')  : 'TWD',
+        buyAmt:      r ? (r[F.buyAmt]||0)      : 0,
+        sellCur:     r ? (r[F.sellCur]||'TWD') : 'TWD',
+        sellAmt:     r ? (r[F.sellAmt]||0)     : 0,
+        buyPay:      r ? (r['付款條件（採購）']||'') : '',
+        sellPay:     r ? (r['收款條件（銷售）']||'') : '',
+        buyPeriods:  r ? (function(){
+          var ps=[];
+          for(var i=1;i<=3;i++){
+            var a=parseFloat(r['採購期'+i+'金額'])||0;
+            var n=r['採購期'+i+'名稱']||'';
+            if(a||n) ps.push({name:n,cur:r['採購期'+i+'幣別']||'TWD',amt:a,date:r['採購期'+i+'預計日']||''});
+          }
+          return ps;
+        })() : [],
+        sellPeriods: r ? (function(){
+          var ps=[];
+          for(var i=1;i<=3;i++){
+            var a=parseFloat(r['銷售期'+i+'金額'])||0;
+            var n=r['銷售期'+i+'名稱']||'';
+            if(a||n) ps.push({name:n,cur:r['銷售期'+i+'幣別']||'TWD',amt:a,date:r['銷售期'+i+'預計日']||''});
+          }
+          return ps;
+        })() : [],
+        etd:      r ? (r['ETD 出貨日']||'') : '',
+        eta:      r ? (r['ETA 到貨日']||'') : '',
+        origin:   r ? (r['出貨地/發貨港口']||'') : '',
+        dest:     r ? (r['目的地/收貨港口']||'') : '',
+        buyCon:   r ? (r['賣方合約（採購）']||'') : '',
+        sellCon:  r ? (r['買方合約（銷售）']||'') : '',
+        trade:    r ? (r['貿易條件']||'') : '',
+        freight:  r ? (r['運費'] ||{amt:0,cur:'TWD'}) : {amt:0,cur:'TWD'},
+        insure:   r ? (r['保險費']||{amt:0,cur:'TWD'}) : {amt:0,cur:'TWD'},
+        tax:      r ? (r['規費'] ||{amt:0,cur:'TWD'}) : {amt:0,cur:'TWD'},
+        comm:     r ? (r['佣金'] ||{amt:0,cur:'TWD'}) : {amt:0,cur:'TWD'},
+        extra:    r ? (r['其他費用']||{amt:0,cur:'TWD'}) : {amt:0,cur:'TWD'},
+      });
       onDone();
     });
   } else {
-    backupActionToGAS({action:'delete',row:rowNum,editor:curUser.name});
+    backupActionToGAS({action:'delete', formId:formId, editor:curUser.name,
+      deletedAt: new Date().toLocaleString('zh-TW',{hour12:false}),
+      caseName: name });
     onDone();
   }
 }
