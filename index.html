@@ -1132,10 +1132,24 @@ function normalizeRow(r){
   // meta
   mapped['時間戳記']  = meta.timestamp  || '';
   mapped['業務名稱']  = meta.staff      || '';
-  mapped['案件屬性']  = meta.caseType   || '';
   mapped['案件名稱']  = meta.caseName   || '';
   mapped['承辦業助']  = meta.assistant  || '';
   mapped['建立時間']  = meta.createdAt  || '';
+
+  // ★ 案件屬性：若 sales 有資料但 meta.caseType 還是舊值，自動修正
+  var _salesHasData = (sales.customer || '').trim() !== ''
+    || (sales.periods && sales.periods.length > 0 && sales.periods[0].amount > 0);
+  var _purchaseHasData = (purchase.supplier || '').trim() !== ''
+    || (purchase.periods && purchase.periods.length > 0 && purchase.periods[0].amount > 0);
+  var _resolvedType = meta.caseType || '';
+  if (_salesHasData && _purchaseHasData && _resolvedType !== '採購+銷售(三角貿易)') {
+    _resolvedType = '採購+銷售(三角貿易)';
+  } else if (_salesHasData && !_purchaseHasData && _resolvedType === '採購') {
+    _resolvedType = '銷售';
+  } else if (_purchaseHasData && !_salesHasData && _resolvedType === '銷售') {
+    _resolvedType = '採購';
+  }
+  mapped['案件屬性'] = _resolvedType;
 
   // purchase
   mapped['供應商（賣方）']   = purchase.supplier     || '';
