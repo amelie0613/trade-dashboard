@@ -926,14 +926,27 @@ function isPend(r){
 function isAppr(r){var s=g(r,'status');return s==='是'||s.includes('同意');}
 function isFillPending(r){return (r[F.fillStatus]||'')==='待補填';}
 
-// ★ 修正毛利率計算：統一轉 NTD 再計算
-function calcNTD(amt, cur){ return pf(amt)*(RATE[cur.toUpperCase()]||1); }
+// ★ NTD 換算（支援純數字 or {amt,cur} 物件）
+function calcNTD(amt, cur){
+  return pf(amt)*(RATE[(cur||'TWD').toUpperCase()]||1);
+}
+// ★ 費用換算為 NTD（支援新 {amt,cur} 結構和舊數字）
+function feeToNTD(feeVal){
+  if(feeVal && typeof feeVal === 'object' && 'amt' in feeVal){
+    return calcNTD(feeVal.amt, feeVal.cur || 'TWD');
+  }
+  return pf(feeVal); // 舊格式純數字，視為 TWD
+}
 function calcMargin(r){
   var caseType = (r[F.type]||'').toString().trim();
-  // 從分期加總計算 NTD
   var buyNTD  = calcTotalNTD01(r, 'buy');
   var sellNTD = calcTotalNTD01(r, 'sell');
-  var fees    = pf(r[F.extra])+pf(r[F.freight])+pf(r[F.tax])+pf(r[F.insure])+pf(r[F.comm]);
+  // ★ 費用：支援新 {amt,cur} 和舊數字，統一換算為 NTD
+  var fees = feeToNTD(r[F.extra])
+           + feeToNTD(r[F.freight])
+           + feeToNTD(r[F.tax])
+           + feeToNTD(r[F.insure])
+           + feeToNTD(r[F.comm]);
 
   // 1. 純採購：不顯示毛利率
   if(caseType==='採購'){
@@ -1200,12 +1213,19 @@ function normalizeRow(r){
   mapped['出貨地/發貨港口']  = logistics.origin       || '';
   mapped['目的地/收貨港口']  = logistics.destination  || '';
 
-  // fees
-  mapped['運費']   = fees.freight    || 0;
-  mapped['規費']   = fees.tax        || 0;
-  mapped['保險費'] = fees.insurance  || 0;
-  mapped['佣金']   = fees.commission || 0;
-  mapped['其他費用']= fees.other     || 0;
+  // ★ fees — 支援新 {amt, cur} 物件格式，同時向下相容舊數字格式
+  // 保留原幣資訊，供 calcMargin 正確計算
+  function normFee(feeVal){
+    if(feeVal && typeof feeVal === 'object' && 'amt' in feeVal){
+      return feeVal; // 新格式：{amt, cur}
+    }
+    return { amt: parseFloat(feeVal)||0, cur: 'TWD' }; // 舊格式：純數字補 TWD
+  }
+  mapped['運費']    = normFee(fees.freight);
+  mapped['規費']    = normFee(fees.tax);
+  mapped['保險費']  = normFee(fees.insurance);
+  mapped['佣金']    = normFee(fees.commission);
+  mapped['其他費用']= normFee(fees.other);
 
   // approval
   mapped['老闆已同意'] = approval.bossApproved        || '';
@@ -1497,7 +1517,7 @@ var _cardPage = 1;
 var _cardSort = 'desc'; // 'desc'=新到舊 'asc'=舊到新
 var _cardData = [];
 var _cardTarget = '';
-var CARDS_PER_PAGE = 10;
+var CARDS_PER_PAGE = 6; // ★ 每頁 6 筆
 
 function renderCards(data, targetId, showAll){
   _cardData   = data;
@@ -1537,14 +1557,23 @@ function _renderCardsPage(){
   // 分頁按鈕
   var pager='';
   if(pages>1){
-    pager='<div style="display:flex;justify-content:center;gap:6px;margin-top:14px;flex-wrap:wrap;">';
+    pager='<div style="display:flex;justify-content:center;align-items:center;gap:6px;margin-top:14px;flex-wrap:wrap;">';
     if(_cardPage>1) pager+='<button onclick="_cardPage--;_renderCardsPage();" style="padding:7px 14px;border-radius:8px;background:#f1f5f9;border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">‹ 上一頁</button>';
     // 頁碼（最多顯示5個）
     var startP=Math.max(1,_cardPage-2), endP=Math.min(pages,startP+4);
+    if(endP-startP<4) startP=Math.max(1,endP-4);
     for(var p=startP;p<=endP;p++){
       pager+='<button onclick="_cardPage='+p+';_renderCardsPage();" style="padding:7px 12px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid '+(p===_cardPage?'var(--sea)':'var(--border)')+';background:'+(p===_cardPage?'var(--sea)':'#f8fafc')+';color:'+(p===_cardPage?'#fff':'var(--ink)')+';">'+p+'</button>';
     }
     if(_cardPage<pages) pager+='<button onclick="_cardPage++;_renderCardsPage();" style="padding:7px 14px;border-radius:8px;background:#f1f5f9;border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">下一頁 ›</button>';
+    // ★ 跳頁輸入框
+    pager+='<span style="display:flex;align-items:center;gap:5px;margin-left:8px;font-size:12px;color:var(--muted);">'
+      +'跳至'
+      +'<input type="number" min="1" max="'+pages+'" value="'+_cardPage+'" id="page-jump-input"'
+      +' style="width:48px;padding:5px 6px;border-radius:6px;border:1.5px solid var(--border);font-size:13px;text-align:center;outline:none;"'
+      +' onkeydown="if(event.key===\'Enter\'){var v=parseInt(this.value)||1;_cardPage=Math.max(1,Math.min('+pages+',v));_renderCardsPage();}">'
+      +'<button onclick="var inp=document.getElementById(\'page-jump-input\');var v=parseInt(inp&&inp.value)||1;_cardPage=Math.max(1,Math.min('+pages+',v));_renderCardsPage();" style="padding:5px 10px;border-radius:6px;background:var(--sea);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;">GO</button>'
+      +'/ '+pages+' 頁</span>';
     pager+='</div>';
   }
 
@@ -2249,13 +2278,25 @@ function showD(rowNum){
   }
 
   // ── 物流/貿易 ─────────────────────────────────────────
+  // ★ 費用顯示：原幣 + 約 NTD（支援新 {amt,cur} 和舊數字）
+  function fmtFeeDisplay(feeVal){
+    if(!feeVal) return '—';
+    if(typeof feeVal === 'object' && 'amt' in feeVal){
+      if(!feeVal.amt || feeVal.amt === 0) return '—';
+      var ntd = Math.round(calcNTD(feeVal.amt, feeVal.cur||'TWD'));
+      var orig = (feeVal.cur||'TWD') + ' ' + fmtN(feeVal.amt);
+      return feeVal.cur === 'TWD' ? 'NT$'+fmtN(feeVal.amt) : orig + ' <span style="color:var(--muted);font-size:11px;">(≈NT$'+fmtN(ntd)+')</span>';
+    }
+    var n = parseFloat(feeVal)||0;
+    return n ? 'NT$'+fmtN(n) : '—';
+  }
   h+='<div class="dsec"><div class="dsec-t">　物流 / 貿易</div><div class="dgrid">'
     +dr('案件屬性', r[F.type])
-    +dr('運費',     'NT$'+fmtN(r[F.freight]))
-    +dr('保險費',   'NT$'+fmtN(r[F.insure]))
-    +dr('規費',     'NT$'+fmtN(r[F.tax]))
-    +dr('佣金',     'NT$'+fmtN(r[F.comm]))
-    +dr('其他費用', 'NT$'+fmtN(r[F.extra]))
+    +dr('運費',     fmtFeeDisplay(r[F.freight]))
+    +dr('保險費',   fmtFeeDisplay(r[F.insure]))
+    +dr('規費',     fmtFeeDisplay(r[F.tax]))
+    +dr('佣金',     fmtFeeDisplay(r[F.comm]))
+    +dr('其他費用', fmtFeeDisplay(r[F.extra]))
     +(r[F.asst]?dr('承辦業助', r[F.asst]):'')
     +(r[F.etd] ?dr('ETD 出貨日', r[F.etd]):'')
     +(r[F.eta] ?dr('ETA 到貨日', r[F.eta]):'')
@@ -2431,17 +2472,33 @@ function showD(rowNum){
       +ef2('e-eta-'+rowNum,'ETA 到貨日',g(r,'eta'),'date')
       +ef2('e-origin-'+rowNum,'出貨地',g(r,'origin'))
       +ef2('e-dest-'+rowNum,'目的地',g(r,'dest'))
-      // 費用欄位 - 含幣別選擇
-      +'<div><label class="ef-lbl">運費幣別</label><select id="e-freightcur-'+rowNum+'" class="ef-i"><option value="TWD"'+(((r['運費幣別']||'TWD')==='TWD')?' selected':'')+'>TWD</option><option value="USD"'+(((r['運費幣別']||'')==='USD')?' selected':'')+'>USD</option><option value="JPY"'+(((r['運費幣別']||'')==='JPY')?' selected':'')+'>JPY</option><option value="EUR"'+(((r['運費幣別']||'')==='EUR')?' selected':'')+'>EUR</option></select></div>'
-      +ef2('e-freight-'+rowNum,'運費金額',g(r,'freight'),'number')
-      +'<div><label class="ef-lbl">保險費幣別</label><select id="e-insurecur-'+rowNum+'" class="ef-i"><option value="TWD"'+(((r['保險費幣別']||'TWD')==='TWD')?' selected':'')+'>TWD</option><option value="USD"'+(((r['保險費幣別']||'')==='USD')?' selected':'')+'>USD</option><option value="JPY"'+(((r['保險費幣別']||'')==='JPY')?' selected':'')+'>JPY</option><option value="EUR"'+(((r['保險費幣別']||'')==='EUR')?' selected':'')+'>EUR</option></select></div>'
-      +ef2('e-insure-'+rowNum,'保險費金額',g(r,'insure'),'number')
-      +'<div><label class="ef-lbl">規費幣別</label><select id="e-taxcur-'+rowNum+'" class="ef-i"><option value="TWD"'+(((r['規費幣別']||'TWD')==='TWD')?' selected':'')+'>TWD</option><option value="USD"'+(((r['規費幣別']||'')==='USD')?' selected':'')+'>USD</option><option value="JPY"'+(((r['規費幣別']||'')==='JPY')?' selected':'')+'>JPY</option><option value="EUR"'+(((r['規費幣別']||'')==='EUR')?' selected':'')+'>EUR</option></select></div>'
-      +ef2('e-tax-'+rowNum,'規費金額',g(r,'tax'),'number')
-      +'<div><label class="ef-lbl">佣金幣別</label><select id="e-commcur-'+rowNum+'" class="ef-i"><option value="TWD"'+(((r['佣金幣別']||'TWD')==='TWD')?' selected':'')+'>TWD</option><option value="USD"'+(((r['佣金幣別']||'')==='USD')?' selected':'')+'>USD</option><option value="JPY"'+(((r['佣金幣別']||'')==='JPY')?' selected':'')+'>JPY</option><option value="EUR"'+(((r['佣金幣別']||'')==='EUR')?' selected':'')+'>EUR</option></select></div>'
-      +ef2('e-comm-'+rowNum,'佣金金額',g(r,'comm'),'number')
-      +'<div><label class="ef-lbl">其他費用幣別</label><select id="e-extracur-'+rowNum+'" class="ef-i"><option value="TWD"'+(((r['其他費用幣別']||'TWD')==='TWD')?' selected':'')+'>TWD</option><option value="USD"'+(((r['其他費用幣別']||'')==='USD')?' selected':'')+'>USD</option><option value="JPY"'+(((r['其他費用幣別']||'')==='JPY')?' selected':'')+'>JPY</option><option value="EUR"'+(((r['其他費用幣別']||'')==='EUR')?' selected':'')+'>EUR</option></select></div>'
-      +ef2('e-extra-'+rowNum,'其他費用金額',g(r,'extra'),'number')
+      // 費用欄位 - 含幣別選擇（支援新 {amt,cur} 格式和舊數字格式）
+      +(function(){
+        function feeSelectOpts(curVal){
+          var opts=['TWD','USD','CNY','JPY','EUR'];
+          return opts.map(function(o){
+            return '<option value="'+o+'"'+(curVal===o?' selected':'')+'>'+o+'</option>';
+          }).join('');
+        }
+        function feeObj(feeVal){
+          if(feeVal && typeof feeVal==='object' && 'amt' in feeVal) return feeVal;
+          return {amt: parseFloat(feeVal)||0, cur:'TWD'};
+        }
+        var frt = feeObj(r[F.freight]); var ins=feeObj(r[F.insure]);
+        var tax = feeObj(r[F.tax]);     var com=feeObj(r[F.comm]);
+        var ext = feeObj(r[F.extra]);
+        return ''
+          +'<div><label class="ef-lbl">運費幣別</label><select id="e-freightcur-'+rowNum+'" class="ef-i">'+feeSelectOpts(frt.cur)+'</select></div>'
+          +'<div><label class="ef-lbl">運費金額</label><input type="number" id="e-freight-'+rowNum+'" class="ef-i" value="'+(frt.amt||'')+'" min="0" step="any"></div>'
+          +'<div><label class="ef-lbl">保險費幣別</label><select id="e-insurecur-'+rowNum+'" class="ef-i">'+feeSelectOpts(ins.cur)+'</select></div>'
+          +'<div><label class="ef-lbl">保險費金額</label><input type="number" id="e-insure-'+rowNum+'" class="ef-i" value="'+(ins.amt||'')+'" min="0" step="any"></div>'
+          +'<div><label class="ef-lbl">規費幣別</label><select id="e-taxcur-'+rowNum+'" class="ef-i">'+feeSelectOpts(tax.cur)+'</select></div>'
+          +'<div><label class="ef-lbl">規費金額</label><input type="number" id="e-tax-'+rowNum+'" class="ef-i" value="'+(tax.amt||'')+'" min="0" step="any"></div>'
+          +'<div><label class="ef-lbl">佣金幣別</label><select id="e-commcur-'+rowNum+'" class="ef-i">'+feeSelectOpts(com.cur)+'</select></div>'
+          +'<div><label class="ef-lbl">佣金金額</label><input type="number" id="e-comm-'+rowNum+'" class="ef-i" value="'+(com.amt||'')+'" min="0" step="any"></div>'
+          +'<div><label class="ef-lbl">其他費用幣別</label><select id="e-extracur-'+rowNum+'" class="ef-i">'+feeSelectOpts(ext.cur)+'</select></div>'
+          +'<div><label class="ef-lbl">其他費用金額</label><input type="number" id="e-extra-'+rowNum+'" class="ef-i" value="'+(ext.amt||'')+'" min="0" step="any"></div>';
+      })()
       +'</div>'
 
       +'<button class="btn-edit-save" id="ebtn-'+rowNum+'" onclick="doEdit('+rq+')" style="margin-top:10px;">💾 儲存修改</button>'
@@ -2661,18 +2718,22 @@ function doEdit(rowNum){
     ['e-eta-',     'logistics.eta'],
     ['e-origin-',  'logistics.origin'],
     ['e-dest-',    'logistics.destination'],
-    ['e-freight-', 'fees.freight'],
-    ['e-insure-',  'fees.insurance'],
-    ['e-tax-',     'fees.tax'],
-    ['e-comm-',    'fees.commission'],
-    ['e-extra-',   'fees.other'],
+    // ★ 費用欄位：僅收集 amt，cur 在下方獨立處理
   ];
 
-  // ★ 金額相關欄位 — 只要這些欄位有變動，才需要老闆重新審核
+  // ★ 費用欄位改為 {amt, cur} 物件格式
+  var FEE_MAP = [
+    { amtId:'e-freight-', curId:'e-freightcur-', fsKey:'fees.freight',    zhKey:'運費',   curZhKey:'運費幣別'   },
+    { amtId:'e-insure-',  curId:'e-insurecur-',  fsKey:'fees.insurance',  zhKey:'保險費', curZhKey:'保險費幣別' },
+    { amtId:'e-tax-',     curId:'e-taxcur-',      fsKey:'fees.tax',        zhKey:'規費',   curZhKey:'規費幣別'   },
+    { amtId:'e-comm-',    curId:'e-commcur-',     fsKey:'fees.commission', zhKey:'佣金',   curZhKey:'佣金幣別'   },
+    { amtId:'e-extra-',   curId:'e-extracur-',    fsKey:'fees.other',      zhKey:'其他費用',curZhKey:'其他費用幣別'},
+  ];
+
+  // ★ 金額相關欄位 — 費用 + 分期金額有變動才需老闆重新審核
   var AMT_FIELDS = [
     'fees.freight','fees.insurance','fees.tax','fees.commission','fees.other'
   ];
-  // 分期金額判斷在後面的 for 迴圈中另外處理
 
   var firestoreFields = {};  // 不預設重置，視是否有金額變動再決定
   var localFields = {};
@@ -2691,8 +2752,7 @@ function doEdit(rowNum){
         'sales.customer':'客戶（買方）','sales.note':'備註（銷售）',
         'logistics.tradeTerms':'貿易條件','logistics.etd':'ETD 出貨日','logistics.eta':'ETA 到貨日',
         'logistics.origin':'出貨地/發貨港口','logistics.destination':'目的地/收貨港口',
-        'fees.freight':'運費','fees.insurance':'保險費','fees.tax':'規費',
-        'fees.commission':'佣金','fees.other':'其他費用',
+        // ★ 費用欄位已移至 FEE_MAP 處理，此處不重複
       };
       var zh = zhMap[m[1]];
       if(zh){
@@ -2705,6 +2765,28 @@ function doEdit(rowNum){
         r[zh] = newVal;
         localFields[zh] = newVal;
       }
+    }
+  });
+
+  // ★ 費用欄位：讀取 {amt, cur} 物件，寫入 firestoreFields
+  FEE_MAP.forEach(function(fm){
+    var amtEl = document.getElementById(fm.amtId + rowNum);
+    var curEl = document.getElementById(fm.curId + rowNum);
+    if(!amtEl) return;
+    var newAmt = parseFloat(amtEl.value)||0;
+    var newCur = curEl ? (curEl.value||'TWD') : 'TWD';
+    var newFee = { amt: newAmt, cur: newCur };
+    firestoreFields[fm.fsKey] = newFee;
+    if(r){
+      var oldFee = r[fm.zhKey];
+      var oldAmt = (typeof oldFee==='object' && 'amt' in oldFee) ? oldFee.amt : pf(oldFee);
+      var oldCur = (typeof oldFee==='object' && 'cur' in oldFee) ? oldFee.cur : 'TWD';
+      if(oldAmt !== newAmt || oldCur !== newCur){
+        changes.push(fm.zhKey+' 「'+(oldCur||'TWD')+' '+(oldAmt||0)+'」→「'+newCur+' '+newAmt+'」');
+        hasAmtChange = true;
+      }
+      r[fm.zhKey] = newFee;
+      localFields[fm.zhKey] = newFee;
     }
   });
 
@@ -2799,21 +2881,7 @@ function doEdit(rowNum){
   if(newSellPeriods.length > 0){
     firestoreFields['sales.periods'] = newSellPeriods;
   }
-  // 費用幣別
-  var feeCurFields = [
-    ['e-freightcur-','運費幣別','fees.freightCur'],
-    ['e-insurecur-','保險費幣別','fees.insuranceCur'],
-    ['e-taxcur-','規費幣別','fees.taxCur'],
-    ['e-commcur-','佣金幣別','fees.commissionCur'],
-    ['e-extracur-','其他費用幣別','fees.otherCur'],
-  ];
-  feeCurFields.forEach(function(fc){
-    var el=document.getElementById(fc[0]+rowNum);
-    if(!el) return;
-    firestoreFields[fc[2]]=el.value.trim();
-    if(r) r[fc[1]]=el.value.trim();
-  });
-
+  // ★ feeCurFields 已整合至 FEE_MAP，無需重複處理
 
   // ★ 只有金額變動才重置審核狀態，否則不動 approval
   if(hasAmtChange){
