@@ -727,8 +727,10 @@ async function updateFirebase(formId, fields){
 
 // ══════════════════════════════════════════════════════
 // 讀取單筆 Firestore
+// ★ 修正：先 ensureAuth() 確保匿名登入完成再讀取
 // ══════════════════════════════════════════════════════
 async function readFirebase(formId){
+  await ensureAuth();
   var db = getFirebaseDb();
   if(!db) throw new Error('Firestore 未初始化');
   var snap = await db.collection('cases').doc(formId).get();
@@ -1555,12 +1557,16 @@ function checkFillMode(){
     });
 }
 
+// ★ 修正：改呼叫 GAS action=getCase 直接查單筆案件（備援）
 function loadFillFromGAS(fillId, banner){
-  jsonpGet(SCRIPT_URL+'?action=getData', function(d, err){
-    if(err||!d||!d.rows){ banner.textContent='讀取失敗（'+(err||'無資料')+'），請重新開啟連結'; return; }
-    var row=d.rows.find(function(r){ return (r['表單編號']||'').trim()===fillId.trim(); });
-    if(!row){ banner.textContent='找不到案件 '+fillId+'，請確認連結是否正確'; return; }
-    processFillRow(row, fillId, banner);
+  banner.textContent = '從備援管道載入中...';
+  jsonpGet(SCRIPT_URL + '?action=getCase&caseId=' + encodeURIComponent(fillId), function(d, err){
+    if(err || !d || d.status !== 'ok' || !d.row){
+      banner.style.background = '#dc2626';
+      banner.textContent = '讀取失敗（案件資料不存在或連結有誤），請確認案件編號：' + fillId;
+      return;
+    }
+    processFillRow(d.row, fillId, banner);
   });
 }
 
