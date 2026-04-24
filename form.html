@@ -1069,7 +1069,9 @@ async function submitForm(){
     await writeFirebase(payload);
 
     // ② 備份：非同步送 GAS（fire-and-forget，含發信通知老闆）
-    backupToGAS(payload);
+    // 加入 action:'newCase' 讓 GAS Apps Script 發信給老闆
+    var gasPayload = Object.assign({}, payload, { action: 'newCase' });
+    backupToGAS(gasPayload);
 
     showPage('success');
   } catch(e) {

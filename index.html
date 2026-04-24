@@ -263,24 +263,36 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 </div>
 <div class="nav-tabs" id="ntabs"></div>
 
-<div class="scr on" id="s-dash"><div id="dc"><div class="loading"><div class="spin"></div>載入中...</div></div></div>
-<div class="scr" id="s-records">
-  <!-- 業務員切換：我的案件 / 全部案件 -->
-  <div id="staff-scope-bar" style="display:none;margin-bottom:12px;">
-    <div style="display:flex;gap:8px;">
-      <button id="scope-my"  onclick="setStaffScope('my')"  style="padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--sea);background:var(--sea);color:#fff;cursor:pointer;">👤 我的案件</button>
-      <button id="scope-all" onclick="setStaffScope('all')" style="padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:#f8fafc;color:var(--muted);cursor:pointer;">📋 全部案件</button>
+<!-- ★ 合併 Dashboard + Records 為單一頁面 -->
+<div class="scr on" id="s-dash">
+  <!-- 4 個統計卡片（只計已審核） -->
+  <div id="dc"><div class="loading"><div class="spin"></div>載入中...</div></div>
+
+  <!-- 案件列表篩選區 -->
+  <div class="sbox" id="records-filter-box" style="display:none;">
+    <div class="sbox-title">案件總表</div>
+    <div class="sbox-sub">可依狀態、業務、日期、案件 ID 查詢</div>
+    <!-- 業務員切換：我的案件 / 全部案件 -->
+    <div id="staff-scope-bar" style="display:none;margin-bottom:12px;">
+      <div style="display:flex;gap:8px;">
+        <button id="scope-my"  onclick="setStaffScope('my')"  style="padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--sea);background:var(--sea);color:#fff;cursor:pointer;">👤 我的案件</button>
+        <button id="scope-all" onclick="setStaffScope('all')" style="padding:8px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:#f8fafc;color:var(--muted);cursor:pointer;">📋 全部案件</button>
+      </div>
     </div>
-  </div>
-  <div class="sbox">
-    <div class="sbox-title">案件簽核總表</div>
-    <div class="sbox-sub">可依狀態、業務、日期查詢</div>
-    <div class="sg2">
+    <!-- 篩選欄：狀態 + 業務 + 日期 + ★ 案件 ID 搜尋 -->
+    <div class="sg2" style="grid-template-columns:1fr 1fr 1fr 1fr;">
       <div class="sf"><label>狀態</label>
         <select id="fs"><option value="">全部</option><option value="p">未簽核</option><option value="a">已同意</option><option value="r">退回</option></select></div>
       <div class="sf"><label>業務</label><select id="fst"><option value="">全部</option></select></div>
       <div class="sf"><label>日期起</label><input type="date" id="ff"></div>
       <div class="sf"><label>日期迄</label><input type="date" id="ft"></div>
+    </div>
+    <!-- ★ 新增：案件 ID 模糊搜尋 -->
+    <div class="sg2" style="grid-template-columns:1fr auto;gap:10px;margin-bottom:12px;">
+      <div class="sf">
+        <label>案件 ID 搜尋</label>
+        <input type="text" id="fid" placeholder="輸入案件 ID 或關鍵字（模糊查詢）" oninput="doSearch()" style="width:100%;background:#f8fafc;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit;color:var(--ink);">
+      </div>
     </div>
     <div class="sbtns">
       <button class="btn-sq" onclick="doSearch()">查詢</button>
@@ -934,42 +946,95 @@ function logout(){
 function buildNav(){
   var role=curUser.role;
   var tabs=role==='boss'
-    ?[{i:'dash',l:'📊 總覽'},{i:'records',l:'📋 案件總表'},{i:'approval',l:'✅ 待簽核',p:true},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'}]
+    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'approval',l:'✅ 待簽核',p:true},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'}]
     :role==='admin'
-    ?[{i:'dash',l:'📊 總覽'},{i:'records',l:'📋 案件總表'},{i:'approval',l:'✅ 待簽核',p:true},{i:'transfer',l:'💳 訂單轉入管理'},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'}]
+    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'approval',l:'✅ 待簽核',p:true},{i:'transfer',l:'💳 訂單轉入管理'},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'}]
     :role==='staff'
-    ?[{i:'dash',l:'📊 總覽'},{i:'mycase',l:'👤 我的案件'},{i:'records',l:'📋 案件列表'},{i:'profile',l:'🔑 我的帳號'}]
+    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'mycase',l:'👤 我的案件'},{i:'profile',l:'🔑 我的帳號'}]
     :role==='finance'
-    ?[{i:'dash',l:'📊 總覽'},{i:'records',l:'📋 案件列表'},{i:'transfer',l:'💳 訂單轉入管理'},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'profile',l:'🔑 我的帳號'}]
-    :[{i:'dash',l:'📊 總覽'},{i:'records',l:'📋 案件列表'},{i:'daily',l:'🗓️ 收付日曆'},{i:'log',l:'🔍 Log'}];
+    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'transfer',l:'💳 訂單轉入管理'},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'profile',l:'🔑 我的帳號'}]
+    :[{i:'dash',l:'📊 總覽 / 案件'},{i:'daily',l:'🗓️ 收付日曆'},{i:'log',l:'🔍 Log'}];
   document.getElementById('ntabs').innerHTML=tabs.map(function(t){
     return '<div class="nav-tab'+(t.i==='dash'?' on':'')+'" id="nt-'+t.i+'" data-tabid="'+t.i+'" onclick="goTabEl(this)">'
       +t.l+(t.p?'<span class="pulse" id="pdot" style="display:none;"></span>':'')+'</div>';
   }).join('');
 }
 
-// 資料讀取：Firebase 主要來源，JSONP/CSV 降級備援
-var _loadTimer = null;
+// ★ 全域資料快取（只讀一次 Firebase，所有 render 用 allData）
+var allData = [];
+
+// ★ 統計計算（本地，不 fetch）
+function calcStats(data){
+  return {
+    total:   data.length,
+    approved:data.filter(isAppr).length,
+    pending: data.filter(isPend).length,
+  };
+}
+
+// ★ 分頁工具（純前端，不 fetch）
+function getPageData(data, page){
+  var start = (page-1)*10;
+  return data.slice(start, start+10);
+}
+
+// ★ 手動刷新（重新讀取 Firebase 一次）
+function doRefresh(){
+  var btn=document.getElementById('ref-btn');
+  if(btn) btn.classList.add('spinning');
+  window._refreshDone=function(){
+    if(btn){ btn.classList.remove('spinning'); }
+  };
+  load();
+}
+
+// ★ localStorage 快取（節省 reads）
+function saveCacheToStorage(data){
+  try{
+    localStorage.setItem('cases_cache', JSON.stringify(data));
+    localStorage.setItem('cases_cache_time', Date.now().toString());
+  }catch(e){}
+}
+function loadCacheFromStorage(){
+  try{
+    var t = parseInt(localStorage.getItem('cases_cache_time')||'0');
+    // 快取有效期：5 分鐘（300000 ms）
+    if(Date.now()-t > 300000) return null;
+    var c = localStorage.getItem('cases_cache');
+    return c ? JSON.parse(c) : null;
+  }catch(e){ return null; }
+}
 function load(){
   document.getElementById('dc').innerHTML='<div class="loading"><div class="spin"></div>從 Firebase 讀取...</div>';
 
-  // ① 先嘗試 Firebase
+  // ★ 讀取 Firebase（只讀一次，存入 allData）
+  // ❌ 禁止 onSnapshot，避免爆 reads
   readAllFirebase(function(fbRows, fbErr){
     if(fbRows && fbRows.length > 0){
       console.log('✅ Firebase 讀取成功，共 '+fbRows.length+' 筆');
-      // Firebase 的 key 結構轉成與 Sheets 相容的欄位格式
       var normalized = [];
       for(var _i=0; _i<fbRows.length; _i++){
         var _r = fbRows[_i];
         var _staff = (_r.meta && _r.meta.staff) || _r['staff'] || _r['業務名稱'] || '';
         if(_staff !== '') normalized.push(normalizeRow(_r));
       }
-      window.rows = normalized;
-      console.log('✅ rows 賦值完成，共 '+window.rows.length+' 筆');
+      // ★ 存入 allData，所有 render/篩選/分頁/搜尋皆用 allData（不再 fetch）
+      allData = normalized;
+      saveCacheToStorage(allData);   // ★ 同步快取到 localStorage
+      window.rows = allData;
+      console.log('✅ allData 賦值，共 '+allData.length+' 筆');
       onLoad();
     } else {
-      console.warn('⚠️ Firebase 無資料或失敗（'+fbErr+'），降級走 JSONP');
-      loadViaJSONP();
+      console.warn('⚠️ Firebase 無資料（'+fbErr+'），嘗試 localStorage 快取');
+      var cached = loadCacheFromStorage();
+      if(cached && cached.length > 0){
+        console.log('📦 使用 localStorage 快取，共 '+cached.length+' 筆');
+        allData = cached;
+        window.rows = allData;
+        onLoad();
+      } else {
+        loadViaJSONP();
+      }
     }
   });
 }
@@ -1191,7 +1256,7 @@ function onLoad(){
     return (r['銷售補填狀態']||r[F.fillStatus]||'')==='待補填';
   });
   buildStaffFilter();
-  renderDash();
+  renderDash(); // ★ renderDash 已整合統計卡片 + 案件列表
   // 根據目前顯示的頁籤決定渲染哪個
   var activeScr = document.querySelector('.scr.on');
   var activeId = activeScr ? activeScr.id.replace('s-','') : 'dash';
@@ -1203,9 +1268,8 @@ function onLoad(){
     loadPayments();
   } else if(activeId === 'daily'){
     loadPayments(renderDaily);
-  } else {
-    renderCards(filtered,'records-cards',true);
   }
+  // records tab 已移除，dash 已包含案件列表
   renderApproval();
   updateAlert();
   if(window._refreshDone){ window._refreshDone(); window._refreshDone=null; }
@@ -1254,7 +1318,7 @@ function updateAlert(){
   }else{ab.classList.add('hide');if(pd)pd.style.display='none';}
 }
 
-// 總覽 Dashboard
+// 總覽 Dashboard（含案件列表）
 function renderDash(){
   var tB=0,tS=0,tP=0;
   // ★ 預估金額只納入老闆已審核同意的案件
@@ -1267,23 +1331,38 @@ function renderDash(){
   });
   var mg=tS>0?(tP/tS*100).toFixed(1):0;
   var pend=rows.filter(isPend).length;
-  var h='<div class="sg">'
-    +'<div class="st s1"><div class="stlbl">總進貨成本</div><div class="stval v1">'+fmtM(tB)+'</div><div class="stsub">NTD 換算</div></div>'
-    +'<div class="st s2"><div class="stlbl">總出貨金額</div><div class="stval v2">'+fmtM(tS)+'</div><div class="stsub">NTD 換算</div></div>'
-    +'<div class="st s3"><div class="stlbl">預估總毛利</div><div class="stval v3">'+fmtM(tP)+'</div><div class="stsub">毛利率 '+mg+'%</div></div>'
+  var total=rows.length;
+  var apprCnt=rows.filter(isAppr).length;
+
+  // ★ 4 個統計卡片
+  var statsHtml='<div class="sg">'
+    +'<div class="st s1"><div class="stlbl">總出貨金額（已審核）</div><div class="stval v1">'+fmtM(tS)+'</div><div class="stsub">NTD 換算</div></div>'
+    +'<div class="st s2"><div class="stlbl">預估總毛利（已審核）</div><div class="stval v2">'+fmtM(tP)+'</div><div class="stsub">毛利率 '+mg+'%</div></div>'
+    +'<div class="st s3"><div class="stlbl">案件總數</div><div class="stval v3">'+total+'</div><div class="stsub">已審核 '+apprCnt+' 筆</div></div>'
     +'<div class="st s4"><div class="stlbl">待審核</div><div class="stval v4">'+pend+'</div><div class="stsub">筆合約</div></div>'
     +'</div>';
-  var dashRows = rows.slice().sort(function(a,b){
-    var aPend = isPend(a)?0:1;
-    var bPend = isPend(b)?0:1;
-    if(aPend!==bPend) return aPend-bPend;
-    return (g(b,'time')||'') > (g(a,'time')||'') ? 1 : -1;
-  }).slice(0,5);
-  h+='<div class="sec-lbl">最近合約</div>';
-  h+='<div class="card-grid">';
-  dashRows.forEach(function(r){h+=makeCard(r,false);});
-  h+='</div>';
-  document.getElementById('dc').innerHTML=h;
+
+  document.getElementById('dc').innerHTML = statsHtml;
+
+  // ★ 顯示篩選區 + 案件列表
+  var filterBox = document.getElementById('records-filter-box');
+  if(filterBox) filterBox.style.display = '';
+
+  // 業務員：顯示切換我的/全部按鈕
+  if(curUser && curUser.role==='staff' && curUser.staffName){
+    var scopeBar = document.getElementById('staff-scope-bar');
+    if(scopeBar) scopeBar.style.display = '';
+  }
+
+  buildStaffFilter();
+  // ★ 預設顯示全部案件（排序：待審核先，其次新到舊）
+  var defaultData = rows.slice().sort(function(a,b){
+    var ap=isPend(a)?0:1, bp=isPend(b)?0:1;
+    if(ap!==bp) return ap-bp;
+    return (g(b,'time')||'')>(g(a,'time')||'')?1:-1;
+  });
+  filtered = defaultData;
+  renderCards(filtered, 'records-cards', true);
 }
 
 // 案件卡片
@@ -1496,21 +1575,31 @@ function doSearch(){
   var sf=document.getElementById('fst').value;
   var ff=document.getElementById('ff').value;
   var ft=document.getElementById('ft').value;
+  // ★ 新增：案件 ID 模糊搜尋
+  var fid=(document.getElementById('fid')||{}).value||'';
+  var fidLower=fid.trim().toLowerCase();
+
   filtered=rows.filter(function(r){
-    // 業務員在「案件列表」能看全部（my-case 才過濾）
-    // （不限制業務員查詢範圍）
     if(st==='p'&&!isPend(r))return false;
     if(st==='a'&&!isAppr(r))return false;
     if(st==='r'){var s=g(r,'status');if(!s.includes('退')&&s!=='退回')return false;}
     if(sf&&g(r,'staff')!==sf)return false;
     if(ff){var d=new Date(g(r,'time'));if(isNaN(d)||d<new Date(ff))return false;}
     if(ft){var d2=new Date(g(r,'time'));if(isNaN(d2)||d2>new Date(ft+'T23:59:59'))return false;}
+    // ★ 案件 ID 模糊查詢（formId + 案件名稱 + 業務名稱）
+    if(fidLower){
+      var formId=(g(r,'formId')||'').toLowerCase();
+      var cName=(g(r,'name')||'').toLowerCase();
+      var staff=(g(r,'staff')||'').toLowerCase();
+      if(formId.indexOf(fidLower)<0 && cName.indexOf(fidLower)<0 && staff.indexOf(fidLower)<0)return false;
+    }
     return true;
   });
   renderCards(filtered,'records-cards',true);
 }
 function clearSearch(){
   ['fs','fst','ff','ft'].forEach(function(id){document.getElementById(id).value='';});
+  var fidEl=document.getElementById('fid'); if(fidEl) fidEl.value='';
   filtered=rows.slice();
   renderCards(filtered,'records-cards',true);
 }
@@ -3378,12 +3467,12 @@ function goTab(id){
   if(id==='profile')initProfile();
   if(id==='payments'){loadPayments();}
   if(id==='transfer'){loadTransfer();}
-  if(id==='records'){
-    // 業務員看案件列表也是全部
-    filtered = rows.slice();
-    renderCards(filtered,'records-cards',true);
-  }
+  // ★ records tab 已移除，dash 已包含案件列表
   if(id==='mycase'){renderMyCase();}
+  if(id==='dash'){
+    // 重進 dash：重新渲染統計 + 案件列表
+    renderDash();
+  }
 }
 
 // 工具
@@ -3414,16 +3503,7 @@ function showPopup(ico, txt, sub){
   setTimeout(function(){ p.classList.remove('show'); }, 2200);
 }
 
-// 重新整理（帶旋轉動畫）
-function doRefresh(){
-  var btn=document.getElementById('ref-btn');
-  if(btn) btn.classList.add('spinning');
-  // 設定完成後移除旋轉的 hook
-  window._refreshDone=function(){
-    if(btn){ btn.classList.remove('spinning'); }
-  };
-  load();
-}
+// (doRefresh 已在上方 allData 區塊定義)
 
 // 顯示/隱藏目前密碼
 function togglePwdDisplay(){
