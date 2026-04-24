@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌸 庫存管理 + 租金計算</title>
+<title>庫存管理 + 租金計算</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <!-- ══ APP SWITCHER STYLES ══════════════════════════════════════ -->
@@ -1361,6 +1361,7 @@
       <div style="display:flex;gap:10px;align-items:center;padding:14px 18px;flex-wrap:wrap;">
         <button class="btn btn-primary" id="diffBtnRun" onclick="runDiff()" disabled>▶ 執行差異比較</button>
         <button class="btn btn-green" id="diffBtnExport" onclick="exportDiffExcel()" disabled>📤 匯出差異表</button>
+        <button class="btn btn-ghost" id="diffBtnShare" onclick="exportSharePage()" disabled style="border:2px solid var(--violet);color:var(--purple);">📱 匯出手機分享頁</button>
       </div>
 
       <!-- 成本摘要 -->
@@ -3255,6 +3256,7 @@ function runDiff(){
   }
 
   document.getElementById('diffBtnExport').disabled = false;
+  document.getElementById('diffBtnShare').disabled = false;
   renderDiff();
   showToast(`✅ 比較完成，共 ${diffResults.length} 筆`);
 }
@@ -3374,6 +3376,188 @@ function exportDiffExcel(){
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), '庫存差異比較');
   XLSX.writeFile(wb, '庫存差異比較.xlsx');
   showToast('✅ 已匯出差異比較表');
+}
+
+// ─── 匯出手機分享頁 ────────────────────────────────────────────
+function exportSharePage(){
+  if(!diffResults.length){ showToast('❌ 請先執行差異比較'); return; }
+
+  const hasCost = Object.keys(diffPriceMap).length > 0;
+  const chgLabel = { new:'新增', gone:'消失', up:'數量增加', down:'數量減少', same:'無變化' };
+  const now = new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'});
+
+  // 壓縮資料，只留分享頁需要的欄位
+  const data = diffResults.map(r => ({
+    t: r._changeType,
+    n: r.產品名稱,
+    l: r.批號,
+    w: r.倉庫,
+    c: r.產品類別,
+    a: r._qtyA,
+    b: r._qtyB,
+    d: r._diff,
+    u: r.基本單位,
+    p: r._unitPrice,
+    ca: r._costA,
+    cb: r._costB,
+    cd: r._costDiff,
+  }));
+
+  const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>📊 庫存差異 ${now}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Noto Sans TC',system-ui,sans-serif;background:#f4f0fa;min-height:100vh;padding-bottom:32px}
+/* HEADER */
+.hdr{background:#2a1f2d;padding:16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.hdr h1{color:#fff;font-size:17px;font-weight:900}
+.hdr p{color:rgba(255,255,255,.55);font-size:12px;margin-top:3px}
+/* TABS */
+.tabs{display:flex;background:#2a1f2d;padding:0 16px 0;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:10px 18px;color:rgba(255,255,255,.55);font-size:13px;font-weight:800;border:none;background:transparent;border-bottom:3px solid transparent;white-space:nowrap;cursor:pointer;font-family:inherit}
+.tab.active{color:#fff;border-bottom-color:#F2A7C3}
+/* SUMMARY BAR */
+.summary{display:flex;gap:10px;padding:14px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.summary::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;background:#fff;border-radius:20px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;box-shadow:0 2px 8px rgba(107,91,149,.1)}
+.chip .cv{font-size:22px;font-weight:900;line-height:1}
+.chip .cl{font-size:10px;font-weight:700;color:#9B8EAB;margin-top:2px}
+.chip.new .cv{color:#5EBD7E}.chip.gone .cv{color:#E05555}
+.chip.up .cv{color:#4DA6D8}.chip.down .cv{color:#F7A35C}
+.chip.cost .cv{font-size:14px;color:#6B5B95}
+/* SEARCH */
+.search-wrap{padding:12px 16px 8px}
+.search-box{display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 2px 8px rgba(107,91,149,.08)}
+.search-box input{flex:1;border:none;outline:none;font-size:14px;font-family:inherit;color:#2d2040;background:transparent}
+/* CARDS */
+.list{padding:0 16px;display:flex;flex-direction:column;gap:10px}
+.card{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 2px 10px rgba(107,91,149,.08);border-left:4px solid #ddd;animation:fadeUp .2s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card.new{border-color:#5EBD7E}.card.gone{border-color:#E05555}
+.card.up{border-color:#4DA6D8}.card.down{border-color:#F7A35C}.card.same{border-color:#C9A8E0}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+.card-name{font-size:15px;font-weight:800;color:#2d2040;line-height:1.3}
+.card-lot{font-size:11px;color:#9B8EAB;margin-top:2px}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:800;flex-shrink:0}
+.badge.new{background:#d4f5e3;color:#217a4a}.badge.gone{background:#fde0e0;color:#a02020}
+.badge.up{background:#daedf7;color:#1a6090}.badge.down{background:#fdecd8;color:#9a4a10}.badge.same{background:#ede8f5;color:#7060a0}
+.card-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.stat{display:flex;flex-direction:column;align-items:center;background:#f7f3fb;border-radius:8px;padding:6px 10px;min-width:60px}
+.stat .sv{font-size:15px;font-weight:900;color:#2d2040}
+.stat .sl{font-size:10px;color:#9B8EAB;font-weight:700;margin-top:1px}
+.stat.diff-pos .sv{color:#0f7a38}.stat.diff-neg .sv{color:#b02020}
+.stat.cost-diff .sv{font-size:13px}
+.warehouse{font-size:11px;color:#9B8EAB;margin-top:6px}
+.empty{text-align:center;padding:60px 20px;color:#9B8EAB}
+.empty .ei{font-size:40px;margin-bottom:10px}
+.count-bar{text-align:right;padding:6px 16px 4px;font-size:12px;color:#9B8EAB;font-weight:700}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <h1>📊 庫存差異報告</h1>
+  <p>分析日期：${now}</p>
+</div>
+<div class="tabs" id="tabs">
+  <button class="tab active" onclick="setTab('all',this)">全部</button>
+  <button class="tab" onclick="setTab('new',this)">🟢 新增</button>
+  <button class="tab" onclick="setTab('gone',this)">🔴 消失</button>
+  <button class="tab" onclick="setTab('up',this)">🔵 增加</button>
+  <button class="tab" onclick="setTab('down',this)">🟠 減少</button>
+  <button class="tab" onclick="setTab('same',this)">⚪ 不變</button>
+</div>
+<div class="summary" id="summary"></div>
+<div class="search-wrap">
+  <div class="search-box"><span>🔍</span><input id="q" type="search" placeholder="搜尋產品名稱 / 批號…" oninput="render()"></div>
+</div>
+<div class="count-bar" id="countBar"></div>
+<div class="list" id="list"></div>
+<script>
+const DATA=${JSON.stringify(data)};
+const HAS_COST=${hasCost ? 'true' : 'false'};
+const CHG={new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'};
+let tab='all';
+
+// 統計
+const st={new:0,gone:0,up:0,down:0,same:0};
+DATA.forEach(r=>st[r.t]++);
+let totalCostDiff=0; if(HAS_COST){ DATA.forEach(r=>{ if(r.cd!=null) totalCostDiff+=r.cd; }); }
+
+function buildSummary(){
+  const s=document.getElementById('summary');
+  const fmt=v=>Number(v).toLocaleString('zh-TW',{maximumFractionDigits:0});
+  const fmtC=v=>(v>=0?'+':'')+fmt(v);
+  s.innerHTML=
+    \`<div class="chip new"><div class="cv">\${st.new}</div><div class="cl">🟢 新增</div></div>
+    <div class="chip gone"><div class="cv">\${st.gone}</div><div class="cl">🔴 消失</div></div>
+    <div class="chip up"><div class="cv">\${st.up}</div><div class="cl">🔵 增加</div></div>
+    <div class="chip down"><div class="cv">\${st.down}</div><div class="cl">🟠 減少</div></div>
+    \${HAS_COST?\`<div class="chip cost"><div class="cv">\${fmtC(totalCostDiff)}</div><div class="cl">成本差異</div></div>\`:''}
+    \`;
+}
+
+function setTab(t,el){
+  tab=t;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function fmtN(v){ if(v===null||v===undefined) return '—'; return Number(v).toLocaleString('zh-TW',{maximumFractionDigits:4}); }
+function fmtC(v){ if(v===null||v===undefined) return '—'; return (v>=0?'+$':'-$')+Math.abs(Math.round(v)).toLocaleString('zh-TW'); }
+
+function render(){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  let rows=DATA.filter(r=>{
+    if(tab!=='all'&&r.t!==tab) return false;
+    if(q&&!r.n.toLowerCase().includes(q)&&!r.l.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  document.getElementById('countBar').textContent=rows.length+' 筆';
+  if(!rows.length){
+    document.getElementById('list').innerHTML='<div class="empty"><div class="ei">🔍</div><p>無符合條件的資料</p></div>';
+    return;
+  }
+  const badgeCls={new:'new',gone:'gone',up:'up',down:'down',same:'same'};
+  const diffClass=d=>d>0?'diff-pos':d<0?'diff-neg':'';
+  document.getElementById('list').innerHTML=rows.map((r,i)=>{
+    const qtyA=r.t==='gone'?'—':fmtN(r.a);
+    const qtyB=r.t==='new'?'—':fmtN(r.b);
+    const diffTxt=r.t==='new'?'新增':r.t==='gone'?'消失':(r.d>0?'+':'')+fmtN(r.d);
+    const unit=r.u||'';
+    return \`<div class="card \${r.t}" style="animation-delay:\${Math.min(i*0.03,0.3)}s">
+      <div class="card-top">
+        <div><div class="card-name">\${r.n}</div><div class="card-lot">批號：\${r.l||'—'}</div></div>
+        <span class="badge \${badgeCls[r.t]}">\${CHG[r.t]}</span>
+      </div>
+      <div class="card-row">
+        <div class="stat"><div class="sv">\${qtyA}</div><div class="sl">本期(\${unit})</div></div>
+        <div class="stat"><div class="sv">\${qtyB}</div><div class="sl">上期(\${unit})</div></div>
+        <div class="stat \${diffClass(r.d)}"><div class="sv">\${diffTxt}</div><div class="sl">差異</div></div>
+        \${HAS_COST&&r.cd!=null?\`<div class="stat cost-diff \${diffClass(r.cd)}"><div class="sv">\${fmtC(r.cd)}</div><div class="sl">成本差異</div></div>\`:''}
+      </div>
+      <div class="warehouse">🏭 \${r.w||'—'}</div>
+    </div>\`;
+  }).join('');
+}
+
+buildSummary();
+render();
+</script>
+</body>
+</html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `庫存差異報告_${now.replace(/\//g,'-')}.html`;
+  a.click();
+  showToast('✅ 已匯出手機分享頁，傳給對方用瀏覽器開啟即可');
 }
 
 // ─── PRICE JSON SAVE / LOAD (for GitHub) ──────────────────────
