@@ -531,47 +531,16 @@ function updateFirebase(formId, fields, cb){
   var db = getFirebaseDb();
   if(!db){ if(cb) cb(false); return; }
 
-  // ★ 修復：先讀取現有文件，再合併更新，避免巢狀欄位遺失
-  // 原本 .update() 在 dot notation 與平鋪欄位混用時會造成部分欄位消失
-  db.collection('cases').doc(formId).get()
-    .then(function(doc){
-      if(!doc.exists){
-        // 文件不存在就直接 set
-        return db.collection('cases').doc(formId).set(fields, {merge:true});
-      }
-      var existing = doc.data() || {};
-
-      // 把 dot notation 欄位展開合併到現有巢狀結構中
-      // 例：'meta.staff' → existing.meta.staff
-      var merged = JSON.parse(JSON.stringify(existing)); // deep copy
-
-      Object.keys(fields).forEach(function(key){
-        var val = fields[key];
-        if(key.indexOf('.') > 0){
-          // dot notation：'meta.staff' → merged.meta.staff
-          var parts = key.split('.');
-          var obj = merged;
-          for(var i=0; i<parts.length-1; i++){
-            if(!obj[parts[i]] || typeof obj[parts[i]] !== 'object') obj[parts[i]] = {};
-            obj = obj[parts[i]];
-          }
-          obj[parts[parts.length-1]] = val;
-        } else {
-          // 平鋪欄位直接覆蓋
-          merged[key] = val;
-        }
-      });
-
-      // 用 set+merge 寫回（比 update 更安全）
-      return db.collection('cases').doc(formId).set(merged, {merge:false});
-    })
+  // ★ 修正：使用 update() + dot notation，只更新傳入的欄位
+  // 不影響 Firebase 文件內其他未被修改的欄位（如 sales、purchase 等）
+  db.collection('cases').doc(formId).update(fields)
     .then(function(){ if(cb) cb(true); })
     .catch(function(e){
       console.error('Firestore update 失敗：', e);
-      // 降級：直接用原本的 update 試試
-      db.collection('cases').doc(formId).update(fields)
+      // 降級：用 set + merge:true（保留其他欄位）
+      db.collection('cases').doc(formId).set(fields, {merge:true})
         .then(function(){ if(cb) cb(true); })
-        .catch(function(e2){ console.error('Firestore update 降級也失敗：', e2); if(cb) cb(false); });
+        .catch(function(e2){ console.error('Firestore set merge 也失敗：', e2); if(cb) cb(false); });
     });
 }
 
