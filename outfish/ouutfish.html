@@ -173,7 +173,7 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
       <div class="header-top">
         <div class="header-title">出庫計算機</div>
         <div style="display:flex;align-items:center;gap:6px">
-          <span class="badge badge-total" id="badge-total" style="display:none">總計 0 kg</span>
+          <span class="badge badge-total" id="badge-total"></span>
           <span class="badge" id="badge">0 項已選</span>
         </div>
       </div>
@@ -207,6 +207,13 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
     <div class="sec-title">顯示欄位（點擊開關、拖曳排序）</div>
     <div class="settings-block" id="col-list"></div>
     <button class="save-btn" onclick="saveColSettings()">儲存並套用</button>
+    <div class="sec-title" style="margin-top:8px">貨櫃設定</div>
+    <div style="padding:0 16px 16px">
+      <div style="background:#fff;border-radius:12px;border:0.5px solid #d1d1d6;padding:14px 16px;display:flex;align-items:center;gap:12px">
+        <div style="flex:1;font-size:15px;color:#1c1c1e">貨櫃容量（公斤）</div>
+        <input type="number" id="container-capacity-input" placeholder="輸入公斤數" style="width:130px;border:1.5px solid #d1d1d6;border-radius:8px;padding:7px 10px;font-size:15px;font-weight:600;text-align:right;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none" oninput="saveContainerCapacity(this.value)" onchange="saveContainerCapacity(this.value)">
+      </div>
+    </div>
     <div class="sec-title" style="margin-top:8px">更換庫存資料</div>
     <div style="padding:0 16px 16px;display:flex;flex-direction:column;gap:8px">
       <button class="ex-btn" onclick="document.getElementById('import-xlsx').click()" style="margin-top:0">&#x1F4C2; 從本機匯入新 Excel</button>
@@ -290,7 +297,12 @@ let colSettings=[
 
 function showLoading(msg){ document.getElementById('loading-text').textContent=msg||'處理中…'; document.getElementById('loading').classList.add('show'); }
 function hideLoading(){ document.getElementById('loading').classList.remove('show'); }
-function enterApp(){ document.getElementById('welcome-screen').style.display='none'; document.getElementById('main-app').style.display=''; document.getElementById('bottom-bar').style.display=''; }
+function enterApp(){ document.getElementById('welcome-screen').style.display='none'; document.getElementById('main-app').style.display=''; document.getElementById('bottom-bar').style.display=''; loadContainerCapacityInput(); updateSummary(); }
+function loadContainerCapacityInput(){
+  const saved=localStorage.getItem('containerCapacity');
+  const input=document.getElementById('container-capacity-input');
+  if(input&&saved&&saved!=='') input.value=saved;
+}
 function showWelcomeMsg(msg){ document.getElementById('welcome-msg').textContent=msg; }
 
 function loadGIS(){
@@ -496,28 +508,50 @@ function toggleCheck(id){ checked.has(id)?checked.delete(id):checked.add(id); re
 function clearAll(){ checked.clear(); renderList(); }
 function selectAll(){ getFiltered().forEach(r=>checked.add(r._id)); renderList(); }
 
+function saveContainerCapacity(val){
+  if(val===''||val===null||val===undefined){
+    localStorage.removeItem('containerCapacity');
+  } else {
+    localStorage.setItem('containerCapacity', val);
+  }
+  updateSummary();
+}
+
 function updateSummary(){
   const sel=data.filter(r=>checked.has(r._id));
   document.getElementById('badge').textContent=sel.length+' 項已選';
   const byProduct={};
   sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
 
-  // 總出貨數量 badge (sum of all selected, assume same unit or show multi)
+  // badge-total: 貨櫃容量 | 已選總重量
   const totalBadge=document.getElementById('badge-total');
+  const containerCapacity=localStorage.getItem('containerCapacity');
   const keys=Object.keys(byProduct);
+
+  let selectedLabel='';
   if(keys.length){
-    // 若只有一種單位就加總，否則分開顯示
     const units=[...new Set(keys.map(k=>byProduct[k].unit))];
     if(units.length===1){
       const total=keys.reduce((s,k)=>s+byProduct[k].qty,0);
-      totalBadge.textContent='毛重限制 '+total.toLocaleString()+' '+units[0];
+      selectedLabel='已選 '+total.toLocaleString()+' '+units[0];
     } else {
-      totalBadge.textContent='毛重限制 '+keys.map(k=>byProduct[k].qty.toLocaleString()+byProduct[k].unit).join(' / ');
+      selectedLabel='已選 '+keys.map(k=>byProduct[k].qty.toLocaleString()+byProduct[k].unit).join(' / ');
     }
-    totalBadge.style.display='';
-  } else {
-    totalBadge.style.display='none';
   }
+
+  let capacityLabel='';
+  if(containerCapacity&&containerCapacity!==''){
+    capacityLabel='貨櫃容量 '+Number(containerCapacity).toLocaleString()+' 公斤';
+  } else {
+    capacityLabel='貨櫃容量 — 請至欄位設定';
+  }
+
+  if(selectedLabel){
+    totalBadge.textContent=capacityLabel+' | '+selectedLabel;
+  } else {
+    totalBadge.textContent=capacityLabel;
+  }
+  totalBadge.style.display='';
 
   // 已選數量卡片
   const sumBar=document.getElementById('summary-bar');
@@ -539,7 +573,6 @@ function renderPlannedSection(byProduct){
   if(!allProducts.length){ sec.style.display='none'; return; }
   sec.style.display='';
 
-  // 第一次：建立所有列（含輸入框）
   allProducts.forEach(name=>{
     const unit=(byProduct&&byProduct[name])?byProduct[name].unit:(data.find(r=>r['產品名稱']===name)||{})['基本單位名稱']||'公斤';
     const rowId='planned-row-'+name.replace(/\W/g,'_');
@@ -552,8 +585,8 @@ function renderPlannedSection(byProduct){
         +'<div class="remain-cell remain-na" id="remain-'+rowId+'"><span class="remain-num">—</span></div>';
       rowsEl.appendChild(div);
     }
-    // 每次只更新剩餘數量欄，不動輸入框
-    const selected=(byProduct&&byProduct[name])?byProduct[name].qty:0;
+    // 使用傳入的 byProduct，不重新計算
+    const selected=byProduct&&byProduct[name]?byProduct[name].qty:0;
     const planned=plannedQty[name];
     const remainEl=document.getElementById('remain-'+rowId);
     if(remainEl){
@@ -572,11 +605,8 @@ function renderPlannedSection(byProduct){
 
 function setPlanned(name, val){
   plannedQty[name]=(val==='')?'':Number(val);
-  // 只更新剩餘數量，不重建整個 planned section
-  const sel=data.filter(r=>checked.has(r._id));
-  const byProduct={};
-  sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
-  renderPlannedSection(byProduct);
+  // 唯一更新入口
+  updateSummary();
 }
 
 function renderColSettings(){
@@ -667,6 +697,19 @@ function importXLSX(e,fromWelcome){
 }
 
 // ── 啟動時自動還原登入狀態 ──
+// 初始化貨櫃容量 badge
+(function(){
+  const totalBadge=document.getElementById('badge-total');
+  const containerCapacity=localStorage.getItem('containerCapacity');
+  if(totalBadge){
+    if(containerCapacity&&containerCapacity!==''){
+      totalBadge.textContent='貨櫃容量 '+Number(containerCapacity).toLocaleString()+' 公斤';
+    } else {
+      totalBadge.textContent='貨櫃容量 — 請至欄位設定';
+    }
+    totalBadge.style.display='';
+  }
+})();
 if(loadToken()){
   updateGdUI();
   gdLoadInventory();
