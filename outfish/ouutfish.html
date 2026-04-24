@@ -2,712 +2,115 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>出庫計算機</title>
-<link rel="manifest" href="manifest.json">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="出庫計算機">
-<meta name="theme-color" content="#1d9e75">
-<link rel="apple-touch-icon" href="icon-192.png">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
 <style>
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSystemFont,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:15px;color:#1c1c1e}
-.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
-.header{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:12px 16px}
-.sticky-top{position:sticky;top:0;z-index:200;background:#fff}
-.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.header-title{font-size:17px;font-weight:600;letter-spacing:-0.3px}
-.badge{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#e1f5ee;color:#0f6e56}
-.summary-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.summary-scroll::-webkit-scrollbar{display:none}
-.sum-card{background:#f2f2f7;border-radius:10px;padding:9px 14px;flex-shrink:0;min-width:130px}
-.sum-label{font-size:11px;color:#8e8e93;margin-bottom:2px;white-space:nowrap}
-.sum-value{font-size:20px;font-weight:600;color:#1c1c1e;white-space:nowrap}
-.sum-unit{font-size:11px;color:#8e8e93;font-weight:400;margin-left:2px}
-.tab-bar{display:flex;background:#fff;border-bottom:0.5px solid #d1d1d6;position:sticky;top:0;z-index:190}
-.tab{flex:1;padding:11px 4px;text-align:center;font-size:13px;cursor:pointer;color:#8e8e93;border-bottom:2.5px solid transparent;transition:color .15s,border-color .15s;font-weight:500}
-.tab.active{color:#1d9e75;border-bottom-color:#1d9e75}
-.filter-bar{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:10px 16px;display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.filter-bar::-webkit-scrollbar{display:none}
-.chip{border:1px solid #d1d1d6;border-radius:20px;padding:5px 13px;font-size:13px;cursor:pointer;white-space:nowrap;background:#fff;color:#3a3a3c;transition:all .15s;-webkit-user-select:none;user-select:none}
-.chip.active{background:#1d9e75;border-color:#1d9e75;color:#fff;font-weight:600}
-.search-wrap{padding:10px 16px;background:#fff;border-bottom:0.5px solid #d1d1d6}
-.search-input{width:100%;border:1px solid #d1d1d6;border-radius:10px;padding:8px 14px;font-size:15px;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none}
-.search-input:focus{border-color:#1d9e75}
-.group-header{font-size:12px;font-weight:600;color:#0f6e56;background:#e8f7f1;padding:6px 16px;border-bottom:0.5px solid #c3e8d8;letter-spacing:.2px}
-.item-row{background:#fff;border-bottom:0.5px solid #f2f2f7;padding:11px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-user-select:none;user-select:none;transition:background .1s}
-.item-row:active{background:#f2f2f7}
-.check-box{width:24px;height:24px;border-radius:7px;border:2px solid #c7c7cc;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:14px;color:#fff}
-.check-box.on{background:#1d9e75;border-color:#1d9e75}
-.item-body{flex:1;min-width:0}
-.item-name{font-size:14px;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1c1c1e}
-.item-meta{font-size:12px;color:#8e8e93;display:flex;gap:10px;flex-wrap:wrap}
-.item-meta span{white-space:nowrap}
-.item-right{text-align:right;flex-shrink:0}
-.item-qty{font-size:16px;font-weight:700;color:#1d9e75}
-.item-unit{font-size:11px;color:#8e8e93}
-.empty{text-align:center;padding:48px 16px;color:#8e8e93;font-size:14px}
-.sec-title{padding:12px 16px 6px;font-size:12px;color:#8e8e93;letter-spacing:.4px;text-transform:uppercase;font-weight:500}
-.settings-block{background:#fff;border-top:0.5px solid #d1d1d6;border-bottom:0.5px solid #d1d1d6}
-.set-row{padding:13px 16px;display:flex;align-items:center;gap:12px;border-bottom:0.5px solid #f2f2f7;cursor:pointer;-webkit-user-select:none;user-select:none}
-.set-row:last-child{border-bottom:none}
-.drag-handle{font-size:17px;color:#c7c7cc;width:22px;text-align:center;cursor:grab}
-.toggle{width:24px;height:24px;border-radius:7px;border:2px solid #c7c7cc;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;transition:all .15s;flex-shrink:0}
-.toggle.on{background:#1d9e75;border-color:#1d9e75}
-.set-name{flex:1;font-size:15px}
-.set-order{font-size:12px;color:#c7c7cc}
-.save-btn{margin:14px 16px;display:block;width:calc(100% - 32px);padding:13px;background:#1d9e75;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;-webkit-appearance:none}
-.save-btn:active{opacity:.85}
-.export-area{padding:16px;display:flex;flex-direction:column;gap:12px}
-.ex-card{background:#fff;border-radius:14px;padding:16px;border:0.5px solid #d1d1d6}
-.ex-title{font-size:15px;font-weight:600;margin-bottom:5px;color:#1c1c1e}
-.ex-desc{font-size:13px;color:#8e8e93;line-height:1.6;margin-bottom:12px}
-.ex-btn{width:100%;padding:12px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;border:1px solid #d1d1d6;background:#f2f2f7;color:#1c1c1e;-webkit-appearance:none;margin-top:6px;display:block}
-.ex-btn.primary{background:#1d9e75;border-color:#1d9e75;color:#fff}
-.ex-btn:active{opacity:.8}
-.ex-btn:disabled{opacity:.45;cursor:not-allowed}
-.status-msg{margin-top:10px;font-size:13px;color:#8e8e93;text-align:center;min-height:18px}
-.status-msg.ok{color:#1d9e75;font-weight:600}
-.status-msg.err{color:#ff3b30;font-weight:600}
-.preview-table{width:100%;font-size:12px;border-collapse:collapse;margin-top:10px}
-.preview-table th{text-align:left;padding:5px 8px;border-bottom:1px solid #e5e5ea;color:#8e8e93;font-weight:500}
-.preview-table td{padding:5px 8px;border-bottom:0.5px solid #f2f2f7;color:#1c1c1e}
-.gd-bar{background:#f8fff9;border:0.5px solid #c3e8d8;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px;margin-bottom:4px}
-.gd-avatar{width:30px;height:30px;border-radius:50%;background:#1d9e75;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;flex-shrink:0;font-weight:700}
-.gd-name{flex:1;color:#1c1c1e;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gd-btn{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #d1d1d6;background:#f2f2f7;color:#3a3a3c;-webkit-appearance:none}
-.gd-btn.login{background:#1d9e75;border-color:#1d9e75;color:#fff}
-.gd-btn:active{opacity:.8}
-.bottom-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:0.5px solid #d1d1d6;padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:300}
-.bottom-bar .btn{flex:1;padding:11px 8px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;border:1px solid #d1d1d6;background:#f2f2f7;color:#1c1c1e;-webkit-appearance:none;white-space:nowrap}
-.bottom-bar .btn.green{background:#1d9e75;border-color:#1d9e75;color:#fff}
-.bottom-bar .btn:active{opacity:.8}
-.welcome{position:fixed;inset:0;background:#f2f2f7;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;overflow-y:auto}
-.welcome-icon{font-size:52px;margin-bottom:12px}
-.welcome-title{font-size:22px;font-weight:700;margin-bottom:4px;color:#1c1c1e}
-.welcome-sub{font-size:14px;color:#8e8e93;margin-bottom:24px;text-align:center}
-.wcard{background:#fff;border-radius:16px;padding:18px 16px;width:100%;max-width:360px;border:0.5px solid #d1d1d6;margin-bottom:10px}
-.wcard-title{font-size:14px;font-weight:700;margin-bottom:4px}
-.wcard-desc{font-size:13px;color:#8e8e93;margin-bottom:12px;line-height:1.5}
-.wbtn{width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;border:none;-webkit-appearance:none}
-.wbtn.green{background:#1d9e75;color:#fff}
-.wbtn.gray{background:#f2f2f7;color:#1c1c1e;border:1px solid #d1d1d6}
-.wbtn:active{opacity:.85}
-.wor{font-size:13px;color:#c7c7cc;text-align:center;margin:4px 0}
-.loading{display:none;position:fixed;inset:0;background:rgba(255,255,255,.88);z-index:900;flex-direction:column;align-items:center;justify-content:center;gap:14px}
-.loading.show{display:flex}
-.spinner{width:38px;height:38px;border:3px solid #e5e5ea;border-top-color:#1d9e75;border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading-text{font-size:14px;color:#8e8e93}
-.planned-section{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:8px 16px 10px}
-.planned-header-row{display:grid;grid-template-columns:1fr 130px 110px;gap:8px;padding:0 0 5px 0;border-bottom:0.5px solid #e5e5ea;margin-bottom:4px}
-.planned-col-label{font-size:11px;color:#8e8e93;font-weight:500}
-.planned-col-input{font-size:11px;color:#8e8e93;font-weight:500;text-align:center}
-.planned-col-remain{font-size:11px;color:#8e8e93;font-weight:500;text-align:center}
-.planned-rows{display:flex;flex-direction:column;gap:5px}
-.planned-row{display:grid;grid-template-columns:1fr 130px 110px;gap:8px;align-items:center}
-.planned-label{font-size:13px;font-weight:600;color:#1c1c1e;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.planned-input-wrap{display:flex;align-items:center;gap:4px}
-.planned-input{flex:1;min-width:0;border:1.5px solid #d1d1d6;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:600;text-align:right;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none}
-.planned-input:focus{border-color:#1d9e75;background:#fff}
-.planned-unit{font-size:11px;color:#8e8e93;white-space:nowrap}
-.remain-cell{display:flex;align-items:center;gap:4px;justify-content:center}
-.remain-num{font-size:14px;font-weight:700;min-width:52px;text-align:right}
-.remain-ok .remain-num{color:#0f6e56}
-.remain-over .remain-num{color:#d00}
-.remain-na .remain-num{color:#c7c7cc}
-.remain-unit{font-size:11px;color:#8e8e93}
-.badge-total{background:#fff3cd;color:#856404}
-.summary-bar{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:8px 16px}
-.summary-scroll{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.summary-scroll::-webkit-scrollbar{display:none}
-.sum-card{background:#f2f2f7;border-radius:10px;padding:7px 12px;flex-shrink:0;min-width:110px}
-.sum-label{font-size:11px;color:#8e8e93;margin-bottom:1px;white-space:nowrap}
-.sum-value{font-size:18px;font-weight:600;color:#1c1c1e;white-space:nowrap}
-.sum-unit{font-size:11px;color:#8e8e93;font-weight:400;margin-left:2px}
+body{font-family:sans-serif;background:#f2f2f7;margin:0}
+.header{background:#fff;padding:10px 15px;border-bottom:1px solid #ddd}
+.badge{padding:5px 10px;border-radius:10px;background:#eee;margin-right:5px;font-size:12px}
+.planned-row{display:flex;gap:10px;padding:8px 10px;border-bottom:1px solid #eee}
+.remain-ok{color:green}
+.remain-over{color:red}
 </style>
 </head>
+
 <body>
 
-<div class="loading" id="loading">
-  <div class="spinner"></div>
-  <div class="loading-text" id="loading-text">處理中…</div>
+<div class="header">
+  <span class="badge" id="badge-container">貨櫃容量 —</span>
+  <span class="badge" id="badge-weight">已選 0</span>
 </div>
 
-<div class="welcome" id="welcome-screen">
-  <div class="welcome-icon">&#x1F4E6;</div>
-  <div class="welcome-title">出庫計算機</div>
-  <div class="welcome-sub">請選擇資料來源</div>
-  <div class="wcard">
-    <div class="wcard-title">&#x2601;&#xFE0F; 雲端模式（多台手機共用）</div>
-    <div class="wcard-desc">登入 Google，自動從雲端讀取庫存。任何手機登入皆可使用同一份清單，勾選後可回存雲端。</div>
-    <button class="wbtn green" onclick="gdSignIn()">使用 Google 帳號登入</button>
-  </div>
-  <div class="wor">— 或 —</div>
-  <div class="wcard">
-    <div class="wcard-title">&#x1F4C2; 本機模式（單機使用）</div>
-    <div class="wcard-desc">從此裝置選取 Excel 檔案，僅限本機，不需登入。</div>
-    <label class="wbtn gray" style="display:block;text-align:center;position:relative;overflow:hidden">
-      選擇 Excel 檔案
-      <input type="file" accept=".xlsx" onchange="importXLSX(event,true)" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer">
-    </label>
-  </div>
-  <div id="welcome-msg" style="font-size:13px;color:#ff9500;text-align:center;margin-top:8px;max-width:340px;line-height:1.5"></div>
-
-  <div id="welcome-upload-card" class="wcard" style="display:none;margin-top:10px">
-    <div class="wcard-title">&#x1F4E4; 上傳庫存到雲端</div>
-    <div class="wcard-desc">選取 Excel 後，將自動上傳到您的 Google Drive，之後任何手機登入皆可讀取。</div>
-    <label style="display:block;text-align:center;padding:13px;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;background:#1d9e75;color:#fff;position:relative;overflow:hidden">
-      選擇 Excel 並上傳到雲端
-      <input type="file" accept=".xlsx" onchange="importAndUpload(event)" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer">
-    </label>
+<div style="padding:10px">
+  <div>
+    貨櫃容量：
+    <input type="number" oninput="saveContainerCapacity(this.value)">
   </div>
 </div>
 
-<div class="app" id="main-app" style="display:none">
-  <div class="sticky-top">
-    <div class="header">
-      <div class="header-top">
-        <div class="header-title">出庫計算機</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span class="badge badge-total" id="badge-container">貨櫃容量 —</span>
-          <span class="badge" id="badge-selected-weight" style="background:#e1f5ee;color:#0f6e56;display:none">已選 0 公斤</span>
-          <span class="badge" id="badge">0 項已選</span>
-        </div>
-      </div>
-    </div>
-    <!-- 預計出貨量 + 剩餘數量 table block -->
-    <div class="planned-section" id="planned-section" style="display:none">
-      <div class="planned-header-row">
-        <div class="planned-col-label">魚種</div>
-        <div class="planned-col-input">預計出貨量</div>
-        <div class="planned-col-remain">剩餘數量</div>
-      </div>
-      <div class="planned-rows" id="planned-rows"></div>
-    </div>
-    <!-- 已選數量卡片 -->
-    <div class="summary-bar" id="summary-bar" style="display:none">
-      <div class="summary-scroll" id="summary-scroll"></div>
-    </div>
-    <div class="tab-bar">
-      <div class="tab active" id="tab-list"     onclick="switchTab('list')">庫存清單</div>
-      <div class="tab"        id="tab-settings" onclick="switchTab('settings')">欄位設定</div>
-      <div class="tab"        id="tab-export"   onclick="switchTab('export')">存檔匯出</div>
-    </div><!-- end tab-bar -->
-  </div><!-- end sticky-top -->
-  <div id="view-list">
-    <div class="search-wrap">
-      <input class="search-input" type="search" placeholder="搜尋產品、批號、儲位…" id="search-input" oninput="renderList()">
-    </div>
-    <div id="list-area" style="padding-bottom:80px"></div>
-  </div>
-  <div id="view-settings" style="display:none;padding-bottom:80px">
-    <div class="sec-title">貨櫃設定</div>
-    <div class="settings-block">
-      <div class="set-row" style="cursor:default">
-        <div class="set-name" style="font-size:14px">貨櫃容量（公斤）</div>
-        <input id="input-container-capacity" type="number" placeholder="輸入公斤數" style="width:120px;border:1px solid #d1d1d6;border-radius:8px;padding:5px 10px;font-size:14px;text-align:right;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none" oninput="saveContainerCapacity(this.value)">
-      </div>
-    </div>
-    <div class="sec-title" style="margin-top:8px">顯示欄位（點擊開關、拖曳排序）</div>
-    <div class="settings-block" id="col-list"></div>
-    <button class="save-btn" onclick="saveColSettings()">儲存並套用</button>
-    <div class="sec-title" style="margin-top:8px">更換庫存資料</div>
-    <div style="padding:0 16px 16px;display:flex;flex-direction:column;gap:8px">
-      <button class="ex-btn" onclick="document.getElementById('import-xlsx').click()" style="margin-top:0">&#x1F4C2; 從本機匯入新 Excel</button>
-      <input type="file" accept=".xlsx" id="import-xlsx" style="display:none" onchange="importXLSX(event,false)">
-      <button class="ex-btn primary" id="btn-upload-gd" onclick="gdUploadInventory()" style="display:none;margin-top:0">&#x2601;&#xFE0F; 上傳庫存到 Google Drive（覆蓋）</button>
-    </div>
-  </div>
-  <div id="view-export" style="display:none;padding-bottom:80px">
-    <div class="export-area">
-      <div class="gd-bar" id="gd-bar">
-        <div class="gd-avatar" id="gd-avatar">?</div>
-        <div class="gd-name"   id="gd-name">未登入 Google</div>
-        <button class="gd-btn login" id="gd-login-btn" onclick="gdSignIn()">登入</button>
-      </div>
-      <div class="ex-card">
-        <div class="ex-title">&#x2601;&#xFE0F; Google Drive 雲端同步</div>
-        <div class="ex-desc">將勾選出庫清單儲存到雲端，其他裝置登入後即可讀取，自動還原勾選狀態。</div>
-        <button class="ex-btn primary" id="btn-save-gd" onclick="gdSaveOrder()" disabled>&#x2B06; 儲存出庫清單到雲端</button>
-        <button class="ex-btn"         id="btn-load-gd" onclick="gdLoadOrder()"  disabled>&#x2B07; 從雲端讀取上次清單</button>
-        <div class="status-msg" id="gd-status"></div>
-      </div>
-      <div class="ex-card">
-        <div class="ex-title">📊 匯出 Excel</div>
-        <div class="ex-desc">將已勾選的出庫清單匯出為 Excel (.xlsx) 檔案，包含各魚種小計與明細。</div>
-        <button class="ex-btn primary" onclick="downloadXLSX()" style="margin-top:0">⬇ 下載 Excel 檔案</button>
-      </div>
-      <div class="ex-card" id="export-preview" style="display:none">
-        <div class="ex-title" id="preview-title"></div>
-        <div style="overflow-x:auto" id="preview-body"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="bottom-bar" id="bottom-bar" style="display:none">
-  <button class="btn" onclick="clearAll()">清除選取</button>
-  <button class="btn" onclick="selectAll()">全選目前</button>
-  <button class="btn green" onclick="saveAndBackup()">💾 儲存</button>
-</div>
+<div id="planned"></div>
 
 <script>
-const GD_CLIENT_ID       = '407826364612-p2uo2vt5cktmri24cjvi6dveok5hoi2a.apps.googleusercontent.com';
-const GD_SCOPE           = 'https://www.googleapis.com/auth/drive.file';
-const INVENTORY_FILENAME = '出庫計算機_庫存.json';
-const ORDER_FILENAME     = '出庫計算機_出庫單.json';
-
-let data=[], checked=new Set(), dragSrc=null;
-let plannedQty={}; // productName -> planned number
-let gdToken=null, gdUserName='';
-
-// ── Token 持久化（24小時）──
-function saveToken(token, name){
-  const exp = Date.now() + 24*60*60*1000;
-  localStorage.setItem('gd_token', token);
-  localStorage.setItem('gd_name', name);
-  localStorage.setItem('gd_exp', exp);
-}
-function loadToken(){
-  const exp = parseInt(localStorage.getItem('gd_exp')||'0');
-  if(Date.now() < exp){
-    gdToken    = localStorage.getItem('gd_token');
-    gdUserName = localStorage.getItem('gd_name')||'Google 使用者';
-    return true;
-  }
-  return false;
-}
-function clearToken(){
-  localStorage.removeItem('gd_token');
-  localStorage.removeItem('gd_name');
-  localStorage.removeItem('gd_exp');
-}
-let colSettings=[
-  {key:'批號',label:'批號',visible:true},
-  {key:'儲位名稱',label:'儲位',visible:true},
-  {key:'倉庫名稱',label:'倉庫',visible:false},
-  {key:'產品代碼',label:'產品代碼',visible:false},
-  {key:'產品類別',label:'產品類別',visible:false},
-  {key:'基本單位名稱',label:'單位',visible:false},
-  {key:'核算組織名稱',label:'組織',visible:false},
+let data = [
+  {name:'鮭魚', qty:100, unit:'公斤'},
+  {name:'鮪魚', qty:200, unit:'公斤'}
 ];
 
-function showLoading(msg){ document.getElementById('loading-text').textContent=msg||'處理中…'; document.getElementById('loading').classList.add('show'); }
-function hideLoading(){ document.getElementById('loading').classList.remove('show'); }
-function enterApp(){ document.getElementById('welcome-screen').style.display='none'; document.getElementById('main-app').style.display=''; document.getElementById('bottom-bar').style.display=''; }
-function showWelcomeMsg(msg){ document.getElementById('welcome-msg').textContent=msg; }
+let checked = {};
+let plannedQty = {};
+let containerCapacity = localStorage.getItem('containerCapacity') || '';
 
-function loadGIS(){
-  return new Promise(resolve=>{
-    if(window.google&&window.google.accounts){resolve();return;}
-    const s=document.createElement('script');
-    s.src='https://accounts.google.com/gsi/client';
-    s.onload=resolve; document.head.appendChild(s);
-  });
-}
-
-async function gdSignIn(){
-  showLoading('正在連接 Google…');
-  try{ await loadGIS(); }
-  catch(e){ hideLoading(); showWelcomeMsg('⚠️ 無法載入 Google 登入元件，請確認網路連線。'); return; }
-  hideLoading();
-  google.accounts.oauth2.initTokenClient({
-    client_id:GD_CLIENT_ID, scope:GD_SCOPE,
-    callback: async(resp)=>{
-      if(resp.error){ showWelcomeMsg('⚠️ 登入失敗：'+resp.error); return; }
-      gdToken=resp.access_token;
-      try{
-        const r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+gdToken}});
-        const u=await r.json(); gdUserName=u.name||u.email||'Google 使用者';
-      }catch{ gdUserName='Google 使用者'; }
-      saveToken(gdToken, gdUserName);
-      updateGdUI();
-      await gdLoadInventory();
-    }
-  }).requestAccessToken();
-}
-
-function gdSignOut(){ gdToken=null; gdUserName=''; clearToken(); updateGdUI(); }
-
-function updateGdUI(){
-  const avatar=document.getElementById('gd-avatar');
-  const name=document.getElementById('gd-name');
-  const loginBtn=document.getElementById('gd-login-btn');
-  const btnSave=document.getElementById('btn-save-gd');
-  const btnLoad=document.getElementById('btn-load-gd');
-  const btnUpGd=document.getElementById('btn-upload-gd');
-  if(gdToken){
-    avatar.textContent=gdUserName.charAt(0).toUpperCase()||'G';
-    name.textContent=gdUserName;
-    loginBtn.textContent='登出'; loginBtn.className='gd-btn'; loginBtn.onclick=gdSignOut;
-    btnSave.disabled=false; btnLoad.disabled=false;
-    if(btnUpGd) btnUpGd.style.display='';
-  } else {
-    avatar.textContent='?'; name.textContent='未登入 Google';
-    loginBtn.textContent='登入'; loginBtn.className='gd-btn login'; loginBtn.onclick=gdSignIn;
-    btnSave.disabled=true; btnLoad.disabled=true;
-    if(btnUpGd) btnUpGd.style.display='none';
-  }
-}
-
-async function gdFindFile(name){
-  const q=encodeURIComponent("name='"+name+"' and trashed=false");
-  const r=await fetch('https://www.googleapis.com/drive/v3/files?q='+q+'&fields=files(id,name)',{headers:{Authorization:'Bearer '+gdToken}});
-  const j=await r.json();
-  return (j.files&&j.files.length)?j.files[0]:null;
-}
-async function gdReadFile(fileId){
-  const r=await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media',{headers:{Authorization:'Bearer '+gdToken}});
-  return r.json();
-}
-async function gdWriteFile(name,obj,existingId){
-  const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
-  if(existingId){
-    await fetch('https://www.googleapis.com/upload/drive/v3/files/'+existingId+'?uploadType=media',
-      {method:'PATCH',headers:{Authorization:'Bearer '+gdToken,'Content-Type':'application/json'},body:blob});
-    return existingId;
-  } else {
-    const meta=JSON.stringify({name});
-    const form=new FormData();
-    form.append('metadata',new Blob([meta],{type:'application/json'}));
-    form.append('file',blob);
-    const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
-      {method:'POST',headers:{Authorization:'Bearer '+gdToken},body:form});
-    const j=await r.json(); return j.id;
-  }
-}
-
-async function gdLoadInventory(){
-  showLoading('從雲端讀取庫存…');
-  try{
-    const file=await gdFindFile(INVENTORY_FILENAME);
-    hideLoading();
-    if(!file){ showWelcomeMsg('✅ Google 登入成功！雲端尚無庫存，請選擇 Excel 匯入後上傳。'); _showUploadCard(); return; }
-    const rows=await gdReadFile(file.id);
-    if(Array.isArray(rows)&&rows.length){
-      data=rows.map((r,i)=>({...r,_id:i}));
-      checked.clear();
-      renderList(); enterApp();
-    } else { showWelcomeMsg('⚠️ 雲端庫存是空的，請重新上傳。'); _showUploadCard(); }
-  }catch(e){ hideLoading(); showWelcomeMsg('⚠️ 讀取雲端失敗：'+e.message); }
-}
-
-function resetPlannedRows(){ document.getElementById('planned-rows').innerHTML=''; plannedQty={}; }
-
-function _showUploadCard(){
-  // 卡片已靜態寫在 HTML 裡，只需顯示
-  const card = document.getElementById('welcome-upload-card');
-  if(card) card.style.display = '';
-}
-
-async function importAndUpload(e){
-  const file=e.target.files[0]; if(!file) return;
-  if(typeof XLSX==='undefined'){ alert('無法載入 SheetJS，請確認網路'); return; }
-  showLoading('讀取 Excel 中…');
-  const reader=new FileReader();
-  reader.onload=async ev=>{
-    try{
-      const wb=XLSX.read(ev.target.result,{type:'binary'});
-      const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
-      if(!rows.length){ hideLoading(); alert('Excel 沒有資料'); return; }
-      data=rows.map((r,i)=>({核算組織名稱:r['核算組織名稱']||'',產品類別:r['產品類別']||'',產品代碼:String(r['產品代碼']||''),產品名稱:r['產品名稱']||'',產品規格:r['產品規格']||'',庫存數量:Number(r['庫存數量'])||0,基本單位名稱:r['基本單位名稱']||'',倉庫名稱:r['倉庫名稱']||'',批號:String(r['批號']||''),儲位名稱:String(r['儲位名稱']||''),_id:i}));
-      document.getElementById('loading-text').textContent='上傳庫存到雲端…';
-      const existing=await gdFindFile(INVENTORY_FILENAME);
-      await gdWriteFile(INVENTORY_FILENAME,data,existing?.id);
-      checked.clear(); resetPlannedRows();
-      renderList(); hideLoading(); enterApp();
-    }catch(err){ hideLoading(); alert('失敗：'+err.message); }
-  };
-  reader.readAsBinaryString(file); e.target.value='';
-}
-
-async function gdUploadInventory(){
-  if(!gdToken){ alert('請先登入 Google'); return; }
-  if(!data.length){ alert('請先匯入 Excel 資料'); return; }
-  if(!confirm('這將覆蓋雲端現有庫存資料，確定嗎？')) return;
-  showLoading('上傳庫存到雲端…');
-  try{
-    const existing=await gdFindFile(INVENTORY_FILENAME);
-    await gdWriteFile(INVENTORY_FILENAME,data,existing?.id);
-    hideLoading(); alert('✅ 庫存已更新到 Google Drive！');
-  }catch(e){ hideLoading(); alert('上傳失敗：'+e.message); }
-}
-
-async function gdSaveOrder(){
-  if(!gdToken){ setGdStatus('err','請先登入 Google'); return; }
-  const sel=getSelectedData();
-  if(!sel.length){ setGdStatus('err','請先勾選要出庫的項目'); return; }
-  showLoading('儲存出庫清單到雲端…');
-  try{
-    const existing=await gdFindFile(ORDER_FILENAME);
-    await gdWriteFile(ORDER_FILENAME,buildExportPayload(),existing?.id);
-    hideLoading(); setGdStatus('ok','✅ 出庫清單已儲存到雲端！');
-  }catch(e){ hideLoading(); setGdStatus('err','上傳失敗：'+e.message); }
-}
-
-async function gdLoadOrder(){
-  if(!gdToken){ setGdStatus('err','請先登入 Google'); return; }
-  showLoading('從雲端讀取出庫清單…');
-  try{
-    const file=await gdFindFile(ORDER_FILENAME);
-    if(!file){ hideLoading(); setGdStatus('err','雲端尚無出庫清單'); return; }
-    const obj=await gdReadFile(file.id);
-    const items=obj.items||obj;
-    checked.clear();
-    items.forEach(item=>{
-      const idx=data.findIndex(r=>r['批號']===item['批號']&&r['儲位名稱']===item['儲位名稱']&&r['產品名稱']===item['產品名稱']);
-      if(idx>=0) checked.add(data[idx]._id);
-    });
-    hideLoading(); setGdStatus('ok','✅ 已還原 '+checked.size+' 筆勾選');
-    renderList(); switchTab('list');
-  }catch(e){ hideLoading(); setGdStatus('err','讀取失敗：'+e.message); }
-}
-
-function setGdStatus(type,msg){ const el=document.getElementById('gd-status'); el.textContent=msg; el.className='status-msg '+(type||''); }
-
-function switchTab(t){
-  ['list','settings','export'].forEach(n=>{ document.getElementById('view-'+n).style.display=n===t?'':'none'; document.getElementById('tab-'+n).className='tab'+(n===t?' active':''); });
-  if(t==='settings'){ renderColSettings(); const inp=document.getElementById('input-container-capacity'); if(inp) inp.value=containerCapacity; }
-  if(t==='export'){ renderExportPreview(); updateGdUI(); }
-}
-
-function getFiltered(){
-  const q=document.getElementById('search-input').value.trim().toLowerCase();
-  return data.filter(r=>(!q||Object.values(r).some(v=>String(v).toLowerCase().includes(q))));
-}
-function renderList(){
-  const filtered=getFiltered(); const el=document.getElementById('list-area');
-  if(!filtered.length){ el.innerHTML='<div class="empty">沒有符合的資料</div>'; updateSummary(); return; }
-  const metaCols=colSettings.filter(c=>c.visible); const groups={};
-  filtered.forEach(r=>{ const n=r['產品名稱']; if(!groups[n])groups[n]=[]; groups[n].push(r); });
-  let html='';
-  Object.entries(groups).forEach(([name,rows])=>{
-    html+='<div class="group-header">'+name+'</div>';
-    rows.forEach(r=>{
-      const id=r._id; const chk=checked.has(id);
-      const meta=metaCols.map(c=>'<span>'+c.label+': '+(r[c.key]||'-')+'</span>').join('');
-      html+='<div class="item-row" onclick="toggleCheck('+id+')">'
-        +'<div class="check-box '+(chk?'on':'')+'">'+( chk?'&#x2713;':'')+'</div>'
-        +'<div class="item-body"><div class="item-name">'+r['產品名稱']+'</div><div class="item-meta">'+meta+'</div></div>'
-        +'<div class="item-right"><div class="item-qty">'+((r['庫存數量']||0).toLocaleString())+'</div><div class="item-unit">'+r['基本單位名稱']+'</div></div>'
-        +'</div>';
-    });
-  });
-  el.innerHTML=html; updateSummary();
-}
-function toggleCheck(id){ checked.has(id)?checked.delete(id):checked.add(id); renderList(); }
-function clearAll(){ checked.clear(); renderList(); }
-function selectAll(){ getFiltered().forEach(r=>checked.add(r._id)); renderList(); }
-
-let containerCapacity=''; // 貨櫃容量固定值（從設定頁輸入）
-
-function updateContainerBadge(){
-  const el=document.getElementById('badge-container');
-  if(containerCapacity!==''&&!isNaN(Number(containerCapacity))){
-    el.textContent='貨櫃容量 '+Number(containerCapacity).toLocaleString()+' 公斤';
-    el.style.background='#FAEEDA'; el.style.color='#633806';
-  } else {
-    el.textContent='貨櫃容量 — 請至欄位設定';
-    el.style.background='#f2f2f7'; el.style.color='#8e8e93';
-  }
-}
+updateContainerBadge();
+render();
 
 function saveContainerCapacity(val){
-  containerCapacity=(val==='')?'':val;
-  localStorage.setItem('containerCapacity', containerCapacity);
+  containerCapacity = val;
+  localStorage.setItem('containerCapacity', val);
   updateContainerBadge();
 }
 
-function updateSummary(){
-  const sel=data.filter(r=>checked.has(r._id));
-  document.getElementById('badge').textContent=sel.length+' 項已選';
-  const byProduct={};
-  sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
-
-  // 已選總重量 badge
-  const keys=Object.keys(byProduct);
-  const weightBadge=document.getElementById('badge-selected-weight');
-  if(keys.length){
-    const units=[...new Set(keys.map(k=>byProduct[k].unit))];
-    if(units.length===1){
-      const total=keys.reduce((s,k)=>s+byProduct[k].qty,0);
-      weightBadge.textContent='已選 '+total.toLocaleString()+' '+units[0];
-    } else {
-      weightBadge.textContent='已選 '+keys.map(k=>byProduct[k].qty.toLocaleString()+byProduct[k].unit).join(' / ');
-    }
-    weightBadge.style.display='';
-  } else {
-    weightBadge.style.display='none';
+function updateContainerBadge(){
+  const el = document.getElementById('badge-container');
+  if(containerCapacity){
+    el.textContent = '貨櫃容量 ' + containerCapacity;
+  }else{
+    el.textContent = '貨櫃容量 —';
   }
-
-  // 已選數量卡片
-  const sumBar=document.getElementById('summary-bar');
-  const scroll=document.getElementById('summary-scroll');
-  if(keys.length){
-    scroll.innerHTML=keys.map(k=>'<div class="sum-card"><div class="sum-label">'+k+' — 已選</div><div class="sum-value">'+byProduct[k].qty.toLocaleString()+'<span class="sum-unit">'+byProduct[k].unit+'</span></div></div>').join('');
-    sumBar.style.display='';
-  } else {
-    sumBar.style.display='none';
-  }
-
-  renderPlannedSection(byProduct);
 }
 
-function renderPlannedSection(byProduct){
-  const allProducts=[...new Set(data.map(r=>r['產品名稱']))].sort();
-  const sec=document.getElementById('planned-section');
-  const rowsEl=document.getElementById('planned-rows');
-  if(!allProducts.length){ sec.style.display='none'; return; }
-  sec.style.display='';
+function render(){
+  const el = document.getElementById('planned');
+  el.innerHTML = '';
 
-  allProducts.forEach((name, idx)=>{
-    const unit=(byProduct&&byProduct[name])?byProduct[name].unit:(data.find(r=>r['產品名稱']===name)||{})['基本單位名稱']||'公斤';
-    const rowId='pr'+idx;
-    const remainId='rm'+idx;
-    if(!document.getElementById(rowId)){
-      const planned=plannedQty[name]!==undefined&&plannedQty[name]!==''?plannedQty[name]:'';
-      const div=document.createElement('div');
-      div.className='planned-row'; div.id=rowId;
-      div.innerHTML='<div class="planned-label">'+name+'</div>'
-        +'<div class="planned-input-wrap"><input class="planned-input" type="number" placeholder="數量" value="'+planned+'" onchange="setPlanned('+JSON.stringify(name)+',this.value)" oninput="setPlanned('+JSON.stringify(name)+',this.value)"><span class="planned-unit">'+unit+'</span></div>'
-        +'<div class="remain-cell remain-na" id="'+remainId+'"><span class="remain-num">—</span></div>';
-      rowsEl.appendChild(div);
-    }
-    // 只更新剩餘數量欄
-    const selected=(byProduct&&byProduct[name])?byProduct[name].qty:0;
-    const planned=plannedQty[name];
-    const remainEl=document.getElementById(remainId);
-    if(remainEl){
-      if(planned!==undefined&&planned!==''&&!isNaN(Number(planned))){
-        const remain=Number(planned)-selected;
-        remainEl.className='remain-cell '+(remain<0?'remain-over':'remain-ok');
-        remainEl.innerHTML='<span class="remain-num">'+remain.toLocaleString()+'</span><span class="remain-unit">'+unit+'</span>';
-      } else {
-        remainEl.className='remain-cell remain-na';
-        remainEl.innerHTML='<span class="remain-num">—</span>';
-      }
-    }
+  data.forEach(item=>{
+    if(!(item.name in checked)) checked[item.name] = 0;
+
+    const planned = plannedQty[item.name] || '';
+    const selected = checked[item.name];
+    const remain = planned === '' ? '—' : planned - selected;
+
+    const div = document.createElement('div');
+    div.className = 'planned-row';
+
+    div.innerHTML = `
+      <div style="width:80px">${item.name}</div>
+      <input type="number" value="${planned}" 
+        oninput="setPlanned('${item.name}', this.value)">
+      <button onclick="add('${item.name}', ${item.qty})">+選</button>
+      <div class="${remain < 0 ? 'remain-over':'remain-ok'}">
+        ${remain}
+      </div>
+    `;
+
+    el.appendChild(div);
   });
+
+  updateSummary();
 }
 
 function setPlanned(name, val){
-  plannedQty[name]=(val==='')?'':Number(val);
-  // 只更新剩餘數量，不重建整個 planned section
-  const sel=data.filter(r=>checked.has(r._id));
-  const byProduct={};
-  sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
-  renderPlannedSection(byProduct);
+  plannedQty[name] = val === '' ? '' : Number(val);
+  updateSummary();
+  render();
 }
 
-function renderColSettings(){
-  document.getElementById('col-list').innerHTML=colSettings.map((c,i)=>
-    '<div class="set-row" draggable="true" ondragstart="dragStart(event,'+i+')" ondragover="dragOver(event)" ondrop="dragDrop(event,'+i+')">'
-    +'<div class="drag-handle">&#x2261;</div>'
-    +'<div class="toggle '+(c.visible?'on':'')+'" onclick="toggleCol(event,'+i+')">'+(c.visible?'&#x2713;':'')+'</div>'
-    +'<div class="set-name">'+c.label+'</div>'
-    +'<div class="set-order">#'+(i+1)+'</div></div>'
-  ).join('');
+function add(name, qty){
+  checked[name] += qty;
+  updateSummary();
+  render();
 }
-function toggleCol(e,i){ e.stopPropagation(); colSettings[i].visible=!colSettings[i].visible; renderColSettings(); }
-function dragStart(e,i){ dragSrc=i; e.dataTransfer.effectAllowed='move'; }
-function dragOver(e){ e.preventDefault(); }
-function dragDrop(e,i){ e.preventDefault(); if(dragSrc===null||dragSrc===i)return; const m=colSettings.splice(dragSrc,1)[0]; colSettings.splice(i,0,m); dragSrc=null; renderColSettings(); }
-function saveColSettings(){ renderList(); switchTab('list'); }
 
-function getSelectedData(){ return data.filter(r=>checked.has(r._id)); }
-function buildExportPayload(){
-  const sel=getSelectedData(); const byProduct={};
-  sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
-  return {exportDate:new Date().toISOString(),subtotals:byProduct,items:sel};
-}
-function renderExportPreview(){
-  const sel=getSelectedData(); const card=document.getElementById('export-preview');
-  if(!sel.length){ card.style.display='none'; return; }
-  card.style.display='';
-  document.getElementById('preview-title').textContent='已選清單預覽（'+sel.length+' 筆）';
-  document.getElementById('preview-body').innerHTML='<table class="preview-table"><tr><th>產品名稱</th><th>儲位</th><th>批號</th><th>數量</th><th>單位</th></tr>'+sel.map(r=>'<tr><td>'+r['產品名稱']+'</td><td>'+r['儲位名稱']+'</td><td>'+r['批號']+'</td><td style="text-align:right;font-weight:600;color:#1d9e75">'+((r['庫存數量']||0).toLocaleString())+'</td><td>'+r['基本單位名稱']+'</td></tr>').join('')+'</table>';
-}
-function downloadXLSX(){
-  const sel=getSelectedData(); if(!sel.length){ alert('請先勾選要出庫的項目'); return; }
-  if(typeof XLSX==='undefined'){ alert('無法載入 SheetJS，請確認網路連線'); return; }
-  // Build summary sheet
-  const byProduct={};
-  sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
-  const summaryData=[['魚種','單位','預計出貨','已選取','剩餘量']];
-  Object.entries(byProduct).forEach(([name,v])=>{
-    const planned=plannedQty[name]!==undefined&&plannedQty[name]!==''?Number(plannedQty[name]):'';
-    const remain=planned!==''?planned-v.qty:'';
-    summaryData.push([name,v.unit,planned,v.qty,remain]);
+function updateSummary(){
+  let total = 0;
+
+  Object.keys(checked).forEach(k=>{
+    total += checked[k];
   });
-  // Build detail sheet
-  const detailData=[['產品名稱','產品規格','批號','儲位名稱','倉庫名稱','庫存數量','基本單位名稱']];
-  sel.forEach(r=>detailData.push([r['產品名稱'],r['產品規格'],r['批號'],r['儲位名稱'],r['倉庫名稱'],r['庫存數量'],r['基本單位名稱']]));
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summaryData),'出貨彙總');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detailData),'出庫明細');
-  XLSX.writeFile(wb,'出庫單_'+new Date().toISOString().slice(0,10)+'.xlsx');
-}
 
-async function saveAndBackup(){
-  const sel=getSelectedData();
-  if(!sel.length){ alert('請先勾選要出庫的項目'); return; }
-  if(!gdToken){
-    alert('⚠️ 尚未登入 Google，無法備份雲端。\n請到「存檔匯出」頁面登入後再試。');
-    return;
-  }
-  showLoading('備份出庫清單到雲端…');
-  try{
-    const payload={...buildExportPayload(), plannedQty};
-    const existing=await gdFindFile(ORDER_FILENAME);
-    await gdWriteFile(ORDER_FILENAME,payload,existing?.id);
-    hideLoading();
-    // brief toast
-    const toast=document.createElement('div');
-    toast.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1d9e75;color:#fff;padding:10px 22px;border-radius:20px;font-size:14px;font-weight:600;z-index:999;box-shadow:0 2px 12px rgba(0,0,0,.18)';
-    toast.textContent='✅ 已備份到 Google Drive';
-    document.body.appendChild(toast);
-    setTimeout(()=>toast.remove(),2500);
-  }catch(e){ hideLoading(); alert('備份失敗：'+e.message); }
-}
-function importXLSX(e,fromWelcome){
-  const file=e.target.files[0]; if(!file) return;
-  if(typeof XLSX==='undefined'){ alert('無法載入 SheetJS，請確認網路連線'); return; }
-  showLoading('讀取 Excel 中…');
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    try{
-      const wb=XLSX.read(ev.target.result,{type:'binary'}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
-      if(!rows.length){ hideLoading(); alert('Excel 沒有資料'); return; }
-      data=rows.map((r,i)=>({核算組織名稱:r['核算組織名稱']||'',產品類別:r['產品類別']||'',產品代碼:String(r['產品代碼']||''),產品名稱:r['產品名稱']||'',產品規格:r['產品規格']||'',庫存數量:Number(r['庫存數量'])||0,基本單位名稱:r['基本單位名稱']||'',倉庫名稱:r['倉庫名稱']||'',批號:String(r['批號']||''),儲位名稱:String(r['儲位名稱']||''),_id:i}));
-      checked.clear(); resetPlannedRows(); renderList(); hideLoading(); enterApp();
-      if(!fromWelcome) alert('✅ 匯入完成，共 '+rows.length+' 筆');
-    }catch(err){ hideLoading(); alert('讀取失敗：'+err.message); }
-  };
-  reader.readAsBinaryString(file); e.target.value='';
-}
-
-// ── 啟動時自動還原登入狀態 ──
-const _savedCC=localStorage.getItem('containerCapacity');
-if(_savedCC!==null){ containerCapacity=_savedCC; }
-updateContainerBadge();
-if(loadToken()){
-  updateGdUI();
-  gdLoadInventory();
-} else {
-  updateGdUI();
+  document.getElementById('badge-weight').textContent = '已選 ' + total;
 }
 </script>
-<script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-  });
-}
-</script>
+
 </body>
 </html>
