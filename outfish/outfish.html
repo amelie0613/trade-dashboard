@@ -16,7 +16,8 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSystemFont,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:15px;color:#1c1c1e}
 .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
-.header{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:12px 16px;position:sticky;top:0;z-index:200}
+.header{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:12px 16px}
+.sticky-top{position:sticky;top:0;z-index:200;background:#fff}
 .header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .header-title{font-size:17px;font-weight:600;letter-spacing:-0.3px}
 .badge{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#e1f5ee;color:#0f6e56}
@@ -26,7 +27,7 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
 .sum-label{font-size:11px;color:#8e8e93;margin-bottom:2px;white-space:nowrap}
 .sum-value{font-size:20px;font-weight:600;color:#1c1c1e;white-space:nowrap}
 .sum-unit{font-size:11px;color:#8e8e93;font-weight:400;margin-left:2px}
-.tab-bar{display:flex;background:#fff;border-bottom:0.5px solid #d1d1d6;position:sticky;top:88px;z-index:190}
+.tab-bar{display:flex;background:#fff;border-bottom:0.5px solid #d1d1d6;position:sticky;top:0;z-index:190}
 .tab{flex:1;padding:11px 4px;text-align:center;font-size:13px;cursor:pointer;color:#8e8e93;border-bottom:2.5px solid transparent;transition:color .15s,border-color .15s;font-weight:500}
 .tab.active{color:#1d9e75;border-bottom-color:#1d9e75}
 .filter-bar{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:10px 16px;display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -101,6 +102,18 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
 .spinner{width:38px;height:38px;border:3px solid #e5e5ea;border-top-color:#1d9e75;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-text{font-size:14px;color:#8e8e93}
+.planned-section{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:10px 16px}
+.planned-title{font-size:12px;color:#8e8e93;margin-bottom:6px;font-weight:500;letter-spacing:.3px}
+.planned-rows{display:flex;flex-direction:column;gap:6px}
+.planned-row{display:flex;align-items:center;gap:8px}
+.planned-label{font-size:13px;font-weight:600;color:#1c1c1e;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.planned-input{width:90px;border:1px solid #d1d1d6;border-radius:8px;padding:5px 10px;font-size:14px;font-weight:600;text-align:right;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none;flex-shrink:0}
+.planned-input:focus{border-color:#1d9e75;background:#fff}
+.planned-unit{font-size:12px;color:#8e8e93;width:24px;flex-shrink:0}
+.remain-badge{font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;flex-shrink:0;min-width:62px;text-align:right}
+.remain-ok{background:#e1f5ee;color:#0f6e56}
+.remain-over{background:#ffe5e5;color:#d00}
+.remain-na{background:#f2f2f7;color:#8e8e93}
 </style>
 </head>
 <body>
@@ -141,25 +154,30 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
 </div>
 
 <div class="app" id="main-app" style="display:none">
-  <div class="header">
-    <div class="header-top">
-      <div class="header-title">出庫計算機</div>
-      <span class="badge" id="badge">0 項已選</span>
-    </div>
-    <div class="summary-scroll" id="summary-scroll">
-      <div class="sum-card">
-        <div class="sum-label">尚未選取項目</div>
-        <div class="sum-value">0<span class="sum-unit">公斤</span></div>
+  <div class="sticky-top">
+    <div class="header">
+      <div class="header-top">
+        <div class="header-title">出庫計算機</div>
+        <span class="badge" id="badge">0 項已選</span>
+      </div>
+      <div class="summary-scroll" id="summary-scroll">
+        <div class="sum-card">
+          <div class="sum-label">尚未選取項目</div>
+          <div class="sum-value">0<span class="sum-unit">公斤</span></div>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="tab-bar">
-    <div class="tab active" id="tab-list"     onclick="switchTab('list')">庫存清單</div>
-    <div class="tab"        id="tab-settings" onclick="switchTab('settings')">欄位設定</div>
-    <div class="tab"        id="tab-export"   onclick="switchTab('export')">存檔匯出</div>
-  </div>
+    <div class="planned-section" id="planned-section" style="display:none">
+      <div class="planned-title">預計出貨數量</div>
+      <div class="planned-rows" id="planned-rows"></div>
+    </div>
+    <div class="tab-bar">
+      <div class="tab active" id="tab-list"     onclick="switchTab('list')">庫存清單</div>
+      <div class="tab"        id="tab-settings" onclick="switchTab('settings')">欄位設定</div>
+      <div class="tab"        id="tab-export"   onclick="switchTab('export')">存檔匯出</div>
+    </div><!-- end tab-bar -->
+  </div><!-- end sticky-top -->
   <div id="view-list">
-    <div class="filter-bar" id="filter-bar"></div>
     <div class="search-wrap">
       <input class="search-input" type="search" placeholder="搜尋產品、批號、儲位…" id="search-input" oninput="renderList()">
     </div>
@@ -191,9 +209,9 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
         <div class="status-msg" id="gd-status"></div>
       </div>
       <div class="ex-card">
-        <div class="ex-title">&#x1F4CA; 下載 Excel 出庫單</div>
-        <div class="ex-desc">直接下載 .xlsx 檔案，用 Excel 開啟即可列印或整理。</div>
-        <button class="ex-btn primary" onclick="downloadXLSX()" style="margin-top:0">下載 Excel 檔案</button>
+        <div class="ex-title">📊 匯出 Excel</div>
+        <div class="ex-desc">將已勾選的出庫清單匯出為 Excel (.xlsx) 檔案，包含各魚種小計與明細。</div>
+        <button class="ex-btn primary" onclick="downloadXLSX()" style="margin-top:0">⬇ 下載 Excel 檔案</button>
       </div>
       <div class="ex-card" id="export-preview" style="display:none">
         <div class="ex-title" id="preview-title"></div>
@@ -206,6 +224,7 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
 <div class="bottom-bar" id="bottom-bar" style="display:none">
   <button class="btn" onclick="clearAll()">清除選取</button>
   <button class="btn" onclick="selectAll()">全選目前</button>
+  <button class="btn" onclick="saveAndBackup()">💾 儲存</button>
   <button class="btn green" onclick="switchTab('export')">匯出 (<span id="sel-count">0</span>)</button>
 </div>
 
@@ -215,31 +234,13 @@ const GD_SCOPE           = 'https://www.googleapis.com/auth/drive.file';
 const INVENTORY_FILENAME = '出庫計算機_庫存.json';
 const ORDER_FILENAME     = '出庫計算機_出庫單.json';
 
-let data=[], checked=new Set(), activeLocation='全部', dragSrc=null;
+let data=[], checked=new Set(), dragSrc=null;
+let plannedQty={}; // productName -> planned number
 let gdToken=null, gdUserName='';
 
 // ── Token 持久化（24小時）──
-const CACHE_TTL = 24*60*60*1000; // 24 小時
-
-// ── 庫存快取（24 小時）──
-function saveInventoryCache(rows){
-  localStorage.setItem('inv_data', JSON.stringify(rows));
-  localStorage.setItem('inv_exp',  Date.now() + CACHE_TTL);
-}
-function loadInventoryCache(){
-  const exp = parseInt(localStorage.getItem('inv_exp')||'0');
-  if(Date.now() < exp){
-    try{ return JSON.parse(localStorage.getItem('inv_data')||'null'); }catch{ return null; }
-  }
-  return null;
-}
-function clearInventoryCache(){
-  localStorage.removeItem('inv_data');
-  localStorage.removeItem('inv_exp');
-}
-
 function saveToken(token, name){
-  const exp = Date.now() + CACHE_TTL;
+  const exp = Date.now() + 24*60*60*1000;
   localStorage.setItem('gd_token', token);
   localStorage.setItem('gd_name', name);
   localStorage.setItem('gd_exp', exp);
@@ -257,7 +258,6 @@ function clearToken(){
   localStorage.removeItem('gd_token');
   localStorage.removeItem('gd_name');
   localStorage.removeItem('gd_exp');
-  clearInventoryCache();
 }
 let colSettings=[
   {key:'批號',label:'批號',visible:true},
@@ -355,14 +355,6 @@ async function gdWriteFile(name,obj,existingId){
 }
 
 async function gdLoadInventory(){
-  // 優先用本機快取，24 小時內不重打 Google API
-  const cached = loadInventoryCache();
-  if(cached && cached.length){
-    data = cached.map((r,i)=>({...r,_id:i}));
-    checked.clear(); activeLocation='全部';
-    renderFilters(); renderList(); enterApp();
-    return;
-  }
   showLoading('從雲端讀取庫存…');
   try{
     const file=await gdFindFile(INVENTORY_FILENAME);
@@ -371,9 +363,8 @@ async function gdLoadInventory(){
     const rows=await gdReadFile(file.id);
     if(Array.isArray(rows)&&rows.length){
       data=rows.map((r,i)=>({...r,_id:i}));
-      saveInventoryCache(rows);
-      checked.clear(); activeLocation='全部';
-      renderFilters(); renderList(); enterApp();
+      checked.clear();
+      renderList(); enterApp();
     } else { showWelcomeMsg('⚠️ 雲端庫存是空的，請重新上傳。'); _showUploadCard(); }
   }catch(e){ hideLoading(); showWelcomeMsg('⚠️ 讀取雲端失敗：'+e.message); }
 }
@@ -399,9 +390,8 @@ async function importAndUpload(e){
       document.getElementById('loading-text').textContent='上傳庫存到雲端…';
       const existing=await gdFindFile(INVENTORY_FILENAME);
       await gdWriteFile(INVENTORY_FILENAME,data,existing?.id);
-      saveInventoryCache(data);
-      checked.clear(); activeLocation='全部';
-      renderFilters(); renderList(); hideLoading(); enterApp();
+      checked.clear();
+      renderList(); hideLoading(); enterApp();
     }catch(err){ hideLoading(); alert('失敗：'+err.message); }
   };
   reader.readAsBinaryString(file); e.target.value='';
@@ -415,7 +405,6 @@ async function gdUploadInventory(){
   try{
     const existing=await gdFindFile(INVENTORY_FILENAME);
     await gdWriteFile(INVENTORY_FILENAME,data,existing?.id);
-    saveInventoryCache(data);
     hideLoading(); alert('✅ 庫存已更新到 Google Drive！');
   }catch(e){ hideLoading(); alert('上傳失敗：'+e.message); }
 }
@@ -458,13 +447,9 @@ function switchTab(t){
   if(t==='export'){ renderExportPreview(); updateGdUI(); }
 }
 
-function getLocations(){ return ['全部',...[...new Set(data.map(r=>r['儲位名稱']))].sort()]; }
-function renderFilters(){ document.getElementById('filter-bar').innerHTML=getLocations().map(l=>'<div class="chip '+(activeLocation===l?'active':'')+'" onclick="setLocation('+JSON.stringify(l)+')">'+l+'</div>').join(''); }
-function setLocation(loc){ activeLocation=loc; renderFilters(); renderList(); }
-
 function getFiltered(){
   const q=document.getElementById('search-input').value.trim().toLowerCase();
-  return data.filter(r=>(activeLocation==='全部'||r['儲位名稱']===activeLocation)&&(!q||Object.values(r).some(v=>String(v).toLowerCase().includes(q))));
+  return data.filter(r=>(!q||Object.values(r).some(v=>String(v).toLowerCase().includes(q))));
 }
 function renderList(){
   const filtered=getFiltered(); const el=document.getElementById('list-area');
@@ -497,8 +482,42 @@ function updateSummary(){
   const byProduct={};
   sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
   const keys=Object.keys(byProduct); const scroll=document.getElementById('summary-scroll');
-  if(!keys.length){ scroll.innerHTML='<div class="sum-card"><div class="sum-label">尚未選取項目</div><div class="sum-value">0<span class="sum-unit">公斤</span></div></div>'; return; }
-  scroll.innerHTML=keys.map(k=>'<div class="sum-card"><div class="sum-label">'+k+' — 重量</div><div class="sum-value">'+byProduct[k].qty.toLocaleString()+'<span class="sum-unit">'+byProduct[k].unit+'</span></div></div>').join('');
+  if(!keys.length){ scroll.innerHTML='<div class="sum-card"><div class="sum-label">尚未選取項目</div><div class="sum-value">0<span class="sum-unit">公斤</span></div></div>'; }
+  else { scroll.innerHTML=keys.map(k=>'<div class="sum-card"><div class="sum-label">'+k+' — 已選</div><div class="sum-value">'+byProduct[k].qty.toLocaleString()+'<span class="sum-unit">'+byProduct[k].unit+'</span></div></div>').join(''); }
+  renderPlannedSection(byProduct);
+}
+
+function renderPlannedSection(byProduct){
+  // collect all product names from data
+  const allProducts=[...new Set(data.map(r=>r['產品名稱']))].sort();
+  const sec=document.getElementById('planned-section');
+  const rows=document.getElementById('planned-rows');
+  if(!allProducts.length){ sec.style.display='none'; return; }
+  sec.style.display='';
+  rows.innerHTML=allProducts.map(name=>{
+    const planned=plannedQty[name]||'';
+    const selected=(byProduct&&byProduct[name])?byProduct[name].qty:0;
+    const unit=(byProduct&&byProduct[name])?byProduct[name].unit:([...data.filter(r=>r['產品名稱']===name)][0]||{})['基本單位名稱']||'';
+    let remainHtml='';
+    if(planned!==''&&!isNaN(Number(planned))){
+      const remain=Number(planned)-selected;
+      const cls=remain<0?'remain-over':remain===0?'remain-ok':'remain-ok';
+      remainHtml='<span class="remain-badge '+cls+'">'+(remain>0?'+':'')+remain.toLocaleString()+' '+unit+'</span>';
+    } else {
+      remainHtml='<span class="remain-badge remain-na">—</span>';
+    }
+    return '<div class="planned-row">'
+      +'<div class="planned-label">'+name+'</div>'
+      +'<input class="planned-input" type="number" placeholder="數量" value="'+planned+'" onchange="setPlanned('+JSON.stringify(name)+',this.value)" oninput="setPlanned('+JSON.stringify(name)+',this.value)">'
+      +'<div class="planned-unit">'+unit+'</div>'
+      +remainHtml
+      +'</div>';
+  }).join('');
+}
+
+function setPlanned(name, val){
+  plannedQty[name]=(val==='')?'':Number(val);
+  updateSummary();
 }
 
 function renderColSettings(){
@@ -532,32 +551,44 @@ function renderExportPreview(){
 function downloadXLSX(){
   const sel=getSelectedData(); if(!sel.length){ alert('請先勾選要出庫的項目'); return; }
   if(typeof XLSX==='undefined'){ alert('無法載入 SheetJS，請確認網路連線'); return; }
-  // 小計列
+  // Build summary sheet
   const byProduct={};
   sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
-  // 明細資料（去掉內部用的 _id）
-  const rows=sel.map(r=>({
-    '核算組織名稱':r['核算組織名稱'],
-    '產品類別':r['產品類別'],
-    '產品代碼':r['產品代碼'],
-    '產品名稱':r['產品名稱'],
-    '產品規格':r['產品規格'],
-    '批號':r['批號'],
-    '儲位名稱':r['儲位名稱'],
-    '倉庫名稱':r['倉庫名稱'],
-    '庫存數量':r['庫存數量'],
-    '基本單位名稱':r['基本單位名稱']
-  }));
-  // 空行 + 小計區塊
-  rows.push({});
-  rows.push({'核算組織名稱':'【小計】'});
+  const summaryData=[['魚種','單位','預計出貨','已選取','剩餘量']];
   Object.entries(byProduct).forEach(([name,v])=>{
-    rows.push({'產品名稱':name,'庫存數量':v.qty,'基本單位名稱':v.unit});
+    const planned=plannedQty[name]!==undefined&&plannedQty[name]!==''?Number(plannedQty[name]):'';
+    const remain=planned!==''?planned-v.qty:'';
+    summaryData.push([name,v.unit,planned,v.qty,remain]);
   });
-  const ws=XLSX.utils.json_to_sheet(rows);
+  // Build detail sheet
+  const detailData=[['產品名稱','產品規格','批號','儲位名稱','倉庫名稱','庫存數量','基本單位名稱']];
+  sel.forEach(r=>detailData.push([r['產品名稱'],r['產品規格'],r['批號'],r['儲位名稱'],r['倉庫名稱'],r['庫存數量'],r['基本單位名稱']]));
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'出庫單');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summaryData),'出貨彙總');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detailData),'出庫明細');
   XLSX.writeFile(wb,'出庫單_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+async function saveAndBackup(){
+  const sel=getSelectedData();
+  if(!sel.length){ alert('請先勾選要出庫的項目'); return; }
+  if(!gdToken){
+    alert('⚠️ 尚未登入 Google，無法備份雲端。\n請到「存檔匯出」頁面登入後再試。');
+    return;
+  }
+  showLoading('備份出庫清單到雲端…');
+  try{
+    const payload={...buildExportPayload(), plannedQty};
+    const existing=await gdFindFile(ORDER_FILENAME);
+    await gdWriteFile(ORDER_FILENAME,payload,existing?.id);
+    hideLoading();
+    // brief toast
+    const toast=document.createElement('div');
+    toast.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1d9e75;color:#fff;padding:10px 22px;border-radius:20px;font-size:14px;font-weight:600;z-index:999;box-shadow:0 2px 12px rgba(0,0,0,.18)';
+    toast.textContent='✅ 已備份到 Google Drive';
+    document.body.appendChild(toast);
+    setTimeout(()=>toast.remove(),2500);
+  }catch(e){ hideLoading(); alert('備份失敗：'+e.message); }
 }
 function importXLSX(e,fromWelcome){
   const file=e.target.files[0]; if(!file) return;
@@ -569,7 +600,7 @@ function importXLSX(e,fromWelcome){
       const wb=XLSX.read(ev.target.result,{type:'binary'}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
       if(!rows.length){ hideLoading(); alert('Excel 沒有資料'); return; }
       data=rows.map((r,i)=>({核算組織名稱:r['核算組織名稱']||'',產品類別:r['產品類別']||'',產品代碼:String(r['產品代碼']||''),產品名稱:r['產品名稱']||'',產品規格:r['產品規格']||'',庫存數量:Number(r['庫存數量'])||0,基本單位名稱:r['基本單位名稱']||'',倉庫名稱:r['倉庫名稱']||'',批號:String(r['批號']||''),儲位名稱:String(r['儲位名稱']||''),_id:i}));
-      checked.clear(); activeLocation='全部'; renderFilters(); renderList(); hideLoading(); enterApp();
+      checked.clear(); renderList(); hideLoading(); enterApp();
       if(!fromWelcome) alert('✅ 匯入完成，共 '+rows.length+' 筆');
     }catch(err){ hideLoading(); alert('讀取失敗：'+err.message); }
   };
