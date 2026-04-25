@@ -1157,16 +1157,21 @@ function normalizeRow(r){
   mapped['備註（採購）']     = purchase.note         || '';
   mapped['賣方合約（採購）'] = purchase.contract     || '';
 
-  // purchase periods → 採購期1~3（平鋪欄位優先，其次巢狀 periods）
-  var buyPeriods = purchase.periods || [];
+  // ★ purchase periods → 採購期1~3
+  // 優先用巢狀 purchase.periods（修改後會更新這裡）
+  // 平鋪欄位只在 purchase.periods 不存在時才用（向下相容）
+  var buyPeriods = (purchase.periods && purchase.periods.length > 0)
+    ? purchase.periods
+    : null;
   for(var bi=0; bi<3; bi++){
-    var bp = buyPeriods[bi] || {};
+    var bp = buyPeriods ? (buyPeriods[bi] || {}) : {};
     var n = bi+1;
-    mapped['採購期'+n+'名稱']  = r['採購期'+n+'名稱']   !== undefined ? r['採購期'+n+'名稱']   : (bp.name         || '');
-    mapped['採購期'+n+'幣別']  = r['採購期'+n+'幣別']   !== undefined ? r['採購期'+n+'幣別']   : (bp.currency      || (bi===0?'TWD':''));
-    mapped['採購期'+n+'金額']  = r['採購期'+n+'金額']   !== undefined ? r['採購期'+n+'金額']   : (bp.amount        || 0);
-    mapped['採購期'+n+'預計日']= r['採購期'+n+'預計日'] !== undefined ? r['採購期'+n+'預計日'] : (bp.expectedDate  || '');
-    mapped['採購期'+n+'備註']  = r['採購期'+n+'備註']   !== undefined ? r['採購期'+n+'備註']   : (bp.note          || '');
+    var hasBuyPeriod = buyPeriods && buyPeriods[bi];
+    mapped['採購期'+n+'名稱']  = hasBuyPeriod ? (bp.name         || '') : (r['採購期'+n+'名稱']  || '');
+    mapped['採購期'+n+'幣別']  = hasBuyPeriod ? (bp.currency     || 'TWD') : (r['採購期'+n+'幣別'] || (bi===0?'TWD':''));
+    mapped['採購期'+n+'金額']  = hasBuyPeriod ? (parseFloat(bp.amount)||0) : (parseFloat(r['採購期'+n+'金額'])||0);
+    mapped['採購期'+n+'預計日']= hasBuyPeriod ? (bp.expectedDate || '') : (r['採購期'+n+'預計日']|| '');
+    mapped['採購期'+n+'備註']  = hasBuyPeriod ? (bp.note         || '') : (r['採購期'+n+'備註']  || '');
   }
 
   // sales
@@ -1177,16 +1182,20 @@ function normalizeRow(r){
   mapped['銷售成本金額']     = sales.costAmount   || 0;
   mapped['銷售成本幣別']     = sales.costCurrency || 'TWD';
 
-  // sales periods → 銷售期1~3（平鋪欄位優先，其次巢狀 periods）
-  var sellPeriods = sales.periods || [];
+  // ★ sales periods → 銷售期1~3
+  // 同樣優先用巢狀 sales.periods
+  var sellPeriods = (sales.periods && sales.periods.length > 0)
+    ? sales.periods
+    : null;
   for(var si=0; si<3; si++){
-    var sp = sellPeriods[si] || {};
+    var sp = sellPeriods ? (sellPeriods[si] || {}) : {};
     var sn = si+1;
-    mapped['銷售期'+sn+'名稱']  = r['銷售期'+sn+'名稱']   !== undefined ? r['銷售期'+sn+'名稱']   : (sp.name         || '');
-    mapped['銷售期'+sn+'幣別']  = r['銷售期'+sn+'幣別']   !== undefined ? r['銷售期'+sn+'幣別']   : (sp.currency      || (si===0?'TWD':''));
-    mapped['銷售期'+sn+'金額']  = r['銷售期'+sn+'金額']   !== undefined ? r['銷售期'+sn+'金額']   : (sp.amount        || 0);
-    mapped['銷售期'+sn+'預計日']= r['銷售期'+sn+'預計日'] !== undefined ? r['銷售期'+sn+'預計日'] : (sp.expectedDate  || '');
-    mapped['銷售期'+sn+'備註']  = r['銷售期'+sn+'備註']   !== undefined ? r['銷售期'+sn+'備註']   : (sp.note          || '');
+    var hasSellPeriod = sellPeriods && sellPeriods[si];
+    mapped['銷售期'+sn+'名稱']  = hasSellPeriod ? (sp.name         || '') : (r['銷售期'+sn+'名稱']  || '');
+    mapped['銷售期'+sn+'幣別']  = hasSellPeriod ? (sp.currency     || 'TWD') : (r['銷售期'+sn+'幣別'] || (si===0?'TWD':''));
+    mapped['銷售期'+sn+'金額']  = hasSellPeriod ? (parseFloat(sp.amount)||0) : (parseFloat(r['銷售期'+sn+'金額'])||0);
+    mapped['銷售期'+sn+'預計日']= hasSellPeriod ? (sp.expectedDate || '') : (r['銷售期'+sn+'預計日']|| '');
+    mapped['銷售期'+sn+'備註']  = hasSellPeriod ? (sp.note         || '') : (r['銷售期'+sn+'備註']  || '');
   }
 
   // logistics
