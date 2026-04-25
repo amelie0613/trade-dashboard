@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統</title>
+<title>貿易大漁｜管理系統 v11</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -3722,10 +3722,11 @@ function parseCSVLine(line) {
 // ─────────────────────────────────────────────────────
 function loadPayments(cb) {
   loadPaymentsFromSheet(function(sheetItems) {
-    // 同時把 Firebase 案件預估也加入（供日曆用）
-    // allPaymentItems 已有 Sheet 資料
-    if (cb) cb();
-    else renderPayments();
+    // ★ 讀完 Sheet 後，從 Firebase payments_status 載入持久化付款狀態
+    loadPaymentStatusFromFirebase(function() {
+      if (cb) cb();
+      else renderPayments();
+    });
   });
 }
 
@@ -3923,21 +3924,83 @@ function showPayInfo(rowId) {
 }
 
 // ─────────────────────────────────────────────────────
-// 標記付款完成（本地更新，不寫回 Sheet）
+// 標記付款完成（寫入 Firebase payments_status collection）
+// rowId = Sheet CSV 行號（唯一識別）
 // ─────────────────────────────────────────────────────
 function markPaymentPaid(rowId, paid) {
   var p = allPaymentItems.find(function(x) { return String(x._row) === String(rowId); });
   if (!p) return;
   var dateEl = document.getElementById('pi-date');
   var amtEl  = document.getElementById('pi-amt');
+  var actualDate = paid ? (dateEl ? dateEl.value : new Date().toISOString().slice(0,10)) : null;
+  var actualAmt  = paid ? (amtEl  ? parseFloat(amtEl.value) || p.amt : p.amt) : null;
+
+  // ── 1. 先更新本地，給使用者即時回饋 ──
   p.isPaid     = paid;
-  p.actualDate = paid ? (dateEl ? dateEl.value : new Date().toISOString().slice(0,10)) : '';
+  p.actualDate = actualDate || '';
   p.isOverdue  = false;
   document.getElementById('PayInfoM').classList.remove('open');
-  var who = (curUser && curUser.name) || '?';
-  addLog(paid ? '標記已付' : '取消已付', who, (p.note || '款項'), paid ? '標記完成' : '取消標記', '');
-  toast(paid ? '✅ 已標記完成' : '↩ 已取消', paid ? '#16a34a' : '#64748b');
+  toast(paid ? '⏳ 儲存中...' : '⏳ 取消中...', '#0369a1');
   renderPayments();
+
+  // ── 2. 寫入 Firebase payments_status（持久化）──
+  var db = getFirebaseDb();
+  if (!db) {
+    toast(paid ? '✅ 已標記（無 Firebase，僅本地）' : '↩ 已取消（僅本地）', paid ? '#16a34a' : '#64748b');
+    return;
+  }
+  // 用 rowId 做為文件 ID（安全化處理：去掉非法字元）
+  var docId = String(rowId).replace(/[^a-zA-Z0-9_\-]/g, '_');
+  var data = {
+    rowId:       String(rowId),
+    note:        p.note        || '',
+    dept:        p.dept        || '',
+    dueDate:     p.dueDate     || '',
+    cur:         p.cur         || 'NTD',
+    amt:         p.amt         || 0,
+    paid:        paid,
+    actualDate:  actualDate    || null,
+    actualAmt:   actualAmt     || null,
+    updatedAt:   new Date().toISOString(),
+    updatedBy:   (curUser && curUser.name) || ''
+  };
+  db.collection('payments_status').doc(docId).set(data, { merge: true })
+    .then(function() {
+      var who = (curUser && curUser.name) || '?';
+      addLog(paid ? '標記已付' : '取消已付', who, (p.note || '款項'), paid ? ('實際日期：' + (actualDate||'')) : '取消標記', '');
+      toast(paid ? '✅ 已標記完成（已寫入 Firebase）' : '↩ 已取消（已寫入 Firebase）', paid ? '#16a34a' : '#64748b');
+    })
+    .catch(function(e) {
+      console.error('payments_status 寫入失敗：', e);
+      toast('⚠️ 本地已更新，但 Firebase 寫入失敗：' + e.message, '#d97706');
+    });
+}
+
+// ─────────────────────────────────────────────────────
+// 從 Firebase payments_status 讀回付款狀態
+// 在 loadPayments 之後呼叫，將持久化狀態覆蓋回 allPaymentItems
+// ─────────────────────────────────────────────────────
+function loadPaymentStatusFromFirebase(cb) {
+  var db = getFirebaseDb();
+  if (!db) { if (cb) cb(); return; }
+  db.collection('payments_status').get()
+    .then(function(snap) {
+      snap.forEach(function(doc) {
+        var d = doc.data();
+        if (!d || !d.rowId) return;
+        var p = allPaymentItems.find(function(x) { return String(x._row) === String(d.rowId); });
+        if (p) {
+          p.isPaid     = !!d.paid;
+          p.actualDate = d.actualDate || '';
+          if (p.isPaid) p.isOverdue = false;
+        }
+      });
+      if (cb) cb();
+    })
+    .catch(function(e) {
+      console.warn('讀取 payments_status 失敗：', e);
+      if (cb) cb();
+    });
 }
 
 // ══════════════════════════════════════════════════════
@@ -4368,13 +4431,13 @@ function saveNote(safeId, formId, periodIdx) {
   var textEl  = document.getElementById('note-text-'  + safeId);
   var inputEl = document.getElementById('note-input-' + safeId);
   if (!textEl || !inputEl) return;
-  // ★ 防止 Enter 鍵觸發 onkeydown 後，inputEl 失焦再次觸發 onblur 雙重寫入
+  // ★ 防止 Enter 觸發 blur 造成雙重寫入（_saving 旗標存在 inputEl 物件上）
   if (inputEl._saving) return;
-  inputEl._saving = true;
+  inputEl._saving = true;  // 鎖住，防止 blur 重複觸發
+
   var val = inputEl.value.trim();
-  // UI 切回顯示
+  // UI 立即切回顯示
   inputEl.style.display = 'none';
-  inputEl._saving = false;
   textEl.style.display  = 'block';
   textEl.innerText = val || '（點擊輸入備註）';
   textEl.style.color = val ? 'var(--ink)' : '#94a3b8';
@@ -4383,17 +4446,22 @@ function saveNote(safeId, formId, periodIdx) {
   var p = _transferItems.find(function(x) {
     return x.formId === formId && (x.periodIdx || 0) === periodIdx;
   });
-  if (!p) return;
+
+  // ★ 在非同步完成後才解鎖（讓下次點擊可以再次觸發）
+  function unlock() { inputEl._saving = false; }
+
+  if (!p) { unlock(); return; }
   p.acctNote = val;
 
   var periods = _getFirebasePeriodsRef(formId, p.periodType);
-  if (!periods) { toast('❌ 找不到 periods', '#dc2626'); return; }
+  if (!periods) { toast('❌ 找不到 periods', '#dc2626'); unlock(); return; }
   var updated = JSON.parse(JSON.stringify(periods));
   var target  = updated[periodIdx];
-  if (!target) { toast('❌ 找不到該期別', '#dc2626'); return; }
+  if (!target) { toast('❌ 找不到該期別', '#dc2626'); unlock(); return; }
   // ★ 寫入 acctNote，不動 amount/currency/name/expectedDate 等
   target.acctNote = val;
   _writePeriodsToFirebase(formId, p.periodType, updated, function(ok) {
+    unlock();  // 非同步完成後解鎖
     if (ok) {
       toast('📝 備註已儲存', '#0369a1');
       var who = (curUser && curUser.name) || '?';
