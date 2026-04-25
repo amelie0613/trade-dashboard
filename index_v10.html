@@ -1862,13 +1862,16 @@ function renderDaily(){
     var hasBuy  = caseType.indexOf('採購')>=0;
     var hasSell = caseType.indexOf('銷售')>=0;
 
-    // 採購分期
+    // 採購分期（已審核 approved 的期別不顯示在日曆）
     if(hasBuy){
-      for(var bi=1; bi<=3; bi++){
-        var bAmt  = parseFloat(r['採購期'+bi+'金額'])||0;
-        var bDate = (r['採購期'+bi+'預計日']||'').toString().trim();
-        var bCur  = (r['採購期'+bi+'幣別']||'TWD').toUpperCase();
-        var bName = r['採購期'+bi+'名稱']||('第'+bi+'期');
+      var bps = getPeriods01(r, 'buy');
+      for(var bi=0; bi<bps.length; bi++){
+        var bp = bps[bi];
+        if(bp.status === 'approved') continue; // ★ 已審核不顯示
+        var bAmt  = bp.amt || 0;
+        var bDate = (bp.date||'').toString().trim();
+        var bCur  = (bp.cur||'TWD').toUpperCase();
+        var bName = bp.name || ('第'+(bi+1)+'期');
         if(!bAmt||!bDate) continue;
         var bDateStr = bDate.replace(/[\/-]/g,'-');
         var bObj = new Date(bDateStr);
@@ -1876,13 +1879,16 @@ function renderDaily(){
         addEst(bObj.getDate(), 'buy', bCur, bAmt, caseName, formId, bName);
       }
     }
-    // 銷售分期
+    // 銷售分期（已審核 approved 的期別不顯示在日曆）
     if(hasSell){
-      for(var si=1; si<=3; si++){
-        var sAmt  = parseFloat(r['銷售期'+si+'金額'])||0;
-        var sDate = (r['銷售期'+si+'預計日']||'').toString().trim();
-        var sCur  = (r['銷售期'+si+'幣別']||'TWD').toUpperCase();
-        var sName = r['銷售期'+si+'名稱']||('第'+si+'期');
+      var sps = getPeriods01(r, 'sell');
+      for(var si=0; si<sps.length; si++){
+        var sp = sps[si];
+        if(sp.status === 'approved') continue; // ★ 已審核不顯示
+        var sAmt  = sp.amt || 0;
+        var sDate = (sp.date||'').toString().trim();
+        var sCur  = (sp.cur||'TWD').toUpperCase();
+        var sName = sp.name || ('第'+(si+1)+'期');
         if(!sAmt||!sDate) continue;
         var sDateStr = sDate.replace(/[\/-]/g,'-');
         var sObj = new Date(sDateStr);
@@ -3877,6 +3883,8 @@ function _buildTransferItems() {
       if (buyPeriods.length) {
         buyPeriods.forEach(function(p, idx) {
           var dueDate = p.date ? new Date(p.date.replace(/\//g,'-')) : null;
+          // 已審核的期別不顯示（status==='approved'）
+          if (p.status === 'approved') return;
           _transferItems.push({
             _row:       formId + '_buy_' + idx,
             _firebaseRow: r._row,
@@ -3887,11 +3895,13 @@ function _buildTransferItems() {
             direction:  'payable',
             type:       '採購',
             periodName: p.name || ('第'+(idx+1)+'期'),
+            periodIdx:  idx,
             cur:        p.cur || 'TWD',
             amt:        p.amt || 0,
             dueDate:    p.date || '',
             isOverdue:  dueDate && dueDate < today,
-            confirmed:  false
+            confirmed:  false,
+            acctNote:   p.acctNote || ''
           });
         });
       } else {
@@ -3915,6 +3925,8 @@ function _buildTransferItems() {
       if (sellPeriods.length) {
         sellPeriods.forEach(function(p, idx) {
           var dueDate = p.date ? new Date(p.date.replace(/\//g,'-')) : null;
+          // 已審核的期別不顯示
+          if (p.status === 'approved') return;
           _transferItems.push({
             _row:       formId + '_sell_' + idx,
             _firebaseRow: r._row,
@@ -3925,11 +3937,13 @@ function _buildTransferItems() {
             direction:  'receivable',
             type:       '銷售',
             periodName: p.name || ('第'+(idx+1)+'期'),
+            periodIdx:  idx,
             cur:        p.cur || 'TWD',
             amt:        p.amt || 0,
             dueDate:    p.date || '',
             isOverdue:  dueDate && dueDate < today,
-            confirmed:  false
+            confirmed:  false,
+            acctNote:   p.acctNote || ''
           });
         });
       } else {
@@ -3994,13 +4008,14 @@ function _renderTransfer() {
     html += '<td><span style="font-family:\'DM Mono\',monospace;font-size:12px;background:'+(isPayable?'#fef2f2':'#f0fdf4')+';padding:2px 8px;border-radius:6px;color:'+(isPayable?'#dc2626':'#16a34a')+';font-weight:700;">'+cur+'</span></td>';
     html += '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(isPayable?'var(--coral)':'var(--jade)')+';">'+sym+fmtN(p.amt)+'</td>';
 
-    // ★【1】預計付款日：可編輯 input[type=date]
-    var dateVal = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
-    var noteId  = 'acct-note-' + escId.replace(/[^a-zA-Z0-9]/g,'_');
+    // ★ 預計付款日：可編輯 input[type=date]
+    var dateVal   = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
     var existNote = p.acctNote || '';
-    var acctNoteDisplay = existNote
-      ? '<div style="font-size:11px;color:#0369a1;margin-top:3px;">備註：'+existNote+'</div>'
-      : '';
+    // safe IDs（用 formId + periodIdx，唯一且不含特殊字元）
+    var safeId    = p.formId.replace(/[^a-zA-Z0-9]/g,'_') + '_' + (p.periodIdx !== undefined ? p.periodIdx : escId.replace(/[^a-zA-Z0-9]/g,'_'));
+    var textId    = 'note-text-'  + safeId;
+    var inputId   = 'note-input-' + safeId;
+
     html += '<td>'
       + '<input type="date" value="'+dateVal+'"'
       + ' onchange="updatePayDate(\''+escId+'\', this.value)"'
@@ -4008,21 +4023,35 @@ function _renderTransfer() {
       + 'padding:5px 8px;font-size:12px;outline:none;font-family:inherit;'
       + (p.isOverdue ? 'border-color:var(--coral);' : '')
       + 'cursor:pointer;width:130px;">'
-      + acctNoteDisplay
       + '</td>';
 
-    // ★【2】帳務備註 textarea
-    html += '<td>'
-      + '<textarea id="'+noteId+'" placeholder="帳務備註（選填）"'
-      + ' style="width:150px;height:52px;background:#fff;border:1.5px solid var(--border);'
-      + 'border-radius:7px;padding:5px 8px;font-size:12px;outline:none;resize:none;'
-      + 'font-family:inherit;line-height:1.5;">'+existNote+'</textarea>'
+    // ★ 帳務備註：inline-edit（預設文字，點擊變 input）
+    html += '<td style="min-width:160px;">'
+      // 顯示文字
+      + '<div id="'+textId+'"'
+      + ' onclick="editNote(\''+safeId+'\')"'
+      + ' style="cursor:pointer;font-size:12px;color:'+(existNote?'var(--ink)':'#94a3b8')+';'
+      + 'padding:5px 8px;border-radius:7px;border:1.5px dashed var(--border);'
+      + 'min-height:34px;line-height:1.6;transition:background .15s;"'
+      + ' title="點擊編輯備註">'
+      + (existNote || '（點擊輸入備註）')
+      + '</div>'
+      // 編輯 input（預設隱藏）
+      + '<input id="'+inputId+'"'
+      + ' type="text"'
+      + ' value="'+existNote.replace(/"/g,'&quot;')+'"'
+      + ' placeholder="帳務備註"'
+      + ' onblur="saveNote(\''+safeId+'\', \''+p.formId+'\', '+(p.periodIdx||0)+')"'
+      + ' onkeydown="if(event.key===\'Enter\') saveNote(\''+safeId+'\', \''+p.formId+'\', '+(p.periodIdx||0)+')"'
+      + ' style="display:none;width:100%;background:#fff;border:1.5px solid var(--sea);'
+      + 'border-radius:7px;padding:5px 8px;font-size:12px;outline:none;font-family:inherit;">'
       + '</td>';
 
-    // ★【3】審核按鈕
+    // ★ 審核按鈕 → approveTransfer(formId, periodIdx)
     html += '<td>'
-      + '<button class="btn-v" onclick="approveTransferItem(\''+escId+'\',\''+noteId+'\')" '
-      + 'style="background:#16a34a;white-space:nowrap;">✅ 確認</button>'
+      + '<button class="btn-v"'
+      + ' onclick="approveTransfer(\''+p.formId+'\', '+(p.periodIdx||0)+')"'
+      + ' style="background:#16a34a;white-space:nowrap;">✅ 確認</button>'
       + '</td>';
 
     html += '</tr>';
@@ -4037,14 +4066,14 @@ function _renderTransfer() {
   });
 }
 
-// ★【1】更新預計付款日 → Firebase（只改 payments.N.date，不覆蓋整筆）
+// ── 預計付款日更新 → Firebase payments.N.date ────────
 function updatePayDate(rowId, newDate) {
   if (!newDate) return;
   var p = _transferItems.find(function(x) { return String(x._row) === String(rowId); });
   if (!p) return;
   p.dueDate = newDate;
   var fields = {};
-  fields['payments.' + p.periodIdx + '.date'] = newDate;
+  fields['payments.' + (p.periodIdx || 0) + '.date'] = newDate;
   fields['meta.updatedAt'] = new Date().toISOString();
   updateFirebase(p.formId, fields, function(ok) {
     if (ok) toast('📅 日期已更新', '#0369a1');
@@ -4052,24 +4081,68 @@ function updatePayDate(rowId, newDate) {
   });
 }
 
-// ★【3】審核確認（含帳務備註）→ Firebase
-function approveTransferItem(rowId, noteInputId) {
-  var p = _transferItems.find(function(x) { return String(x._row) === String(rowId); });
-  if (!p) return;
-  var noteEl = document.getElementById(noteInputId);
-  var note   = noteEl ? noteEl.value.trim() : '';
-  p.confirmed = true;
-  p.acctNote  = note;
-  var fields = {};
-  fields['transfer.confirmed']   = true;
-  fields['transfer.acctNote']    = note;
-  fields['transfer.confirmedAt'] = new Date().toISOString();
-  fields['meta.updatedAt']       = new Date().toISOString();
-  updateFirebase(p.formId, fields, function(ok) {
-    if (ok) toast('✅ 已審核確認', '#16a34a');
-    else    toast('❌ 寫入失敗，本地已標記', '#d97706');
+// ── inline-edit：點擊文字 → 顯示輸入框 ───────────────
+function editNote(safeId) {
+  var textEl  = document.getElementById('note-text-'  + safeId);
+  var inputEl = document.getElementById('note-input-' + safeId);
+  if (!textEl || !inputEl) return;
+  // 把現有備註（非預設文字）帶入輸入框
+  var cur = textEl.innerText;
+  inputEl.value = (cur === '（點擊輸入備註）') ? '' : cur;
+  textEl.style.display  = 'none';
+  inputEl.style.display = 'block';
+  inputEl.focus();
+}
+
+// ── inline-edit：失焦或 Enter → 儲存並寫 Firebase ────
+function saveNote(safeId, formId, periodIdx) {
+  var textEl  = document.getElementById('note-text-'  + safeId);
+  var inputEl = document.getElementById('note-input-' + safeId);
+  if (!textEl || !inputEl) return;
+  var val = inputEl.value.trim();
+  // 先切回顯示（避免重複觸發 onblur）
+  inputEl.style.display = 'none';
+  textEl.style.display  = 'block';
+  // 更新顯示文字
+  textEl.innerText = val || '（點擊輸入備註）';
+  textEl.style.color = val ? 'var(--ink)' : '#94a3b8';
+  // 更新本地資料
+  var p = _transferItems.find(function(x) {
+    return x.formId === formId && (x.periodIdx || 0) === periodIdx;
   });
-  _renderTransfer();
+  if (p) p.acctNote = val;
+  // 寫 Firebase：只改 payments.N.acctNote，不動其他欄位
+  var fields = {};
+  fields['payments.' + periodIdx + '.acctNote'] = val;
+  fields['meta.updatedAt'] = new Date().toISOString();
+  updateFirebase(formId, fields, function(ok) {
+    if (ok) toast('📝 備註已儲存', '#0369a1');
+    else    toast('❌ 儲存失敗', '#dc2626');
+  });
+}
+
+// ── 確認審核 → payments.N.status = 'approved' ────────
+function approveTransfer(formId, periodIdx) {
+  // 本地標記
+  var p = _transferItems.find(function(x) {
+    return x.formId === formId && (x.periodIdx || 0) === periodIdx;
+  });
+  if (p) { p.confirmed = true; }
+  // 只寫指定 period 的 status + approvedAt，不覆蓋整筆
+  var fields = {};
+  fields['payments.' + periodIdx + '.status']     = 'approved';
+  fields['payments.' + periodIdx + '.approvedAt'] = new Date().toISOString();
+  fields['meta.updatedAt'] = new Date().toISOString();
+  updateFirebase(formId, fields, function(ok) {
+    if (ok) {
+      toast('✅ 已審核確認', '#16a34a');
+      // 重新載入讓畫面同步（排除已審核的 period）
+      _renderTransfer();
+    } else {
+      toast('❌ 寫入失敗，本地已標記', '#d97706');
+      _renderTransfer();
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════
