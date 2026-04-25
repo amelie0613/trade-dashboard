@@ -2464,7 +2464,7 @@ function showD(rowNum){
       // ── 物流/其他（下方）────────────────────────
       +'<div style="margin-bottom:6px;margin-top:12px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding-bottom:4px;border-bottom:1px solid var(--border);">物流 / 其他資訊</div>'
       +'<div class="ef-grid">'
-      +ef2('e-trade-'+rowNum,'貿易條件',g(r,'trade'))
+      +'<div style="grid-column:1/-1">'+ef2('e-trade-'+rowNum,'貿易條件',g(r,'trade'))+'</div>'
       +ef2('e-etd-'+rowNum,'ETD 出貨日',g(r,'etd'),'date')
       +ef2('e-eta-'+rowNum,'ETA 到貨日',g(r,'eta'),'date')
       +ef2('e-origin-'+rowNum,'出貨地',g(r,'origin'))
