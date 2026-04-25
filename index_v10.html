@@ -2675,31 +2675,34 @@ function doAccountingConfirm(rowNum){
 // 從 FormResponses01 分期欄位建立 periods（財務轉入 Payments 用）
 function buildPeriodsFromRow(r){
   var periods = [];
-  // ★ 修正：移除 caseType 判斷，一律組合採購+銷售所有分期
-  // var caseType = g(r,'type');           // ← 已移除
-  // var hasBuy  = caseType.indexOf('採購')>=0;  // ← 已移除
-  // var hasSell = caseType.indexOf('銷售')>=0;  // ← 已移除
+  var caseType = g(r,'type');
+  var hasBuy  = caseType.indexOf('採購')>=0;
+  var hasSell = caseType.indexOf('銷售')>=0;
 
-  // 採購分期 1~3（不論 caseType，一律讀取）
-  for(var bi=1; bi<=3; bi++){
-    var bAmt  = parseFloat(r['採購期'+bi+'金額'])||0;
-    var bDate = (r['採購期'+bi+'預計日']||'').toString().trim();
-    var bCur  = (r['採購期'+bi+'幣別']||'TWD').toUpperCase();
-    var bName = r['採購期'+bi+'名稱']||('第'+bi+'期');
-    var bNote = r['採購期'+bi+'備註']||'';
-    if(bAmt>0 && bDate){
-      periods.push({type:'採購', name:bName, cur:bCur, amt:bAmt, date:bDate, note:bNote});
+  // 採購分期 1~3
+  if(hasBuy){
+    for(var bi=1; bi<=3; bi++){
+      var bAmt  = parseFloat(r['採購期'+bi+'金額'])||0;
+      var bDate = (r['採購期'+bi+'預計日']||'').toString().trim();
+      var bCur  = (r['採購期'+bi+'幣別']||'TWD').toUpperCase();
+      var bName = r['採購期'+bi+'名稱']||('第'+bi+'期');
+      var bNote = r['採購期'+bi+'備註']||'';
+      if(bAmt>0 && bDate){
+        periods.push({type:'採購', name:bName, cur:bCur, amt:bAmt, date:bDate, note:bNote});
+      }
     }
   }
-  // 銷售分期 1~3（不論 caseType，一律讀取）
-  for(var si=1; si<=3; si++){
-    var sAmt  = parseFloat(r['銷售期'+si+'金額'])||0;
-    var sDate = (r['銷售期'+si+'預計日']||'').toString().trim();
-    var sCur  = (r['銷售期'+si+'幣別']||'TWD').toUpperCase();
-    var sName = r['銷售期'+si+'名稱']||('第'+si+'期');
-    var sNote = r['銷售期'+si+'備註']||'';
-    if(sAmt>0 && sDate){
-      periods.push({type:'銷售', name:sName, cur:sCur, amt:sAmt, date:sDate, note:sNote});
+  // 銷售分期 1~3
+  if(hasSell){
+    for(var si=1; si<=3; si++){
+      var sAmt  = parseFloat(r['銷售期'+si+'金額'])||0;
+      var sDate = (r['銷售期'+si+'預計日']||'').toString().trim();
+      var sCur  = (r['銷售期'+si+'幣別']||'TWD').toUpperCase();
+      var sName = r['銷售期'+si+'名稱']||('第'+si+'期');
+      var sNote = r['銷售期'+si+'備註']||'';
+      if(sAmt>0 && sDate){
+        periods.push({type:'銷售', name:sName, cur:sCur, amt:sAmt, date:sDate, note:sNote});
+      }
     }
   }
   return periods;
@@ -3935,16 +3938,19 @@ function _buildTransferItems() {
     var caseName = (r[F.name]   || '').toString();
     var staff    = (r[F.staff]  || '').toString();
     var caseType = (r[F.type]   || '').toString();
-    // ★ 修正：移除 isBuy/isSell 判斷，一律顯示採購+銷售完整資料
-    // var isBuy  = caseType.indexOf('採購') >= 0;  // ← 已移除
-    // var isSell = caseType.indexOf('銷售') >= 0;  // ← 已移除
 
-    // 直接從 Firebase 原始巢狀結構讀取（不再用 type 控制）
+    // ★ 修正：不再依賴 caseType 判斷顯示哪側資料
+    //   直接看 Firebase 巢狀結構有沒有 periods 資料，有就顯示
     var rawPurchasePeriods = (r.purchase && r.purchase.periods) ? r.purchase.periods : null;
     var rawSalesPeriods    = (r.sales    && r.sales.periods)    ? r.sales.periods    : null;
 
-    // ★ 採購：一律處理（不判斷 isBuy）
-    if (true) {
+    // fallback：巢狀沒資料時用舊格式 getPeriods01 判斷
+    var hasBuyData  = (rawPurchasePeriods && rawPurchasePeriods.length > 0)
+                   || getPeriods01(r, 'buy').length > 0;
+    var hasSellData = (rawSalesPeriods    && rawSalesPeriods.length    > 0)
+                   || getPeriods01(r, 'sell').length > 0;
+
+    if (hasBuyData) {
       var bps = rawPurchasePeriods;
       if (bps && bps.length) {
         bps.forEach(function(p, idx) {
@@ -4009,8 +4015,7 @@ function _buildTransferItems() {
       }
     }
 
-    // ★ 銷售：一律處理（不判斷 isSell）
-    if (true) {
+    if (hasSellData) {
       var sps = rawSalesPeriods;
       if (sps && sps.length) {
         sps.forEach(function(p, idx) {
