@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v11</title>
+<title>貿易大漁｜管理系統 v12</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -408,17 +408,43 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 </div>
 
 <div class="scr" id="s-payments">
-  <!-- 統計卡片 -->
+  <!-- ★ 部門統計卡片（依 CSV 欄位「部門」分類）-->
   <div class="sg" style="margin-bottom:16px;" id="pay-stats"></div>
-  <!-- 篩選 -->
-  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-    <button class="pay-filter-btn on" data-f="all"    onclick="filterPayments('all',this)">全部</button>
-    <button class="pay-filter-btn"    data-f="payable" onclick="filterPayments('payable',this)" style="color:var(--coral);">應付</button>
-    <button class="pay-filter-btn"    data-f="receivable" onclick="filterPayments('receivable',this)" style="color:var(--jade);">應收</button>
-    <button class="pay-filter-btn"    data-f="unpaid" onclick="filterPayments('unpaid',this)">未付款</button>
-    <button class="pay-filter-btn"    data-f="uncoll" onclick="filterPayments('uncoll',this)">未收款</button>
-    <button class="pay-filter-btn"    data-f="overdue"onclick="filterPayments('overdue',this)" style="color:var(--coral);">逾期</button>
-    <button class="pay-filter-btn"    data-f="done"   onclick="filterPayments('done',this)">已完成</button>
+  <!-- ★ 篩選列（類型 + 狀態 + 幣別 + 來源）-->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+    <!-- 行1：快速篩選 -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button class="pay-filter-btn on" data-f="all"        onclick="filterPayments('all',this)">全部</button>
+      <button class="pay-filter-btn"    data-f="payable"    onclick="filterPayments('payable',this)" style="color:var(--coral);">↓ 應付</button>
+      <button class="pay-filter-btn"    data-f="receivable" onclick="filterPayments('receivable',this)" style="color:var(--jade);">↑ 應收</button>
+      <button class="pay-filter-btn"    data-f="unpaid"     onclick="filterPayments('unpaid',this)">未付款</button>
+      <button class="pay-filter-btn"    data-f="overdue"    onclick="filterPayments('overdue',this)" style="color:var(--coral);">逾期</button>
+      <button class="pay-filter-btn"    data-f="done"       onclick="filterPayments('done',this)">已完成</button>
+    </div>
+    <!-- 行2：進階篩選 -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <select id="pay-filter-cur" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+        <option value="">全部幣別</option>
+        <option value="NTD">NTD</option>
+        <option value="USD">USD</option>
+        <option value="JPY">JPY</option>
+        <option value="EUR">EUR</option>
+        <option value="ZAR">ZAR</option>
+      </select>
+      <select id="pay-filter-dept" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+        <option value="">全部部門</option>
+        <option value="船務">船務</option>
+        <option value="貿易">貿易</option>
+      </select>
+      <select id="pay-filter-src" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+        <option value="">全部來源</option>
+        <option value="csv">📄 外部帳款（CSV）</option>
+        <option value="firebase">🔥 Firebase 案件</option>
+      </select>
+      <input type="date" id="pay-filter-from" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;" placeholder="日期起">
+      <input type="date" id="pay-filter-to" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;" placeholder="日期迄">
+      <button onclick="clearPayFilters()" style="padding:6px 14px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">清除</button>
+    </div>
   </div>
   <!-- 款項列表 -->
   <div id="pay-list"></div>
@@ -1909,8 +1935,25 @@ function renderDaily(){
     }
   });
 
-  // actMap 保留空物件（Payments 不再帶回日曆）
-  var actMap = {};
+  // ★ CSV 帳款：從 buildCombinedPayments 取得，加入日曆格子顯示
+  var csvMap = {};
+  try {
+    var calData = buildCombinedPayments().calendar;
+    calData.forEach(function(p) {
+      if (p._source !== 'csv') return;
+      var d = (p.dueDate||'').replace(/\//g,'-');
+      var obj = new Date(d);
+      if (isNaN(obj)||obj.getFullYear()!==yr||obj.getMonth()!==mo) return;
+      var day2 = obj.getDate();
+      if (!csvMap[day2]) csvMap[day2] = { buy:[], sell:[] };
+      var bucket = p.direction === 'receivable' ? 'sell' : 'buy';
+      var c = (p.cur||'NTD').toUpperCase();
+      var found = false;
+      csvMap[day2][bucket].forEach(function(i){ if(i.cur===c){ i.amt+=p.amt; found=true; } });
+      if (!found) csvMap[day2][bucket].push({cur:c, amt:p.amt});
+    });
+  } catch(e) { console.warn('csvMap build error:', e); }
+  var actMap = csvMap;  // 日曆格子「實際」區塊 = CSV 帳款
 
   // 更新月份標題
   document.getElementById('daily-month').textContent = yr+'年'+(mo+1)+'月 應收／應付日曆';
@@ -1938,7 +1981,7 @@ function renderDaily(){
         var border=isToday?'1.5px solid #0369a1':'0.5px solid var(--border)';
         var dayColor=isToday?'#0369a1':(d===0?'#dc2626':d===6?'#0369a1':'var(--ink)');
         var fullDate=yr+'/'+(mo+1<10?'0'+(mo+1):String(mo+1))+'/'+(cellDay<10?'0'+cellDay:String(cellDay));
-        var hasData=(estMap[cellDay]||actMap[cellDay]);
+        var hasData=(estMap[cellDay]||actMap[cellDay]||csvMap[cellDay]);
         var tdStyle='background:'+bg+';border:'+border+';height:88px;padding:5px;vertical-align:top;box-sizing:border-box;'+(hasData?'cursor:pointer;':'');
         // data-date 給事件委派用，不在格子裡寫 onclick（避免引號跳脫問題）
         cal+='<td style="'+tdStyle+'"'+(hasData?' data-date="'+fullDate+'"':'')+'>';
@@ -3569,170 +3612,300 @@ function changePwd(){
 
 
 // ══════════════════════════════════════════════════════
-// 帳款管理 v2 (Payments Module)
-// 資料來源：Google Sheet CSV（主帳款）+ Firebase（案件預估）
-// Sheet 欄位：部門,狀態,付款日,類別,備註,現金,NTD,USD,JPY,EUR,ZAR
-// Sheet ID: 1OVHBX3ufjBIGBhdkRWHixysyvvlIviM1-YigrMVtbE4
+// 帳款管理 v3 — 資料分層架構
+// ──────────────────────────────────────────────────────
+// 層1 Firebase（唯一寫入）：cases、payments_status、logs
+// 層2 Google Sheets CSV（只讀）：外部帳款，禁止寫入 Firebase
+// 層3 前端合併：buildCombinedPayments() 合併兩層供所有畫面使用
 // ══════════════════════════════════════════════════════
 
-var allPayments       = [];   // Google Sheet 帳款原始資料
-var allPaymentItems   = [];   // 標準化後的帳款明細（給清單/日曆用）
+// ── 原始資料暫存 ──────────────────────────────────────
+var _csvRawItems      = [];   // CSV 解析後（層2，只讀）
+var _fbPayStatus      = {};   // Firebase payments_status map（rowId → data）
+var allPaymentItems   = [];   // 合併後供 render 使用（層3）
 var payFilter         = 'all';
-var PAYMENTS_CACHE    = [];   // 給日曆用（同 allPaymentItems）
 var _payPage          = 1;
 var PAY_PAGE_SIZE     = 10;
+
+// ── 向下相容舊變數 ─────────────────────────────────────
+var allPayments       = [];   // = _csvRawItems（向下相容）
+var PAYMENTS_CACHE    = [];   // = allPaymentItems（向下相容）
+
+// ══════════════════════════════════════════════════════
+// 統一幣別格式化（規則四）
+// ══════════════════════════════════════════════════════
+function formatCurrency(currency, amount) {
+  var map = { TWD:'NT$', NTD:'NT$', USD:'US$', JPY:'¥', EUR:'€', ZAR:'R' };
+  var sym = map[(currency||'NTD').toUpperCase()] || (currency||'');
+  return sym + ' ' + Math.round(amount||0).toLocaleString('zh-TW');
+}
 
 // ★ Google Sheet 公開 CSV 網址
 // 請確認此 Sheet 已設為「任何人都能讀取」
 var PAYMENTS_SHEET_CSV = 'https://docs.google.com/spreadsheets/d/1OVHBX3ufjBIGBhdkRWHixysyvvlIviM1-YigrMVtbE4/export?format=csv';
 
-// ─────────────────────────────────────────────────────
-// 載入 Google Sheet → 解析 → 標準化
-// ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+// 層2：CSV 載入（只讀，不寫 Firebase）
+// ══════════════════════════════════════════════════════
+var CSV_CACHE_KEY      = 'csv_payments_cache';
+var CSV_CACHE_TIME_KEY = 'csv_payments_cache_time';
+var CSV_CACHE_TTL      = 5 * 60 * 1000; // 5 分鐘
+
 function loadPaymentsFromSheet(cb) {
+  // ── 先嘗試 localStorage 快取（5分鐘有效）──
+  try {
+    var ct = parseInt(localStorage.getItem(CSV_CACHE_TIME_KEY)||'0');
+    if (Date.now() - ct < CSV_CACHE_TTL) {
+      var cached = localStorage.getItem(CSV_CACHE_KEY);
+      if (cached) {
+        _csvRawItems = JSON.parse(cached);
+        allPayments  = _csvRawItems;
+        console.log('📦 CSV 快取命中，共 '+_csvRawItems.length+' 筆');
+        if (cb) cb(_csvRawItems);
+        return;
+      }
+    }
+  } catch(e) {}
+
   fetch(PAYMENTS_SHEET_CSV + '&_=' + Date.now(), { cache: 'no-cache' })
     .then(function(r) { return r.text(); })
     .then(function(csv) {
       var parsed = parsePaymentCSV(csv);
-      allPayments       = parsed;
-      allPaymentItems   = parsed;
-      PAYMENTS_CACHE    = parsed;
+      _csvRawItems = parsed;
+      allPayments  = parsed;  // 向下相容
+      // ★ 存入 localStorage 快取
+      try {
+        localStorage.setItem(CSV_CACHE_KEY, JSON.stringify(parsed));
+        localStorage.setItem(CSV_CACHE_TIME_KEY, Date.now().toString());
+      } catch(e) {}
+      console.log('✅ CSV 讀取完成，共 '+parsed.length+' 筆（已快取5分鐘）');
       if (cb) cb(parsed);
     })
     .catch(function(e) {
       console.warn('帳款 CSV 讀取失敗：', e);
-      if (cb) cb(allPaymentItems);
+      if (cb) cb(_csvRawItems); // 失敗時用現有資料
     });
 }
 
-// ─────────────────────────────────────────────────────
-// 解析 CSV → 標準化帳款物件陣列
-// 欄位：部門,狀態,付款日,類別,備註,現金,NTD,USD,JPY,EUR,ZAR
-// 跳過前2行（標題行 + 合計行），從第3行（header）開始
-// ─────────────────────────────────────────────────────
+// ── CSV 解析（原邏輯保留）────────────────────────────
 function parsePaymentCSV(csv) {
   var lines = csv.split(/\r?\n/);
   var result = [];
-  // 找到欄位 header 行（找含「部門」的行）
   var headerIdx = -1;
   for (var i = 0; i < lines.length; i++) {
     if (lines[i].indexOf('部門') >= 0 && lines[i].indexOf('狀態') >= 0) {
-      headerIdx = i;
-      break;
+      headerIdx = i; break;
     }
   }
   if (headerIdx < 0) return result;
-
   var today = new Date(); today.setHours(0,0,0,0);
-
   for (var j = headerIdx + 1; j < lines.length; j++) {
     var line = lines[j].trim();
     if (!line) continue;
     var cols = parseCSVLine(line);
     if (cols.length < 3) continue;
-
-    var dept    = cols[0] ? cols[0].trim() : '';
-    var status  = cols[1] ? cols[1].trim() : '';
-    var dateStr = cols[2] ? cols[2].trim() : '';
-    var cat     = cols[3] ? cols[3].trim() : '';
-    var note    = cols[4] ? cols[4].trim() : '';
-    var cash    = cols[5] ? cols[5].trim() : '';
-    var ntdRaw  = cols[6] ? cols[6].trim() : '';
-    var usdRaw  = cols[7] ? cols[7].trim() : '';
-    var jpyRaw  = cols[8] ? cols[8].trim() : '';
-    var eurRaw  = cols[9] ? cols[9].trim() : '';
-    var zarRaw  = cols[10]? cols[10].trim(): '';
-
+    var dept    = (cols[0]||'').trim();
+    var status  = (cols[1]||'').trim();
+    var dateStr = (cols[2]||'').trim();
+    var cat     = (cols[3]||'').trim();
+    var note    = (cols[4]||'').trim();
+    var ntdRaw  = (cols[6]||'').trim();
+    var usdRaw  = (cols[7]||'').trim();
+    var jpyRaw  = (cols[8]||'').trim();
+    var eurRaw  = (cols[9]||'').trim();
+    var zarRaw  = (cols[10]||'').trim();
     if (!dept && !status && !dateStr) continue;
-
-    // 解析金額（移除 NT$, US$, JPY, EUR, ZAR, 逗號, 空格）
     function parseAmt(s) {
       if (!s) return 0;
-      return parseFloat(s.replace(/[NT\$US¥JPYEURZAR,\s]/gi, '').replace(/[^0-9.-]/g,'')) || 0;
+      return parseFloat(s.replace(/[NT\$US¥JPYEURZAR,\s]/gi,'').replace(/[^0-9.-]/g,''))||0;
     }
-
-    var ntd = parseAmt(ntdRaw);
-    var usd = parseAmt(usdRaw);
-    var jpy = parseAmt(jpyRaw);
-    var eur = parseAmt(eurRaw);
-    var zar = parseAmt(zarRaw);
-
-    // 判斷狀態
+    var ntd = parseAmt(ntdRaw), usd = parseAmt(usdRaw),
+        jpy = parseAmt(jpyRaw), eur = parseAmt(eurRaw), zar = parseAmt(zarRaw);
     var dueDate   = dateStr ? new Date(dateStr.replace(/\//g,'-')) : null;
-    var isPaid    = (status === '已付' || status === '已完成');
-    var isOverdue = (status === '逾期') || (!isPaid && dueDate && dueDate < today && status !== '預估');
-    var isEst     = (status === '預估');
-
-    // 每個有金額的幣別各生成一筆（不合併）
+    var isPaid    = (status==='已付'||status==='已完成');
+    var isOverdue = (status==='逾期')||(!isPaid&&dueDate&&dueDate<today&&status!=='預估');
+    var isEst     = (status==='預估');
     var amtList = [];
-    if (ntd) amtList.push({ cur: 'NTD', amt: ntd });
-    if (usd) amtList.push({ cur: 'USD', amt: usd });
-    if (jpy) amtList.push({ cur: 'JPY', amt: jpy });
-    if (eur) amtList.push({ cur: 'EUR', amt: eur });
-    if (zar) amtList.push({ cur: 'ZAR', amt: zar });
-
-    if (!amtList.length) continue; // 沒有金額跳過
-
+    if (ntd) amtList.push({cur:'NTD',amt:ntd});
+    if (usd) amtList.push({cur:'USD',amt:usd});
+    if (jpy) amtList.push({cur:'JPY',amt:jpy});
+    if (eur) amtList.push({cur:'EUR',amt:eur});
+    if (zar) amtList.push({cur:'ZAR',amt:zar});
+    if (!amtList.length) continue;
     amtList.forEach(function(a, idx) {
       result.push({
-        _row:      j + '_' + idx,
+        _row:      j+'_'+idx,
+        _source:   'csv',          // ★ 資料來源標記
         dept:      dept,
         status:    status,
         dueDate:   dateStr,
         category:  cat,
-        note:      note,           // 備註當作「對象/說明」
+        note:      note,
         cur:       a.cur,
         amt:       a.amt,
-        direction: 'payable',      // Sheet 這份是應付帳款
+        direction: 'payable',      // CSV 全是應付
         isPaid:    isPaid,
         isOverdue: isOverdue,
         isEst:     isEst,
-        actualDate: '',
-        actualAmt:  ''
+        actualDate:''
       });
     });
   }
-
   return result;
 }
 
-// CSV 單行解析（支援引號內逗號）
 function parseCSVLine(line) {
-  var result = [];
-  var current = '';
-  var inQuotes = false;
-  for (var i = 0; i < line.length; i++) {
-    var ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
-      else inQuotes = !inQuotes;
-    } else if (ch === ',' && !inQuotes) {
-      result.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
+  var result=[],current='',inQuotes=false;
+  for(var i=0;i<line.length;i++){
+    var ch=line[i];
+    if(ch==='"'){if(inQuotes&&line[i+1]==='"'){current+='"';i++;}else inQuotes=!inQuotes;}
+    else if(ch===','&&!inQuotes){result.push(current);current='';}
+    else current+=ch;
   }
   result.push(current);
   return result;
 }
 
-// ─────────────────────────────────────────────────────
-// loadPayments：整合 Sheet + Firebase 預估
-// ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+// 層1：Firebase payments_status 讀取（付款狀態持久化）
+// ══════════════════════════════════════════════════════
+function loadPaymentStatusFromFirebase(cb) {
+  var db = getFirebaseDb();
+  if (!db) { if (cb) cb(); return; }
+  db.collection('payments_status').get()
+    .then(function(snap) {
+      _fbPayStatus = {};
+      snap.forEach(function(doc) {
+        var d = doc.data();
+        if (d && d.rowId) _fbPayStatus[String(d.rowId)] = d;
+      });
+      console.log('✅ Firebase payments_status 讀取完成，共 '+Object.keys(_fbPayStatus).length+' 筆');
+      if (cb) cb();
+    })
+    .catch(function(e) {
+      console.warn('讀取 payments_status 失敗：', e);
+      if (cb) cb();
+    });
+}
+
+// ══════════════════════════════════════════════════════
+// 層3：合併資料（前端計算，不寫 Firebase）
+// ══════════════════════════════════════════════════════
+function buildCombinedPayments() {
+  // CSV 項目（只讀，套用 Firebase 付款狀態覆蓋）
+  var csvItems = _csvRawItems.map(function(p) {
+    var override = _fbPayStatus[String(p._row)];
+    if (override) {
+      return Object.assign({}, p, {
+        isPaid:     !!override.paid,
+        actualDate: override.actualDate || '',
+        isOverdue:  override.paid ? false : p.isOverdue
+      });
+    }
+    return Object.assign({}, p);
+  });
+
+  // Firebase 案件期數（可操作）
+  var today = new Date(); today.setHours(0,0,0,0);
+  var fbItems = [];
+  (rows || []).forEach(function(r) {
+    var bossStatus  = (r[F.status]||'').toString();
+    var bossOk = bossStatus==='是'||bossStatus.indexOf('同意')>=0;
+    if (!bossOk) return;
+    var formId   = (r[F.formId]||'').toString();
+    var caseName = (r[F.name]  ||'').toString();
+
+    // purchase periods
+    var bps = (r.purchase && r.purchase.periods) ? r.purchase.periods : getPeriods01(r,'buy').map(function(p){
+      return {name:p.name,currency:p.cur,amount:p.amt,expectedDate:p.date,note:p.note,status:p.status||'',acctNote:p.acctNote||''};
+    });
+    bps.forEach(function(p, idx) {
+      var d = (p.expectedDate||p.date||'').replace(/\//g,'-').slice(0,10);
+      var dd = d ? new Date(d) : null;
+      var approved = (p.status||'')==='approved';
+      if (approved) return; // 已確認期別不顯示在帳款
+      fbItems.push({
+        _row:       formId+'_buy_'+idx,
+        _source:    'firebase',
+        _formId:    formId,
+        _periodIdx: idx,
+        _periodType:'purchase',
+        dept:       '貿易',
+        caseName:   caseName,
+        note:       caseName + '【'+(p.name||'第'+(idx+1)+'期')+'】',
+        category:   '採購',
+        cur:        (p.currency||p.cur||'TWD').toUpperCase(),
+        amt:        parseFloat(p.amount||p.amt)||0,
+        dueDate:    d,
+        direction:  'payable',
+        isPaid:     !!p.paid,
+        isOverdue:  dd && dd < today && !p.paid,
+        isEst:      true,
+        acctNote:   p.acctNote||''
+      });
+    });
+
+    // sales periods
+    var sps = (r.sales && r.sales.periods) ? r.sales.periods : getPeriods01(r,'sell').map(function(p){
+      return {name:p.name,currency:p.cur,amount:p.amt,expectedDate:p.date,note:p.note,status:p.status||'',acctNote:p.acctNote||''};
+    });
+    sps.forEach(function(p, idx) {
+      var d = (p.expectedDate||p.date||'').replace(/\//g,'-').slice(0,10);
+      var dd = d ? new Date(d) : null;
+      var approved = (p.status||'')==='approved';
+      if (approved) return;
+      fbItems.push({
+        _row:       formId+'_sell_'+idx,
+        _source:    'firebase',
+        _formId:    formId,
+        _periodIdx: idx,
+        _periodType:'sales',
+        dept:       '貿易',
+        caseName:   caseName,
+        note:       caseName + '【'+(p.name||'第'+(idx+1)+'期')+'】',
+        category:   '銷售',
+        cur:        (p.currency||p.cur||'TWD').toUpperCase(),
+        amt:        parseFloat(p.amount||p.amt)||0,
+        dueDate:    d,
+        direction:  'receivable',
+        isPaid:     !!p.paid,
+        isOverdue:  dd && dd < today && !p.paid,
+        isEst:      true,
+        acctNote:   p.acctNote||''
+      });
+    });
+  });
+
+  return { calendar: fbItems.concat(csvItems), payments: csvItems.concat(fbItems) };
+}
+
+// ══════════════════════════════════════════════════════
+// 統一載入入口（CSV → Firebase status → 合併 → render）
+// ══════════════════════════════════════════════════════
 function loadPayments(cb) {
-  loadPaymentsFromSheet(function(sheetItems) {
-    // ★ 讀完 Sheet 後，從 Firebase payments_status 載入持久化付款狀態
+  loadPaymentsFromSheet(function() {
     loadPaymentStatusFromFirebase(function() {
+      var combined = buildCombinedPayments();
+      allPaymentItems = combined.payments;
+      PAYMENTS_CACHE  = allPaymentItems;
       if (cb) cb();
       else renderPayments();
     });
   });
 }
 
-// ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+// 清除進階篩選
+// ══════════════════════════════════════════════════════
+function clearPayFilters() {
+  var ids = ['pay-filter-cur','pay-filter-dept','pay-filter-src','pay-filter-from','pay-filter-to'];
+  ids.forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+  renderPayments();
+}
+
+// ══════════════════════════════════════════════════════
 // 篩選按鈕
-// ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
 function filterPayments(f, el) {
   payFilter = f;
   _payPage  = 1;
@@ -3741,81 +3914,90 @@ function filterPayments(f, el) {
   renderPayments();
 }
 
-// ─────────────────────────────────────────────────────
-// 主渲染：帳款清單（統計 + 表格 + 分頁）
-// ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+// 統計卡片（依「部門」分類，規則六）
+// ══════════════════════════════════════════════════════
+function renderPayStats(items) {
+  var statsEl = document.getElementById('pay-stats');
+  if (!statsEl) return;
+
+  // 動態收集所有部門
+  var deptSet = {};
+  items.forEach(function(p) { if (p.dept) deptSet[p.dept] = true; });
+  var depts = Object.keys(deptSet);
+  if (!depts.length) depts = ['船務','貿易'];
+
+  // 每個部門計算應收/應付（NTD 換算合計）
+  var cards = '';
+  depts.forEach(function(dept) {
+    var dItems = items.filter(function(p) { return p.dept === dept && !p.isPaid; });
+    var payable    = dItems.filter(function(p) { return p.direction==='payable'; });
+    var receivable = dItems.filter(function(p) { return p.direction==='receivable'; });
+    function sumNTD(arr) {
+      return arr.reduce(function(s, p) { return s + calcNTD(p.amt, p.cur); }, 0);
+    }
+    cards += '<div class="st s4" style="grid-column:span 1;">'
+      +'<div class="stlbl">'+dept+' 應付</div>'
+      +'<div class="stval v4" style="font-size:14px;">'+formatCurrency('NTD', sumNTD(payable))+'</div>'
+      +'<div class="stsub">'+payable.length+' 筆</div></div>';
+    cards += '<div class="st s3" style="grid-column:span 1;">'
+      +'<div class="stlbl">'+dept+' 應收</div>'
+      +'<div class="stval v3" style="font-size:14px;">'+formatCurrency('NTD', sumNTD(receivable))+'</div>'
+      +'<div class="stsub">'+receivable.length+' 筆</div></div>';
+  });
+  statsEl.innerHTML = cards;
+}
+
+// ══════════════════════════════════════════════════════
+// 主渲染：帳款清單
+// ══════════════════════════════════════════════════════
 function renderPayments() {
   var today = new Date(); today.setHours(0,0,0,0);
 
-  // ── 統計（幣別分開）──────────────────────────────
-  var stats = {
-    payableAmt:  {},   // 待付
-    overdueAmt:  {},   // 逾期
-    estAmt:      {},   // 預估
-    done:        0
-  };
+  // ── 進階篩選 ─────────────────────────────────────
+  var filterCur  = (document.getElementById('pay-filter-cur')  || {}).value || '';
+  var filterDept = (document.getElementById('pay-filter-dept') || {}).value || '';
+  var filterSrc  = (document.getElementById('pay-filter-src')  || {}).value || '';
+  var filterFrom = (document.getElementById('pay-filter-from') || {}).value || '';
+  var filterTo   = (document.getElementById('pay-filter-to')   || {}).value || '';
 
-  allPaymentItems.forEach(function(p) {
-    var cur = (p.cur || 'NTD').toUpperCase();
-    var amt = p.amt || 0;
-    if (p.isPaid) { stats.done++; return; }
-    if (p.isOverdue) {
-      stats.overdueAmt[cur] = (stats.overdueAmt[cur] || 0) + amt;
-    } else if (p.isEst) {
-      stats.estAmt[cur] = (stats.estAmt[cur] || 0) + amt;
-    } else {
-      stats.payableAmt[cur] = (stats.payableAmt[cur] || 0) + amt;
-    }
+  // ── 快速篩選 + 進階篩選合併（data.filter，規則五）──
+  var result = allPaymentItems.filter(function(p) {
+    // 快速篩選
+    if (payFilter === 'payable')    { if (p.direction !== 'payable')    return false; }
+    if (payFilter === 'receivable') { if (p.direction !== 'receivable') return false; }
+    if (payFilter === 'unpaid')     { if (p.isPaid || p.isOverdue)      return false; }
+    if (payFilter === 'overdue')    { if (!p.isOverdue)                 return false; }
+    if (payFilter === 'done')       { if (!p.isPaid)                    return false; }
+    // 進階篩選
+    if (filterCur  && (p.cur  ||'').toUpperCase() !== filterCur.toUpperCase()) return false;
+    if (filterDept && (p.dept ||'') !== filterDept) return false;
+    if (filterSrc  && (p._source||'') !== filterSrc) return false;
+    if (filterFrom && p.dueDate && p.dueDate < filterFrom) return false;
+    if (filterTo   && p.dueDate && p.dueDate > filterTo)   return false;
+    return true;
   });
 
-  function fmtCurs(obj) {
-    var keys = Object.keys(obj);
-    if (!keys.length) return '—';
-    return keys.map(function(c) {
-      var sym = { NTD:'NT$', TWD:'NT$', USD:'US$', JPY:'¥', EUR:'€', ZAR:'R' }[c] || c;
-      return sym + fmtN(obj[c]);
-    }).join('\n');
-  }
-
-  var statsEl = document.getElementById('pay-stats');
-  if (statsEl) {
-    statsEl.innerHTML =
-      '<div class="st s4"><div class="stlbl">待付帳款</div><div class="stval v4" style="font-size:11px;line-height:1.8;white-space:pre;">'+fmtCurs(stats.payableAmt)+'</div></div>' +
-      '<div class="st s4" style="border-top-color:#991b1b;"><div class="stlbl" style="color:#991b1b;">逾期帳款</div><div class="stval v4" style="font-size:11px;line-height:1.8;white-space:pre;">'+fmtCurs(stats.overdueAmt)+'</div></div>' +
-      '<div class="st s2"><div class="stlbl">預估支出</div><div class="stval v2" style="font-size:11px;line-height:1.8;white-space:pre;">'+fmtCurs(stats.estAmt)+'</div></div>' +
-      '<div class="st s3"><div class="stlbl">已付完成</div><div class="stval v3">'+stats.done+'</div><div class="stsub">筆</div></div>';
-  }
-
-  // ── 篩選 ─────────────────────────────────────────
-  var filtered = allPaymentItems.filter(function(p) {
-    if (payFilter === 'payable')    return !p.isPaid && !p.isOverdue && !p.isEst;
-    if (payFilter === 'receivable') return false; // 這份 Sheet 全是應付
-    if (payFilter === 'unpaid')     return !p.isPaid && !p.isOverdue && !p.isEst;
-    if (payFilter === 'uncoll')     return false;
-    if (payFilter === 'overdue')    return p.isOverdue;
-    if (payFilter === 'done')       return p.isPaid;
-    return true; // all
-  });
+  renderPayStats(result);
 
   // ── 分頁 ─────────────────────────────────────────
-  var total    = filtered.length;
-  var pages    = Math.ceil(total / PAY_PAGE_SIZE) || 1;
+  var total = result.length;
+  var pages = Math.ceil(total / PAY_PAGE_SIZE) || 1;
   if (_payPage > pages) _payPage = pages;
   var start    = (_payPage - 1) * PAY_PAGE_SIZE;
-  var pageData = filtered.slice(start, start + PAY_PAGE_SIZE);
+  var pageData = result.slice(start, start + PAY_PAGE_SIZE);
 
   var list = document.getElementById('pay-list');
   if (!list) return;
 
-  if (!filtered.length) {
+  if (!result.length) {
     list.innerHTML = '<div class="empty"><span class="eico">💳</span>查無款項記錄</div>';
   } else {
     list.innerHTML =
       '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">共 '+total+' 筆 · 第 '+_payPage+'/'+pages+' 頁</div>'+
       '<div class="twrap"><table class="tbl">' +
-      '<thead><tr>' +
-      '<th>部門</th><th>狀態</th><th>對象 / 說明</th><th>類別</th>' +
-      '<th>幣別</th><th>金額</th><th>付款日</th><th>操作</th>' +
+      '<thead><tr><th>來源</th><th>部門</th><th>狀態</th><th>對象 / 說明</th><th>類別</th>' +
+      '<th>金額</th><th>付款日</th><th>操作</th>' +
       '</tr></thead><tbody>' +
       pageData.map(function(p) { return makePayRow(p, today); }).join('') +
       '</tbody></table></div>';
@@ -3827,115 +4009,122 @@ function renderPayments() {
   });
 }
 
-// ─────────────────────────────────────────────────────
-// 帳款表格列
-// ─────────────────────────────────────────────────────
+// ── 帳款表格列（含來源標記）────────────────────────────
 function makePayRow(p, today) {
   var cur = (p.cur || 'NTD').toUpperCase();
-  var sym = { NTD:'NT$', TWD:'NT$', USD:'US$', JPY:'¥', EUR:'€', ZAR:'R' }[cur] || cur;
-  var amtStr = sym + fmtN(p.amt);
+  var amtStr = formatCurrency(cur, p.amt);
 
   var stColor = p.isPaid ? '#16a34a' : p.isOverdue ? '#dc2626' : p.isEst ? '#d97706' : '#0369a1';
   var stBg    = p.isPaid ? '#dcfce7' : p.isOverdue ? '#fee2e2' : p.isEst ? '#fef9c3' : '#dbeafe';
   var stBd    = p.isPaid ? '#86efac' : p.isOverdue ? '#fca5a5' : p.isEst ? '#fde68a' : '#bfdbfe';
-  var stText  = p.isPaid ? '已完成' : p.isOverdue ? '逾期' : p.isEst ? '預估' : '應付';
+  var stText  = p.isPaid ? '已完成'  : p.isOverdue ? '逾期'   : p.isEst ? '預估'   : '應付';
+
+  var isCSV = p._source === 'csv';
+
+  // ★ 來源標記
+  var srcBadge = isCSV
+    ? '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;background:#f0f9ff;color:#0369a1;border:0.5px solid #bae6fd;">📄 外部</span>'
+    : '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;background:#fef9c3;color:#92400e;border:0.5px solid #fde68a;">🔥 案件</span>';
 
   var statusBadge = '<span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:'+stBg+';color:'+stColor+';border:0.5px solid '+stBd+';">'+stText+'</span>';
 
   var deptBadge = '<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:'+
     (p.dept==='船務'?'#f0f9ff':'#f0fdf4')+';color:'+
-    (p.dept==='船務'?'#0369a1':'#15803d')+';font-weight:700;">'+
-    (p.dept||'—')+'</span>';
+    (p.dept==='船務'?'#0369a1':'#15803d')+';font-weight:700;">'+(p.dept||'—')+'</span>';
 
-  var escId = String(p._row).replace(/'/g, "\\'");
+  var escId = String(p._row).replace(/'/g,"\'");
 
-  return '<tr style="' + (p.isOverdue ? 'background:#fff5f5;' : '') + '">' +
-    '<td>' + deptBadge + '</td>' +
-    '<td>' + statusBadge + '</td>' +
-    '<td class="tdb" style="max-width:220px;word-break:break-all;">' + (p.note || '—') + '</td>' +
-    '<td class="tdg">' + (p.category || '—') + '</td>' +
-    '<td><span style="font-family:\'DM Mono\',monospace;font-size:12px;background:#f8fafc;padding:2px 8px;border-radius:6px;font-weight:700;">' + cur + '</span></td>' +
-    '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:var(--coral);">' + amtStr + '</td>' +
-    '<td class="tdg" style="' + (p.isOverdue ? 'color:var(--coral);font-weight:700;' : '') + '">' + (p.dueDate || '—') + '</td>' +
-    '<td><button class="btn-v" onclick="showPayInfo(\'' + escId + '\')">付款資訊</button></td>' +
+  // ★ 操作欄：CSV 不可操作（規則七）
+  var actionBtn = isCSV
+    ? '<span style="font-size:11px;color:#94a3b8;">—</span>'
+    : '<button class="btn-v" onclick="showPayInfo(''+escId+'')">付款資訊</button>';
+
+  // 方向標記
+  var dirTag = p.direction === 'receivable'
+    ? '<span style="color:var(--jade);font-size:11px;font-weight:700;">↑ 應收</span>'
+    : '<span style="color:var(--coral);font-size:11px;font-weight:700;">↓ 應付</span>';
+
+  return '<tr style="'+(p.isOverdue?'background:#fff5f5;':'')+'">' +
+    '<td>'+srcBadge+'</td>' +
+    '<td>'+deptBadge+'</td>' +
+    '<td>'+statusBadge+' '+dirTag+'</td>' +
+    '<td class="tdb" style="max-width:220px;word-break:break-all;">'+(p.note||'—')+'</td>' +
+    '<td class="tdg">'+(p.category||'—')+'</td>' +
+    '<td style="font-family:'DM Mono',monospace;font-weight:700;color:'+(p.direction==='receivable'?'var(--jade)':'var(--coral)')+';">'+amtStr+'</td>' +
+    '<td class="tdg" style="'+(p.isOverdue?'color:var(--coral);font-weight:700;':'')+'">'+(p.dueDate||'—')+'</td>' +
+    '<td>'+actionBtn+'</td>' +
     '</tr>';
 }
 
-// ─────────────────────────────────────────────────────
-// 付款資訊 Modal
-// ─────────────────────────────────────────────────────
+// ── 付款資訊 Modal（只給 Firebase 資料用）───────────────
 function showPayInfo(rowId) {
   var p = allPaymentItems.find(function(x) { return String(x._row) === String(rowId); });
   if (!p) return;
+  // ★ CSV 資料不可操作（規則七）
+  if (p._source === 'csv') { toast('📄 外部帳款資料不可編輯', '#64748b'); return; }
 
   var cur    = (p.cur || 'NTD').toUpperCase();
-  var sym    = { NTD:'NT$', TWD:'NT$', USD:'US$', JPY:'¥', EUR:'€', ZAR:'R' }[cur] || cur;
   var stColor = p.isPaid ? '#16a34a' : p.isOverdue ? '#dc2626' : p.isEst ? '#d97706' : '#0369a1';
-  var stText  = p.isPaid ? '已完成' : p.isOverdue ? '逾期' : p.isEst ? '預估' : '應付';
+  var stText  = p.isPaid ? '已完成'  : p.isOverdue ? '逾期'   : p.isEst ? '預估'   : '應付';
 
   document.getElementById('payinfo-title').textContent = p.note || '帳款明細';
 
-  var html = '';
-
-  // 基本資訊卡片
-  html += '<div style="background:#f8fafc;border-radius:12px;padding:14px 16px;margin-bottom:12px;">';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
-  html += dr('部門', p.dept || '—');
-  html += dr('類別', p.category || '—');
-  html += dr('狀態', '<span style="color:'+stColor+';font-weight:700;">'+stText+'</span>');
-  html += dr('付款日', p.dueDate || '—');
-  html += '</div></div>';
-
-  // 金額卡片
-  html += '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:14px 16px;margin-bottom:12px;">';
-  html += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">應付金額</div>';
-  html += '<div style="font-size:26px;font-weight:700;color:var(--coral);font-family:\'DM Mono\',monospace;">'+sym+fmtN(p.amt)+'</div>';
-  html += '<div style="font-size:12px;color:var(--muted);margin-top:4px;">幣別：'+cur+'</div>';
-  html += '</div>';
-
-  // 對象/說明
-  if (p.note) {
-    html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:12px;">';
-    html += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">對象 / 說明</div>';
-    html += '<div style="font-size:14px;color:var(--ink);line-height:1.6;">'+p.note+'</div>';
-    html += '</div>';
+  function dr(l, v) {
+    return '<div class="drow"><div class="drow-l">'+l+'</div><div class="drow-v">'+v+'</div></div>';
   }
 
-  // 標記付款
+  var html = '<div style="background:#f8fafc;border-radius:12px;padding:14px 16px;margin-bottom:12px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+    +dr('部門', p.dept||'—') + dr('類別', p.category||'—')
+    +dr('狀態', '<span style="color:'+stColor+';font-weight:700;">'+stText+'</span>')
+    +dr('付款日', p.dueDate||'—')
+    +'</div></div>';
+
+  html += '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:14px 16px;margin-bottom:12px;">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">'
+    +(p.direction==='receivable'?'應收金額':'應付金額')+'</div>'
+    +'<div style="font-size:26px;font-weight:700;color:'+(p.direction==='receivable'?'var(--jade)':'var(--coral)')+';font-family:'DM Mono',monospace;">'+formatCurrency(cur, p.amt)+'</div>'
+    +'</div>';
+
   if (!p.isPaid) {
-    html += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px 16px;">';
-    html += '<div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:10px;">標記已付</div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">';
-    html += '<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">實際付款日</label><input type="date" id="pi-date" value="'+new Date().toISOString().slice(0,10)+'" style="width:100%;background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit;"></div>';
-    html += '<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">實際金額（選填）</label><input type="number" id="pi-amt" value="'+p.amt+'" style="width:100%;background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit;"></div>';
-    html += '</div>';
-    html += '<button onclick="markPaymentPaid(\''+String(p._row).replace(/'/g,"\\'")+'\', true)" style="width:100%;padding:11px;border-radius:9px;background:linear-gradient(135deg,var(--jade),#4ade80);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;">✅ 標記為已付</button>';
-    html += '</div>';
+    html += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px 16px;">'
+      +'<div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:10px;">標記已付</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
+      +'<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">實際付款日</label>'
+      +'<input type="date" id="pi-date" value="'+new Date().toISOString().slice(0,10)+'" style="width:100%;background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit;"></div>'
+      +'<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">實際金額（選填）</label>'
+      +'<input type="number" id="pi-amt" value="'+p.amt+'" style="width:100%;background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit;"></div>'
+      +'</div>'
+      +'<button onclick="markPaymentPaid(''+String(p._row).replace(/'/g,"\'")+'', true)" style="width:100%;padding:11px;border-radius:9px;background:linear-gradient(135deg,var(--jade),#4ade80);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;">✅ 標記為已付</button>'
+      +'</div>';
   } else {
-    html += '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;text-align:center;">';
-    html += '<div style="font-size:14px;font-weight:700;color:var(--jade);">✅ 已付款完成</div>';
-    if (p.actualDate) html += '<div style="font-size:12px;color:var(--muted);margin-top:4px;">實際日期：'+p.actualDate+'</div>';
-    html += '<button onclick="markPaymentPaid(\''+String(p._row).replace(/'/g,"\\'")+'\', false)" style="margin-top:10px;padding:8px 20px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:0.5px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">↩ 取消</button>';
-    html += '</div>';
+    html += '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;text-align:center;">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--jade);">✅ 已付款完成</div>'
+      +(p.actualDate?'<div style="font-size:12px;color:var(--muted);margin-top:4px;">實際日期：'+p.actualDate+'</div>':'')
+      +'<button onclick="markPaymentPaid(''+String(p._row).replace(/'/g,"\'")+'', false)" style="margin-top:10px;padding:8px 20px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:0.5px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">↩ 取消</button>'
+      +'</div>';
   }
 
   document.getElementById('payinfo-body').innerHTML = html;
   document.getElementById('PayInfoM').classList.add('open');
 }
 
-// ─────────────────────────────────────────────────────
-// 標記付款完成（寫入 Firebase payments_status collection）
-// rowId = Sheet CSV 行號（唯一識別）
-// ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+// 標記付款完成（寫入 Firebase payments_status，規則一）
+// ★ 只有 Firebase 案件資料可操作，CSV 禁止（規則七）
+// ══════════════════════════════════════════════════════
 function markPaymentPaid(rowId, paid) {
   var p = allPaymentItems.find(function(x) { return String(x._row) === String(rowId); });
   if (!p) return;
+  // ★ 安全檢查：CSV 資料不可標記（規則七）
+  if (p._source === 'csv') { toast('📄 外部帳款不可標記', '#dc2626'); return; }
+
   var dateEl = document.getElementById('pi-date');
   var amtEl  = document.getElementById('pi-amt');
   var actualDate = paid ? (dateEl ? dateEl.value : new Date().toISOString().slice(0,10)) : null;
-  var actualAmt  = paid ? (amtEl  ? parseFloat(amtEl.value) || p.amt : p.amt) : null;
+  var actualAmt  = paid ? (amtEl  ? parseFloat(amtEl.value)||p.amt : p.amt) : null;
 
-  // ── 1. 先更新本地，給使用者即時回饋 ──
+  // 1. 先更新本地（即時回饋）
   p.isPaid     = paid;
   p.actualDate = actualDate || '';
   p.isOverdue  = false;
@@ -3943,65 +4132,29 @@ function markPaymentPaid(rowId, paid) {
   toast(paid ? '⏳ 儲存中...' : '⏳ 取消中...', '#0369a1');
   renderPayments();
 
-  // ── 2. 寫入 Firebase payments_status（持久化）──
+  // 2. 寫入 Firebase payments_status（持久化）
   var db = getFirebaseDb();
-  if (!db) {
-    toast(paid ? '✅ 已標記（無 Firebase，僅本地）' : '↩ 已取消（僅本地）', paid ? '#16a34a' : '#64748b');
-    return;
-  }
-  // 用 rowId 做為文件 ID（安全化處理：去掉非法字元）
-  var docId = String(rowId).replace(/[^a-zA-Z0-9_\-]/g, '_');
+  if (!db) { toast('⚠️ Firebase 未連線，僅本地更新', '#d97706'); return; }
+  var docId = String(rowId).replace(/[^a-zA-Z0-9_\-]/g,'_');
   var data = {
-    rowId:       String(rowId),
-    note:        p.note        || '',
-    dept:        p.dept        || '',
-    dueDate:     p.dueDate     || '',
-    cur:         p.cur         || 'NTD',
-    amt:         p.amt         || 0,
-    paid:        paid,
-    actualDate:  actualDate    || null,
-    actualAmt:   actualAmt     || null,
-    updatedAt:   new Date().toISOString(),
-    updatedBy:   (curUser && curUser.name) || ''
+    rowId: String(rowId), note: p.note||'', dept: p.dept||'',
+    dueDate: p.dueDate||'', cur: p.cur||'NTD', amt: p.amt||0,
+    paid: paid, actualDate: actualDate||null, actualAmt: actualAmt||null,
+    updatedAt: new Date().toISOString(), updatedBy: (curUser&&curUser.name)||''
   };
-  db.collection('payments_status').doc(docId).set(data, { merge: true })
+  db.collection('payments_status').doc(docId).set(data, {merge:true})
     .then(function() {
-      var who = (curUser && curUser.name) || '?';
-      addLog(paid ? '標記已付' : '取消已付', who, (p.note || '款項'), paid ? ('實際日期：' + (actualDate||'')) : '取消標記', '');
-      toast(paid ? '✅ 已標記完成（已寫入 Firebase）' : '↩ 已取消（已寫入 Firebase）', paid ? '#16a34a' : '#64748b');
+      _fbPayStatus[String(rowId)] = data;
+      var who = (curUser&&curUser.name)||'?';
+      addLog(paid?'標記已付':'取消已付', who, p.note||'款項', paid?'實際日期：'+(actualDate||''):'取消標記', '');
+      toast(paid?'✅ 已標記完成':'↩ 已取消', paid?'#16a34a':'#64748b');
     })
     .catch(function(e) {
       console.error('payments_status 寫入失敗：', e);
-      toast('⚠️ 本地已更新，但 Firebase 寫入失敗：' + e.message, '#d97706');
+      toast('⚠️ Firebase 寫入失敗：'+e.message, '#d97706');
     });
 }
 
-// ─────────────────────────────────────────────────────
-// 從 Firebase payments_status 讀回付款狀態
-// 在 loadPayments 之後呼叫，將持久化狀態覆蓋回 allPaymentItems
-// ─────────────────────────────────────────────────────
-function loadPaymentStatusFromFirebase(cb) {
-  var db = getFirebaseDb();
-  if (!db) { if (cb) cb(); return; }
-  db.collection('payments_status').get()
-    .then(function(snap) {
-      snap.forEach(function(doc) {
-        var d = doc.data();
-        if (!d || !d.rowId) return;
-        var p = allPaymentItems.find(function(x) { return String(x._row) === String(d.rowId); });
-        if (p) {
-          p.isPaid     = !!d.paid;
-          p.actualDate = d.actualDate || '';
-          if (p.isPaid) p.isOverdue = false;
-        }
-      });
-      if (cb) cb();
-    })
-    .catch(function(e) {
-      console.warn('讀取 payments_status 失敗：', e);
-      if (cb) cb();
-    });
-}
 
 // ══════════════════════════════════════════════════════
 // 訂單轉入管理（Transfer）
@@ -4548,101 +4701,59 @@ function renderPagination(containerId, currentPage, totalPages, onPageChange) {
 }
 
 // ══════════════════════════════════════════════════════
-// 日曆整合：預估（Firebase）+ 實際帳款（Sheet）
+// 日曆整合：使用 buildCombinedPayments().calendar
+// Firebase（可操作）+ CSV（外部資料，只讀）
 // ══════════════════════════════════════════════════════
 function getPaymentsByDate() {
   var map = {};
+  var calItems = buildCombinedPayments().calendar;
 
-  // 1. Firebase 案件預估期數
-  rows.forEach(function(r) {
-    var status   = (r[F.status] || '').toString();
-    var approved = status === '是' || status.indexOf('同意') >= 0;
-    if (!approved) return;
-    var bps = getPeriods01(r, 'buy');
-    var sps = getPeriods01(r, 'sell');
-    var ct  = (r[F.type] || '').toString();
-    var isBuy  = ct.indexOf('採購') >= 0;
-    var isSell = ct.indexOf('銷售') >= 0;
-    if (isBuy) {
-      bps.forEach(function(p) {
-        var d = (p.date||'').replace(/\//g,'-').slice(0,10);
-        if (!d) return;
-        if (!map[d]) map[d] = {est:{buy:{},sell:{}}, actual:{buy:{},sell:{}}};
-        var c = p.cur||'TWD';
-        map[d].est.buy[c] = (map[d].est.buy[c]||0) + (p.amt||0);
-      });
-    }
-    if (isSell) {
-      sps.forEach(function(p) {
-        var d = (p.date||'').replace(/\//g,'-').slice(0,10);
-        if (!d) return;
-        if (!map[d]) map[d] = {est:{buy:{},sell:{}}, actual:{buy:{},sell:{}}};
-        var c = p.cur||'TWD';
-        map[d].est.sell[c] = (map[d].est.sell[c]||0) + (p.amt||0);
-      });
-    }
-  });
-
-  // 2. Sheet 帳款（allPaymentItems）應付
-  allPaymentItems.forEach(function(p) {
+  calItems.forEach(function(p) {
     var d = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
     if (!d) return;
-    if (!map[d]) map[d] = {est:{buy:{},sell:{}}, actual:{buy:{},sell:{}}};
+    if (!map[d]) map[d] = { payable:{}, receivable:{} };
     var c = (p.cur||'NTD').toUpperCase();
-    // Sheet 全是應付 → actual.buy
-    map[d].actual.buy[c] = (map[d].actual.buy[c]||0) + (p.amt||0);
+    var bucket = p.direction === 'receivable' ? 'receivable' : 'payable';
+    map[d][bucket][c] = (map[d][bucket][c]||0) + (p.amt||0);
   });
 
   return map;
 }
 
 // ─────────────────────────────────────────────────────
-// 點日期彈窗（分三區：應付/應收/預估）
+// 點日期彈窗（分三區：應付/應收/外部帳款）
 // ─────────────────────────────────────────────────────
 function showDayDetail(dateStr) {
   var dt = new Date(dateStr); if(isNaN(dt)) return;
   var label = (dt.getMonth()+1) + '月' + dt.getDate() + '日';
   document.getElementById('day-title').textContent = label;
 
-  // Sheet 帳款（當日）
-  var actItems = allPaymentItems.filter(function(p) {
+  var calItems = buildCombinedPayments().calendar;
+  var dayItems = calItems.filter(function(p) {
     return (p.dueDate||'').replace(/\//g,'-').slice(0,10) === dateStr;
   });
 
-  // Firebase 預估（當日）
-  var estBuy = [], estSell = [];
-  rows.forEach(function(r) {
-    var status   = (r[F.status]||'').toString();
-    var approved = status==='是'||status.indexOf('同意')>=0;
-    if(!approved) return;
-    var ct   = (r[F.type]||'').toString();
-    var fid  = (r[F.formId]||'').toString();
-    var nm   = (r[F.name]||'').toString();
-    getPeriods01(r,'buy').forEach(function(p) {
-      if((p.date||'').replace(/\//g,'-').slice(0,10)===dateStr)
-        estBuy.push({formId:fid,caseName:nm,cur:p.cur||'TWD',amt:p.amt||0,name:p.name||''});
-    });
-    getPeriods01(r,'sell').forEach(function(p) {
-      if((p.date||'').replace(/\//g,'-').slice(0,10)===dateStr)
-        estSell.push({formId:fid,caseName:nm,cur:p.cur||'TWD',amt:p.amt||0,name:p.name||''});
-    });
-  });
+  var payItems  = dayItems.filter(function(p) { return p.direction === 'payable'; });
+  var recvItems = dayItems.filter(function(p) { return p.direction === 'receivable'; });
 
   var html = '';
 
-  if(actItems.length) {
+  // 應付區
+  if (payItems.length) {
     html += '<div style="margin-bottom:14px;">';
-    html += '<div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">💸 應付帳款 ('+actItems.length+' 筆)</div>';
-    actItems.forEach(function(p) {
-      var cur = (p.cur||'NTD').toUpperCase();
-      var sym = {NTD:'NT$',TWD:'NT$',USD:'US$',JPY:'¥',EUR:'€',ZAR:'R'}[cur]||cur;
+    html += '<div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">💸 應付帳款 ('+payItems.length+' 筆)</div>';
+    payItems.forEach(function(p) {
+      var isCSV = p._source === 'csv';
       var stColor = p.isPaid?'#16a34a':p.isOverdue?'#dc2626':'#0369a1';
       var stText  = p.isPaid?'已付':p.isOverdue?'逾期':'應付';
       html += '<div style="background:'+(p.isOverdue?'#fef2f2':'#f8fafc')+';border-radius:8px;padding:10px 12px;margin-bottom:6px;">';
       html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-      html += '<div><span style="font-weight:700;font-size:13px;">'+(p.note||'—')+'</span>';
-      html += '<span style="font-size:11px;color:var(--muted);margin-left:8px;">'+(p.dept||'')+'·'+(p.category||'')+'</span></div>';
-      html += '<span style="font-size:14px;font-weight:700;color:var(--coral);font-family:\'DM Mono\',monospace;">'+sym+fmtN(p.amt)+'</span>';
+      html += '<div>';
+      html += '<span style="font-weight:700;font-size:13px;">'+(p.note||'—')+'</span>';
+      if (isCSV) html += '<span style="font-size:10px;background:#f0f9ff;color:#0369a1;border-radius:10px;padding:1px 6px;margin-left:6px;font-weight:700;">📄 外部</span>';
+      html += '<span style="font-size:11px;color:var(--muted);margin-left:8px;">'+(p.dept||'')+(p.category?'·'+p.category:'')+'</span>';
+      html += '</div>';
+      html += '<span style="font-size:14px;font-weight:700;color:var(--coral);font-family:\'DM Mono\',monospace;">'+formatCurrency(p.cur, p.amt)+'</span>';
       html += '</div>';
       html += '<div style="font-size:11px;color:'+stColor+';margin-top:3px;font-weight:700;">'+stText+'</div>';
       html += '</div>';
@@ -4650,35 +4761,29 @@ function showDayDetail(dateStr) {
     html += '</div>';
   }
 
-  if(estBuy.length) {
+  // 應收區
+  if (recvItems.length) {
     html += '<div style="margin-bottom:14px;">';
-    html += '<div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">📋 預估採購付款</div>';
-    estBuy.forEach(function(p) {
-      var cur=(p.cur||'TWD').toUpperCase();
-      var sym={TWD:'NT$',USD:'US$',JPY:'¥',EUR:'€'}[cur]||cur;
-      html+='<div style="background:#fffbeb;border:0.5px solid #fde68a;border-radius:8px;padding:8px 12px;margin-bottom:5px;">';
-      html+='<div style="display:flex;justify-content:space-between;"><span style="font-size:13px;">'+p.caseName+'</span><span style="font-size:12px;color:#d97706;font-family:\'DM Mono\',monospace;">預估 '+sym+fmtN(p.amt)+'</span></div>';
-      html+='<div style="font-size:11px;color:#64748b;margin-top:2px;">'+p.formId+(p.name?'　'+p.name:'')+'</div>';
-      html+='</div>';
+    html += '<div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">💰 應收帳款 ('+recvItems.length+' 筆)</div>';
+    recvItems.forEach(function(p) {
+      var isCSV = p._source === 'csv';
+      var stColor = p.isPaid?'#16a34a':p.isOverdue?'#dc2626':'#059669';
+      var stText  = p.isPaid?'已收':p.isOverdue?'逾期':'應收';
+      html += '<div style="background:#ecfdf5;border:0.5px solid #a7f3d0;border-radius:8px;padding:10px 12px;margin-bottom:6px;">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html += '<div>';
+      html += '<span style="font-weight:700;font-size:13px;">'+(p.note||p.caseName||'—')+'</span>';
+      if (isCSV) html += '<span style="font-size:10px;background:#f0f9ff;color:#0369a1;border-radius:10px;padding:1px 6px;margin-left:6px;font-weight:700;">📄 外部</span>';
+      html += '</div>';
+      html += '<span style="font-size:14px;font-weight:700;color:var(--jade);font-family:\'DM Mono\',monospace;">'+formatCurrency(p.cur, p.amt)+'</span>';
+      html += '</div>';
+      html += '<div style="font-size:11px;color:'+stColor+';margin-top:3px;font-weight:700;">'+stText+'</div>';
+      html += '</div>';
     });
     html += '</div>';
   }
 
-  if(estSell.length) {
-    html += '<div style="margin-bottom:14px;">';
-    html += '<div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">📋 預估銷售收款</div>';
-    estSell.forEach(function(p) {
-      var cur=(p.cur||'TWD').toUpperCase();
-      var sym={TWD:'NT$',USD:'US$',JPY:'¥',EUR:'€'}[cur]||cur;
-      html+='<div style="background:#ecfdf5;border:0.5px solid #a7f3d0;border-radius:8px;padding:8px 12px;margin-bottom:5px;">';
-      html+='<div style="display:flex;justify-content:space-between;"><span style="font-size:13px;">'+p.caseName+'</span><span style="font-size:12px;color:#059669;font-family:\'DM Mono\',monospace;">預估 '+sym+fmtN(p.amt)+'</span></div>';
-      html+='<div style="font-size:11px;color:#64748b;margin-top:2px;">'+p.formId+(p.name?'　'+p.name:'')+'</div>';
-      html+='</div>';
-    });
-    html += '</div>';
-  }
-
-  if(!html) html='<div class="empty"><span class="eico">📅</span>當日無款項記錄</div>';
+  if (!html) html = '<div class="empty"><span class="eico">📅</span>當日無款項記錄</div>';
   document.getElementById('day-body').innerHTML = html;
   document.getElementById('DayM').classList.add('open');
 }
