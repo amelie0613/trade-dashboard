@@ -1862,15 +1862,16 @@ function renderDaily(){
     var hasBuy  = caseType.indexOf('採購')>=0;
     var hasSell = caseType.indexOf('銷售')>=0;
 
-    // 採購分期（已審核 approved 的期別不顯示在日曆）
+    // 採購分期：直接從 Firebase r.purchase.periods 讀取，過濾 approved
     if(hasBuy){
-      var bps = getPeriods01(r, 'buy');
+      var rawBps = (r.purchase && r.purchase.periods) ? r.purchase.periods : null;
+      var bps = rawBps || getPeriods01(r, 'buy'); // fallback 舊格式
       for(var bi=0; bi<bps.length; bi++){
         var bp = bps[bi];
-        if(bp.status === 'approved') continue; // ★ 已審核不顯示
-        var bAmt  = bp.amt || 0;
-        var bDate = (bp.date||'').toString().trim();
-        var bCur  = (bp.cur||'TWD').toUpperCase();
+        if((bp.status||'') === 'approved') continue; // ★ 已審核不顯示在日曆
+        var bAmt  = parseFloat(bp.amount || bp.amt) || 0;
+        var bDate = (bp.expectedDate || bp.date || '').toString().trim();
+        var bCur  = (bp.currency || bp.cur || 'TWD').toUpperCase();
         var bName = bp.name || ('第'+(bi+1)+'期');
         if(!bAmt||!bDate) continue;
         var bDateStr = bDate.replace(/[\/-]/g,'-');
@@ -1879,15 +1880,16 @@ function renderDaily(){
         addEst(bObj.getDate(), 'buy', bCur, bAmt, caseName, formId, bName);
       }
     }
-    // 銷售分期（已審核 approved 的期別不顯示在日曆）
+    // 銷售分期：直接從 Firebase r.sales.periods 讀取，過濾 approved
     if(hasSell){
-      var sps = getPeriods01(r, 'sell');
+      var rawSps = (r.sales && r.sales.periods) ? r.sales.periods : null;
+      var sps = rawSps || getPeriods01(r, 'sell'); // fallback 舊格式
       for(var si=0; si<sps.length; si++){
         var sp = sps[si];
-        if(sp.status === 'approved') continue; // ★ 已審核不顯示
-        var sAmt  = sp.amt || 0;
-        var sDate = (sp.date||'').toString().trim();
-        var sCur  = (sp.cur||'TWD').toUpperCase();
+        if((sp.status||'') === 'approved') continue; // ★ 已審核不顯示在日曆
+        var sAmt  = parseFloat(sp.amount || sp.amt) || 0;
+        var sDate = (sp.expectedDate || sp.date || '').toString().trim();
+        var sCur  = (sp.currency || sp.cur || 'TWD').toUpperCase();
         var sName = sp.name || ('第'+(si+1)+'期');
         if(!sAmt||!sDate) continue;
         var sDateStr = sDate.replace(/[\/-]/g,'-');
@@ -3849,9 +3851,10 @@ function markPaymentPaid(rowId, paid) {
 // 訂單轉入管理（Transfer）
 // 顯示：已簽核 Firebase 案件，拆成期別明細列
 // ══════════════════════════════════════════════════════
-var _transferPage  = 1;
+var _transferPage   = 1;
 var TRANSFER_PAGE_SIZE = 10;
-var _transferItems = [];
+var _transferItems  = [];
+var _transferFilter = 'pending'; // 'pending' | 'approved'
 
 function loadTransfer() {
   var el = document.getElementById('transfer-pending');
@@ -3865,101 +3868,111 @@ function _buildTransferItems() {
   _transferItems = [];
 
   rows.forEach(function(r) {
-    var status   = (r[F.status] || '').toString();
-    var approved = status === '是' || status.indexOf('同意') >= 0;
-    if (!approved) return;
+    // 老闆已審核同意
+    var bossStatus = (r[F.status] || '').toString();
+    var bossApproved = bossStatus === '是' || bossStatus.indexOf('同意') >= 0;
+    if (!bossApproved) return;
 
     var formId   = (r[F.formId] || '').toString();
-    var caseName = (r[F.name] || '').toString();
-    var staff    = (r[F.staff] || '').toString();
-    var caseType = (r[F.type] || '').toString();
+    var caseName = (r[F.name]   || '').toString();
+    var staff    = (r[F.staff]  || '').toString();
+    var caseType = (r[F.type]   || '').toString();
     var isBuy    = caseType.indexOf('採購') >= 0;
     var isSell   = caseType.indexOf('銷售') >= 0;
 
-    var buyPeriods  = getPeriods01(r, 'buy');
-    var sellPeriods = getPeriods01(r, 'sell');
+    // ★ 直接從 Firebase 原始巢狀結構讀取
+    // r._fbRaw 是 normalizeRow 前的原始 Firebase 物件，存在 r._raw 或 r 本身
+    // purchase.periods / sales.periods 是陣列，每個元素含 acctNote / status
+    var rawPurchasePeriods = (r.purchase && r.purchase.periods) ? r.purchase.periods : null;
+    var rawSalesPeriods    = (r.sales    && r.sales.periods)    ? r.sales.periods    : null;
 
     if (isBuy) {
-      if (buyPeriods.length) {
-        buyPeriods.forEach(function(p, idx) {
-          var dueDate = p.date ? new Date(p.date.replace(/\//g,'-')) : null;
-          // 已審核的期別不顯示（status==='approved'）
-          if (p.status === 'approved') return;
+      var bps = rawPurchasePeriods;
+      if (bps && bps.length) {
+        bps.forEach(function(p, idx) {
+          var dateStr  = p.expectedDate || p.date || '';
+          var dueDate  = dateStr ? new Date(dateStr.replace(/\//g,'-')) : null;
+          var periodStatus = (p.status || '').toString();
           _transferItems.push({
-            _row:       formId + '_buy_' + idx,
+            _row:        formId + '_buy_' + idx,
             _firebaseRow: r._row,
-            formId:     formId,
-            caseName:   caseName,
-            staff:      staff,
-            caseType:   caseType,
-            direction:  'payable',
-            type:       '採購',
-            periodName: p.name || ('第'+(idx+1)+'期'),
-            periodIdx:  idx,
-            cur:        p.cur || 'TWD',
-            amt:        p.amt || 0,
-            dueDate:    p.date || '',
-            isOverdue:  dueDate && dueDate < today,
-            confirmed:  false,
-            acctNote:   p.acctNote || ''
+            formId:      formId,
+            caseName:    caseName,
+            staff:       staff,
+            caseType:    caseType,
+            direction:   'payable',
+            periodType:  'purchase',           // ★ 記錄是 purchase 還是 sales
+            periodName:  p.name || ('第'+(idx+1)+'期'),
+            periodIdx:   idx,
+            cur:         (p.currency || p.cur || 'TWD').toUpperCase(),
+            amt:         parseFloat(p.amount || p.amt) || 0,
+            dueDate:     dateStr,
+            isOverdue:   dueDate && dueDate < today && periodStatus !== 'approved',
+            confirmed:   periodStatus === 'approved',
+            acctNote:    p.acctNote || '',
+            periodStatus: periodStatus
           });
         });
       } else {
-        var buyCur = ((r[F.buyCur]||'TWD')).toUpperCase();
-        var buyAmt = parseFloat(r[F.buyAmt])||0;
-        if (buyAmt) {
-          var d = r[F.buyDate]||'';
-          var dd = d ? new Date(d.replace(/\//g,'-')) : null;
+        // fallback: 從 getPeriods01 取（舊格式）
+        var bpsFallback = getPeriods01(r, 'buy');
+        bpsFallback.forEach(function(p, idx) {
+          var dueDate = p.date ? new Date(p.date.replace(/\//g,'-')) : null;
           _transferItems.push({
-            _row: formId+'_buy_0', _firebaseRow: r._row,
+            _row: formId+'_buy_'+idx, _firebaseRow: r._row,
             formId: formId, caseName: caseName, staff: staff, caseType: caseType,
-            direction: 'payable', type: '採購', periodName: '全額',
-            cur: buyCur, amt: buyAmt, dueDate: d,
-            isOverdue: dd && dd < today, confirmed: false
+            direction: 'payable', periodType: 'purchase',
+            periodName: p.name || ('第'+(idx+1)+'期'), periodIdx: idx,
+            cur: (p.cur||'TWD').toUpperCase(), amt: p.amt||0, dueDate: p.date||'',
+            isOverdue: dueDate && dueDate < today, confirmed: false,
+            acctNote: '', periodStatus: ''
           });
-        }
+        });
       }
     }
 
     if (isSell) {
-      if (sellPeriods.length) {
-        sellPeriods.forEach(function(p, idx) {
-          var dueDate = p.date ? new Date(p.date.replace(/\//g,'-')) : null;
-          // 已審核的期別不顯示
-          if (p.status === 'approved') return;
+      var sps = rawSalesPeriods;
+      if (sps && sps.length) {
+        sps.forEach(function(p, idx) {
+          var dateStr  = p.expectedDate || p.date || '';
+          var dueDate  = dateStr ? new Date(dateStr.replace(/\//g,'-')) : null;
+          var periodStatus = (p.status || '').toString();
           _transferItems.push({
-            _row:       formId + '_sell_' + idx,
+            _row:        formId + '_sell_' + idx,
             _firebaseRow: r._row,
-            formId:     formId,
-            caseName:   caseName,
-            staff:      staff,
-            caseType:   caseType,
-            direction:  'receivable',
-            type:       '銷售',
-            periodName: p.name || ('第'+(idx+1)+'期'),
-            periodIdx:  idx,
-            cur:        p.cur || 'TWD',
-            amt:        p.amt || 0,
-            dueDate:    p.date || '',
-            isOverdue:  dueDate && dueDate < today,
-            confirmed:  false,
-            acctNote:   p.acctNote || ''
+            formId:      formId,
+            caseName:    caseName,
+            staff:       staff,
+            caseType:    caseType,
+            direction:   'receivable',
+            periodType:  'sales',              // ★
+            periodName:  p.name || ('第'+(idx+1)+'期'),
+            periodIdx:   idx,
+            cur:         (p.currency || p.cur || 'TWD').toUpperCase(),
+            amt:         parseFloat(p.amount || p.amt) || 0,
+            dueDate:     dateStr,
+            isOverdue:   dueDate && dueDate < today && periodStatus !== 'approved',
+            confirmed:   periodStatus === 'approved',
+            acctNote:    p.acctNote || '',
+            periodStatus: periodStatus
           });
         });
       } else {
-        var sellCur = ((r[F.sellCur]||'TWD')).toUpperCase();
-        var sellAmt = parseFloat(r[F.sellAmt])||0;
-        if (sellAmt) {
-          var d2 = r[F.sellDate]||'';
-          var dd2 = d2 ? new Date(d2.replace(/\//g,'-')) : null;
+        // fallback: 舊格式
+        var spsFallback = getPeriods01(r, 'sell');
+        spsFallback.forEach(function(p, idx) {
+          var dueDate = p.date ? new Date(p.date.replace(/\//g,'-')) : null;
           _transferItems.push({
-            _row: formId+'_sell_0', _firebaseRow: r._row,
+            _row: formId+'_sell_'+idx, _firebaseRow: r._row,
             formId: formId, caseName: caseName, staff: staff, caseType: caseType,
-            direction: 'receivable', type: '銷售', periodName: '全額',
-            cur: sellCur, amt: sellAmt, dueDate: d2,
-            isOverdue: dd2 && dd2 < today, confirmed: false
+            direction: 'receivable', periodType: 'sales',
+            periodName: p.name || ('第'+(idx+1)+'期'), periodIdx: idx,
+            cur: (p.cur||'TWD').toUpperCase(), amt: p.amt||0, dueDate: p.date||'',
+            isOverdue: dueDate && dueDate < today, confirmed: false,
+            acctNote: '', periodStatus: ''
           });
-        }
+        });
       }
     }
   });
@@ -3972,26 +3985,48 @@ function _renderTransfer() {
   var el = document.getElementById('transfer-pending');
   if (!el) return;
 
-  var pending = _transferItems.filter(function(p) { return !p.confirmed; });
+  // ★ 依篩選條件決定顯示哪些
+  var displayItems = _transferItems.filter(function(p) {
+    if (_transferFilter === 'approved') return p.periodStatus === 'approved';
+    return p.periodStatus !== 'approved'; // 預設：待確認
+  });
 
-  if (!pending.length) {
-    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">'+
-      '<div style="font-size:32px;margin-bottom:12px;">✅</div>'+
-      '<div style="font-size:15px;font-weight:700;">所有已簽核案件均已確認</div>'+
-      '</div>';
+  // ── 篩選按鈕列 ──
+  var filterHtml =
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">' +
+    '<button onclick="_setTransferFilter('pending')" ' +
+      'style="padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ' +
+      (_transferFilter==='pending' ? 'var(--sea);background:var(--sea);color:#fff;' : 'var(--border);background:var(--card);color:var(--muted);') + '">' +
+      '⏳ 待確認</button>' +
+    '<button onclick="_setTransferFilter('approved')" ' +
+      'style="padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ' +
+      (_transferFilter==='approved' ? 'var(--jade);background:var(--jade);color:#fff;' : 'var(--border);background:var(--card);color:var(--muted);') + '">' +
+      '✅ 已確認</button>' +
+    '<span style="font-size:12px;color:var(--muted);margin-left:4px;">' + displayItems.length + ' 筆</span>' +
+    '</div>';
+
+  if (!displayItems.length) {
+    el.innerHTML = filterHtml +
+      '<div style="text-align:center;padding:40px;color:var(--muted);">' +
+      '<div style="font-size:32px;margin-bottom:12px;">' +
+      (_transferFilter==='approved' ? '📋' : '✅') + '</div>' +
+      '<div style="font-size:15px;font-weight:700;">' +
+      (_transferFilter==='approved' ? '尚無已確認的資料' : '所有已簽核案件均已確認') +
+      '</div></div>';
     document.getElementById('transfer-pagination').innerHTML = '';
     return;
   }
 
-  var total    = pending.length;
+  var total    = displayItems.length;
   var pages    = Math.ceil(total / TRANSFER_PAGE_SIZE) || 1;
   if (_transferPage > pages) _transferPage = pages;
   var start    = (_transferPage - 1) * TRANSFER_PAGE_SIZE;
-  var pageData = pending.slice(start, start + TRANSFER_PAGE_SIZE);
+  var pageData = displayItems.slice(start, start + TRANSFER_PAGE_SIZE);
 
-  var html = '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">共 '+total+' 筆待確認</div>';
+  var html = filterHtml;
   html += '<div class="twrap"><table class="tbl">';
-  html += '<thead><tr><th>案號</th><th>業務</th><th>業務屬性</th><th>案件名稱</th><th>期數</th><th>幣別</th><th>金額</th><th>預計付款日</th><th style="min-width:160px;">帳務備註</th><th>審核</th></tr></thead><tbody>';
+  var isApprView = _transferFilter === 'approved';
+  html += '<thead><tr><th>案號</th><th>業務</th><th>業務屬性</th><th>案件名稱</th><th>期數</th><th>幣別</th><th>金額</th><th>預計付款日</th><th style="min-width:160px;">帳務備註</th><th>' + (isApprView ? '確認時間' : '審核') + '</th></tr></thead><tbody>';
 
   pageData.forEach(function(p) {
     var isPayable = p.direction === 'payable';
@@ -4047,12 +4082,18 @@ function _renderTransfer() {
       + 'border-radius:7px;padding:5px 8px;font-size:12px;outline:none;font-family:inherit;">'
       + '</td>';
 
-    // ★ 審核按鈕 → approveTransfer(formId, periodIdx)
-    html += '<td>'
-      + '<button class="btn-v"'
-      + ' onclick="approveTransfer(\''+p.formId+'\', '+(p.periodIdx||0)+')"'
-      + ' style="background:#16a34a;white-space:nowrap;">✅ 確認</button>'
-      + '</td>';
+    // ★ 審核欄：待確認顯示按鈕，已確認顯示時間
+    if (_transferFilter === 'approved') {
+      html += '<td style="font-size:11px;color:var(--muted);">'
+        + (p.approvedAt ? p.approvedAt.slice(0,10) : '已確認')
+        + '</td>';
+    } else {
+      html += '<td>'
+        + '<button class="btn-v"'
+        + ' onclick="approveTransfer(\''+p.formId+'\', '+(p.periodIdx||0)+', \''+p.periodType+'\')"'
+        + ' style="background:#16a34a;white-space:nowrap;">✅ 確認</button>'
+        + '</td>';
+    }
 
     html += '</tr>';
   });
@@ -4066,18 +4107,70 @@ function _renderTransfer() {
   });
 }
 
-// ── 預計付款日更新 → Firebase payments.N.date ────────
+// ── 取得 Firebase 某案件的某 periods 陣列（raw）──────
+// periodType: 'purchase' | 'sales'
+function _getFirebasePeriodsRef(formId, periodType) {
+  var r = rows.find(function(x) { return (x[F.formId] || x['表單編號'] || '') === formId; });
+  if (!r) return null;
+  if (periodType === 'purchase') return (r.purchase && r.purchase.periods) ? r.purchase.periods : null;
+  if (periodType === 'sales')    return (r.sales    && r.sales.periods)    ? r.sales.periods    : null;
+  return null;
+}
+
+// ── 整包 periods 寫回 Firebase（唯一正確方式）─────────
+// 用 set({merge:true}) 以 dot-notation key：purchase.periods / sales.periods
+function _writePeriodsToFirebase(formId, periodType, periodsArray, cb) {
+  var db = getFirebaseDb();
+  if (!db) { if(cb) cb(false); return; }
+  var key = (periodType === 'purchase') ? 'purchase.periods' : 'sales.periods';
+  var fields = {};
+  fields[key] = periodsArray;
+  fields['meta.updatedAt'] = new Date().toISOString();
+  // Firestore set with merge: true — 只覆蓋指定路徑，其餘欄位不動
+  db.collection('cases').doc(formId).set(fields, { merge: true })
+    .then(function() {
+      // ★ 同步更新 rows 本地快取，讓下次 _buildTransferItems 能讀到新值
+      var r = rows.find(function(x) { return (x[F.formId]||x['表單編號']||'') === formId; });
+      if (r) {
+        if (periodType === 'purchase') {
+          if (!r.purchase) r.purchase = {};
+          r.purchase.periods = periodsArray;
+        } else {
+          if (!r.sales) r.sales = {};
+          r.sales.periods = periodsArray;
+        }
+      }
+      if (cb) cb(true);
+    })
+    .catch(function(e) {
+      console.error('_writePeriodsToFirebase 失敗：', e);
+      if (cb) cb(false);
+    });
+}
+
+// ── 預計付款日更新 → 整包 periods 寫回 ───────────────
 function updatePayDate(rowId, newDate) {
   if (!newDate) return;
   var p = _transferItems.find(function(x) { return String(x._row) === String(rowId); });
   if (!p) return;
-  p.dueDate = newDate;
-  var fields = {};
-  fields['payments.' + (p.periodIdx || 0) + '.date'] = newDate;
-  fields['meta.updatedAt'] = new Date().toISOString();
-  updateFirebase(p.formId, fields, function(ok) {
-    if (ok) toast('📅 日期已更新', '#0369a1');
-    else    toast('❌ 更新失敗，請重試', '#dc2626');
+  var periods = _getFirebasePeriodsRef(p.formId, p.periodType);
+  if (!periods) {
+    toast('❌ 找不到 periods 資料', '#dc2626');
+    return;
+  }
+  // 深複製後修改，避免直接改快取
+  var updated = JSON.parse(JSON.stringify(periods));
+  var target  = updated[p.periodIdx];
+  if (!target) { toast('❌ 找不到該期別', '#dc2626'); return; }
+  target.expectedDate = newDate;
+  target.date         = newDate; // 相容舊欄位
+  _writePeriodsToFirebase(p.formId, p.periodType, updated, function(ok) {
+    if (ok) {
+      p.dueDate = newDate;
+      toast('📅 日期已更新', '#0369a1');
+    } else {
+      toast('❌ 更新失敗，請重試', '#dc2626');
+    }
   });
 }
 
@@ -4086,7 +4179,6 @@ function editNote(safeId) {
   var textEl  = document.getElementById('note-text-'  + safeId);
   var inputEl = document.getElementById('note-input-' + safeId);
   if (!textEl || !inputEl) return;
-  // 把現有備註（非預設文字）帶入輸入框
   var cur = textEl.innerText;
   inputEl.value = (cur === '（點擊輸入備註）') ? '' : cur;
   textEl.style.display  = 'none';
@@ -4094,53 +4186,75 @@ function editNote(safeId) {
   inputEl.focus();
 }
 
-// ── inline-edit：失焦或 Enter → 儲存並寫 Firebase ────
+// ── inline-edit：失焦或 Enter → 整包 periods 寫回 ────
 function saveNote(safeId, formId, periodIdx) {
   var textEl  = document.getElementById('note-text-'  + safeId);
   var inputEl = document.getElementById('note-input-' + safeId);
   if (!textEl || !inputEl) return;
   var val = inputEl.value.trim();
-  // 先切回顯示（避免重複觸發 onblur）
+  // UI 先切回顯示（避免重複觸發 onblur）
   inputEl.style.display = 'none';
   textEl.style.display  = 'block';
-  // 更新顯示文字
   textEl.innerText = val || '（點擊輸入備註）';
   textEl.style.color = val ? 'var(--ink)' : '#94a3b8';
-  // 更新本地資料
+
+  // 找對應 item，得到 periodType
   var p = _transferItems.find(function(x) {
     return x.formId === formId && (x.periodIdx || 0) === periodIdx;
   });
-  if (p) p.acctNote = val;
-  // 寫 Firebase：只改 payments.N.acctNote，不動其他欄位
-  var fields = {};
-  fields['payments.' + periodIdx + '.acctNote'] = val;
-  fields['meta.updatedAt'] = new Date().toISOString();
-  updateFirebase(formId, fields, function(ok) {
+  if (!p) return;
+  p.acctNote = val;
+
+  var periods = _getFirebasePeriodsRef(formId, p.periodType);
+  if (!periods) { toast('❌ 找不到 periods', '#dc2626'); return; }
+  var updated = JSON.parse(JSON.stringify(periods));
+  var target  = updated[periodIdx];
+  if (!target) { toast('❌ 找不到該期別', '#dc2626'); return; }
+  // ★ 寫入 acctNote，不動 amount/currency/name/expectedDate 等
+  target.acctNote = val;
+  _writePeriodsToFirebase(formId, p.periodType, updated, function(ok) {
     if (ok) toast('📝 備註已儲存', '#0369a1');
     else    toast('❌ 儲存失敗', '#dc2626');
   });
 }
 
-// ── 確認審核 → payments.N.status = 'approved' ────────
-function approveTransfer(formId, periodIdx) {
-  // 本地標記
+// ── 篩選切換 ─────────────────────────────────────────
+function _setTransferFilter(f) {
+  _transferFilter = f;
+  _transferPage   = 1;
+  _renderTransfer();
+}
+
+// ── 確認審核 → 整包 periods 寫回（status = approved）──
+function approveTransfer(formId, periodIdx, periodType) {
+  // 找 item（確保 periodType 正確）
   var p = _transferItems.find(function(x) {
     return x.formId === formId && (x.periodIdx || 0) === periodIdx;
   });
-  if (p) { p.confirmed = true; }
-  // 只寫指定 period 的 status + approvedAt，不覆蓋整筆
-  var fields = {};
-  fields['payments.' + periodIdx + '.status']     = 'approved';
-  fields['payments.' + periodIdx + '.approvedAt'] = new Date().toISOString();
-  fields['meta.updatedAt'] = new Date().toISOString();
-  updateFirebase(formId, fields, function(ok) {
+  var pType = (p && p.periodType) || periodType || 'purchase';
+
+  var periods = _getFirebasePeriodsRef(formId, pType);
+  if (!periods) { toast('❌ 找不到 periods 資料', '#dc2626'); return; }
+  var updated = JSON.parse(JSON.stringify(periods));
+  var target  = updated[periodIdx];
+  if (!target) { toast('❌ 找不到該期別', '#dc2626'); return; }
+  // ★ 只修改 status + approvedAt，不動金額/日期/備註等其他欄位
+  target.status     = 'approved';
+  target.approvedAt = new Date().toISOString();
+
+  _writePeriodsToFirebase(formId, pType, updated, function(ok) {
     if (ok) {
+      // 同步本地 _transferItems
+      if (p) {
+        p.confirmed     = true;
+        p.periodStatus  = 'approved';
+        p.approvedAt    = target.approvedAt;
+      }
       toast('✅ 已審核確認', '#16a34a');
-      // 重新載入讓畫面同步（排除已審核的 period）
-      _renderTransfer();
+      // 重建清單（讀取最新 rows，包含剛寫回的資料）
+      _buildTransferItems();
     } else {
-      toast('❌ 寫入失敗，本地已標記', '#d97706');
-      _renderTransfer();
+      toast('❌ 寫入失敗，請重試', '#d97706');
     }
   });
 }
