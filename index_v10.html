@@ -3919,8 +3919,27 @@ function _buildTransferItems() {
           });
         });
       } else {
-        // fallback: 從 getPeriods01 取（舊格式）
+        // fallback: 舊格式 → 用 getPeriods01 初始化，並一次性寫入 Firebase
         var bpsFallback = getPeriods01(r, 'buy');
+        if (bpsFallback.length > 0) {
+          // 轉換為 Firestore 巢狀格式並寫回，之後 refresh 就能讀到
+          var initBuyPeriods = bpsFallback.map(function(p) {
+            return {
+              name: p.name || '', currency: p.cur || 'TWD',
+              amount: p.amt || 0, expectedDate: p.date || '',
+              note: p.note || '', status: '', acctNote: ''
+            };
+          });
+          // 非同步寫回，不阻塞畫面
+          (function(fid, arr) {
+            _writePeriodsToFirebase(fid, 'purchase', arr, function(ok) {
+              if (ok) console.log('✅ 初始化 purchase.periods：' + fid);
+            });
+          })(formId, initBuyPeriods);
+          // 同步更新本地快取
+          if (!r.purchase) r.purchase = {};
+          r.purchase.periods = initBuyPeriods;
+        }
         bpsFallback.forEach(function(p, idx) {
           var dueDate = p.date ? new Date(p.date.replace(/\//g,'-')) : null;
           _transferItems.push({
@@ -3964,8 +3983,24 @@ function _buildTransferItems() {
           });
         });
       } else {
-        // fallback: 舊格式
+        // fallback: 舊格式 → 一次性初始化寫入 Firebase
         var spsFallback = getPeriods01(r, 'sell');
+        if (spsFallback.length > 0) {
+          var initSellPeriods = spsFallback.map(function(p) {
+            return {
+              name: p.name || '', currency: p.cur || 'TWD',
+              amount: p.amt || 0, expectedDate: p.date || '',
+              note: p.note || '', status: '', acctNote: ''
+            };
+          });
+          (function(fid, arr) {
+            _writePeriodsToFirebase(fid, 'sales', arr, function(ok) {
+              if (ok) console.log('✅ 初始化 sales.periods：' + fid);
+            });
+          })(formId, initSellPeriods);
+          if (!r.sales) r.sales = {};
+          r.sales.periods = initSellPeriods;
+        }
         spsFallback.forEach(function(p, idx) {
           var dueDate = p.date ? new Date(p.date.replace(/\//g,'-')) : null;
           _transferItems.push({
@@ -4127,16 +4162,16 @@ function _getFirebasePeriodsRef(formId, periodType) {
 // ── 整包 periods 寫回 Firebase（唯一正確方式）─────────
 // 用 set({merge:true}) 以 dot-notation key：purchase.periods / sales.periods
 function _writePeriodsToFirebase(formId, periodType, periodsArray, cb) {
-  var db = getFirebaseDb();
-  if (!db) { if(cb) cb(false); return; }
+  // ★ 必須用 update()（dot notation），不可用 set({merge:true})
+  //   set() 不支援 dot notation，會建立名稱為 "purchase.periods" 的頂層欄位
   var key = (periodType === 'purchase') ? 'purchase.periods' : 'sales.periods';
   var fields = {};
   fields[key] = periodsArray;
   fields['meta.updatedAt'] = new Date().toISOString();
-  // Firestore set with merge: true — 只覆蓋指定路徑，其餘欄位不動
-  db.collection('cases').doc(formId).set(fields, { merge: true })
-    .then(function() {
-      // ★ 同步更新 rows 本地快取，讓下次 _buildTransferItems 能讀到新值
+
+  updateFirebase(formId, fields, function(ok) {
+    if (ok) {
+      // ★ 同步更新 rows 本地快取（讓 _buildTransferItems / renderDaily 立即反映）
       var r = rows.find(function(x) { return (x[F.formId]||x['表單編號']||'') === formId; });
       if (r) {
         if (periodType === 'purchase') {
@@ -4146,13 +4181,12 @@ function _writePeriodsToFirebase(formId, periodType, periodsArray, cb) {
           if (!r.sales) r.sales = {};
           r.sales.periods = periodsArray;
         }
+        // ★ 同步清除 localStorage 快取，避免 refresh 後讀到舊資料
+        try { localStorage.removeItem('cases_cache'); localStorage.removeItem('cases_cache_time'); } catch(e) {}
       }
-      if (cb) cb(true);
-    })
-    .catch(function(e) {
-      console.error('_writePeriodsToFirebase 失敗：', e);
-      if (cb) cb(false);
-    });
+    }
+    if (cb) cb(ok);
+  });
 }
 
 // ── 預計付款日更新 → 整包 periods 寫回 ───────────────
