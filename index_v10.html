@@ -239,8 +239,9 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .day-item{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;border-radius:8px;margin-bottom:6px;}
 .day-item-label{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-bottom:4px;}
 /* ── 月份統計卡片 ── */
-.msum-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:16px;}
-@media(max-width:700px){.msum-grid{grid-template-columns:1fr 1fr;}}
+.msum-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+@media(max-width:900px){.msum-grid{grid-template-columns:1fr 1fr 1fr;}}
+@media(max-width:600px){.msum-grid{grid-template-columns:1fr 1fr;}}
 .msum-card{border-radius:14px;padding:14px 16px;position:relative;overflow:hidden;}
 .msum-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;}
 .msum-ap{background:#fff5f5;border:1px solid #fecaca;}.msum-ap::before{background:linear-gradient(90deg,#dc2626,#f87171);}
@@ -1915,14 +1916,15 @@ function loadPayments(cb){
 }
 
 // ══════════════════════════════════════════════════════
-// 當月應收應付統計卡片
+// 當月統計卡片（5張）
+// CSV → 真實帳款（貿易/船務 應付/應收）
+// Firebase → 案件預估（第5張，黃色）
 // ══════════════════════════════════════════════════════
 function calcMonthlySummary(calItems, yr, mo) {
   var result = {
-    trade: { rcv:0, ap:0, forecastRcv:0, forecastAp:0,
-             rcvCur:{}, apCur:{}, fRcvCur:{}, fApCur:{} },
-    ship:  { rcv:0, ap:0, forecastRcv:0, forecastAp:0,
-             rcvCur:{}, apCur:{}, fRcvCur:{}, fApCur:{} }
+    trade: { rcvCur:{}, apCur:{} },
+    ship:  { rcvCur:{}, apCur:{} },
+    fcst:  { rcvCur:{}, apCur:{} }   // Firebase 預估（不分部門）
   };
   calItems.forEach(function(item) {
     var d = item.date || '';
@@ -1931,30 +1933,24 @@ function calcMonthlySummary(calItems, yr, mo) {
     var iMo = parseInt(d.slice(5,7),10)-1;
     if (iYr !== yr || iMo !== mo) return;
 
-    var isForecast = item.isForecast || item.source === 'firebase';
-    var isCSVItem  = item.source === 'csv';
-    // CSV = 非預估實際；firebase periods = 預估
-    var dept = item.dept === '船務' ? 'ship' : 'trade';
-    var cur  = (item.cur||'NTD').toUpperCase();
-    var amt  = item.amt || 0;
+    var cur = (item.cur||'NTD').toUpperCase();
+    var amt = item.amt || 0;
+    if (!amt) return;
 
-    if (isCSVItem) {
-      // CSV 視為實際帳款
+    // ── 規則：source==='firebase' → 預估；source==='csv' → 真實 ──
+    if (item.source === 'firebase') {
       if (item.direction === 'receivable') {
-        result[dept].rcv += amt;
-        result[dept].rcvCur[cur] = (result[dept].rcvCur[cur]||0) + amt;
+        result.fcst.rcvCur[cur] = (result.fcst.rcvCur[cur]||0) + amt;
       } else {
-        result[dept].ap += amt;
-        result[dept].apCur[cur] = (result[dept].apCur[cur]||0) + amt;
+        result.fcst.apCur[cur] = (result.fcst.apCur[cur]||0) + amt;
       }
     } else {
-      // Firebase periods = 預估
+      // CSV → 依部門分類
+      var dept = item.dept === '船務' ? 'ship' : 'trade';
       if (item.direction === 'receivable') {
-        result[dept].forecastRcv += amt;
-        result[dept].fRcvCur[cur] = (result[dept].fRcvCur[cur]||0) + amt;
+        result[dept].rcvCur[cur] = (result[dept].rcvCur[cur]||0) + amt;
       } else {
-        result[dept].forecastAp += amt;
-        result[dept].fApCur[cur] = (result[dept].fApCur[cur]||0) + amt;
+        result[dept].apCur[cur] = (result[dept].apCur[cur]||0) + amt;
       }
     }
   });
@@ -1966,50 +1962,68 @@ function renderMonthlySummary(calItems, yr, mo) {
   if (!el) return;
 
   var sum = calcMonthlySummary(calItems, yr, mo);
-  var moLabel = yr + '年' + (mo+1) + '月';
+  var moLabel = yr+'年'+(mo+1)+'月';
 
   function fmtCurMap(map) {
     var keys = Object.keys(map);
-    if (!keys.length) return '—';
+    if (!keys.length) return null;
     return keys.map(function(c){ return formatCurrency(c, map[c]); }).join('　');
   }
 
-  function makeCard(deptLabel, deptKey, type) {
-    var isAp   = type === 'ap';
+  // ── CSV 真實帳款卡（4張）──
+  function makeCsvCard(deptLabel, deptKey, type) {
+    var isAp    = type === 'ap';
     var cardCls = isAp ? 'msum-card msum-ap' : 'msum-card msum-rcv';
     var amtColor= isAp ? '#dc2626' : '#1d4ed8';
     var typeText= isAp ? '↓ 應付' : '↑ 應收';
     var deptIcon= deptLabel === '船務' ? '🚢' : '📦';
-    var actual  = isAp ? sum[deptKey].ap  : sum[deptKey].rcv;
-    var fcst    = isAp ? sum[deptKey].forecastAp : sum[deptKey].forecastRcv;
-    var actualCur = isAp ? sum[deptKey].apCur : sum[deptKey].rcvCur;
-    var fcstCur   = isAp ? sum[deptKey].fApCur : sum[deptKey].fRcvCur;
-    var hasActual = actual > 0;
-    var hasFcst   = fcst  > 0;
+    var curMap  = isAp ? sum[deptKey].apCur : sum[deptKey].rcvCur;
+    var amtStr  = fmtCurMap(curMap);
 
     var html = '<div class="'+cardCls+'">';
-    html += '<div class="msum-dept"><span>'+deptIcon+'</span> '+deptLabel+'</div>';
+    html += '<div class="msum-dept">'+deptIcon+' '+deptLabel+'</div>';
     html += '<div class="msum-type" style="color:'+amtColor+';">'+typeText+'</div>';
-
-    if (hasActual) {
-      html += '<div class="msum-amt" style="color:'+amtColor+';">'+fmtCurMap(actualCur)+'</div>';
-    } else {
-      html += '<div class="msum-amt" style="color:#94a3b8;">—</div>';
-    }
-
-    if (hasFcst) {
-      html += '<div class="msum-forecast">◇ 預估 '+fmtCurMap(fcstCur)+'</div>';
-    }
-
+    html += '<div class="msum-amt" style="color:'+amtColor+';">'+(amtStr||'—')+'</div>';
     html += '</div>';
     return html;
   }
 
+  // ── Firebase 預估卡（第5張，黃色）──
+  function makeFcstCard() {
+    var rcvStr = fmtCurMap(sum.fcst.rcvCur);
+    var apStr  = fmtCurMap(sum.fcst.apCur);
+    var hasAny = rcvStr || apStr;
+
+    var html = '<div class="msum-card" style="background:#fef9c3;border:1px solid #fde68a;">';
+    html += '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#d97706,#fbbf24);"></div>';
+    html += '<div class="msum-dept">◇ 案件預估</div>';
+    if (rcvStr) {
+      html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">';
+      html += '<span class="dot-green"></span>';
+      html += '<span class="msum-amt" style="color:#166534;font-size:13px;">'+rcvStr+'</span>';
+      html += '</div>';
+    }
+    if (apStr) {
+      html += '<div style="display:flex;align-items:center;gap:4px;">';
+      html += '<span class="dot-red"></span>';
+      html += '<span class="msum-amt" style="color:#dc2626;font-size:13px;">'+apStr+'</span>';
+      html += '</div>';
+    }
+    if (!hasAny) {
+      html += '<div class="msum-amt" style="color:#94a3b8;">—</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // ── 卡片容器改 5 欄（大螢幕）──
+  el.style.gridTemplateColumns = 'repeat(5,1fr)';
   el.innerHTML =
-    makeCard('貿易', 'trade', 'ap') +
-    makeCard('貿易', 'trade', 'rcv') +
-    makeCard('船務', 'ship',  'ap') +
-    makeCard('船務', 'ship',  'rcv');
+    makeCsvCard('貿易', 'trade', 'ap') +
+    makeCsvCard('貿易', 'trade', 'rcv') +
+    makeCsvCard('船務', 'ship',  'ap') +
+    makeCsvCard('船務', 'ship',  'rcv') +
+    makeFcstCard();
 }
 
 // ── 日曆篩選狀態（支援多選）────────────────────────────
@@ -2109,11 +2123,11 @@ function renderDaily(){
     });
   }catch(e){}
 
-  // ── 套用篩選 ─────────────────────────────────────────
+  // ── 套用篩選（規則二：firebase=預估，csv=真實）─────────
   var filtered = calItems.filter(function(p){
-    if(!calendarFilter.ship     && p.dept==='船務')  return false;
-    if(!calendarFilter.trade    && p.dept==='貿易')  return false;
-    if(!calendarFilter.forecast && p.isForecast)      return false;
+    if(!calendarFilter.ship     && p.dept==='船務')       return false;
+    if(!calendarFilter.trade    && p.dept==='貿易')       return false;
+    if(!calendarFilter.forecast && p.source==='firebase') return false;
     return true;
   });
 
@@ -2161,59 +2175,50 @@ function renderDaily(){
         cal += '<td style="'+tdStyle+'"'+(hasData?' data-date="'+fullDate+'"':'')+' >';
         cal += '<div style="font-size:11px;font-weight:700;color:'+dayColor+';margin-bottom:3px;">'+cellDay+(isToday?'<span style="font-size:9px;font-weight:400;color:#0369a1;margin-left:3px;">今</span>':'')+'</div>';
 
-        // ── 格子 pills：依 direction + isForecast 決定顏色（規則一/三）──
-        var payItems  = items.filter(function(p){return p.direction==='payable';});
-        var recvItems = items.filter(function(p){return p.direction==='receivable';});
-
-        // 應付 pills
-        var paySum = {};
-        var payFc  = {};
-        payItems.forEach(function(p){
-          paySum[p.cur] = (paySum[p.cur]||0) + p.amt;
-          if(p.isForecast) payFc[p.cur] = true;
+        // ── 格子 pills：排序 Firebase預估 → CSV應收 → CSV應付
+        // source==='firebase' = 預估（黃）; source==='csv' = 真實（藍/紅）
+        // 依規則排序後最多顯示3筆
+        var sorted = items.slice().sort(function(a,b){
+          var rank = function(x){ return x.source==='firebase'?0:(x.direction==='receivable'?1:2); };
+          return rank(a)-rank(b);
         });
-        // 應收 pills
-        var recvSum = {};
-        var recvFc  = {};
-        recvItems.forEach(function(p){
-          recvSum[p.cur] = (recvSum[p.cur]||0) + p.amt;
-          if(p.isForecast) recvFc[p.cur] = true;
+
+        // 彙總（Firebase預估付 / 預估收 / CSV應收 / CSV應付）
+        var fcApSum={}, fcRcvSum={}, csvApSum={}, csvRcvSum={};
+        items.forEach(function(p){
+          var c = p.cur;
+          if(p.source==='firebase'){
+            if(p.direction==='payable')    fcApSum[c]  = (fcApSum[c] ||0)+p.amt;
+            else                           fcRcvSum[c] = (fcRcvSum[c]||0)+p.amt;
+          } else {
+            if(p.direction==='payable')    csvApSum[c]  = (csvApSum[c] ||0)+p.amt;
+            else                           csvRcvSum[c] = (csvRcvSum[c]||0)+p.amt;
+          }
         });
 
         var shown = 0;
-        // 應付
-        Object.keys(paySum).forEach(function(c){
-          if(shown>=2) return;
-          // detect csv: check first matching item
-          var sample = payItems.filter(function(x){return x.cur===c;})[0];
-          var isFcS  = sample&&sample.isForecast;
-          var isCsvS = sample&&sample._source==='csv';
-          var cls, dot;
-          if(isCsvS){
-            cls='cal-csv'; dot='';
-          } else if(isFcS){
-            cls='p-forecast'; dot='<span class="dot-red"></span>';
-          } else {
-            cls='p-out'; dot='';
-          }
-          cal += '<div class="'+cls+'">'+dot+'↓'+c+' '+fmtN(paySum[c])+'</div>';
+        // 1️⃣ Firebase 預估付款（黃底 + 紅點）
+        Object.keys(fcApSum).forEach(function(c){
+          if(shown>=3) return;
+          cal += '<div class="p-forecast"><span class="dot-red"></span>↓'+c+' '+fmtN(fcApSum[c])+'</div>';
           shown++;
         });
-        // 應收
-        Object.keys(recvSum).forEach(function(c){
+        // 2️⃣ Firebase 預估收款（黃底 + 綠點）
+        Object.keys(fcRcvSum).forEach(function(c){
           if(shown>=3) return;
-          var sample2 = recvItems.filter(function(x){return x.cur===c;})[0];
-          var isFcS2  = sample2&&sample2.isForecast;
-          var isCsvS2 = sample2&&sample2._source==='csv';
-          var cls2, dot2;
-          if(isCsvS2){
-            cls2='cal-csv'; dot2='';
-          } else if(isFcS2){
-            cls2='p-forecast'; dot2='<span class="dot-green"></span>';
-          } else {
-            cls2='p-in'; dot2='';
-          }
-          cal += '<div class="'+cls2+'">'+dot2+'↑'+c+' '+fmtN(recvSum[c])+'</div>';
+          cal += '<div class="p-forecast"><span class="dot-green"></span>↑'+c+' '+fmtN(fcRcvSum[c])+'</div>';
+          shown++;
+        });
+        // 3️⃣ CSV 應收（藍底）
+        Object.keys(csvRcvSum).forEach(function(c){
+          if(shown>=3) return;
+          cal += '<div class="p-in">↑'+c+' '+fmtN(csvRcvSum[c])+'</div>';
+          shown++;
+        });
+        // 4️⃣ CSV 應付（紅底）
+        Object.keys(csvApSum).forEach(function(c){
+          if(shown>=3) return;
+          cal += '<div class="p-out">↓'+c+' '+fmtN(csvApSum[c])+'</div>';
           shown++;
         });
         if(items.length>shown){
@@ -2363,20 +2368,26 @@ function _renderDayDetail(){
     });
   }catch(e){}
 
-  // Tab 篩選
+  // ── Tab 篩選（規則二：firebase=預估，csv=真實）──
+  // 排序：Firebase預估優先 → CSV應收 → CSV應付
+  allItems.sort(function(a,b){
+    var rank=function(x){ return x.source==='firebase'?0:(x.direction==='receivable'?1:2); };
+    return rank(a)-rank(b);
+  });
+
   var display = allItems.filter(function(p){
-    if(tab==='payable')    return p.direction==='payable';
-    if(tab==='receivable') return p.direction==='receivable';
-    if(tab==='forecast')   return p.isForecast;
+    if(tab==='payable')    return p.direction==='payable'    && p.source==='csv';
+    if(tab==='receivable') return p.direction==='receivable' && p.source==='csv';
+    if(tab==='forecast')   return p.source==='firebase';
     return true;
   });
 
   // 更新 tab badge
   var counts = {
-    all:allItems.length,
-    payable:allItems.filter(function(p){return p.direction==='payable';}).length,
-    receivable:allItems.filter(function(p){return p.direction==='receivable';}).length,
-    forecast:allItems.filter(function(p){return p.isForecast;}).length
+    all:       allItems.length,
+    payable:   allItems.filter(function(p){return p.direction==='payable'    && p.source==='csv';}).length,
+    receivable:allItems.filter(function(p){return p.direction==='receivable' && p.source==='csv';}).length,
+    forecast:  allItems.filter(function(p){return p.source==='firebase';}).length
   };
   var tabLabels = {all:'全部',payable:'↓ 應付',receivable:'↑ 應收',forecast:'◇ 貿易大漁預估'};
   ['all','payable','receivable','forecast'].forEach(function(t){
@@ -2393,12 +2404,14 @@ function _renderDayDetail(){
 
   var html = '';
   display.forEach(function(p){
-    var isCSV  = p.source==='csv';
-    var isRecv = p.direction==='receivable';
-    var isFc   = !!p.isForecast;
+    // ── 規則二：source==='firebase'=預估，source==='csv'=真實 ──
+    var isFb   = p.source === 'firebase';  // Firebase = 預估
+    var isCSV  = p.source === 'csv';       // CSV = 真實帳款
+    var isRecv = p.direction === 'receivable';
 
     // ── 左側色條 ──
-    var barColor = isCSV ? '#94a3b8' : isFc ? '#d97706' : isRecv ? '#1d4ed8' : '#dc2626';
+    // Firebase 預估 → 橘; CSV應收 → 藍; CSV應付 → 紅
+    var barColor = isFb ? '#d97706' : isRecv ? '#1d4ed8' : '#dc2626';
 
     // ── 部門 tag ──
     var deptBg  = p.dept==='船務' ? '#e0f2fe' : '#f0fdf4';
@@ -2408,9 +2421,16 @@ function _renderDayDetail(){
       : '';
 
     // ── 類型 tag ──
-    var typeBg  = isCSV?'#f1f5f9': isFc?'#fef9c3': isRecv?'#dbeafe':'#fee2e2';
-    var typeCol = isCSV?'#475569': isFc?'#92400e': isRecv?'#1e3a8a':'#991b1b';
-    var typeText= isCSV?'外部': isFc?(isRecv?'預估應收':'預估應付'): (isRecv?'應收':'應付');
+    // Firebase → 黃底「預估收款/付款」; CSV應收 → 藍底; CSV應付 → 紅底
+    var typeBg, typeCol, typeText;
+    if (isFb) {
+      typeBg = '#fef9c3'; typeCol = '#92400e';
+      typeText = isRecv ? '◇ 預估收款' : '◇ 預估付款';
+    } else if (isRecv) {
+      typeBg = '#dbeafe'; typeCol = '#1e3a8a'; typeText = '↑ 應收';
+    } else {
+      typeBg = '#fee2e2'; typeCol = '#991b1b'; typeText = '↓ 應付';
+    }
     var typeTag = '<span class="dtag" style="background:'+typeBg+';color:'+typeCol+';">'+typeText+'</span>';
 
     // ── 狀態 badge ──
@@ -2419,11 +2439,12 @@ function _renderDayDetail(){
     var stText= p.isPaid?(isRecv?'✓ 已收':'✓ 已付'):p.isOverdue?'⚠ 逾期':'待付';
     var stBadge = '<span class="dcard-st" style="background:'+stBg+';color:'+stCol+';">'+stText+'</span>';
 
-    // ── 金額圓點 ──
-    var dot = isFc
+    // ── 金額圓點（Firebase預估才加圓點）──
+    var dot = isFb
       ? (isRecv ? '<span class="dot-green"></span>' : '<span class="dot-red"></span>')
       : '';
-    var amtColor = isCSV?'#475569': isFc?'#111827': isRecv?'#1d4ed8':'#dc2626';
+    // Firebase → 黃底黑字; CSV應收 → 深藍; CSV應付 → 紅
+    var amtColor = isFb ? '#111827' : isRecv ? '#1d4ed8' : '#dc2626';
     var amtStr   = dot + formatCurrency(p.cur, p.amt);
 
     html += '<div class="dcard" style="border-left:3px solid '+barColor+';">';
