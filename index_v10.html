@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v13</title>
+<title>貿易大漁｜管理系統 v14</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -216,11 +216,22 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 #success-popup .sp-sub{font-size:13px;color:var(--muted);margin-top:6px;}
 #toast.show{opacity:1;}
 .sec-lbl{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
-/* CALENDAR v3 */
-.cal-in{background:#dcfce7;color:#166534;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
-.cal-out{background:#fee2e2;color:#991b1b;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
-.cal-forecast{background:#ede9fe;color:#5b21b6;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
-.cal-csv{background:#f1f5f9;color:#64748b;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+/* CALENDAR v4 - colour system */
+/* 應收 */
+.p-in{background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+/* 應付 */
+.p-out{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+/* 預估（黃底黑字）*/
+.p-forecast{background:#fef9c3;color:#111827;border:1px solid #fde68a;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+/* 外部 CSV（灰）*/
+.cal-csv{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+/* 圓點 */
+.dot-green{display:inline-block;width:6px;height:6px;border-radius:50%;background:#16a34a;margin-right:4px;vertical-align:middle;}
+.dot-red{display:inline-block;width:6px;height:6px;border-radius:50%;background:#dc2626;margin-right:4px;vertical-align:middle;}
+/* 向下相容舊 class（重導向新色）*/
+.cal-in{background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.cal-out{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.cal-forecast{background:#fef9c3;color:#111827;border:1px solid #fde68a;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 .cal-filter-btn{padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--card);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
 .cal-filter-btn.on{border-color:var(--sea);background:var(--sea);color:#fff;}
 .day-tab{padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--muted);font-family:inherit;}
@@ -2028,30 +2039,59 @@ function renderDaily(){
         cal += '<td style="'+tdStyle+'"'+(hasData?' data-date="'+fullDate+'"':'')+' >';
         cal += '<div style="font-size:11px;font-weight:700;color:'+dayColor+';margin-bottom:3px;">'+cellDay+(isToday?'<span style="font-size:9px;font-weight:400;color:#0369a1;margin-left:3px;">今</span>':'')+'</div>';
 
-        // 彙總應付（紅）
+        // ── 格子 pills：依 direction + isForecast 決定顏色（規則一/三）──
+        var payItems  = items.filter(function(p){return p.direction==='payable';});
+        var recvItems = items.filter(function(p){return p.direction==='receivable';});
+
+        // 應付 pills
         var paySum = {};
-        items.filter(function(p){return p.direction==='payable';}).forEach(function(p){ paySum[p.cur]=(paySum[p.cur]||0)+p.amt; });
-        // 彙總應收（綠）
+        var payFc  = {};
+        payItems.forEach(function(p){
+          paySum[p.cur] = (paySum[p.cur]||0) + p.amt;
+          if(p.isForecast) payFc[p.cur] = true;
+        });
+        // 應收 pills
         var recvSum = {};
-        items.filter(function(p){return p.direction==='receivable';}).forEach(function(p){ recvSum[p.cur]=(recvSum[p.cur]||0)+p.amt; });
+        var recvFc  = {};
+        recvItems.forEach(function(p){
+          recvSum[p.cur] = (recvSum[p.cur]||0) + p.amt;
+          if(p.isForecast) recvFc[p.cur] = true;
+        });
 
         var shown = 0;
+        // 應付
         Object.keys(paySum).forEach(function(c){
           if(shown>=2) return;
-          var cls = items.filter(function(p){return p.direction==='payable'&&p.cur===c;})[0];
-          var isFc = cls&&cls.isForecast;
-          var isCsv= cls&&cls.source==='csv';
-          var cellCls = isCsv?'cal-csv':(isFc?'cal-forecast':'cal-out');
-          cal += '<div class="'+cellCls+'" style="font-size:9px;line-height:1.5;overflow:hidden;white-space:nowrap;margin-bottom:1px;">↓'+c+' '+fmtN(paySum[c])+'</div>';
+          // detect csv: check first matching item
+          var sample = payItems.filter(function(x){return x.cur===c;})[0];
+          var isFcS  = sample&&sample.isForecast;
+          var isCsvS = sample&&sample._source==='csv';
+          var cls, dot;
+          if(isCsvS){
+            cls='cal-csv'; dot='';
+          } else if(isFcS){
+            cls='p-forecast'; dot='<span class="dot-red"></span>';
+          } else {
+            cls='p-out'; dot='';
+          }
+          cal += '<div class="'+cls+'">'+dot+'↓'+c+' '+fmtN(paySum[c])+'</div>';
           shown++;
         });
+        // 應收
         Object.keys(recvSum).forEach(function(c){
           if(shown>=3) return;
-          var cls2 = items.filter(function(p){return p.direction==='receivable'&&p.cur===c;})[0];
-          var isFc2 = cls2&&cls2.isForecast;
-          var isCsv2= cls2&&cls2.source==='csv';
-          var cellCls2 = isCsv2?'cal-csv':(isFc2?'cal-in':'cal-in');
-          cal += '<div class="'+cellCls2+'" style="font-size:9px;line-height:1.5;overflow:hidden;white-space:nowrap;margin-bottom:1px;">↑'+c+' '+fmtN(recvSum[c])+'</div>';
+          var sample2 = recvItems.filter(function(x){return x.cur===c;})[0];
+          var isFcS2  = sample2&&sample2.isForecast;
+          var isCsvS2 = sample2&&sample2._source==='csv';
+          var cls2, dot2;
+          if(isCsvS2){
+            cls2='cal-csv'; dot2='';
+          } else if(isFcS2){
+            cls2='p-forecast'; dot2='<span class="dot-green"></span>';
+          } else {
+            cls2='p-in'; dot2='';
+          }
+          cal += '<div class="'+cls2+'">'+dot2+'↑'+c+' '+fmtN(recvSum[c])+'</div>';
           shown++;
         });
         if(items.length>shown){
@@ -2232,192 +2272,80 @@ function _renderDayDetail(){
   var html = '';
   display.forEach(function(p){
     var isCSV = p.source==='csv';
-    var dirColor = p.direction==='receivable'?'var(--jade)':'var(--coral)';
-    var dirBg    = p.direction==='receivable'?'#f0fdf4':'#fef2f2';
-    var dirBorder= p.direction==='receivable'?'#86efac':'#fca5a5';
-    var stBg = p.isPaid?'#dcfce7':p.isOverdue?'#fee2e2':'#dbeafe';
-    var stCol= p.isPaid?'#14532d':p.isOverdue?'#991b1b':'#1e40af';
-    var stText= p.isPaid?(p.direction==='receivable'?'已收':'已付'):(p.isOverdue?'逾期':'未付');
+    // ── 顏色規則（規則一、三、四）──
+    // 應收→藍, 應付→紅, 預估→黃黑, CSV→灰
+    var isRecv    = p.direction==='receivable';
+    var isFcCard  = !!p.isForecast;
+    var cardBg, cardBorder;
+    if(isCSV){
+      cardBg='#f1f5f9'; cardBorder='#e2e8f0';
+    } else if(isFcCard){
+      cardBg='#fef9c3'; cardBorder='#fde68a';
+    } else if(isRecv){
+      cardBg='#dbeafe'; cardBorder='#93c5fd';
+    } else {
+      cardBg='#fee2e2'; cardBorder='#fca5a5';
+    }
+    var stBg = p.isPaid?'#dcfce7':p.isOverdue?'#fee2e2':'#f8fafc';
+    var stCol= p.isPaid?'#14532d':p.isOverdue?'#991b1b':'#64748b';
+    var stText= p.isPaid?(isRecv?'已收':'已付'):(p.isOverdue?'逾期':'未付');
     var srcTag= isCSV
-      ? '<span style="font-size:10px;background:#f1f5f9;color:#64748b;border-radius:4px;padding:1px 5px;font-weight:700;">📄 外部</span>'
-      : '<span style="font-size:10px;background:#ede9fe;color:#5b21b6;border-radius:4px;padding:1px 5px;font-weight:700;">◇ 預估</span>';
+      ? '<span style="font-size:10px;background:#e2e8f0;color:#475569;border-radius:4px;padding:1px 5px;font-weight:700;">📄 外部</span>'
+      : (isFcCard?'<span style="font-size:10px;background:#fde68a;color:#92400e;border-radius:4px;padding:1px 5px;font-weight:700;">◇ 預估</span>':'');
     var deptTag = p.dept?'<span style="font-size:10px;background:'+(p.dept==='船務'?'#e0f2fe':'#f0fdf4')+';color:'+(p.dept==='船務'?'#0369a1':'#14532d')+';border-radius:4px;padding:1px 6px;font-weight:700;">'+p.dept+'</span>':'';
-    html += '<div style="background:'+dirBg+';border:1px solid '+dirBorder+';border-radius:10px;padding:11px 14px;margin-bottom:8px;">';
+    html += '<div style="background:'+cardBg+';border:1px solid '+cardBorder+';border-radius:10px;padding:11px 14px;margin-bottom:8px;">';
     html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">';
     html += '<div style="flex:1;min-width:0;">';
     html += '<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;flex-wrap:wrap;">'+srcTag+' '+deptTag+'</div>';
     html += '<div style="font-size:13px;font-weight:700;color:var(--ink);line-height:1.4;">'+p.label+'</div>';
     html += '</div>';
     html += '<div style="text-align:right;flex-shrink:0;">';
-function showDayDetail(dateStr) {
-  _dayDetailDate = dateStr;
-  _dayDetailTab  = 'all';
-  _renderDayDetail();
-}
-
-function switchDayTab(tab) {
-  _dayDetailTab = tab;
-  // 更新 tab 樣式
-  document.querySelectorAll('.day-tab').forEach(function(b) { b.classList.remove('on'); });
-  var activeTabId = { all:'day-tab-all', payable:'day-tab-payable', receivable:'day-tab-receivable', forecast:'day-tab-forecast' }[tab];
-  var activeTabEl = activeTabId ? document.getElementById(activeTabId) : null;
-  if (!activeTabEl) {
-    // fallback: find by onclick attr
-    document.querySelectorAll('.day-tab').forEach(function(b) {
-      if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf("'"+tab+"'") >= 0) b.classList.add('on');
-    });
-  } else {
-    activeTabEl.classList.add('on');
-  }
-  _renderDayDetail();
-}
-
-function _renderDayDetail() {
-  var dateStr = _dayDetailDate;
-  if (!dateStr) return;
-
-  var dt = new Date(dateStr.replace(/\//g,'-'));
-  if (isNaN(dt)) return;
-  var label = (dt.getMonth()+1) + '月' + dt.getDate() + '日';
-  document.getElementById('day-title').textContent = label;
-
-  // ── 取得當日所有合併資料（CSV + Firebase）──
-  var allItems = [];
-  try {
-    var calItems = buildCombinedPayments().calendar;
-    var matchStr = dateStr.replace(/\//g,'-').slice(0,10);
-    calItems.forEach(function(p) {
-      var d = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
-      if (d === matchStr) allItems.push(p);
-    });
-  } catch(e) { console.warn('_renderDayDetail error:', e); }
-
-  // ── 篩選 tab ──
-  var displayItems = allItems.filter(function(p) {
-    if (_dayDetailTab === 'payable')    return p.direction === 'payable' && !p.isEst;
-    if (_dayDetailTab === 'receivable') return p.direction === 'receivable' && !p.isEst;
-    if (_dayDetailTab === 'forecast')   return !!p.isEst;
-    return true; // all
-  });
-
-  // ── 渲染列表 ──
-  var body = document.getElementById('day-body');
-  if (!body) return;
-
-  if (!displayItems.length) {
-    body.innerHTML = '<div class="empty"><span class="eico">📅</span>當日無款項記錄</div>';
-    _renderDayTotal(allItems);
-    document.getElementById('DayM').classList.add('open');
-    return;
-  }
-
-  var html = '';
-  displayItems.forEach(function(p) {
-    var isCSVItem  = p._source === 'csv';
-    var isForecast = !!p.isEst;
-    var isRecv     = p.direction === 'receivable';
-    var cur        = (p.cur||'NTD').toUpperCase();
-
-    // 顏色 class 對應
-    var bgColor, borderColor, textColor, typeLabel;
-    if (isCSVItem) {
-      bgColor = '#f1f5f9'; borderColor = '#cbd5e1'; textColor = '#475569'; typeLabel = '📄 外部';
-    } else if (isForecast && isRecv) {
-      bgColor = '#ede9fe'; borderColor = '#c4b5fd'; textColor = '#5b21b6'; typeLabel = '◇ 預估應收';
-    } else if (isForecast) {
-      bgColor = '#ede9fe'; borderColor = '#c4b5fd'; textColor = '#5b21b6'; typeLabel = '◇ 預估應付';
-    } else if (isRecv) {
-      bgColor = '#dcfce7'; borderColor = '#86efac'; textColor = '#166534'; typeLabel = '↑ 應收';
-    } else {
-      bgColor = '#fee2e2'; borderColor = '#fca5a5'; textColor = '#991b1b'; typeLabel = '↓ 應付';
+    // ── 金額 + 圓點（規則一/三/四）──
+    var amtDot = '';
+    if(p.isForecast && p.direction==='receivable'){
+      amtDot = '<span class="dot-green"></span>';
+    } else if(p.isForecast && p.direction==='payable'){
+      amtDot = '<span class="dot-red"></span>';
     }
-
-    var stText  = p.isPaid ? '✅ 已付' : p.isOverdue ? '⚠️ 逾期' : '—';
-    var stColor = p.isPaid ? '#16a34a' : p.isOverdue ? '#dc2626' : '#64748b';
-    var deptLabel = p.dept || '';
-    var noteLabel = p.note || p.caseName || '—';
-
-    html += '<div class="day-item" style="background:'+bgColor+';border:1px solid '+borderColor+';">';
-    html += '<div style="flex:1;min-width:0;">';
-    html += '<div style="margin-bottom:4px;">';
-    if (deptLabel) html += '<span class="day-item-label" style="background:'+borderColor+';color:'+textColor+';">'+deptLabel+'</span> ';
-    html += '<span class="day-item-label" style="background:'+borderColor+';color:'+textColor+';">'+typeLabel+'</span>';
-    if (isCSVItem) html += ' <span style="font-size:9px;color:#94a3b8;font-weight:700;">只讀</span>';
+    var amtCls = isCSV?'':'';  // CSV uses inline style already
+    var cardAmtColor = isCSV?'#475569':(p.isForecast?'#111827':(p.direction==='receivable'?'#1e3a8a':'#dc2626'));
+    html += '<div style="font-size:15px;font-weight:700;color:'+cardAmtColor+';font-family:\'DM Mono\',monospace;white-space:nowrap;">'+amtDot+formatCurrency(p.cur,p.amt)+'</div>';
+    html += '<div style="font-size:11px;margin-top:3px;font-weight:700;color:'+stCol+';">'+stText+'</div>';
     html += '</div>';
-    html += '<div style="font-size:13px;font-weight:700;color:var(--ink);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:200px;" title="'+noteLabel+'">'+noteLabel+'</div>';
-    if (p.category) html += '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+p.category+'</div>';
-    html += '</div>';
-    html += '<div style="text-align:right;flex-shrink:0;margin-left:8px;">';
-    html += '<div style="font-size:15px;font-weight:700;color:'+textColor+';font-family:\'DM Mono\',monospace;">'+formatCurrency(cur,p.amt)+'</div>';
-    html += '<div style="font-size:11px;color:'+stColor+';margin-top:3px;font-weight:700;">'+stText+'</div>';
-    html += '</div>';
-    html += '</div>';
-  });
-
-  body.innerHTML = html;
-  _renderDayTotal(allItems);
-  document.getElementById('DayM').classList.add('open');
-}
-
-function _renderDayTotal(items) {
-  var totalEl = document.getElementById('day-total');
-  if (!totalEl) return;
-
-  // 依幣別分類合計
-  var payTotals = {}, recvTotals = {};
-  items.forEach(function(p) {
-    var c = (p.cur||'NTD').toUpperCase();
-    var amt = p.amt || 0;
-    if (p.direction === 'receivable') {
-      recvTotals[c] = (recvTotals[c]||0) + amt;
-    } else {
-      payTotals[c] = (payTotals[c]||0) + amt;
-    }
-  });
-
-  function fmtTotals(obj, color) {
-    return Object.keys(obj).map(function(c) {
-      return '<span style="font-weight:700;color:'+color+';font-family:\'DM Mono\',monospace;margin-right:10px;">'+formatCurrency(c, obj[c])+'</span>';
-    }).join('');
-  }
-
-  var html = '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;">';
-  if (Object.keys(payTotals).length) {
-    html += '<div><div style="font-size:10px;color:#991b1b;font-weight:700;margin-bottom:2px;">↓ 應付合計</div>' + fmtTotals(payTotals,'#dc2626') + '</div>';
-  }
-  if (Object.keys(recvTotals).length) {
-    html += '<div><div style="font-size:10px;color:#166534;font-weight:700;margin-bottom:2px;">↑ 應收合計</div>' + fmtTotals(recvTotals,'#16a34a') + '</div>';
-  }
-  if (!Object.keys(payTotals).length && !Object.keys(recvTotals).length) {
-    html += '<span style="color:var(--muted);">無資料</span>';
-  }
-  html += '</div>';
-  totalEl.innerHTML = html;
-}
-
-    html += '</div></div></div>';
+    html += '</div></div>';  // close flex + card
   });
   body.innerHTML = html;
 
-  // 底部合計（依幣別，正=應收，負=應付）
+  // ── 底部合計（應付 / 應收 依幣別分開）──
   if(totalEl){
-    var totals = {};
+    var payT = {}, rcvT = {};
     display.forEach(function(p){
-      var sign = p.direction==='receivable'?1:-1;
-      totals[p.cur] = (totals[p.cur]||0)+sign*p.amt;
+      var c = (p.cur||'NTD').toUpperCase();
+      if(p.direction==='receivable') rcvT[c] = (rcvT[c]||0) + p.amt;
+      else                           payT[c] = (payT[c]||0) + p.amt;
     });
-    var thtml = '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">合計</div>';
-    thtml += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
-    Object.keys(totals).forEach(function(c){
-      var v = totals[c];
-      var col = v>=0?'var(--jade)':'var(--coral)';
-      thtml += '<span style="font-size:13px;font-weight:700;color:'+col+';font-family:\'DM Mono\',monospace;background:'+(v>=0?'#f0fdf4':'#fef2f2')+';padding:4px 10px;border-radius:8px;">'+c+' '+(v>=0?'+':'')+fmtN(Math.abs(v))+'</span>';
-    });
+    var thtml = '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">合計</div>';
+    thtml += '<div style="display:flex;gap:12px;flex-wrap:wrap;">';
+    if(Object.keys(payT).length){
+      thtml += '<div>';
+      thtml += '<div style="font-size:9px;color:#dc2626;font-weight:700;margin-bottom:2px;">↓ 應付</div>';
+      Object.keys(payT).forEach(function(c){
+        thtml += '<div style="font-size:13px;font-weight:700;color:#dc2626;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,payT[c])+'</div>';
+      });
+      thtml += '</div>';
+    }
+    if(Object.keys(rcvT).length){
+      thtml += '<div>';
+      thtml += '<div style="font-size:9px;color:#1e3a8a;font-weight:700;margin-bottom:2px;">↑ 應收</div>';
+      Object.keys(rcvT).forEach(function(c){
+        thtml += '<div style="font-size:13px;font-weight:700;color:#1e3a8a;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,rcvT[c])+'</div>';
+      });
+      thtml += '</div>';
+    }
     thtml += '</div>';
     totalEl.innerHTML = thtml;
   }
 }
-
 // 關閉日曆視窗並開啟案件詳細
 function closeDayAndShowD(rowNum){
   document.getElementById('DayM').classList.remove('open');
