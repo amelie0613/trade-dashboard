@@ -2715,27 +2715,41 @@ function notifyBossEdit(r, editorName, changes, originalData, editedData){
   var caseName = (r[F.name]||'')||'';
   var formId   = (r[F.formId]||'')||g(r,'表單編號')||'';
 
-  // 採購分期
+  // ★ 修正：優先用 Firebase 巢狀 purchase.periods / sales.periods
+  //   避免平鋪欄位沒同步更新導致資料缺漏
   var buyPeriods = [];
-  for(var bi=1;bi<=3;bi++){
-    var bAmt=parseFloat(r['採購期'+bi+'金額'])||0;
-    var bDate=(r['採購期'+bi+'預計日']||'').toString().trim();
-    if(bAmt>0||bDate) buyPeriods.push({
-      name:r['採購期'+bi+'名稱']||('第'+bi+'期'),
-      cur:r['採購期'+bi+'幣別']||'TWD',
-      amt:bAmt, date:bDate, note:r['採購期'+bi+'備註']||''
+  if (r.purchase && r.purchase.periods && r.purchase.periods.length) {
+    buyPeriods = r.purchase.periods.map(function(p){
+      return {name:p.name||'', cur:p.currency||p.cur||'TWD',
+              amt:parseFloat(p.amount||p.amt)||0, date:p.expectedDate||p.date||'', note:p.note||''};
     });
+  } else {
+    for(var bi=1;bi<=3;bi++){
+      var bAmt=parseFloat(r['採購期'+bi+'金額'])||0;
+      var bDate=(r['採購期'+bi+'預計日']||'').toString().trim();
+      if(bAmt>0||bDate) buyPeriods.push({
+        name:r['採購期'+bi+'名稱']||('第'+bi+'期'),
+        cur:r['採購期'+bi+'幣別']||'TWD',
+        amt:bAmt, date:bDate, note:r['採購期'+bi+'備註']||''
+      });
+    }
   }
-  // 銷售分期
   var sellPeriods = [];
-  for(var si=1;si<=3;si++){
-    var sAmt=parseFloat(r['銷售期'+si+'金額'])||0;
-    var sDate=(r['銷售期'+si+'預計日']||'').toString().trim();
-    if(sAmt>0||sDate) sellPeriods.push({
-      name:r['銷售期'+si+'名稱']||('第'+si+'期'),
-      cur:r['銷售期'+si+'幣別']||'TWD',
-      amt:sAmt, date:sDate, note:r['銷售期'+si+'備註']||''
+  if (r.sales && r.sales.periods && r.sales.periods.length) {
+    sellPeriods = r.sales.periods.map(function(p){
+      return {name:p.name||'', cur:p.currency||p.cur||'TWD',
+              amt:parseFloat(p.amount||p.amt)||0, date:p.expectedDate||p.date||'', note:p.note||''};
     });
+  } else {
+    for(var si=1;si<=3;si++){
+      var sAmt=parseFloat(r['銷售期'+si+'金額'])||0;
+      var sDate=(r['銷售期'+si+'預計日']||'').toString().trim();
+      if(sAmt>0||sDate) sellPeriods.push({
+        name:r['銷售期'+si+'名稱']||('第'+si+'期'),
+        cur:r['銷售期'+si+'幣別']||'TWD',
+        amt:sAmt, date:sDate, note:r['銷售期'+si+'備註']||''
+      });
+    }
   }
 
   backupActionToGAS({
@@ -3052,6 +3066,24 @@ function doEdit(rowNum){
           editor:   curUser.name,
           changes:  changes.join(' / '),
           staff:    r ? (r[F.staff]||'') : '',
+          // ★ 修正：補上完整案件欄位，讓 GAS buildFullCaseBlock_ 能正確渲染
+          type:     r ? (r[F.type]||g(r,'type')||'') : '',
+          supplier: r ? (r['供應商（賣方）']||r.supplier||'') : '',
+          buyer:    r ? (r['客戶（買方）']  ||r.buyer   ||'') : '',
+          buyPay:   r ? (r['付款條件（採購）']||r.buyPay  ||'') : '',
+          sellPay:  r ? (r['收款條件（銷售）']||r.sellPay ||'') : '',
+          buyNote:  r ? (r['備註（採購）']   ||r.buyNote  ||'') : '',
+          sellNote: r ? (r['備註（銷售）']   ||r.sellNote ||'') : '',
+          buyPeriods:  (function(){
+            if(r && r.purchase && r.purchase.periods && r.purchase.periods.length)
+              return r.purchase.periods.map(function(p){return {name:p.name||'',cur:p.currency||p.cur||'TWD',amt:parseFloat(p.amount||p.amt)||0,date:p.expectedDate||p.date||'',note:p.note||''};});
+            var _bp=[]; for(var _i=1;_i<=3;_i++){var _a=parseFloat(r&&r['採購期'+_i+'金額'])||0;var _d=(r&&r['採購期'+_i+'預計日']||'').toString().trim();if(_a||_d)_bp.push({name:(r&&r['採購期'+_i+'名稱'])||('第'+_i+'期'),cur:(r&&r['採購期'+_i+'幣別'])||'TWD',amt:_a,date:_d,note:(r&&r['採購期'+_i+'備註'])||''});} return _bp;
+          })(),
+          sellPeriods: (function(){
+            if(r && r.sales && r.sales.periods && r.sales.periods.length)
+              return r.sales.periods.map(function(p){return {name:p.name||'',cur:p.currency||p.cur||'TWD',amt:parseFloat(p.amount||p.amt)||0,date:p.expectedDate||p.date||'',note:p.note||''};});
+            var _sp=[]; for(var _i=1;_i<=3;_i++){var _a=parseFloat(r&&r['銷售期'+_i+'金額'])||0;var _d=(r&&r['銷售期'+_i+'預計日']||'').toString().trim();if(_a||_d)_sp.push({name:(r&&r['銷售期'+_i+'名稱'])||('第'+_i+'期'),cur:(r&&r['銷售期'+_i+'幣別'])||'TWD',amt:_a,date:_d,note:(r&&r['銷售期'+_i+'備註'])||''});} return _sp;
+          })(),
           originalData: _origDataSnapshot || null,
           editedData:   _editedDataSnapshot || null,
         });
