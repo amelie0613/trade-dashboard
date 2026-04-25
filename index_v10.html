@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v14</title>
+<title>貿易大漁｜管理系統 v17</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -495,8 +495,14 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
         <option value="csv">📄 外部帳款（CSV）</option>
         <option value="firebase">🔥 Firebase 案件</option>
       </select>
-      <input type="date" id="pay-filter-from" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;" placeholder="日期起">
-      <input type="date" id="pay-filter-to" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;" placeholder="日期迄">
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <span style="font-size:10px;color:var(--muted);font-weight:700;">結帳日 起</span>
+        <input type="date" id="pay-filter-from" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <span style="font-size:10px;color:var(--muted);font-weight:700;">結帳日 迄</span>
+        <input type="date" id="pay-filter-to" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+      </div>
       <button onclick="clearPayFilters()" style="padding:6px 14px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">清除</button>
     </div>
   </div>
@@ -1962,67 +1968,82 @@ function renderMonthlySummary(calItems, yr, mo) {
   if (!el) return;
 
   var sum = calcMonthlySummary(calItems, yr, mo);
-  var moLabel = yr+'年'+(mo+1)+'月';
 
-  function fmtCurMap(map) {
+  // ── 格式化：幣別 map → 每行一個幣別（帶圓點）──
+  function fmtRows(map, isAp) {
     var keys = Object.keys(map);
-    if (!keys.length) return null;
-    return keys.map(function(c){ return formatCurrency(c, map[c]); }).join('　');
+    if (!keys.length) return '<span style="color:#94a3b8;font-size:13px;">—</span>';
+    return keys.map(function(c) {
+      var dotCls = isAp ? 'dot-red' : 'dot-green';
+      var col    = isAp ? '#dc2626' : '#1d4ed8';
+      return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">'
+        + '<span class="'+dotCls+'"></span>'
+        + '<span style="font-size:13px;font-weight:700;color:'+col+';font-family:\'DM Mono\',monospace;">'+formatCurrency(c, map[c])+'</span>'
+        + '</div>';
+    }).join('');
   }
 
-  // ── CSV 真實帳款卡（4張）──
-  function makeCsvCard(deptLabel, deptKey, type) {
-    var isAp    = type === 'ap';
-    var cardCls = isAp ? 'msum-card msum-ap' : 'msum-card msum-rcv';
-    var amtColor= isAp ? '#dc2626' : '#1d4ed8';
-    var typeText= isAp ? '↓ 應付' : '↑ 應收';
-    var deptIcon= deptLabel === '船務' ? '🚢' : '📦';
-    var curMap  = isAp ? sum[deptKey].apCur : sum[deptKey].rcvCur;
-    var amtStr  = fmtCurMap(curMap);
+  // ── CSV 部門卡：貿易 / 船務，各一張，卡內顯示應付+應收 ──
+  function makeDeptCard(deptLabel, deptKey) {
+    var icon    = deptLabel === '船務' ? '🚢' : '📦';
+    var apRows  = fmtRows(sum[deptKey].apCur,  true);
+    var rcvRows = fmtRows(sum[deptKey].rcvCur, false);
+    var hasAp   = Object.keys(sum[deptKey].apCur).length  > 0;
+    var hasRcv  = Object.keys(sum[deptKey].rcvCur).length > 0;
 
-    var html = '<div class="'+cardCls+'">';
-    html += '<div class="msum-dept">'+deptIcon+' '+deptLabel+'</div>';
-    html += '<div class="msum-type" style="color:'+amtColor+';">'+typeText+'</div>';
-    html += '<div class="msum-amt" style="color:'+amtColor+';">'+(amtStr||'—')+'</div>';
+    var html = '<div class="msum-card" style="background:#fff;border:1px solid var(--border);">';
+    html += '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#dc2626,#1d4ed8);"></div>';
+    html += '<div class="msum-dept">'+icon+' '+deptLabel+'</div>';
+
+    // 應付區
+    html += '<div style="margin-bottom:6px;">';
+    html += '<div style="font-size:10px;color:#dc2626;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應付</div>';
+    html += apRows;
+    html += '</div>';
+
+    // 應收區
+    html += '<div>';
+    html += '<div style="font-size:10px;color:#1d4ed8;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應收</div>';
+    html += rcvRows;
+    html += '</div>';
+
     html += '</div>';
     return html;
   }
 
-  // ── Firebase 預估卡（第5張，黃色）──
+  // ── Firebase 預估卡（黃色）──
   function makeFcstCard() {
-    var rcvStr = fmtCurMap(sum.fcst.rcvCur);
-    var apStr  = fmtCurMap(sum.fcst.apCur);
-    var hasAny = rcvStr || apStr;
+    var hasAp  = Object.keys(sum.fcst.apCur).length  > 0;
+    var hasRcv = Object.keys(sum.fcst.rcvCur).length > 0;
 
     var html = '<div class="msum-card" style="background:#fef9c3;border:1px solid #fde68a;">';
     html += '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#d97706,#fbbf24);"></div>';
     html += '<div class="msum-dept">◇ 案件預估</div>';
-    if (rcvStr) {
-      html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">';
-      html += '<span class="dot-green"></span>';
-      html += '<span class="msum-amt" style="color:#166534;font-size:13px;">'+rcvStr+'</span>';
+
+    if (hasAp) {
+      html += '<div style="margin-bottom:6px;">';
+      html += '<div style="font-size:10px;color:#dc2626;font-weight:700;margin-bottom:3px;">付款預估</div>';
+      html += fmtRows(sum.fcst.apCur, true);
       html += '</div>';
     }
-    if (apStr) {
-      html += '<div style="display:flex;align-items:center;gap:4px;">';
-      html += '<span class="dot-red"></span>';
-      html += '<span class="msum-amt" style="color:#dc2626;font-size:13px;">'+apStr+'</span>';
+    if (hasRcv) {
+      html += '<div>';
+      html += '<div style="font-size:10px;color:#166534;font-weight:700;margin-bottom:3px;">收款預估</div>';
+      html += fmtRows(sum.fcst.rcvCur, false);
       html += '</div>';
     }
-    if (!hasAny) {
-      html += '<div class="msum-amt" style="color:#94a3b8;">—</div>';
+    if (!hasAp && !hasRcv) {
+      html += '<span style="color:#94a3b8;font-size:13px;">—</span>';
     }
     html += '</div>';
     return html;
   }
 
-  // ── 卡片容器改 5 欄（大螢幕）──
-  el.style.gridTemplateColumns = 'repeat(5,1fr)';
+  // ── 3 張卡（貿易 / 船務 / 預估），3 欄 ──
+  el.style.gridTemplateColumns = 'repeat(3,1fr)';
   el.innerHTML =
-    makeCsvCard('貿易', 'trade', 'ap') +
-    makeCsvCard('貿易', 'trade', 'rcv') +
-    makeCsvCard('船務', 'ship',  'ap') +
-    makeCsvCard('船務', 'ship',  'rcv') +
+    makeDeptCard('貿易', 'trade') +
+    makeDeptCard('船務', 'ship')  +
     makeFcstCard();
 }
 
