@@ -1719,6 +1719,35 @@ function processFillRow(row, fillId, banner){
   showPage(2);
   updateSections('採購+銷售(三角貿易)');
 
+  // 通用：將 fd.xxxPeriods 陣列渲染到指定 container
+  function renderPeriodsToDOM(type, periods){
+    var container = document.getElementById(type+'-periods');
+    if(!container) return;
+    // 清空現有 card
+    container.querySelectorAll('.period-card').forEach(function(c){ c.parentNode.removeChild(c); });
+    if(!periods || !periods.length){
+      addPeriod(type);
+      return;
+    }
+    periods.forEach(function(p, idx){
+      addPeriod(type);
+      var cards = container.querySelectorAll('.period-card');
+      var card  = cards[cards.length - 1];
+      if(!card) return;
+      var nameEl = card.querySelector('.period-name');
+      var amtEl  = card.querySelector('.period-amt');
+      var curEl  = card.querySelector('.period-cur');
+      var dateEl = card.querySelector('.period-date');
+      var noteEl = card.querySelector('.period-note');
+      if(nameEl && (p.name !== null && p.name !== undefined && p.name !== '')) nameEl.value = p.name;
+      if(amtEl  && (p.amt  !== null && p.amt  !== undefined && p.amt  !== '')) amtEl.value  = p.amt;
+      if(curEl  && (p.cur  !== null && p.cur  !== undefined && p.cur  !== '')) curEl.value  = p.cur;
+      if(dateEl && (p.date !== null && p.date !== undefined && p.date !== '')) dateEl.value = p.date.toString().substring(0,10).replace(/\//g,'-');
+      if(noteEl && (p.note !== null && p.note !== undefined && p.note !== '')) noteEl.value = p.note;
+    });
+    calcPeriodTotal(type);
+  }
+
   if(fillPart==='銷售'){
     var buySec=document.getElementById('buy-sec');
     var buyT=document.getElementById('buy-sec-title');
@@ -1729,7 +1758,8 @@ function processFillRow(row, fillId, banner){
     fillFieldIfExists('buyer',    fd.buyer);
     fillFieldIfExists('sell-pay', fd.sellPay);
     fillFieldIfExists('sell-note',fd.sellNote);
-    if(!document.getElementById('sell-periods').querySelector('.period-card')) addPeriod('sell');
+    // ★ 修正：回填銷售分期到 DOM
+    renderPeriodsToDOM('sell', fd.sellPeriods);
   } else {
     var sellSec2=document.getElementById('sell-sec');
     var sellT=document.getElementById('sell-sec-title');
@@ -1742,7 +1772,8 @@ function processFillRow(row, fillId, banner){
     fillFieldIfExists('supplier', fd.supplier);
     fillFieldIfExists('buy-pay',  fd.buyPay);
     fillFieldIfExists('buy-note', fd.buyNote);
-    if(!document.getElementById('buy-periods').querySelector('.period-card')) addPeriod('buy');
+    // ★ 修正：回填採購分期到 DOM
+    renderPeriodsToDOM('buy', fd.buyPeriods);
   }
 
   var nextBtn2=document.getElementById('p2-next-btn');
@@ -1889,6 +1920,9 @@ function submitSellPart(){
   var firebaseFields = {
     '銷售補填狀態': '已完成',
     '案件屬性': '採購+銷售(三角貿易)',
+    // ★ 同步更新巢狀 meta.caseType（看板讀取用這個判斷顯示採購/銷售）
+    'meta.caseType': '採購+銷售(三角貿易)',
+    'transfer.fillStatus': '已完成',
     fillPart: payload.fillPart,
     sellStaff: payload.sellStaff,
     _fillUpdatedAt: new Date().toLocaleString('zh-TW'),
