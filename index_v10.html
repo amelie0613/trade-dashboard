@@ -4021,88 +4021,87 @@ function makePayRow(p, today) {
 
   var isCSV = p._source === 'csv';
 
-  // ★ 來源標記
   var srcBadge = isCSV
     ? '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;background:#f0f9ff;color:#0369a1;border:0.5px solid #bae6fd;">📄 外部</span>'
     : '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;background:#fef9c3;color:#92400e;border:0.5px solid #fde68a;">🔥 案件</span>';
 
   var statusBadge = '<span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:'+stBg+';color:'+stColor+';border:0.5px solid '+stBd+';">'+stText+'</span>';
 
-  var deptBadge = '<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:'+
-    (p.dept==='船務'?'#f0f9ff':'#f0fdf4')+';color:'+
-    (p.dept==='船務'?'#0369a1':'#15803d')+';font-weight:700;">'+(p.dept||'—')+'</span>';
+  var deptBadge = '<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:'
+    +(p.dept==='船務'?'#f0f9ff':'#f0fdf4')+';color:'
+    +(p.dept==='船務'?'#0369a1':'#15803d')+';font-weight:700;">'+(p.dept||'—')+'</span>';
 
-  var escId = String(p._row).replace(/'/g,"\'");
+  var escId = String(p._row).replace(/'/g, "\\'");
 
   // ★ 操作欄：CSV 不可操作（規則七）
   var actionBtn = isCSV
     ? '<span style="font-size:11px;color:#94a3b8;">—</span>'
-    : '<button class="btn-v" onclick="showPayInfo(''+escId+'')">付款資訊</button>';
+    : '<button class="btn-v" onclick="showPayInfo(\''+escId+'\')">付款資訊</button>';
 
-  // 方向標記
   var dirTag = p.direction === 'receivable'
     ? '<span style="color:var(--jade);font-size:11px;font-weight:700;">↑ 應收</span>'
     : '<span style="color:var(--coral);font-size:11px;font-weight:700;">↓ 應付</span>';
 
-  return '<tr style="'+(p.isOverdue?'background:#fff5f5;':'')+'">' +
-    '<td>'+srcBadge+'</td>' +
-    '<td>'+deptBadge+'</td>' +
-    '<td>'+statusBadge+' '+dirTag+'</td>' +
-    '<td class="tdb" style="max-width:220px;word-break:break-all;">'+(p.note||'—')+'</td>' +
-    '<td class="tdg">'+(p.category||'—')+'</td>' +
-    '<td style="font-family:'DM Mono',monospace;font-weight:700;color:'+(p.direction==='receivable'?'var(--jade)':'var(--coral)')+';">'+amtStr+'</td>' +
-    '<td class="tdg" style="'+(p.isOverdue?'color:var(--coral);font-weight:700;':'')+'">'+(p.dueDate||'—')+'</td>' +
-    '<td>'+actionBtn+'</td>' +
-    '</tr>';
+  return '<tr style="'+(p.isOverdue?'background:#fff5f5;':'')+'">'
+    + '<td>'+srcBadge+'</td>'
+    + '<td>'+deptBadge+'</td>'
+    + '<td>'+statusBadge+' '+dirTag+'</td>'
+    + '<td class="tdb" style="max-width:220px;word-break:break-all;">'+(p.note||'—')+'</td>'
+    + '<td class="tdg">'+(p.category||'—')+'</td>'
+    + '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(p.direction==='receivable'?'var(--jade)':'var(--coral)')+';">'+amtStr+'</td>'
+    + '<td class="tdg" style="'+(p.isOverdue?'color:var(--coral);font-weight:700;':'')+';">'+(p.dueDate||'—')+'</td>'
+    + '<td>'+actionBtn+'</td>'
+    + '</tr>';
 }
+
 
 // ── 付款資訊 Modal（只給 Firebase 資料用）───────────────
 function showPayInfo(rowId) {
   var p = allPaymentItems.find(function(x) { return String(x._row) === String(rowId); });
   if (!p) return;
-  // ★ CSV 資料不可操作（規則七）
   if (p._source === 'csv') { toast('📄 外部帳款資料不可編輯', '#64748b'); return; }
 
-  var cur    = (p.cur || 'NTD').toUpperCase();
+  var cur     = (p.cur || 'NTD').toUpperCase();
   var stColor = p.isPaid ? '#16a34a' : p.isOverdue ? '#dc2626' : p.isEst ? '#d97706' : '#0369a1';
   var stText  = p.isPaid ? '已完成'  : p.isOverdue ? '逾期'   : p.isEst ? '預估'   : '應付';
 
   document.getElementById('payinfo-title').textContent = p.note || '帳款明細';
 
-  function dr(l, v) {
-    return '<div class="drow"><div class="drow-l">'+l+'</div><div class="drow-v">'+v+'</div></div>';
-  }
+  var html = '';
+  html += '<div style="background:#f8fafc;border-radius:12px;padding:14px 16px;margin-bottom:12px;">';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+  html += dr('部門', p.dept || '—');
+  html += dr('類別', p.category || '—');
+  html += dr('狀態', '<span style="color:'+stColor+';font-weight:700;">'+stText+'</span>');
+  html += dr('付款日', p.dueDate || '—');
+  html += '</div></div>';
 
-  var html = '<div style="background:#f8fafc;border-radius:12px;padding:14px 16px;margin-bottom:12px;">'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
-    +dr('部門', p.dept||'—') + dr('類別', p.category||'—')
-    +dr('狀態', '<span style="color:'+stColor+';font-weight:700;">'+stText+'</span>')
-    +dr('付款日', p.dueDate||'—')
-    +'</div></div>';
-
-  html += '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:14px 16px;margin-bottom:12px;">'
-    +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">'
-    +(p.direction==='receivable'?'應收金額':'應付金額')+'</div>'
-    +'<div style="font-size:26px;font-weight:700;color:'+(p.direction==='receivable'?'var(--jade)':'var(--coral)')+';font-family:'DM Mono',monospace;">'+formatCurrency(cur, p.amt)+'</div>'
-    +'</div>';
+  var dirColor = p.direction === 'receivable' ? 'var(--jade)' : 'var(--coral)';
+  var dirLabel = p.direction === 'receivable' ? '應收金額' : '應付金額';
+  html += '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:14px 16px;margin-bottom:12px;">';
+  html += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">'+dirLabel+'</div>';
+  html += '<div style="font-size:26px;font-weight:700;color:'+dirColor+';font-family:\'DM Mono\',monospace;">'+formatCurrency(cur, p.amt)+'</div>';
+  html += '</div>';
 
   if (!p.isPaid) {
-    html += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px 16px;">'
-      +'<div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:10px;">標記已付</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">'
-      +'<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">實際付款日</label>'
-      +'<input type="date" id="pi-date" value="'+new Date().toISOString().slice(0,10)+'" style="width:100%;background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit;"></div>'
-      +'<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">實際金額（選填）</label>'
-      +'<input type="number" id="pi-amt" value="'+p.amt+'" style="width:100%;background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit;"></div>'
-      +'</div>'
-      +'<button onclick="markPaymentPaid(''+String(p._row).replace(/'/g,"\'")+'', true)" style="width:100%;padding:11px;border-radius:9px;background:linear-gradient(135deg,var(--jade),#4ade80);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;">✅ 標記為已付</button>'
-      +'</div>';
+    html += '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px 16px;">';
+    html += '<div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:10px;">標記已付</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">';
+    html += '<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">實際付款日</label>';
+    html += '<input type="date" id="pi-date" value="'+new Date().toISOString().slice(0,10)+'" style="width:100%;background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit;"></div>';
+    html += '<div><label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">實際金額（選填）</label>';
+    html += '<input type="number" id="pi-amt" value="'+p.amt+'" style="width:100%;background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:7px 10px;font-size:13px;outline:none;font-family:inherit;"></div>';
+    html += '</div>';
+    var escId2 = String(p._row).replace(/'/g, "\\'");
+    html += '<button onclick="markPaymentPaid(\''+escId2+'\', true)" style="width:100%;padding:11px;border-radius:9px;background:linear-gradient(135deg,var(--jade),#4ade80);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;">✅ 標記為已付</button>';
+    html += '</div>';
   } else {
-    html += '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;text-align:center;">'
-      +'<div style="font-size:14px;font-weight:700;color:var(--jade);">✅ 已付款完成</div>'
-      +(p.actualDate?'<div style="font-size:12px;color:var(--muted);margin-top:4px;">實際日期：'+p.actualDate+'</div>':'')
-      +'<button onclick="markPaymentPaid(''+String(p._row).replace(/'/g,"\'")+'', false)" style="margin-top:10px;padding:8px 20px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:0.5px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">↩ 取消</button>'
-      +'</div>';
+    html += '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 16px;text-align:center;">';
+    html += '<div style="font-size:14px;font-weight:700;color:var(--jade);">✅ 已付款完成</div>';
+    if (p.actualDate) html += '<div style="font-size:12px;color:var(--muted);margin-top:4px;">實際日期：'+p.actualDate+'</div>';
+    var escId3 = String(p._row).replace(/'/g, "\\'");
+    html += '<button onclick="markPaymentPaid(\''+escId3+'\', false)" style="margin-top:10px;padding:8px 20px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:0.5px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">↩ 取消</button>';
+    html += '</div>';
   }
 
   document.getElementById('payinfo-body').innerHTML = html;
