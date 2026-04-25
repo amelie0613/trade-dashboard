@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v12</title>
+<title>貿易大漁｜管理系統 v13</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -216,6 +216,17 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 #success-popup .sp-sub{font-size:13px;color:var(--muted);margin-top:6px;}
 #toast.show{opacity:1;}
 .sec-lbl{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+/* CALENDAR v3 */
+.cal-in{background:#dcfce7;color:#166534;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.cal-out{background:#fee2e2;color:#991b1b;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.cal-forecast{background:#ede9fe;color:#5b21b6;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.cal-csv{background:#f1f5f9;color:#64748b;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.cal-filter-btn{padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--card);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
+.cal-filter-btn.on{border-color:var(--sea);background:var(--sea);color:#fff;}
+.day-tab{padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--muted);font-family:inherit;}
+.day-tab.on{background:var(--sea);color:#fff;border-color:var(--sea);}
+.day-item{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;border-radius:8px;margin-bottom:6px;}
+.day-item-label{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-bottom:4px;}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -318,18 +329,28 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 <div class="scr" id="s-daily">
   <!-- 日曆 -->
   <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;">
+    <!-- 上方：月份導航 + 圖例 -->
     <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
       <div style="display:flex;align-items:center;gap:10px;">
         <button onclick="changeMonth(-1)" style="width:32px;height:32px;border-radius:50%;background:#f1f5f9;border:1px solid var(--border);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">‹</button>
-        <div style="font-size:15px;font-weight:700;min-width:120px;text-align:center;" id="daily-month">本月應收 / 應付日曆</div>
+        <div style="font-size:15px;font-weight:700;min-width:120px;text-align:center;" id="daily-month">本月日曆</div>
         <button onclick="changeMonth(1)" style="width:32px;height:32px;border-radius:50%;background:#f1f5f9;border:1px solid var(--border);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">›</button>
         <button onclick="viewYear=new Date().getFullYear();viewMonth=new Date().getMonth();renderDaily()" style="padding:5px 12px;border-radius:20px;background:#eff6ff;border:1px solid #bae6fd;color:#0369a1;font-size:11px;font-weight:700;cursor:pointer;">今月</button>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:11px;color:var(--jade);">↑ 應收</span>
-        <span style="font-size:11px;color:var(--coral);">↓ 應付</span>
-        <span style="font-size:11px;color:var(--muted);">（原幣金額）</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:10px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:20px;font-weight:700;">↑ 應收</span>
+        <span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;font-weight:700;">↓ 應付</span>
+        <span style="font-size:10px;background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:20px;font-weight:700;">◇ 預估</span>
+        <span style="font-size:10px;background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:20px;font-weight:700;">📄 外部</span>
       </div>
+    </div>
+    <!-- 篩選按鈕列 -->
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:11px;color:var(--muted);font-weight:700;">篩選：</span>
+      <button id="cf-all" class="cal-filter-btn on" onclick="setCalFilter('all',this)">全部</button>
+      <button id="cf-ship" class="cal-filter-btn on" onclick="setCalFilter('ship',this)">船務</button>
+      <button id="cf-trade" class="cal-filter-btn on" onclick="setCalFilter('trade',this)">貿易</button>
+      <button id="cf-forecast" class="cal-filter-btn on" onclick="setCalFilter('forecast',this)">預估</button>
     </div>
     <div style="overflow-x:auto;padding:8px;">
       <div id="cal-body" style="min-width:560px;"></div>
@@ -492,15 +513,24 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 
 <!-- Day Detail Modal -->
 <div class="modal-bg" id="DayM" style="z-index:550;">
-  <div class="modal-box" style="max-width:520px;">
+  <div class="modal-box" style="max-width:560px;">
     <div class="mhd">
       <div>
-        <div style="font-size:11px;color:#7fa0c0;margin-bottom:2px;">每日案件明細</div>
+        <div style="font-size:11px;color:#7fa0c0;margin-bottom:2px;">每日帳款明細</div>
         <div style="font-size:15px;font-weight:700;color:var(--gold2);" id="day-title"></div>
       </div>
       <span class="mcl" onclick="document.getElementById('DayM').classList.remove('open')">✕</span>
     </div>
-    <div style="padding:16px;" id="day-body"></div>
+    <!-- tabs -->
+    <div style="display:flex;gap:6px;padding:12px 16px 0;border-bottom:1px solid var(--border);background:#fff;">
+      <button class="day-tab on" id="day-tab-all"      onclick="switchDayTab('all')">全部</button>
+      <button class="day-tab"    id="day-tab-payable"  onclick="switchDayTab('payable')">↓ 應付</button>
+      <button class="day-tab"    id="day-tab-receivable" onclick="switchDayTab('receivable')">↑ 應收</button>
+      <button class="day-tab"    id="day-tab-forecast" onclick="switchDayTab('forecast')">◇ 貿易大漁預估</button>
+    </div>
+    <div style="padding:14px 16px;" id="day-body"></div>
+    <!-- 合計 -->
+    <div id="day-total" style="padding:10px 16px 14px;border-top:1px solid var(--border);background:#f8fafc;border-radius:0 0 16px 16px;"></div>
   </div>
 </div>
 
@@ -1852,428 +1882,542 @@ function loadPayments(cb){
   });
 }
 
+// ── 日曆篩選狀態（支援多選）────────────────────────────
+var calendarFilter = { ship: true, trade: true, forecast: true };
+var _dayDetailDate = '';
+var _dayDetailTab  = 'all';
+
+function setCalFilter(type, el) {
+  if (type === 'all') {
+    // 全部 = 全開
+    calendarFilter.ship = true;
+    calendarFilter.trade = true;
+    calendarFilter.forecast = true;
+    document.querySelectorAll('.cal-filter-btn').forEach(function(b) { b.classList.add('on'); });
+  } else {
+    calendarFilter[type] = !calendarFilter[type];
+    if (el) el.classList.toggle('on', calendarFilter[type]);
+    // 更新「全部」按鈕狀態
+    var allOn = calendarFilter.ship && calendarFilter.trade && calendarFilter.forecast;
+    var allBtn = document.getElementById('cf-all');
+    if (allBtn) allBtn.classList.toggle('on', allOn);
+  }
+  renderDaily();
+}
+
 function renderDaily(){
   var yr  = viewYear;
   var mo  = viewMonth;
-  var moStr = (mo+1)<10?'0'+(mo+1):String(mo+1);
   var today = new Date();
   var todayDate = today.getDate();
   var daysInMonth = new Date(yr,mo+1,0).getDate();
 
-  // ── 已轉入 Payments 的 formId 集合（這些不再顯示在日曆）──
-  var transferredIds = {};
-  (allPayments||PAYMENTS_CACHE||[]).forEach(function(p){
-    if(p['表單編號']) transferredIds[p['表單編號']] = true;
-  });
-
-  // ── 從 FormResponses01（rows）建立預估 map ──────────────
-  // 採購期1~3 → 應付(↓紅)　銷售期1~3 → 應收(↑綠)
-  // 只顯示「尚未轉入 Payments」的案件
-  var estMap = {};
-  // 明細記錄（點擊日期時顯示）
-  var estDetailMap = {};
-
-  function addEst(day, type, cur, amt, caseName, formId, periodName){
-    if(!day||day<1||day>daysInMonth||!amt||amt<=0) return;
-    if(!estMap[day]) estMap[day] = {buy:[],sell:[]};
-    if(!estDetailMap[day]) estDetailMap[day] = [];
-    var list = type==='buy' ? estMap[day].buy : estMap[day].sell;
-    var found = false;
-    list.forEach(function(i){ if(i.cur===cur){ i.amt+=amt; found=true; } });
-    if(!found) list.push({cur:cur, amt:amt});
-    estDetailMap[day].push({type:type, cur:cur, amt:amt, caseName:caseName, formId:formId, periodName:periodName});
-  }
-
-  rows.forEach(function(r){
-    var formId = g(r,'formId');
-    // 已轉入 Payments → 跳過，不顯示在日曆
-    if(transferredIds[formId]) return;
-    // ★ 只顯示老闆已審核同意的案件預估金額
-    var status = (r[F.status]||r['老闆已同意']||'').toString();
-    var approved = status==='是' || status.indexOf('同意')>=0;
-    if(!approved) return;
-    var caseName = g(r,'name');
-    var caseType = g(r,'type');
-    var hasBuy  = caseType.indexOf('採購')>=0;
-    var hasSell = caseType.indexOf('銷售')>=0;
-
-    // 採購分期：直接從 Firebase r.purchase.periods 讀取，過濾 approved
-    if(hasBuy){
-      var rawBps = (r.purchase && r.purchase.periods) ? r.purchase.periods : null;
-      var bps = rawBps || getPeriods01(r, 'buy'); // fallback 舊格式
-      for(var bi=0; bi<bps.length; bi++){
-        var bp = bps[bi];
-        if((bp.status||'') === 'approved') continue; // ★ 已審核不顯示在日曆
-        var bAmt  = parseFloat(bp.amount || bp.amt) || 0;
-        var bDate = (bp.expectedDate || bp.date || '').toString().trim();
-        var bCur  = (bp.currency || bp.cur || 'TWD').toUpperCase();
-        var bName = bp.name || ('第'+(bi+1)+'期');
-        if(!bAmt||!bDate) continue;
-        var bDateStr = bDate.replace(/[\/-]/g,'-');
-        var bObj = new Date(bDateStr);
-        if(isNaN(bObj)||bObj.getFullYear()!==yr||bObj.getMonth()!==mo) continue;
-        addEst(bObj.getDate(), 'buy', bCur, bAmt, caseName, formId, bName);
-      }
-    }
-    // 銷售分期：直接從 Firebase r.sales.periods 讀取，過濾 approved
-    if(hasSell){
-      var rawSps = (r.sales && r.sales.periods) ? r.sales.periods : null;
-      var sps = rawSps || getPeriods01(r, 'sell'); // fallback 舊格式
-      for(var si=0; si<sps.length; si++){
-        var sp = sps[si];
-        if((sp.status||'') === 'approved') continue; // ★ 已審核不顯示在日曆
-        var sAmt  = parseFloat(sp.amount || sp.amt) || 0;
-        var sDate = (sp.expectedDate || sp.date || '').toString().trim();
-        var sCur  = (sp.currency || sp.cur || 'TWD').toUpperCase();
-        var sName = sp.name || ('第'+(si+1)+'期');
-        if(!sAmt||!sDate) continue;
-        var sDateStr = sDate.replace(/[\/-]/g,'-');
-        var sObj = new Date(sDateStr);
-        if(isNaN(sObj)||sObj.getFullYear()!==yr||sObj.getMonth()!==mo) continue;
-        addEst(sObj.getDate(), 'sell', sCur, sAmt, caseName, formId, sName);
-      }
-    }
-  });
-
-  // ★ CSV 帳款：從 buildCombinedPayments 取得，加入日曆格子顯示
-  var csvMap = {};
-  try {
-    var calData = buildCombinedPayments().calendar;
-    calData.forEach(function(p) {
-      if (p._source !== 'csv') return;
-      var d = (p.dueDate||'').replace(/\//g,'-');
-      var obj = new Date(d);
-      if (isNaN(obj)||obj.getFullYear()!==yr||obj.getMonth()!==mo) return;
-      var day2 = obj.getDate();
-      if (!csvMap[day2]) csvMap[day2] = { buy:[], sell:[] };
-      var bucket = p.direction === 'receivable' ? 'sell' : 'buy';
-      var c = (p.cur||'NTD').toUpperCase();
-      var found = false;
-      csvMap[day2][bucket].forEach(function(i){ if(i.cur===c){ i.amt+=p.amt; found=true; } });
-      if (!found) csvMap[day2][bucket].push({cur:c, amt:p.amt});
-    });
-  } catch(e) { console.warn('csvMap build error:', e); }
-  var actMap = csvMap;  // 日曆格子「實際」區塊 = CSV 帳款
-
-  // 更新月份標題
   document.getElementById('daily-month').textContent = yr+'年'+(mo+1)+'月 應收／應付日曆';
 
-  // ── 建立日曆 ──
-  var firstDay=new Date(yr,mo,1).getDay();
-  var cal='<table style="width:100%;border-collapse:collapse;table-layout:fixed;">';
-  cal+='<thead><tr>';
-  ['日','一','二','三','四','五','六'].forEach(function(d){
-    cal+='<th style="padding:7px 3px;font-size:11px;font-weight:500;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);">'+d+'</th>';
+  // ── 建立本月 calendarItems ────────────────────────────
+  var calItems = [];
+  var today0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  // 1. Firebase 預估期別
+  (rows||[]).forEach(function(r){
+    var status = (r[F.status]||r['老闆已同意']||'').toString();
+    var approved = status==='是'||status.indexOf('同意')>=0;
+    if(!approved) return;
+    var formId   = g(r,'formId');
+    var caseName = g(r,'name');
+    var caseType = g(r,'type');
+    var hasBuy   = caseType.indexOf('採購')>=0;
+    var hasSell  = caseType.indexOf('銷售')>=0;
+
+    var rawBps = (r.purchase&&r.purchase.periods)?r.purchase.periods:null;
+    var bps = rawBps||getPeriods01(r,'buy').map(function(p){
+      return {name:p.name,currency:p.cur,amount:p.amt,expectedDate:p.date,status:p.status||'',paid:false};
+    });
+    if(hasBuy) bps.forEach(function(bp,bi){
+      if((bp.status||'')==='approved') return;
+      var amt  = parseFloat(bp.amount||bp.amt)||0;
+      var date = ((bp.expectedDate||bp.date||'').replace(/\//g,'-')).slice(0,10);
+      var cur  = (bp.currency||bp.cur||'TWD').toUpperCase();
+      var name = bp.name||('第'+(bi+1)+'期');
+      if(!amt||!date) return;
+      var d = new Date(date);
+      calItems.push({date:date,direction:'payable',isForecast:true,source:'firebase',
+        dept:'貿易',cur:cur,amt:amt,label:caseName+'【'+name+'】',caseName:caseName,
+        formId:formId,isPaid:!!bp.paid,isOverdue:d<today0&&!bp.paid});
+    });
+
+    var rawSps = (r.sales&&r.sales.periods)?r.sales.periods:null;
+    var sps = rawSps||getPeriods01(r,'sell').map(function(p){
+      return {name:p.name,currency:p.cur,amount:p.amt,expectedDate:p.date,status:p.status||'',paid:false};
+    });
+    if(hasSell) sps.forEach(function(sp,si){
+      if((sp.status||'')==='approved') return;
+      var amt  = parseFloat(sp.amount||sp.amt)||0;
+      var date = ((sp.expectedDate||sp.date||'').replace(/\//g,'-')).slice(0,10);
+      var cur  = (sp.currency||sp.cur||'TWD').toUpperCase();
+      var name = sp.name||('第'+(si+1)+'期');
+      if(!amt||!date) return;
+      var d = new Date(date);
+      calItems.push({date:date,direction:'receivable',isForecast:true,source:'firebase',
+        dept:'貿易',cur:cur,amt:amt,label:caseName+'【'+name+'】',caseName:caseName,
+        formId:formId,isPaid:!!sp.paid,isOverdue:d<today0&&!sp.paid});
+    });
   });
-  cal+='</tr></thead><tbody>';
 
-  var day=1;
-  var weeks=Math.ceil((daysInMonth+firstDay)/7);
+  // 2. CSV 帳款（只讀）
+  try{
+    _csvRawItems.forEach(function(p){
+      var override = _fbPayStatus[String(p._row)];
+      var isPaid = override ? !!override.paid : p.isPaid;
+      var dStr = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
+      if(!dStr) return;
+      var d = new Date(dStr);
+      calItems.push({date:dStr,direction:p.direction||'payable',isForecast:false,source:'csv',
+        dept:p.dept||'',cur:(p.cur||'NTD').toUpperCase(),amt:p.amt||0,
+        label:p.note||'外部帳款',caseName:'',note:p.note||'',
+        isPaid:isPaid,isOverdue:d<today0&&!isPaid&&!p.isEst});
+    });
+  }catch(e){}
+
+  // ── 套用篩選 ─────────────────────────────────────────
+  var filtered = calItems.filter(function(p){
+    if(!calendarFilter.ship     && p.dept==='船務')  return false;
+    if(!calendarFilter.trade    && p.dept==='貿易')  return false;
+    if(!calendarFilter.forecast && p.isForecast)      return false;
+    return true;
+  });
+
+  // ── 按日期分組 ────────────────────────────────────────
+  var dayMap = {};
+  filtered.forEach(function(p){
+    var dayNum = parseInt(p.date.slice(8,10),10);
+    if(isNaN(dayNum)) return;
+    // 只取本月
+    var pYr = parseInt(p.date.slice(0,4),10);
+    var pMo = parseInt(p.date.slice(5,7),10)-1;
+    if(pYr!==yr||pMo!==mo) return;
+    if(!dayMap[dayNum]) dayMap[dayNum] = [];
+    dayMap[dayNum].push(p);
+  });
+
+  // ── 建立日曆格子 ──────────────────────────────────────
+  var firstDay = new Date(yr,mo,1).getDay();
+  var cal = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">';
+  cal += '<thead><tr>';
+  ['日','一','二','三','四','五','六'].forEach(function(dn){
+    cal += '<th style="padding:7px 3px;font-size:11px;font-weight:500;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);">'+dn+'</th>';
+  });
+  cal += '</tr></thead><tbody>';
+
+  var weeks = Math.ceil((daysInMonth+firstDay)/7);
   for(var w=0;w<weeks;w++){
-    cal+='<tr>';
-    for(var d=0;d<7;d++){
-      var cellDay=w*7+d-firstDay+1;
+    cal += '<tr>';
+    for(var dw=0;dw<7;dw++){
+      var cellDay = w*7+dw-firstDay+1;
       if(cellDay<1||cellDay>daysInMonth){
-        cal+='<td style="background:#fafafa;border:0.5px solid var(--border);height:88px;"></td>';
+        cal += '<td style="background:#fafafa;border:0.5px solid var(--border);height:92px;"></td>';
       } else {
-        var isToday=cellDay===todayDate&&yr===today.getFullYear()&&mo===today.getMonth();
-        var bg=isToday?'#eff6ff':'#fff';
-        var border=isToday?'1.5px solid #0369a1':'0.5px solid var(--border)';
-        var dayColor=isToday?'#0369a1':(d===0?'#dc2626':d===6?'#0369a1':'var(--ink)');
-        var fullDate=yr+'/'+(mo+1<10?'0'+(mo+1):String(mo+1))+'/'+(cellDay<10?'0'+cellDay:String(cellDay));
-        var hasData=(estMap[cellDay]||actMap[cellDay]||csvMap[cellDay]);
-        var tdStyle='background:'+bg+';border:'+border+';height:88px;padding:5px;vertical-align:top;box-sizing:border-box;'+(hasData?'cursor:pointer;':'');
-        // data-date 給事件委派用，不在格子裡寫 onclick（避免引號跳脫問題）
-        cal+='<td style="'+tdStyle+'"'+(hasData?' data-date="'+fullDate+'"':'')+'>';
-        cal+='<div style="font-size:11px;font-weight:700;color:'+dayColor+';margin-bottom:3px;">'+cellDay+(isToday?'<span style="font-size:9px;font-weight:400;color:#0369a1;margin-left:3px;">今</span>':'')+'</div>';
+        var isToday = cellDay===todayDate&&yr===today.getFullYear()&&mo===today.getMonth();
+        var bg = isToday?'#eff6ff':'#fff';
+        var border = isToday?'1.5px solid #0369a1':'0.5px solid var(--border)';
+        var dayColor = isToday?'#0369a1':(dw===0?'#dc2626':dw===6?'#0369a1':'var(--ink)');
+        var fullDate = yr+'-'+(mo+1<10?'0'+(mo+1):String(mo+1))+'-'+(cellDay<10?'0'+cellDay:String(cellDay));
+        var items = dayMap[cellDay]||[];
+        var hasData = items.length>0;
+        var tdStyle = 'background:'+bg+';border:'+border+';height:92px;padding:5px;vertical-align:top;box-sizing:border-box;'+(hasData?'cursor:pointer;':'');
+        cal += '<td style="'+tdStyle+'"'+(hasData?' data-date="'+fullDate+'"':'')+' >';
+        cal += '<div style="font-size:11px;font-weight:700;color:'+dayColor+';margin-bottom:3px;">'+cellDay+(isToday?'<span style="font-size:9px;font-weight:400;color:#0369a1;margin-left:3px;">今</span>':'')+'</div>';
 
-        // ── 預估（灰色，上層）──
-        var est=estMap[cellDay];
-        if(est){
-          var estLines=[];
-          est.buy.forEach(function(b){ estLines.push('<div style="font-size:9px;color:#dc2626;line-height:1.5;overflow:hidden;white-space:nowrap;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#dc2626;margin-right:3px;vertical-align:middle;"></span>'+b.cur+' '+fmtN(b.amt)+'</div>'); });
-          est.sell.forEach(function(s){ estLines.push('<div style="font-size:9px;color:#16a34a;line-height:1.5;overflow:hidden;white-space:nowrap;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#16a34a;margin-right:3px;vertical-align:middle;"></span>'+s.cur+' '+fmtN(s.amt)+'</div>'); });
-          if(estLines.length){
-            cal+='<div style="background:#f8fafc;border-radius:3px;padding:2px 3px;margin-bottom:2px;">'
-              +'<div style="font-size:8px;color:#94a3b8;font-weight:700;letter-spacing:.03em;">預估</div>'
-              +estLines.join('')+'</div>';
-          }
-        }
+        // 彙總應付（紅）
+        var paySum = {};
+        items.filter(function(p){return p.direction==='payable';}).forEach(function(p){ paySum[p.cur]=(paySum[p.cur]||0)+p.amt; });
+        // 彙總應收（綠）
+        var recvSum = {};
+        items.filter(function(p){return p.direction==='receivable';}).forEach(function(p){ recvSum[p.cur]=(recvSum[p.cur]||0)+p.amt; });
 
-        // ── 實際（綠色，下層）──
-        var act=actMap[cellDay];
-        if(act){
-          var actLines=[];
-          act.buy.forEach(function(b){ actLines.push('<div style="font-size:9px;color:#15803d;line-height:1.5;overflow:hidden;white-space:nowrap;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#15803d;margin-right:3px;vertical-align:middle;"></span>'+b.cur+' '+fmtN(b.amt)+'</div>'); });
-          act.sell.forEach(function(s){ actLines.push('<div style="font-size:9px;color:#065f46;line-height:1.5;overflow:hidden;white-space:nowrap;"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#065f46;margin-right:3px;vertical-align:middle;"></span>'+s.cur+' '+fmtN(s.amt)+'</div>'); });
-          if(actLines.length){
-            cal+='<div style="background:#f0fdf4;border-radius:3px;padding:2px 3px;">'
-              +'<div style="font-size:8px;color:#16a34a;font-weight:700;letter-spacing:.03em;">實際</div>'
-              +actLines.join('')+'</div>';
-          }
+        var shown = 0;
+        Object.keys(paySum).forEach(function(c){
+          if(shown>=2) return;
+          var cls = items.filter(function(p){return p.direction==='payable'&&p.cur===c;})[0];
+          var isFc = cls&&cls.isForecast;
+          var isCsv= cls&&cls.source==='csv';
+          var cellCls = isCsv?'cal-csv':(isFc?'cal-forecast':'cal-out');
+          cal += '<div class="'+cellCls+'" style="font-size:9px;line-height:1.5;overflow:hidden;white-space:nowrap;margin-bottom:1px;">↓'+c+' '+fmtN(paySum[c])+'</div>';
+          shown++;
+        });
+        Object.keys(recvSum).forEach(function(c){
+          if(shown>=3) return;
+          var cls2 = items.filter(function(p){return p.direction==='receivable'&&p.cur===c;})[0];
+          var isFc2 = cls2&&cls2.isForecast;
+          var isCsv2= cls2&&cls2.source==='csv';
+          var cellCls2 = isCsv2?'cal-csv':(isFc2?'cal-in':'cal-in');
+          cal += '<div class="'+cellCls2+'" style="font-size:9px;line-height:1.5;overflow:hidden;white-space:nowrap;margin-bottom:1px;">↑'+c+' '+fmtN(recvSum[c])+'</div>';
+          shown++;
+        });
+        if(items.length>shown){
+          cal += '<div style="font-size:8px;color:var(--muted);margin-top:1px;">+'+(items.length-shown)+' 筆</div>';
         }
-        cal+='</td>';
+        cal += '</td>';
       }
     }
-    cal+='</tr>';
+    cal += '</tr>';
   }
-  cal+='</tbody></table>';
-  document.getElementById('cal-body').innerHTML=cal;
+  cal += '</tbody></table>';
+  document.getElementById('cal-body').innerHTML = cal;
 
-  // 事件委派：用 document 層級監聽，確保不被任何容器擋住
-  // 先移除舊的監聽器（避免重複綁定）
+  // ── 重綁事件委派 ─────────────────────────────────────
   if(window._calClickHandler){
     document.removeEventListener('click', window._calClickHandler, true);
   }
   window._calClickHandler = function(e){
     var el = e.target;
-    for(var i=0; i<6; i++){
+    for(var i=0;i<6;i++){
       if(!el) break;
-      if(el.tagName==='TD' && el.getAttribute('data-date')){
-        showDayDetail(el.getAttribute('data-date'));
-        return;
+      if(el.tagName==='TD'&&el.getAttribute('data-date')){
+        openDayDetail(el.getAttribute('data-date')); return;
       }
       el = el.parentElement;
     }
   };
-  // 用 capture 模式確保最先捕捉到事件
   document.addEventListener('click', window._calClickHandler, true);
-
-  // ── 逾期未付款（預計日 < 今天 且未標記）──
-  var overdueEl=document.getElementById('overdue-section');
-  var role=curUser?curUser.role:'';
-  var canSeeOverdue=(role==='boss'||role==='finance'||role==='admin');
-  if(overdueEl){
-    if(!canSeeOverdue){ overdueEl.style.display='none'; }
-    else {
-      var todayStr=today.getFullYear()+'/'        +(today.getMonth()+1<10?'0'+(today.getMonth()+1):today.getMonth()+1)+'/'        +(today.getDate()<10?'0'+today.getDate():today.getDate());
-
-      // 從 FormResponses01 找逾期分期（排除已轉入 Payments 的案件）
-      var overdue = [];
-      rows.forEach(function(r){
-        var formId   = g(r,'formId');
-        if(transferredIds[formId]) return;
-        // ★ 只顯示已審核同意的案件
-        var status = (r[F.status]||r['老闆已同意']||'').toString();
-        var approved = status==='是' || status.indexOf('同意')>=0;
-        if(!approved) return;
-        var caseName = g(r,'name');
-        var caseType = g(r,'type');
-        var staff    = g(r,'staff');
-        var hasBuy   = caseType.indexOf('採購')>=0;
-        var hasSell  = caseType.indexOf('銷售')>=0;
-        for(var pi=1; pi<=3; pi++){
-          if(hasBuy){
-            var bAmt  = parseFloat(r['採購期'+pi+'金額'])||0;
-            var bDate = (r['採購期'+pi+'預計日']||'').replace(/-/g,'/');
-            var bName = r['採購期'+pi+'名稱']||('第'+pi+'期');
-            var bCur  = (r['採購期'+pi+'幣別']||'TWD').toUpperCase();
-            if(bAmt>0 && bDate && bDate < todayStr){
-              overdue.push({caseName:caseName,formId:formId,staff:staff,type:'採購',name:bName,cur:bCur,amt:bAmt,date:bDate});
-            }
-          }
-          if(hasSell){
-            var sAmt  = parseFloat(r['銷售期'+pi+'金額'])||0;
-            var sDate = (r['銷售期'+pi+'預計日']||'').replace(/-/g,'/');
-            var sName = r['銷售期'+pi+'名稱']||('第'+pi+'期');
-            var sCur  = (r['銷售期'+pi+'幣別']||'TWD').toUpperCase();
-            if(sAmt>0 && sDate && sDate < todayStr){
-              overdue.push({caseName:caseName,formId:formId,staff:staff,type:'銷售',name:sName,cur:sCur,amt:sAmt,date:sDate});
-            }
-          }
-        }
-      });
-      overdue.sort(function(a,b){ return a.date<b.date?-1:1; });
-
-      if(!overdue.length){
-        overdueEl.style.display='none';
-      } else {
-        overdueEl.style.display='block';
-        var html='<div style="background:var(--card);border:1px solid #fca5a5;border-radius:12px;overflow:hidden;margin-bottom:16px;">'          +'<div style="background:#fef2f2;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #fca5a5;">'          +'<div style="font-size:14px;font-weight:700;color:#991b1b;">逾期未完成款項</div>'          +'<div style="background:#dc2626;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">'+overdue.length+' 筆</div>'          +'</div>';
-        overdue.forEach(function(p){
-          var diffDays=Math.floor((today-new Date(p.date.replace(/\//g,'-')))/86400000);
-          var isBuy=p.type==='採購';
-          var tagBg=isBuy?'#fee2e2':'#fef9c3';
-          var tagColor=isBuy?'#991b1b':'#854d0e';
-          var tagText=isBuy?'應付未付':'應收未收';
-          var amtColor=isBuy?'#dc2626':'#d97706';
-          html+='<div style="padding:12px 16px;border-bottom:0.5px solid #fde8e8;display:flex;justify-content:space-between;align-items:center;gap:8px;">'            +'<div style="flex:1;min-width:0;">'            +'<div style="font-size:13px;font-weight:700;color:var(--ink);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">'+p.caseName+'</div>'            +'<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+p.formId+' · '+p.staff+' · '+p.type+'：'+p.name+'</div>'            +'<div style="font-size:11px;color:#dc2626;margin-top:3px;">預計日：<b>'+p.date+'</b></div>'            +'</div>'            +'<div style="text-align:right;flex-shrink:0;">'            +'<div style="font-size:13px;font-weight:700;color:'+amtColor+';font-family:monospace;">'+p.cur+' '+fmtN(p.amt)+'</div>'            +'<div style="font-size:10px;color:#dc2626;margin-top:2px;">逾期 '+diffDays+' 天</div>'            +'<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;background:'+tagBg+';color:'+tagColor+';margin-top:3px;">'+tagText+'</span>'            +'</div>'            +'</div>';
-        });
-        html+='</div>';
-        overdueEl.innerHTML=html;
-      }
-    }
-  }
-
-  // ── 月小計表（從 FormResponses01 分期計算）──
-  var estTotals={},actTotals={};
-  rows.forEach(function(r){
-    var formId = g(r,'formId');
-    if(transferredIds[formId]) return; // 已轉入 Payments 的不算在預估
-    var caseType = g(r,'type');
-    var hasBuy  = caseType.indexOf('採購')>=0;
-    var hasSell = caseType.indexOf('銷售')>=0;
-    for(var pi=1; pi<=3; pi++){
-      if(hasBuy){
-        var bAmt = parseFloat(r['採購期'+pi+'金額'])||0;
-        var bCur = (r['採購期'+pi+'幣別']||'TWD').toUpperCase();
-        var bd   = (r['採購期'+pi+'預計日']||'').replace(/\//g,'-');
-        if(bd&&bAmt>0){
-          var o=new Date(bd);
-          if(!isNaN(o)&&o.getFullYear()===yr&&o.getMonth()===mo){
-            if(!estTotals[bCur])estTotals[bCur]={sell:0,buy:0};
-            estTotals[bCur].buy+=bAmt;
-          }
-        }
-      }
-      if(hasSell){
-        var sAmt = parseFloat(r['銷售期'+pi+'金額'])||0;
-        var sCur = (r['銷售期'+pi+'幣別']||'TWD').toUpperCase();
-        var sd   = (r['銷售期'+pi+'預計日']||'').replace(/\//g,'-');
-        if(sd&&sAmt>0){
-          var o2=new Date(sd);
-          if(!isNaN(o2)&&o2.getFullYear()===yr&&o2.getMonth()===mo){
-            if(!estTotals[sCur])estTotals[sCur]={sell:0,buy:0};
-            estTotals[sCur].sell+=sAmt;
-          }
-        }
-      }
-    }
-  });
-  // Payments 分頁已標記的加入月小計（實際付收）
-  PAYMENTS_CACHE.forEach(function(p){
-    if(p['已付收']!=='是')return;
-    var aDate=(p['實際日期']||'').replace(/\//g,'-');
-    if(!aDate)return;
-    var aObj=new Date(aDate);
-    if(isNaN(aObj)||aObj.getFullYear()!==yr||aObj.getMonth()!==mo)return;
-    var cur=(p['幣別']||'TWD').toUpperCase();
-    var amt=parseFloat(p['金額'])||0;
-    if(!actTotals[cur])actTotals[cur]={sell:0,buy:0};
-    if(p['類型']==='採購')actTotals[cur].buy+=amt;
-    else actTotals[cur].sell+=amt;
-  });
-
-  // 月小計已移除
 }
 
-// 點擊日曆格子 → 顯示當日案件明細
-function showDayDetail(dateStr){
-  var matchDate = (dateStr||'').replace(/\//g,'-');
-  console.log('=== showDayDetail ===', dateStr, 'rows:', rows.length);
+// ── 日曆篩選狀態 ─────────────────────────────────────
+var calendarFilter = { ship:true, trade:true, forecast:true };
+function toggleCalendarFilter(type){
+  if(type==='all'){
+    var allOn = calendarFilter.ship&&calendarFilter.trade&&calendarFilter.forecast;
+    calendarFilter.ship = calendarFilter.trade = calendarFilter.forecast = !allOn;
+  } else {
+    calendarFilter[type] = !calendarFilter[type];
+  }
+  var allOn2 = calendarFilter.ship&&calendarFilter.trade&&calendarFilter.forecast;
+  var allBtn = document.getElementById('cal-f-all');
+  if(allBtn) allBtn.className = 'cal-filter-btn'+(allOn2?' on':'');
+  var shipBtn = document.getElementById('cal-f-ship');
+  if(shipBtn) shipBtn.className = 'cal-filter-btn'+(calendarFilter.ship?' on-jade':'');
+  var tradeBtn = document.getElementById('cal-f-trade');
+  if(tradeBtn) tradeBtn.className = 'cal-filter-btn'+(calendarFilter.trade?' on-jade':'');
+  var fBtn = document.getElementById('cal-f-forecast');
+  if(fBtn) fBtn.className = 'cal-filter-btn'+(calendarFilter.forecast?' on-purple':'');
+  renderDaily();
+}
 
+// ── 日期詳細彈窗 ─────────────────────────────────────
+var _dayDetailDate = '';
+var _dayDetailTab  = 'all';
 
-  // 從 FormResponses01 分期欄位找當天的案件
-  // 統一日期格式比對（支援 / 和 - 兩種格式）
-  function normDate(s){ return (s||'').toString().trim().replace(/[\/-]/g,'-').substring(0,10); }
-  var dayItems = [];
-  rows.forEach(function(r){
+function openDayDetail(dateStr){
+  _dayDetailDate = dateStr;
+  _dayDetailTab  = 'all';
+  ['all','payable','receivable','forecast'].forEach(function(t){
+    var el = document.getElementById('day-tab-'+t);
+    if(el) el.className = 'day-tab'+(t==='all'?' on':'');
+  });
+  var dt = new Date(dateStr);
+  var label = isNaN(dt)?dateStr:((dt.getMonth()+1)+'月'+dt.getDate()+'日');
+  document.getElementById('day-title').textContent = label;
+  _renderDayDetail();
+  document.getElementById('DayM').classList.add('open');
+}
+
+function switchDayTab(tab){
+  _dayDetailTab = tab;
+  ['all','payable','receivable','forecast'].forEach(function(t){
+    var el = document.getElementById('day-tab-'+t);
+    if(el) el.className = 'day-tab'+(t===tab?' on':'');
+  });
+  _renderDayDetail();
+}
+
+function _renderDayDetail(){
+  var dateStr = _dayDetailDate;
+  var tab     = _dayDetailTab;
+  var body    = document.getElementById('day-body');
+  var totalEl = document.getElementById('day-total');
+  if(!body) return;
+
+  var today0 = new Date(); today0.setHours(0,0,0,0);
+  var allItems = [];
+
+  // Firebase 期別
+  (rows||[]).forEach(function(r){
+    var status = (r[F.status]||r['老闆已同意']||'').toString();
+    var approved = status==='是'||status.indexOf('同意')>=0;
+    if(!approved) return;
+    var formId   = g(r,'formId');
+    var caseName = g(r,'name');
     var caseType = g(r,'type');
-    var hasBuy  = caseType.indexOf('採購')>=0;
-    var hasSell = caseType.indexOf('銷售')>=0;
-    for(var pi=1; pi<=3; pi++){
-      if(hasBuy){
-        var bDate = normDate(r['採購期'+pi+'預計日']);
-        var bAmt  = parseFloat(r['採購期'+pi+'金額'])||0;
-        if(pi===1 && bDate) console.log('  採購期1日期:', bDate, 'vs matchDate:', matchDate, '相符:', bDate===matchDate);
-        if(bDate===matchDate && bAmt>0){
-          dayItems.push({r:r,type:'buy',cur:(r['採購期'+pi+'幣別']||'TWD').toUpperCase(),
-            amt:bAmt,date:bDate,periodName:r['採購期'+pi+'名稱']||('第'+pi+'期')});
-        }
-      }
-      if(hasSell){
-        var sDate = normDate(r['銷售期'+pi+'預計日']);
-        var sAmt  = parseFloat(r['銷售期'+pi+'金額'])||0;
-        if(sDate===matchDate && sAmt>0){
-          dayItems.push({r:r,type:'sell',cur:(r['銷售期'+pi+'幣別']||'TWD').toUpperCase(),
-            amt:sAmt,date:sDate,periodName:r['銷售期'+pi+'名稱']||('第'+pi+'期')});
-        }
-      }
-    }
+    var hasBuy   = caseType.indexOf('採購')>=0;
+    var hasSell  = caseType.indexOf('銷售')>=0;
+
+    var rawBps = (r.purchase&&r.purchase.periods)?r.purchase.periods:null;
+    var bps = rawBps||getPeriods01(r,'buy').map(function(p){
+      return {name:p.name,currency:p.cur,amount:p.amt,expectedDate:p.date,status:p.status||'',paid:false};
+    });
+    if(hasBuy) bps.forEach(function(bp,bi){
+      if((bp.status||'')==='approved') return;
+      var amt  = parseFloat(bp.amount||bp.amt)||0;
+      var date = (bp.expectedDate||bp.date||'').replace(/\//g,'-').slice(0,10);
+      var cur  = (bp.currency||bp.cur||'TWD').toUpperCase();
+      var name = bp.name||('第'+(bi+1)+'期');
+      if(!amt||date!==dateStr) return;
+      var d = new Date(date);
+      allItems.push({source:'firebase',direction:'payable',isForecast:true,dept:'貿易',
+        cur:cur,amt:amt,label:caseName+'【'+name+'】',caseName:caseName,formId:formId,
+        isPaid:!!bp.paid,isOverdue:d<today0&&!bp.paid});
+    });
+
+    var rawSps = (r.sales&&r.sales.periods)?r.sales.periods:null;
+    var sps = rawSps||getPeriods01(r,'sell').map(function(p){
+      return {name:p.name,currency:p.cur,amount:p.amt,expectedDate:p.date,status:p.status||'',paid:false};
+    });
+    if(hasSell) sps.forEach(function(sp,si){
+      if((sp.status||'')==='approved') return;
+      var amt  = parseFloat(sp.amount||sp.amt)||0;
+      var date = (sp.expectedDate||sp.date||'').replace(/\//g,'-').slice(0,10);
+      var cur  = (sp.currency||sp.cur||'TWD').toUpperCase();
+      var name = sp.name||('第'+(si+1)+'期');
+      if(!amt||date!==dateStr) return;
+      var d = new Date(date);
+      allItems.push({source:'firebase',direction:'receivable',isForecast:true,dept:'貿易',
+        cur:cur,amt:amt,label:caseName+'【'+name+'】',caseName:caseName,formId:formId,
+        isPaid:!!sp.paid,isOverdue:d<today0&&!sp.paid});
+    });
   });
 
-  var seenIds={}, dayRows=[];
-  dayItems.forEach(function(item){
-    var fid=g(item.r,'formId');
-    if(!seenIds[fid]){seenIds[fid]=true;dayRows.push(item.r);}
+  // CSV 帳款（只讀）
+  try{
+    _csvRawItems.forEach(function(p){
+      var dStr = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
+      if(dStr!==dateStr) return;
+      var override = _fbPayStatus[String(p._row)];
+      var isPaid = override?!!override.paid:p.isPaid;
+      var d = new Date(dStr);
+      allItems.push({source:'csv',direction:p.direction||'payable',isForecast:false,
+        dept:p.dept||'',cur:(p.cur||'NTD').toUpperCase(),amt:p.amt||0,
+        label:p.note||'外部帳款',caseName:'',note:p.note||'',
+        isPaid:isPaid,isOverdue:d<today0&&!isPaid&&!p.isEst});
+    });
+  }catch(e){}
+
+  // Tab 篩選
+  var display = allItems.filter(function(p){
+    if(tab==='payable')    return p.direction==='payable';
+    if(tab==='receivable') return p.direction==='receivable';
+    if(tab==='forecast')   return p.isForecast;
+    return true;
   });
 
-  document.getElementById('day-title').textContent=dateStr+'　共 '+dayRows.length+' 筆案件';
-  var body=document.getElementById('day-body');
+  // 更新 tab badge
+  var counts = {
+    all:allItems.length,
+    payable:allItems.filter(function(p){return p.direction==='payable';}).length,
+    receivable:allItems.filter(function(p){return p.direction==='receivable';}).length,
+    forecast:allItems.filter(function(p){return p.isForecast;}).length
+  };
+  var tabLabels = {all:'全部',payable:'↓ 應付',receivable:'↑ 應收',forecast:'◇ 貿易大漁預估'};
+  ['all','payable','receivable','forecast'].forEach(function(t){
+    var el = document.getElementById('day-tab-'+t);
+    if(!el) return;
+    el.innerHTML = tabLabels[t]+(counts[t]?' <span style="font-size:10px;background:rgba(0,0,0,.15);padding:0 5px;border-radius:10px;">'+counts[t]+'</span>':'');
+  });
 
-  if(!dayItems.length){
-    body.innerHTML='<div class="empty"><span class="eico">📋</span>當日無案件</div>';
+  if(!display.length){
+    body.innerHTML = '<div class="empty"><span class="eico">📅</span>無符合條件的記錄</div>';
+    if(totalEl) totalEl.innerHTML = '';
+    return;
+  }
+
+  var html = '';
+  display.forEach(function(p){
+    var isCSV = p.source==='csv';
+    var dirColor = p.direction==='receivable'?'var(--jade)':'var(--coral)';
+    var dirBg    = p.direction==='receivable'?'#f0fdf4':'#fef2f2';
+    var dirBorder= p.direction==='receivable'?'#86efac':'#fca5a5';
+    var stBg = p.isPaid?'#dcfce7':p.isOverdue?'#fee2e2':'#dbeafe';
+    var stCol= p.isPaid?'#14532d':p.isOverdue?'#991b1b':'#1e40af';
+    var stText= p.isPaid?(p.direction==='receivable'?'已收':'已付'):(p.isOverdue?'逾期':'未付');
+    var srcTag= isCSV
+      ? '<span style="font-size:10px;background:#f1f5f9;color:#64748b;border-radius:4px;padding:1px 5px;font-weight:700;">📄 外部</span>'
+      : '<span style="font-size:10px;background:#ede9fe;color:#5b21b6;border-radius:4px;padding:1px 5px;font-weight:700;">◇ 預估</span>';
+    var deptTag = p.dept?'<span style="font-size:10px;background:'+(p.dept==='船務'?'#e0f2fe':'#f0fdf4')+';color:'+(p.dept==='船務'?'#0369a1':'#14532d')+';border-radius:4px;padding:1px 6px;font-weight:700;">'+p.dept+'</span>':'';
+    html += '<div style="background:'+dirBg+';border:1px solid '+dirBorder+';border-radius:10px;padding:11px 14px;margin-bottom:8px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;flex-wrap:wrap;">'+srcTag+' '+deptTag+'</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--ink);line-height:1.4;">'+p.label+'</div>';
+    html += '</div>';
+    html += '<div style="text-align:right;flex-shrink:0;">';
+function showDayDetail(dateStr) {
+  _dayDetailDate = dateStr;
+  _dayDetailTab  = 'all';
+  _renderDayDetail();
+}
+
+function switchDayTab(tab) {
+  _dayDetailTab = tab;
+  // 更新 tab 樣式
+  document.querySelectorAll('.day-tab').forEach(function(b) { b.classList.remove('on'); });
+  var activeTabId = { all:'day-tab-all', payable:'day-tab-payable', receivable:'day-tab-receivable', forecast:'day-tab-forecast' }[tab];
+  var activeTabEl = activeTabId ? document.getElementById(activeTabId) : null;
+  if (!activeTabEl) {
+    // fallback: find by onclick attr
+    document.querySelectorAll('.day-tab').forEach(function(b) {
+      if (b.getAttribute('onclick') && b.getAttribute('onclick').indexOf("'"+tab+"'") >= 0) b.classList.add('on');
+    });
+  } else {
+    activeTabEl.classList.add('on');
+  }
+  _renderDayDetail();
+}
+
+function _renderDayDetail() {
+  var dateStr = _dayDetailDate;
+  if (!dateStr) return;
+
+  var dt = new Date(dateStr.replace(/\//g,'-'));
+  if (isNaN(dt)) return;
+  var label = (dt.getMonth()+1) + '月' + dt.getDate() + '日';
+  document.getElementById('day-title').textContent = label;
+
+  // ── 取得當日所有合併資料（CSV + Firebase）──
+  var allItems = [];
+  try {
+    var calItems = buildCombinedPayments().calendar;
+    var matchStr = dateStr.replace(/\//g,'-').slice(0,10);
+    calItems.forEach(function(p) {
+      var d = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
+      if (d === matchStr) allItems.push(p);
+    });
+  } catch(e) { console.warn('_renderDayDetail error:', e); }
+
+  // ── 篩選 tab ──
+  var displayItems = allItems.filter(function(p) {
+    if (_dayDetailTab === 'payable')    return p.direction === 'payable' && !p.isEst;
+    if (_dayDetailTab === 'receivable') return p.direction === 'receivable' && !p.isEst;
+    if (_dayDetailTab === 'forecast')   return !!p.isEst;
+    return true; // all
+  });
+
+  // ── 渲染列表 ──
+  var body = document.getElementById('day-body');
+  if (!body) return;
+
+  if (!displayItems.length) {
+    body.innerHTML = '<div class="empty"><span class="eico">📅</span>當日無款項記錄</div>';
+    _renderDayTotal(allItems);
     document.getElementById('DayM').classList.add('open');
     return;
   }
 
-  body.innerHTML='';
-  dayRows.forEach(function(r){
-    var fid=g(r,'formId');
-    var fillWait=(r[F.fillStatus]||'')==='待補填';
-    var pend=isPend(r),appr=isAppr(r);
-    var bc=fillWait?'bp':pend?'bp':appr?'ba':'br';
-    var sl=fillWait?'⏳ 待補填':pend?'待審核':appr?'已同意':'退回';
-    var rowNum = r._row;
-    var rq       = "'"+rowNum+"'";
-    var card=document.createElement('div');
-    card.style.cssText='background:var(--card);border:0.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;';
+  var html = '';
+  displayItems.forEach(function(p) {
+    var isCSVItem  = p._source === 'csv';
+    var isForecast = !!p.isEst;
+    var isRecv     = p.direction === 'receivable';
+    var cur        = (p.cur||'NTD').toUpperCase();
 
-    var topDiv=document.createElement('div');
-    topDiv.style.cssText='display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;';
-    var infoDiv=document.createElement('div');
-    infoDiv.innerHTML='<div style="font-size:10px;color:var(--muted);margin-bottom:2px;">'+fid+'</div>'      +'<div style="font-size:14px;font-weight:700;color:var(--ink);">'+g(r,'name')+'</div>'      +'<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+g(r,'staff')+(g(r,'asst')?' / '+g(r,'asst'):'')+'</div>';
-    var badge=document.createElement('span');
-    badge.className='bdg '+bc; badge.textContent=sl;
-    topDiv.appendChild(infoDiv); topDiv.appendChild(badge);
-    card.appendChild(topDiv);
-
-    // 當天分期明細
-    var thisItems=dayItems.filter(function(i){return g(i.r,'formId')===fid;});
-    var amtGrid=document.createElement('div');
-    amtGrid.style.cssText='display:flex;flex-direction:column;gap:6px;margin-bottom:10px;';
-    thisItems.forEach(function(item){
-      var box=document.createElement('div');
-      var isBuy=item.type==='buy';
-      box.style.cssText='border-radius:7px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;'        +(isBuy?'background:#fef7f0;border:1px solid #fed7aa;':'background:#f0fdf4;border:1px solid #bbf7d0;');
-      box.innerHTML='<div>'        +'<div style="font-size:10px;font-weight:700;margin-bottom:2px;color:'+(isBuy?'#c2410c':'#15803d')+';">'          +(isBuy?'↓ 應付（採購）':'↑ 應收（銷售）')+'　<span style="font-size:10px;font-weight:400;color:var(--muted);">'+item.periodName+'</span></div>'        +'<div style="font-size:15px;font-weight:700;font-family:monospace;color:'+(isBuy?'#ea580c':'#16a34a')+';">'          +item.cur+' '+fmtN(item.amt)+'</div>'        +'</div>'        +'<div style="font-size:11px;color:var(--muted);text-align:right;">預計日<br><b style="color:var(--ink);">'+item.date.replace(/-/g,'/')+'</b></div>';
-      amtGrid.appendChild(box);
-    });
-    card.appendChild(amtGrid);
-
-
-    // 備註
-    var buyRem = g(r,'buyRem'), sellRem = g(r,'sellRem');
-    if(buyRem){
-      var br = document.createElement('div');
-      br.style.cssText='background:#fef9f9;border-left:3px solid #fca5a5;border-radius:0 6px 6px 0;padding:7px 10px;margin-bottom:6px;font-size:12px;color:#7f1d1d;line-height:1.6;';
-      br.innerHTML='<b style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;">備註（採購）</b><br>'+buyRem;
-      card.appendChild(br);
-    }
-    if(sellRem){
-      var sr = document.createElement('div');
-      sr.style.cssText='background:#f0fdf9;border-left:3px solid #86efac;border-radius:0 6px 6px 0;padding:7px 10px;margin-bottom:6px;font-size:12px;color:#14532d;line-height:1.6;';
-      sr.innerHTML='<b style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;">備註（銷售）</b><br>'+sellRem;
-      card.appendChild(sr);
+    // 顏色 class 對應
+    var bgColor, borderColor, textColor, typeLabel;
+    if (isCSVItem) {
+      bgColor = '#f1f5f9'; borderColor = '#cbd5e1'; textColor = '#475569'; typeLabel = '📄 外部';
+    } else if (isForecast && isRecv) {
+      bgColor = '#ede9fe'; borderColor = '#c4b5fd'; textColor = '#5b21b6'; typeLabel = '◇ 預估應收';
+    } else if (isForecast) {
+      bgColor = '#ede9fe'; borderColor = '#c4b5fd'; textColor = '#5b21b6'; typeLabel = '◇ 預估應付';
+    } else if (isRecv) {
+      bgColor = '#dcfce7'; borderColor = '#86efac'; textColor = '#166534'; typeLabel = '↑ 應收';
+    } else {
+      bgColor = '#fee2e2'; borderColor = '#fca5a5'; textColor = '#991b1b'; typeLabel = '↓ 應付';
     }
 
-    // 查看詳細按鈕（用 addEventListener，完全沒有引號問題）
-    var detailBtn = document.createElement('button');
-    detailBtn.textContent = '查看完整詳細 / 操作 →';
-    detailBtn.style.cssText='width:100%;margin-top:6px;padding:8px;border-radius:8px;background:#f1f5f9;color:#0369a1;font-size:12px;font-weight:700;border:0.5px solid #e2e8f0;cursor:pointer;';
-    detailBtn.addEventListener('click', (function(rn){
-      return function(){
-        document.getElementById('DayM').classList.remove('open');
-        showD(rn);
-      };
-    })(rowNum));
-    card.appendChild(detailBtn);
+    var stText  = p.isPaid ? '✅ 已付' : p.isOverdue ? '⚠️ 逾期' : '—';
+    var stColor = p.isPaid ? '#16a34a' : p.isOverdue ? '#dc2626' : '#64748b';
+    var deptLabel = p.dept || '';
+    var noteLabel = p.note || p.caseName || '—';
 
-    body.appendChild(card);
+    html += '<div class="day-item" style="background:'+bgColor+';border:1px solid '+borderColor+';">';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div style="margin-bottom:4px;">';
+    if (deptLabel) html += '<span class="day-item-label" style="background:'+borderColor+';color:'+textColor+';">'+deptLabel+'</span> ';
+    html += '<span class="day-item-label" style="background:'+borderColor+';color:'+textColor+';">'+typeLabel+'</span>';
+    if (isCSVItem) html += ' <span style="font-size:9px;color:#94a3b8;font-weight:700;">只讀</span>';
+    html += '</div>';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--ink);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:200px;" title="'+noteLabel+'">'+noteLabel+'</div>';
+    if (p.category) html += '<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+p.category+'</div>';
+    html += '</div>';
+    html += '<div style="text-align:right;flex-shrink:0;margin-left:8px;">';
+    html += '<div style="font-size:15px;font-weight:700;color:'+textColor+';font-family:\'DM Mono\',monospace;">'+formatCurrency(cur,p.amt)+'</div>';
+    html += '<div style="font-size:11px;color:'+stColor+';margin-top:3px;font-weight:700;">'+stText+'</div>';
+    html += '</div>';
+    html += '</div>';
   });
 
+  body.innerHTML = html;
+  _renderDayTotal(allItems);
   document.getElementById('DayM').classList.add('open');
 }
+
+function _renderDayTotal(items) {
+  var totalEl = document.getElementById('day-total');
+  if (!totalEl) return;
+
+  // 依幣別分類合計
+  var payTotals = {}, recvTotals = {};
+  items.forEach(function(p) {
+    var c = (p.cur||'NTD').toUpperCase();
+    var amt = p.amt || 0;
+    if (p.direction === 'receivable') {
+      recvTotals[c] = (recvTotals[c]||0) + amt;
+    } else {
+      payTotals[c] = (payTotals[c]||0) + amt;
+    }
+  });
+
+  function fmtTotals(obj, color) {
+    return Object.keys(obj).map(function(c) {
+      return '<span style="font-weight:700;color:'+color+';font-family:\'DM Mono\',monospace;margin-right:10px;">'+formatCurrency(c, obj[c])+'</span>';
+    }).join('');
+  }
+
+  var html = '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;">';
+  if (Object.keys(payTotals).length) {
+    html += '<div><div style="font-size:10px;color:#991b1b;font-weight:700;margin-bottom:2px;">↓ 應付合計</div>' + fmtTotals(payTotals,'#dc2626') + '</div>';
+  }
+  if (Object.keys(recvTotals).length) {
+    html += '<div><div style="font-size:10px;color:#166534;font-weight:700;margin-bottom:2px;">↑ 應收合計</div>' + fmtTotals(recvTotals,'#16a34a') + '</div>';
+  }
+  if (!Object.keys(payTotals).length && !Object.keys(recvTotals).length) {
+    html += '<span style="color:var(--muted);">無資料</span>';
+  }
+  html += '</div>';
+  totalEl.innerHTML = html;
+}
+
+    html += '</div></div></div>';
+  });
+  body.innerHTML = html;
+
+  // 底部合計（依幣別，正=應收，負=應付）
+  if(totalEl){
+    var totals = {};
+    display.forEach(function(p){
+      var sign = p.direction==='receivable'?1:-1;
+      totals[p.cur] = (totals[p.cur]||0)+sign*p.amt;
+    });
+    var thtml = '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">合計</div>';
+    thtml += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+    Object.keys(totals).forEach(function(c){
+      var v = totals[c];
+      var col = v>=0?'var(--jade)':'var(--coral)';
+      thtml += '<span style="font-size:13px;font-weight:700;color:'+col+';font-family:\'DM Mono\',monospace;background:'+(v>=0?'#f0fdf4':'#fef2f2')+';padding:4px 10px;border-radius:8px;">'+c+' '+(v>=0?'+':'')+fmtN(Math.abs(v))+'</span>';
+    });
+    thtml += '</div>';
+    totalEl.innerHTML = thtml;
+  }
+}
+
 // 關閉日曆視窗並開啟案件詳細
 function closeDayAndShowD(rowNum){
   document.getElementById('DayM').classList.remove('open');
@@ -4722,70 +4866,6 @@ function getPaymentsByDate() {
 // ─────────────────────────────────────────────────────
 // 點日期彈窗（分三區：應付/應收/外部帳款）
 // ─────────────────────────────────────────────────────
-function showDayDetail(dateStr) {
-  var dt = new Date(dateStr); if(isNaN(dt)) return;
-  var label = (dt.getMonth()+1) + '月' + dt.getDate() + '日';
-  document.getElementById('day-title').textContent = label;
-
-  var calItems = buildCombinedPayments().calendar;
-  var dayItems = calItems.filter(function(p) {
-    return (p.dueDate||'').replace(/\//g,'-').slice(0,10) === dateStr;
-  });
-
-  var payItems  = dayItems.filter(function(p) { return p.direction === 'payable'; });
-  var recvItems = dayItems.filter(function(p) { return p.direction === 'receivable'; });
-
-  var html = '';
-
-  // 應付區
-  if (payItems.length) {
-    html += '<div style="margin-bottom:14px;">';
-    html += '<div style="font-size:11px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">💸 應付帳款 ('+payItems.length+' 筆)</div>';
-    payItems.forEach(function(p) {
-      var isCSV = p._source === 'csv';
-      var stColor = p.isPaid?'#16a34a':p.isOverdue?'#dc2626':'#0369a1';
-      var stText  = p.isPaid?'已付':p.isOverdue?'逾期':'應付';
-      html += '<div style="background:'+(p.isOverdue?'#fef2f2':'#f8fafc')+';border-radius:8px;padding:10px 12px;margin-bottom:6px;">';
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-      html += '<div>';
-      html += '<span style="font-weight:700;font-size:13px;">'+(p.note||'—')+'</span>';
-      if (isCSV) html += '<span style="font-size:10px;background:#f0f9ff;color:#0369a1;border-radius:10px;padding:1px 6px;margin-left:6px;font-weight:700;">📄 外部</span>';
-      html += '<span style="font-size:11px;color:var(--muted);margin-left:8px;">'+(p.dept||'')+(p.category?'·'+p.category:'')+'</span>';
-      html += '</div>';
-      html += '<span style="font-size:14px;font-weight:700;color:var(--coral);font-family:\'DM Mono\',monospace;">'+formatCurrency(p.cur, p.amt)+'</span>';
-      html += '</div>';
-      html += '<div style="font-size:11px;color:'+stColor+';margin-top:3px;font-weight:700;">'+stText+'</div>';
-      html += '</div>';
-    });
-    html += '</div>';
-  }
-
-  // 應收區
-  if (recvItems.length) {
-    html += '<div style="margin-bottom:14px;">';
-    html += '<div style="font-size:11px;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">💰 應收帳款 ('+recvItems.length+' 筆)</div>';
-    recvItems.forEach(function(p) {
-      var isCSV = p._source === 'csv';
-      var stColor = p.isPaid?'#16a34a':p.isOverdue?'#dc2626':'#059669';
-      var stText  = p.isPaid?'已收':p.isOverdue?'逾期':'應收';
-      html += '<div style="background:#ecfdf5;border:0.5px solid #a7f3d0;border-radius:8px;padding:10px 12px;margin-bottom:6px;">';
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-      html += '<div>';
-      html += '<span style="font-weight:700;font-size:13px;">'+(p.note||p.caseName||'—')+'</span>';
-      if (isCSV) html += '<span style="font-size:10px;background:#f0f9ff;color:#0369a1;border-radius:10px;padding:1px 6px;margin-left:6px;font-weight:700;">📄 外部</span>';
-      html += '</div>';
-      html += '<span style="font-size:14px;font-weight:700;color:var(--jade);font-family:\'DM Mono\',monospace;">'+formatCurrency(p.cur, p.amt)+'</span>';
-      html += '</div>';
-      html += '<div style="font-size:11px;color:'+stColor+';margin-top:3px;font-weight:700;">'+stText+'</div>';
-      html += '</div>';
-    });
-    html += '</div>';
-  }
-
-  if (!html) html = '<div class="empty"><span class="eico">📅</span>當日無款項記錄</div>';
-  document.getElementById('day-body').innerHTML = html;
-  document.getElementById('DayM').classList.add('open');
-}
 
 // ══════════════════════════════════════════════════════
 // goTab / goTabEl
