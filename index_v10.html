@@ -348,7 +348,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 </div>
 <div class="scr" id="s-log">
   <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
-    <table class="ltbl"><thead><tr><th>時間</th><th>操作者</th><th>動作</th><th>對象</th><th>備注</th></tr></thead>
+    <table class="ltbl"><thead><tr><th>時間</th><th>操作者</th><th>動作</th><th>對象</th><th>案件ID</th><th>說明 / 變更內容</th></tr></thead>
     <tbody id="lb"></tbody></table>
   </div>
 </div>
@@ -2581,7 +2581,7 @@ function doApp(rowNum,status){
 
   function onDone(){
     if(r){r[F.status]=status;r[F.bossNote]=note;r[F.signTime]=tsNow;}
-    addLog(status==='是'?'同意簽核':'退回修改',curUser.name,name,note);
+    addLog(status==='是'?'同意簽核':'退回修改',curUser.name,name,note,formId);
     if(status==='是'){
       // 發簽核通過通知（寄給會計）
       backupActionToGAS({
@@ -2650,7 +2650,7 @@ function doAccountingConfirm(rowNum){
   };
 
   function onDone(){
-    addLog('會計確認轉入',curUser.name,caseName,'');
+    addLog('會計確認轉入',curUser.name,caseName,'',formId);
     toast('✅ 款項已轉入','#16a34a');
     // 通知業務會計已確認
     backupActionToGAS({
@@ -3032,7 +3032,7 @@ function doEdit(rowNum){
     if(hasAmtChange){
       // 金額有改 → 重置本地 status，等待老闆重新審核
       if(r){ r[F.status]=''; r[F.bossNote]=''; r[F.signTime]=''; }
-      addLog('修改案件（金額）', curUser.name, caseName, changes.join(' / '));
+      addLog('修改案件（金額）', curUser.name, caseName, changes.join(' / '), formId);
       if(changes.length > 0){
         // ★ v9：傳入 originalData / editedData 供 Diff
         notifyBossEdit(r, curUser.name, changes, _origDataSnapshot, _editedDataSnapshot);
@@ -3041,7 +3041,7 @@ function doEdit(rowNum){
       toast('💰 金額已修改，老闆需重新審核','#d97706');
     } else {
       // 非金額修改 → 保留原審核狀態，僅通知修改內容
-      addLog('修改案件（非金額）', curUser.name, caseName, changes.join(' / '));
+      addLog('修改案件（非金額）', curUser.name, caseName, changes.join(' / '), formId);
       if(changes.length > 0){
         // ★ v9：加入完整資料 + diff
         backupActionToGAS({
@@ -3088,7 +3088,7 @@ function doDelete(rowNum,name){
 
   function onDone(){
     rows=rows.filter(function(r){return r._row!==rowNum;});
-    addLog('刪除案件',curUser.name,name,'');
+    addLog('刪除案件',curUser.name,name,'',formId);
     closeD();onLoad();
     toast('🗑️ 案件已刪除並封存','#64748b');
   }
@@ -3400,25 +3400,75 @@ function saveCU2(id){
 function delCU(id){saveCU(getCU().filter(function(x){return x.id!==id;}));CU=loadU();renderCU();}
 
 // Log
-function addLog(a,u,tgt,n){
-  var c=a.includes('同意')||a.includes('簽核')?'lok':a.includes('退回')||a.includes('刪除')?'lng':'lin';
-  logs.push({t:now(),u:u,a:a,g:tgt,n:n,c:c});
-  if(logs.length>200)logs.shift();
-  try{localStorage.setItem('tl',JSON.stringify(logs));}catch(e){}
+function addLog(a, u, tgt, n, caseId) {
+  var c = a.indexOf('同意')>=0||a.indexOf('簽核')>=0 ? 'lok'
+        : a.indexOf('退回')>=0||a.indexOf('刪除')>=0 ? 'lng' : 'lin';
+  var ts = now();
+  var entry = { t:ts, u:u, a:a, g:tgt, n:n||'', c:c };
+  logs.push(entry);
+  if (logs.length > 200) logs.shift();
+  try { localStorage.setItem('tl', JSON.stringify(logs)); } catch(e) {}
   renderLog();
+
+  // ★ 同步寫入 Firebase logs collection
+  var db = getFirebaseDb();
+  if (!db) return;
+  var role = (curUser && curUser.role) || '';
+  var fbEntry = {
+    t:      ts,
+    u:      u      || '',
+    role:   role,
+    a:      a      || '',
+    g:      tgt    || '',
+    n:      n      || '',
+    caseId: caseId || ''
+  };
+  db.collection('logs').add(fbEntry).catch(function(e) {
+    console.warn('Log 寫入 Firebase 失敗：', e);
+  });
+}
+
+// ── 從 Firebase 讀取 logs（供 renderLog 使用）─────────
+function loadLogsFromFirebase(cb) {
+  var db = getFirebaseDb();
+  if (!db) { if (cb) cb([]); return; }
+  db.collection('logs')
+    .orderBy('t', 'desc')
+    .limit(300)
+    .get()
+    .then(function(snap) {
+      var result = [];
+      snap.forEach(function(doc) { result.push(doc.data()); });
+      if (cb) cb(result);
+    })
+    .catch(function(e) {
+      console.warn('讀取 Firebase logs 失敗：', e);
+      if (cb) cb([]);
+    });
 }
 function renderLog(){
-  var lb=document.getElementById('lb');
-  if(!lb)return;
-  lb.innerHTML=logs.length===0
-    ?'<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px;">尚無記錄</td></tr>'
-    :logs.slice().reverse().map(function(l){
-      return '<tr><td style="white-space:nowrap;font-size:11px;">'+l.t+'</td>'
-        +'<td><b>'+l.u+'</b></td>'
-        +'<td><span class="ltag '+l.c+'">'+l.a+'</span></td>'
-        +'<td style="font-size:11px;">'+l.g+'</td>'
-        +'<td style="font-size:11px;color:#64748b;max-width:300px;word-break:break-all;line-height:1.6;">'+l.n+'</td></tr>';
+  var lb = document.getElementById('lb');
+  if (!lb) return;
+  lb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px;">讀取中…</td></tr>';
+  loadLogsFromFirebase(function(fbLogs) {
+    var display = fbLogs.length > 0 ? fbLogs : logs.slice().reverse();
+    if (!display.length) {
+      lb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px;">尚無記錄</td></tr>';
+      return;
+    }
+    lb.innerHTML = display.map(function(l) {
+      var c = l.c || (l.a&&(l.a.indexOf('同意')>=0||l.a.indexOf('簽核')>=0)?'lok':l.a&&(l.a.indexOf('退回')>=0||l.a.indexOf('刪除')>=0)?'lng':'lin');
+      var roleLabel = {boss:'👑',admin:'🔧',finance:'💰',staff:'👤'}[l.role||''] || '';
+      return '<tr>'
+        +'<td style="white-space:nowrap;font-size:11px;">'+l.t+'</td>'
+        +'<td><b>'+l.u+'</b> <span style="font-size:10px;color:#94a3b8;">'+roleLabel+'</span></td>'
+        +'<td><span class="ltag '+c+'">'+l.a+'</span></td>'
+        +'<td style="font-size:11px;">'+(l.g||'')+'</td>'
+        +(l.caseId?'<td style="font-size:10px;color:#0369a1;font-family:monospace;">'+l.caseId+'</td>':'<td></td>')
+        +'<td style="font-size:11px;color:#64748b;max-width:300px;word-break:break-all;line-height:1.6;">'+(l.n||'')+'</td>'
+        +'</tr>';
     }).join('');
+  });
 }
 
 // Tab
@@ -3852,6 +3902,8 @@ function markPaymentPaid(rowId, paid) {
   p.actualDate = paid ? (dateEl ? dateEl.value : new Date().toISOString().slice(0,10)) : '';
   p.isOverdue  = false;
   document.getElementById('PayInfoM').classList.remove('open');
+  var who = (curUser && curUser.name) || '?';
+  addLog(paid ? '標記已付' : '取消已付', who, (p.note || '款項'), paid ? '標記完成' : '取消標記', '');
   toast(paid ? '✅ 已標記完成' : '↩ 已取消', paid ? '#16a34a' : '#64748b');
   renderPayments();
 }
@@ -4254,6 +4306,8 @@ function updatePayDate(rowId, newDate) {
   target.date         = newDate; // 相容舊欄位
   _writePeriodsToFirebase(p.formId, p.periodType, updated, function(ok) {
     if (ok) {
+      var who = (curUser && curUser.name) || '?';
+      addLog('付款日修改', who, p.caseName + '【' + p.periodName + '】', p.dueDate + ' → ' + newDate, p.formId);
       p.dueDate = newDate;
       toast('📅 日期已更新', '#0369a1');
     } else {
@@ -4305,8 +4359,13 @@ function saveNote(safeId, formId, periodIdx) {
   // ★ 寫入 acctNote，不動 amount/currency/name/expectedDate 等
   target.acctNote = val;
   _writePeriodsToFirebase(formId, p.periodType, updated, function(ok) {
-    if (ok) toast('📝 備註已儲存', '#0369a1');
-    else    toast('❌ 儲存失敗', '#dc2626');
+    if (ok) {
+      toast('📝 備註已儲存', '#0369a1');
+      var who = (curUser && curUser.name) || '?';
+      addLog('帳務備註', who, p.caseName + '【' + p.periodName + '】', '備註：' + val, formId);
+    } else {
+      toast('❌ 儲存失敗', '#dc2626');
+    }
   });
 }
 
@@ -4342,8 +4401,11 @@ function approveTransfer(formId, periodIdx, periodType) {
         p.periodStatus  = 'approved';
         p.approvedAt    = target.approvedAt;
       }
+      var who = (curUser && curUser.name) || '?';
+      var pName = (p && p.periodName) || ('第'+(periodIdx+1)+'期');
+      var pCase = (p && p.caseName)   || formId;
+      addLog('審核確認', who, pCase + '【' + pName + '】', 'status → approved', formId);
       toast('✅ 已審核確認', '#16a34a');
-      // 重建清單（讀取最新 rows，包含剛寫回的資料）
       _buildTransferItems();
     } else {
       toast('❌ 寫入失敗，請重試', '#d97706');
