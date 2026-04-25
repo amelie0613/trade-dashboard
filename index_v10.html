@@ -3977,7 +3977,7 @@ function _renderTransfer() {
 
   var html = '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">共 '+total+' 筆待確認</div>';
   html += '<div class="twrap"><table class="tbl">';
-  html += '<thead><tr><th>案號</th><th>業務</th><th>業務屬性</th><th>案件名稱</th><th>期數</th><th>幣別</th><th>金額</th><th>預計付款日</th><th>審核</th></tr></thead><tbody>';
+  html += '<thead><tr><th>案號</th><th>業務</th><th>業務屬性</th><th>案件名稱</th><th>期數</th><th>幣別</th><th>金額</th><th>預計付款日</th><th style="min-width:160px;">帳務備註</th><th>審核</th></tr></thead><tbody>';
 
   pageData.forEach(function(p) {
     var isPayable = p.direction === 'payable';
@@ -3993,8 +3993,38 @@ function _renderTransfer() {
     html += '<td class="tdg">'+p.periodName+'</td>';
     html += '<td><span style="font-family:\'DM Mono\',monospace;font-size:12px;background:'+(isPayable?'#fef2f2':'#f0fdf4')+';padding:2px 8px;border-radius:6px;color:'+(isPayable?'#dc2626':'#16a34a')+';font-weight:700;">'+cur+'</span></td>';
     html += '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(isPayable?'var(--coral)':'var(--jade)')+';">'+sym+fmtN(p.amt)+'</td>';
-    html += '<td class="tdg" style="'+(p.isOverdue?'color:var(--coral);font-weight:700;':'')+'">'+(p.dueDate||'—')+'</td>';
-    html += '<td><button class="btn-v" onclick="transferConfirmItem(\''+escId+'\')" style="background:#16a34a;">✅ 確認</button></td>';
+
+    // ★【1】預計付款日：可編輯 input[type=date]
+    var dateVal = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
+    var noteId  = 'acct-note-' + escId.replace(/[^a-zA-Z0-9]/g,'_');
+    var existNote = p.acctNote || '';
+    var acctNoteDisplay = existNote
+      ? '<div style="font-size:11px;color:#0369a1;margin-top:3px;">備註：'+existNote+'</div>'
+      : '';
+    html += '<td>'
+      + '<input type="date" value="'+dateVal+'"'
+      + ' onchange="updatePayDate(\''+escId+'\', this.value)"'
+      + ' style="background:#f8fafc;border:1.5px solid var(--border);border-radius:7px;'
+      + 'padding:5px 8px;font-size:12px;outline:none;font-family:inherit;'
+      + (p.isOverdue ? 'border-color:var(--coral);' : '')
+      + 'cursor:pointer;width:130px;">'
+      + acctNoteDisplay
+      + '</td>';
+
+    // ★【2】帳務備註 textarea
+    html += '<td>'
+      + '<textarea id="'+noteId+'" placeholder="帳務備註（選填）"'
+      + ' style="width:150px;height:52px;background:#fff;border:1.5px solid var(--border);'
+      + 'border-radius:7px;padding:5px 8px;font-size:12px;outline:none;resize:none;'
+      + 'font-family:inherit;line-height:1.5;">'+existNote+'</textarea>'
+      + '</td>';
+
+    // ★【3】審核按鈕
+    html += '<td>'
+      + '<button class="btn-v" onclick="approveTransferItem(\''+escId+'\',\''+noteId+'\')" '
+      + 'style="background:#16a34a;white-space:nowrap;">✅ 確認</button>'
+      + '</td>';
+
     html += '</tr>';
   });
 
@@ -4007,10 +4037,38 @@ function _renderTransfer() {
   });
 }
 
-function transferConfirmItem(rowId) {
+// ★【1】更新預計付款日 → Firebase（只改 payments.N.date，不覆蓋整筆）
+function updatePayDate(rowId, newDate) {
+  if (!newDate) return;
   var p = _transferItems.find(function(x) { return String(x._row) === String(rowId); });
-  if (p) p.confirmed = true;
-  toast('✅ 已確認轉入', '#16a34a');
+  if (!p) return;
+  p.dueDate = newDate;
+  var fields = {};
+  fields['payments.' + p.periodIdx + '.date'] = newDate;
+  fields['meta.updatedAt'] = new Date().toISOString();
+  updateFirebase(p.formId, fields, function(ok) {
+    if (ok) toast('📅 日期已更新', '#0369a1');
+    else    toast('❌ 更新失敗，請重試', '#dc2626');
+  });
+}
+
+// ★【3】審核確認（含帳務備註）→ Firebase
+function approveTransferItem(rowId, noteInputId) {
+  var p = _transferItems.find(function(x) { return String(x._row) === String(rowId); });
+  if (!p) return;
+  var noteEl = document.getElementById(noteInputId);
+  var note   = noteEl ? noteEl.value.trim() : '';
+  p.confirmed = true;
+  p.acctNote  = note;
+  var fields = {};
+  fields['transfer.confirmed']   = true;
+  fields['transfer.acctNote']    = note;
+  fields['transfer.confirmedAt'] = new Date().toISOString();
+  fields['meta.updatedAt']       = new Date().toISOString();
+  updateFirebase(p.formId, fields, function(ok) {
+    if (ok) toast('✅ 已審核確認', '#16a34a');
+    else    toast('❌ 寫入失敗，本地已標記', '#d97706');
+  });
   _renderTransfer();
 }
 
