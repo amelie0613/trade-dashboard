@@ -3997,15 +3997,17 @@ function _renderTransfer() {
   });
 
   // ── 篩選按鈕列 ──
+  var isPending  = _transferFilter === 'pending';
+  var isApproved = _transferFilter === 'approved';
   var filterHtml =
     '<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">' +
-    '<button onclick="_setTransferFilter('pending')" ' +
+    '<button onclick="_setTransferFilter(&quot;pending&quot;)" ' +
       'style="padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ' +
-      (_transferFilter==='pending' ? 'var(--sea);background:var(--sea);color:#fff;' : 'var(--border);background:var(--card);color:var(--muted);') + '">' +
+      (isPending ? 'var(--sea);background:var(--sea);color:#fff;' : 'var(--border);background:var(--card);color:var(--muted);') + '">' +
       '⏳ 待確認</button>' +
-    '<button onclick="_setTransferFilter('approved')" ' +
+    '<button onclick="_setTransferFilter(&quot;approved&quot;)" ' +
       'style="padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ' +
-      (_transferFilter==='approved' ? 'var(--jade);background:var(--jade);color:#fff;' : 'var(--border);background:var(--card);color:var(--muted);') + '">' +
+      (isApproved ? 'var(--jade);background:var(--jade);color:#fff;' : 'var(--border);background:var(--card);color:var(--muted);') + '">' +
       '✅ 已確認</button>' +
     '<span style="font-size:12px;color:var(--muted);margin-left:4px;">' + displayItems.length + ' 筆</span>' +
     '</div>';
