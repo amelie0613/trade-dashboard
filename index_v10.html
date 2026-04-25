@@ -4168,31 +4168,72 @@ function _getFirebasePeriodsRef(formId, periodType) {
 // ── 整包 periods 寫回 Firebase（唯一正確方式）─────────
 // 用 set({merge:true}) 以 dot-notation key：purchase.periods / sales.periods
 function _writePeriodsToFirebase(formId, periodType, periodsArray, cb) {
-  // ★ 必須用 update()（dot notation），不可用 set({merge:true})
-  //   set() 不支援 dot notation，會建立名稱為 "purchase.periods" 的頂層欄位
-  var key = (periodType === 'purchase') ? 'purchase.periods' : 'sales.periods';
-  var fields = {};
-  fields[key] = periodsArray;
-  fields['meta.updatedAt'] = new Date().toISOString();
+  var db = getFirebaseDb();
+  if (!db) { if (cb) cb(false); return; }
 
-  updateFirebase(formId, fields, function(ok) {
-    if (ok) {
-      // ★ 同步更新 rows 本地快取（讓 _buildTransferItems / renderDaily 立即反映）
-      var r = rows.find(function(x) { return (x[F.formId]||x['表單編號']||'') === formId; });
-      if (r) {
-        if (periodType === 'purchase') {
-          if (!r.purchase) r.purchase = {};
-          r.purchase.periods = periodsArray;
-        } else {
-          if (!r.sales) r.sales = {};
-          r.sales.periods = periodsArray;
-        }
-        // ★ 同步清除 localStorage 快取，避免 refresh 後讀到舊資料
-        try { localStorage.removeItem('cases_cache'); localStorage.removeItem('cases_cache_time'); } catch(e) {}
+  // ★ 直接用 Firestore SDK update()，傳入巢狀物件（不用 dot-notation key）
+  // Firestore update() 接受 { 'purchase.periods': [...] } 格式，
+  // 這樣只更新 purchase 下的 periods，不影響 purchase 其他欄位
+  var key  = (periodType === 'purchase') ? 'purchase.periods' : 'sales.periods';
+  var data = {};
+  data[key] = periodsArray;
+  data['meta.updatedAt'] = new Date().toISOString();
+
+  db.collection('cases').doc(formId).update(data)
+    .then(function() {
+      _syncLocalPeriods(formId, periodType, periodsArray);
+      if (cb) cb(true);
+    })
+    .catch(function(e) {
+      console.error('update periods 失敗，改用 set merge：', e);
+      // fallback：改傳巢狀物件結構（不用 dot-notation），讓 set+merge 正確寫入
+      var nested = { 'meta': { 'updatedAt': new Date().toISOString() } };
+      if (periodType === 'purchase') {
+        nested['purchase'] = { 'periods': periodsArray };
+      } else {
+        nested['sales'] = { 'periods': periodsArray };
+      }
+      db.collection('cases').doc(formId).set(nested, { merge: true })
+        .then(function() {
+          _syncLocalPeriods(formId, periodType, periodsArray);
+          if (cb) cb(true);
+        })
+        .catch(function(e2) {
+          console.error('set merge periods 也失敗：', e2);
+          if (cb) cb(false);
+        });
+    });
+}
+
+// ── 同步更新本地 rows 快取 + 清 localStorage ─────────
+function _syncLocalPeriods(formId, periodType, periodsArray) {
+  var r = rows.find(function(x) { return (x[F.formId] || x['表單編號'] || '') === formId; });
+  if (r) {
+    if (periodType === 'purchase') {
+      if (!r.purchase) r.purchase = {};
+      r.purchase.periods = periodsArray;
+    } else {
+      if (!r.sales) r.sales = {};
+      r.sales.periods = periodsArray;
+    }
+    // 同步更新 allData（與 rows 同一陣列，但確保一致）
+    var ad = (typeof allData !== 'undefined') ? allData : [];
+    var adRow = ad.find(function(x) { return (x[F.formId] || x['表單編號'] || '') === formId; });
+    if (adRow && adRow !== r) {
+      if (periodType === 'purchase') {
+        if (!adRow.purchase) adRow.purchase = {};
+        adRow.purchase.periods = periodsArray;
+      } else {
+        if (!adRow.sales) adRow.sales = {};
+        adRow.sales.periods = periodsArray;
       }
     }
-    if (cb) cb(ok);
-  });
+  }
+  // 清除 localStorage 快取，讓下次 refresh 從 Firebase 重讀
+  try {
+    localStorage.removeItem('cases_cache');
+    localStorage.removeItem('cases_cache_time');
+  } catch(e) {}
 }
 
 // ── 預計付款日更新 → 整包 periods 寫回 ───────────────
