@@ -1206,6 +1206,8 @@ function normalizeRow(r){
     mapped['採購期'+n+'金額']  = hasBuyPeriod ? (parseFloat(bp.amount)||0) : (parseFloat(r['採購期'+n+'金額'])||0);
     mapped['採購期'+n+'預計日']= hasBuyPeriod ? (bp.expectedDate || '') : (r['採購期'+n+'預計日']|| '');
     mapped['採購期'+n+'備註']  = hasBuyPeriod ? (bp.note         || '') : (r['採購期'+n+'備註']  || '');
+    mapped['採購期'+n+'帳務備註'] = hasBuyPeriod ? (bp.acctNote  || '') : '';
+    mapped['採購期'+n+'審核狀態'] = hasBuyPeriod ? (bp.status    || '') : '';
   }
 
   // sales
@@ -1230,6 +1232,8 @@ function normalizeRow(r){
     mapped['銷售期'+sn+'金額']  = hasSellPeriod ? (parseFloat(sp.amount)||0) : (parseFloat(r['銷售期'+sn+'金額'])||0);
     mapped['銷售期'+sn+'預計日']= hasSellPeriod ? (sp.expectedDate || '') : (r['銷售期'+sn+'預計日']|| '');
     mapped['銷售期'+sn+'備註']  = hasSellPeriod ? (sp.note         || '') : (r['銷售期'+sn+'備註']  || '');
+    mapped['銷售期'+sn+'帳務備註'] = hasSellPeriod ? (sp.acctNote  || '') : '';
+    mapped['銷售期'+sn+'審核狀態'] = hasSellPeriod ? (sp.status    || '') : '';
   }
 
   // logistics
@@ -3906,7 +3910,7 @@ function _buildTransferItems() {
             staff:       staff,
             caseType:    caseType,
             direction:   'payable',
-            periodType:  'purchase',           // ★ 記錄是 purchase 還是 sales
+            periodType:  'purchase',
             periodName:  p.name || ('第'+(idx+1)+'期'),
             periodIdx:   idx,
             cur:         (p.currency || p.cur || 'TWD').toUpperCase(),
@@ -3914,8 +3918,9 @@ function _buildTransferItems() {
             dueDate:     dateStr,
             isOverdue:   dueDate && dueDate < today && periodStatus !== 'approved',
             confirmed:   periodStatus === 'approved',
-            acctNote:    p.acctNote || '',
-            periodStatus: periodStatus
+            // ★ 優先用 Firebase 原始物件的 acctNote，再 fallback 展平欄位
+            acctNote:    p.acctNote || r['採購期'+(idx+1)+'帳務備註'] || '',
+            periodStatus: periodStatus || r['採購期'+(idx+1)+'審核狀態'] || ''
           });
         });
       } else {
@@ -3970,7 +3975,7 @@ function _buildTransferItems() {
             staff:       staff,
             caseType:    caseType,
             direction:   'receivable',
-            periodType:  'sales',              // ★
+            periodType:  'sales',
             periodName:  p.name || ('第'+(idx+1)+'期'),
             periodIdx:   idx,
             cur:         (p.currency || p.cur || 'TWD').toUpperCase(),
@@ -3978,8 +3983,9 @@ function _buildTransferItems() {
             dueDate:     dateStr,
             isOverdue:   dueDate && dueDate < today && periodStatus !== 'approved',
             confirmed:   periodStatus === 'approved',
-            acctNote:    p.acctNote || '',
-            periodStatus: periodStatus
+            // ★ 優先用 Firebase 原始物件的 acctNote，再 fallback 展平欄位
+            acctNote:    p.acctNote || r['銷售期'+(idx+1)+'帳務備註'] || '',
+            periodStatus: periodStatus || r['銷售期'+(idx+1)+'審核狀態'] || ''
           });
         });
       } else {
