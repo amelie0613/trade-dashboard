@@ -156,6 +156,11 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .ef{background:#eff6ff;border:1px solid #bae6fd;border-radius:10px;padding:16px;margin-top:14px;}
 .ef-t{font-size:13px;font-weight:700;color:#0369a1;margin-bottom:12px;}
 .ef-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.fee-section{margin-bottom:10px;}
+.fee-row{display:grid;grid-template-columns:80px 1fr 100px;gap:6px 8px;align-items:center;margin-bottom:6px;}
+.fee-row .fee-lbl{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+.fee-row .ef-i{width:100%;}
+.fee-section-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:8px;}
 .ef-lbl{font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em;}
 .ef-i{width:100%;background:#fff;border:1.5px solid var(--border);border-radius:7px;padding:8px 11px;font-size:14px;outline:none;font-family:inherit;}
 .ef-i:focus{border-color:var(--sea);}
@@ -2467,9 +2472,10 @@ function showD(rowNum){
       // 費用欄位 - 含幣別選擇（支援新 {amt,cur} 格式和舊數字格式）
       +(function(){
         function feeSelectOpts(curVal){
-          var opts=['TWD','USD','CNY','JPY','EUR'];
+          var sel = curVal || 'TWD';
+          var opts=['TWD','USD','JPY','EUR','CNY'];
           return opts.map(function(o){
-            return '<option value="'+o+'"'+(curVal===o?' selected':'')+'>'+o+'</option>';
+            return '<option value="'+o+'"'+(sel===o?' selected':'')+'>'+o+'</option>';
           }).join('');
         }
         function feeObj(feeVal){
@@ -2479,17 +2485,14 @@ function showD(rowNum){
         var frt = feeObj(r[F.freight]); var ins=feeObj(r[F.insure]);
         var tax = feeObj(r[F.tax]);     var com=feeObj(r[F.comm]);
         var ext = feeObj(r[F.extra]);
-        return ''
-          +'<div><label class="ef-lbl">運費幣別</label><select id="e-freightcur-'+rowNum+'" class="ef-i">'+feeSelectOpts(frt.cur)+'</select></div>'
-          +'<div><label class="ef-lbl">運費金額</label><input type="number" id="e-freight-'+rowNum+'" class="ef-i" value="'+(frt.amt||'')+'" min="0" step="any"></div>'
-          +'<div><label class="ef-lbl">保險費幣別</label><select id="e-insurecur-'+rowNum+'" class="ef-i">'+feeSelectOpts(ins.cur)+'</select></div>'
-          +'<div><label class="ef-lbl">保險費金額</label><input type="number" id="e-insure-'+rowNum+'" class="ef-i" value="'+(ins.amt||'')+'" min="0" step="any"></div>'
-          +'<div><label class="ef-lbl">規費幣別</label><select id="e-taxcur-'+rowNum+'" class="ef-i">'+feeSelectOpts(tax.cur)+'</select></div>'
-          +'<div><label class="ef-lbl">規費金額</label><input type="number" id="e-tax-'+rowNum+'" class="ef-i" value="'+(tax.amt||'')+'" min="0" step="any"></div>'
-          +'<div><label class="ef-lbl">佣金幣別</label><select id="e-commcur-'+rowNum+'" class="ef-i">'+feeSelectOpts(com.cur)+'</select></div>'
-          +'<div><label class="ef-lbl">佣金金額</label><input type="number" id="e-comm-'+rowNum+'" class="ef-i" value="'+(com.amt||'')+'" min="0" step="any"></div>'
-          +'<div><label class="ef-lbl">其他費用幣別</label><select id="e-extracur-'+rowNum+'" class="ef-i">'+feeSelectOpts(ext.cur)+'</select></div>'
-          +'<div><label class="ef-lbl">其他費用金額</label><input type="number" id="e-extra-'+rowNum+'" class="ef-i" value="'+(ext.amt||'')+'" min="0" step="any"></div>';
+        return '<div class="fee-section" style="grid-column:1/-1">'
+          +'<div class="fee-section-title">費用明細</div>'
+          +'<div class="fee-row"><span class="fee-lbl">運費</span><input type="number" id="e-freight-'+rowNum+'" class="ef-i" value="'+(frt.amt||'')+'" min="0" step="any" placeholder="金額"><select id="e-freightcur-'+rowNum+'" class="ef-i">'+feeSelectOpts(frt.cur)+'</select></div>'
+          +'<div class="fee-row"><span class="fee-lbl">保險費</span><input type="number" id="e-insure-'+rowNum+'" class="ef-i" value="'+(ins.amt||'')+'" min="0" step="any" placeholder="金額"><select id="e-insurecur-'+rowNum+'" class="ef-i">'+feeSelectOpts(ins.cur)+'</select></div>'
+          +'<div class="fee-row"><span class="fee-lbl">規費</span><input type="number" id="e-tax-'+rowNum+'" class="ef-i" value="'+(tax.amt||'')+'" min="0" step="any" placeholder="金額"><select id="e-taxcur-'+rowNum+'" class="ef-i">'+feeSelectOpts(tax.cur)+'</select></div>'
+          +'<div class="fee-row"><span class="fee-lbl">佣金</span><input type="number" id="e-comm-'+rowNum+'" class="ef-i" value="'+(com.amt||'')+'" min="0" step="any" placeholder="金額"><select id="e-commcur-'+rowNum+'" class="ef-i">'+feeSelectOpts(com.cur)+'</select></div>'
+          +'<div class="fee-row"><span class="fee-lbl">其他費用</span><input type="number" id="e-extra-'+rowNum+'" class="ef-i" value="'+(ext.amt||'')+'" min="0" step="any" placeholder="金額"><select id="e-extracur-'+rowNum+'" class="ef-i">'+feeSelectOpts(ext.cur)+'</select></div>'
+          +'</div>';
       })()
       +'</div>'
 
