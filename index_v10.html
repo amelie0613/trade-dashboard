@@ -1019,6 +1019,11 @@ function login(){
 }
 function logout(){
   addLog('登出',curUser.name,'','');
+  // ★ 登出時移除日曆的全域 capture listener，確保登入頁輸入框正常運作
+  if (window._calClickHandler) {
+    document.removeEventListener('click', window._calClickHandler, true);
+    window._calClickHandler = null;
+  }
   try{ firebase.auth().signOut(); }catch(e){}
   document.getElementById('L').style.display='flex';
   document.getElementById('A').style.display='none';
@@ -4077,7 +4082,7 @@ function _renderTransfer() {
       + ' value="'+existNote.replace(/"/g,'&quot;')+'"'
       + ' placeholder="帳務備註"'
       + ' onblur="saveNote(\''+safeId+'\', \''+p.formId+'\', '+(p.periodIdx||0)+')"'
-      + ' onkeydown="if(event.key===\'Enter\') saveNote(\''+safeId+'\', \''+p.formId+'\', '+(p.periodIdx||0)+')"'
+      + ' onkeydown="if(event.key===\'Enter\'){ this._saving=false; this.blur(); }"'
       + ' style="display:none;width:100%;background:#fff;border:1.5px solid var(--sea);'
       + 'border-radius:7px;padding:5px 8px;font-size:12px;outline:none;font-family:inherit;">'
       + '</td>';
@@ -4191,9 +4196,13 @@ function saveNote(safeId, formId, periodIdx) {
   var textEl  = document.getElementById('note-text-'  + safeId);
   var inputEl = document.getElementById('note-input-' + safeId);
   if (!textEl || !inputEl) return;
+  // ★ 防止 Enter 鍵觸發 onkeydown 後，inputEl 失焦再次觸發 onblur 雙重寫入
+  if (inputEl._saving) return;
+  inputEl._saving = true;
   var val = inputEl.value.trim();
-  // UI 先切回顯示（避免重複觸發 onblur）
+  // UI 切回顯示
   inputEl.style.display = 'none';
+  inputEl._saving = false;
   textEl.style.display  = 'block';
   textEl.innerText = val || '（點擊輸入備註）';
   textEl.style.color = val ? 'var(--ink)' : '#94a3b8';
@@ -4438,6 +4447,10 @@ function goTab(id) {
   var t = document.getElementById('nt-' + id);
   if (s) s.classList.add('on');
   if (t) t.classList.add('on');
+  // ★ 離開 daily 時移除全域 capture click handler，避免攔截其他頁面的點擊與輸入
+  if (id !== 'daily' && window._calClickHandler) {
+    document.removeEventListener('click', window._calClickHandler, true);
+  }
   if (id==='admin')   renderAdmin();
   if (id==='log')     renderLog();
   if (id==='daily')   loadPayments(renderDaily);
