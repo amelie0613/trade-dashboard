@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v24</title>
+<title>貿易大漁｜管理系統 v24.1</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -55,7 +55,11 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .scr.on{display:block;}
 /* STATS */
 .sg{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:20px;width:100%;max-width:none;}
+@media(min-width:768px){.sg{grid-template-columns:repeat(2,1fr);}}
 @media(min-width:1024px){.sg{grid-template-columns:repeat(2,1fr);}}
+/* ★ v28：帳務管理卡片內三欄佈局 - 手機版堆疊、大螢幕等寬 */
+.sg > div > div:last-child{display:flex;gap:12px;flex-wrap:wrap;}
+@media(max-width:767px){.sg > div > div:last-child{flex-direction:column;}}
 /* ★ v27：總覽頁四張卡片（桌面版 1 行 4 列，平板版 2 列，手機版 1 列） */
 .sg .st{min-width:0;}
 @media(min-width:1200px){#dc .sg{grid-template-columns:repeat(4,1fr);}}
@@ -4309,10 +4313,10 @@ function renderPayStats(items) {
     var rcvCnt     = countItems(dept,'receivable', false);
     var rcvCntOverdue = countItems(dept,'receivable', true);
 
-    // ★ v25：三欄等寬佈局 + min-height統一高度
+    // ★ v25：三欄等寬佈局 + min-height統一高度（手機版改為堆疊）
     cards += '<div style="background:#fff;border:0.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">'
       + '<div style="font-size:20px;color:var(--ink);font-weight:700;margin-bottom:12px;">'+icon+' '+dept+'</div>'
-      + '<div style="display:flex;gap:12px;">';
+      + '<div style="display:flex;gap:12px;flex-wrap:wrap;">';
     
     // 應付區塊（淡藍）
     cards += '<div style="flex:1;background:#eff6ff;border:0.5px solid #bae6fd;border-radius:8px;padding:12px;min-height:120px;display:flex;flex-direction:column;">'
