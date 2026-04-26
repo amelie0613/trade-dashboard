@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v21.2</title>
+<title>貿易大漁｜管理系統 v21.3</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -2379,7 +2379,8 @@ function _renderDayDetail(){
       var name = bp.name||('第'+(bi+1)+'期');
       if(!amt||date!==dateStr) return;
       var d = new Date(date);
-      allItems.push({source:'firebase',direction:'payable',isForecast:true,dept:'貿易',
+      // ★ dept 不設為貿易，Firebase 預估獨立分類
+      allItems.push({source:'firebase',direction:'payable',isForecast:true,dept:'',
         cur:cur,amt:amt,label:caseName+'【'+name+'】',caseName:caseName,formId:formId,
         isPaid:!!bp.paid,isOverdue:d<today0&&!bp.paid});
     });
@@ -2396,7 +2397,8 @@ function _renderDayDetail(){
       var name = sp.name||('第'+(si+1)+'期');
       if(!amt||date!==dateStr) return;
       var d = new Date(date);
-      allItems.push({source:'firebase',direction:'receivable',isForecast:true,dept:'貿易',
+      // ★ dept 不設為貿易，Firebase 預估獨立分類
+      allItems.push({source:'firebase',direction:'receivable',isForecast:true,dept:'',
         cur:cur,amt:amt,label:caseName+'【'+name+'】',caseName:caseName,formId:formId,
         isPaid:!!sp.paid,isOverdue:d<today0&&!sp.paid});
     });
@@ -2417,15 +2419,15 @@ function _renderDayDetail(){
     });
   }catch(e){}
 
-  // ── v20 修改：按部門篩選（貿易/船務/案件預估）而非按方向 ──
+  // ── tab 篩選：firebase 預估只進「案件預估」tab，不進貿易/船務 ──
   allItems.sort(function(a,b){
     var rank=function(x){ return x.source==='firebase'?0:(x.direction==='receivable'?1:2); };
     return rank(a)-rank(b);
   });
 
   var display = allItems.filter(function(p){
-    if(tab==='trade')   return p.dept==='貿易';
-    if(tab==='ship')    return p.dept==='船務';
+    if(tab==='trade')    return p.source==='csv' && p.dept==='貿易';
+    if(tab==='ship')     return p.source==='csv' && p.dept==='船務';
     if(tab==='forecast') return p.source==='firebase';
     return true;
   });
