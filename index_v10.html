@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v22</title>
+<title>貿易大漁｜管理系統 v23</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -54,7 +54,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .scr{display:none;padding:20px;}
 .scr.on{display:block;}
 /* STATS */
-.sg{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;}
+.sg{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;width:100%;max-width:none;}
 @media(max-width:700px){.sg{grid-template-columns:1fr;}}
 .st{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;position:relative;overflow:hidden;}
 .st::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;}
@@ -567,6 +567,8 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
       </div>
       <span class="mcl" onclick="document.getElementById('DayM').classList.remove('open')">✕</span>
     </div>
+    <!-- ★ v26：日曆上方三張統計卡片（貿易/船務/案件預估） -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:16px;background:#fff;border-bottom:1px solid var(--border);" id="day-stats"></div>
     <!-- tabs -->
     <div style="display:flex;gap:6px;padding:12px 16px 0;border-bottom:1px solid var(--border);background:#fff;">
       <button class="day-tab on" id="day-tab-all"      onclick="switchDayTab('all')">全部</button>
@@ -576,7 +578,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
     </div>
     <div style="padding:14px 16px;" id="day-body"></div>
     <!-- 合計 -->
-    <div id="day-total" style="padding:10px 16px 14px;border-top:1px solid var(--border);background:#f8fafc;border-radius:0 0 16px 16px;"></div>
+    <div id="day-total" style="padding:14px 16px;border-top:1px solid var(--border);background:#f8fafc;border-radius:0 0 16px 16px;"></div>
   </div>
 </div>
 
@@ -2352,6 +2354,7 @@ function _renderDayDetail(){
   var tab     = _dayDetailTab;
   var body    = document.getElementById('day-body');
   var totalEl = document.getElementById('day-total');
+  var statsEl = document.getElementById('day-stats');
   if(!body) return;
 
   var today0 = new Date(); today0.setHours(0,0,0,0);
@@ -2510,6 +2513,75 @@ function _renderDayDetail(){
   });
   body.innerHTML = html;
 
+  // ── 頂部統計卡片（三列：貿易、船務、案件預估）──
+  if(statsEl){
+    var thtml = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">';
+    
+    // 工具函式：生成應付/應收區塊
+    function makeBlock(curMap, isPayable) {
+      var blockHtml = '<div style="flex:1;background:' + (isPayable ? '#f0fdf4' : '#eff6ff') + ';border:0.5px solid ' + (isPayable ? '#86efac' : '#bae6fd') + ';border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">'
+        + '<div style="font-size:16px;color:' + (isPayable ? '#16a34a' : '#0369a1') + ';font-weight:700;margin-bottom:8px;">' + (isPayable ? '應付' : '應收') + '</div>'
+        + '<div style="flex:1;">';
+      
+      if(Object.keys(curMap).length){
+        Object.keys(curMap).forEach(function(c){
+          var color = isPayable ? '#16a34a' : '#0369a1';
+          blockHtml += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
+            + '<span style="width:6px;height:6px;border-radius:50%;background:' + color + ';"></span>'
+            + '<span style="font-size:14px;font-weight:700;color:' + color + ';font-family:\'DM Mono\',monospace;">'+formatCurrency(c,curMap[c])+'</span>'
+            + '</div>';
+        });
+      } else {
+        blockHtml += '<div style="color:#94a3b8;font-size:13px;">—</div>';
+      }
+      blockHtml += '</div><div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(curMap).length + '幣)</div></div>';
+      return blockHtml;
+    }
+    
+    // 計算每個部門的應付/應收
+    var deptStats = {
+      '貿易': { pay: {}, rcv: {} },
+      '船務': { pay: {}, rcv: {} },
+      '預估': { pay: {}, rcv: {} }
+    };
+    
+    display.forEach(function(p){
+      var c = (p.cur||'NTD').toUpperCase();
+      var dept = p.source==='firebase' ? '預估' : (p.dept||'');
+      if(!deptStats[dept]) deptStats[dept] = { pay: {}, rcv: {} };
+      
+      var bucket = p.direction==='receivable' ? 'rcv' : 'pay';
+      deptStats[dept][bucket][c] = (deptStats[dept][bucket][c]||0) + p.amt;
+    });
+    
+    // 貿易卡片
+    thtml += '<div style="background:#fff;border:0.5px solid var(--border);border-radius:12px;padding:16px;">'
+      + '<div style="font-size:20px;color:var(--ink);font-weight:700;margin-bottom:12px;">📦 貿易</div>'
+      + '<div style="display:flex;gap:12px;">'
+      + makeBlock(deptStats['貿易'].pay, true)
+      + makeBlock(deptStats['貿易'].rcv, false)
+      + '</div></div>';
+    
+    // 船務卡片
+    thtml += '<div style="background:#fff;border:0.5px solid var(--border);border-radius:12px;padding:16px;">'
+      + '<div style="font-size:20px;color:var(--ink);font-weight:700;margin-bottom:12px;">🚢 船務</div>'
+      + '<div style="display:flex;gap:12px;">'
+      + makeBlock(deptStats['船務'].pay, true)
+      + makeBlock(deptStats['船務'].rcv, false)
+      + '</div></div>';
+    
+    // 案件預估卡片
+    thtml += '<div style="background:#f9d4b8;border:0.5px solid #e8c5a8;border-radius:12px;padding:16px;">'
+      + '<div style="font-size:20px;color:var(--ink);font-weight:700;margin-bottom:12px;">📁 案件預估</div>'
+      + '<div style="display:flex;gap:12px;">'
+      + makeBlock(deptStats['預估'].pay, true)
+      + makeBlock(deptStats['預估'].rcv, false)
+      + '</div></div>';
+    
+    thtml += '</div>';
+    statsEl.innerHTML = thtml;
+  }
+
   // ── 底部合計（應付 / 應收 左右二欄等寬）──
   if(totalEl){
     var payT = {}, rcvT = {};
@@ -2518,18 +2590,17 @@ function _renderDayDetail(){
       if(p.direction==='receivable') rcvT[c] = (rcvT[c]||0) + p.amt;
       else                           payT[c] = (payT[c]||0) + p.amt;
     });
-    // ★ v25：左右二欄等寬佈局 + min-height統一高度
     var thtml = '<div style="display:flex;gap:12px;">';
     
-    // 應付區塊（淡藍）
-    thtml += '<div style="flex:1;background:#eff6ff;border:0.5px solid #bae6fd;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    thtml += '<div style="font-size:16px;color:#0369a1;font-weight:700;margin-bottom:8px;">應付</div>';
+    // 應付區塊（淡綠）
+    thtml += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    thtml += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應付</div>';
     thtml += '<div style="flex:1;">';
     if(Object.keys(payT).length){
       Object.keys(payT).forEach(function(c){
         thtml += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
-          + '<span style="width:6px;height:6px;border-radius:50%;background:#0369a1;"></span>'
-          + '<span style="font-size:14px;font-weight:700;color:#0369a1;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,payT[c])+'</span>'
+          + '<span style="width:6px;height:6px;border-radius:50%;background:#16a34a;"></span>'
+          + '<span style="font-size:14px;font-weight:700;color:#16a34a;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,payT[c])+'</span>'
           + '</div>';
       });
     } else {
@@ -2537,15 +2608,15 @@ function _renderDayDetail(){
     }
     thtml += '</div><div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(payT).length + '幣)</div></div>';
     
-    // 應收區塊（淡綠）
-    thtml += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    thtml += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應收</div>';
+    // 應收區塊（淡藍）
+    thtml += '<div style="flex:1;background:#eff6ff;border:0.5px solid #bae6fd;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    thtml += '<div style="font-size:16px;color:#0369a1;font-weight:700;margin-bottom:8px;">應收</div>';
     thtml += '<div style="flex:1;">';
     if(Object.keys(rcvT).length){
       Object.keys(rcvT).forEach(function(c){
         thtml += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
-          + '<span style="width:6px;height:6px;border-radius:50%;background:#16a34a;"></span>'
-          + '<span style="font-size:14px;font-weight:700;color:#16a34a;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,rcvT[c])+'</span>'
+          + '<span style="width:6px;height:6px;border-radius:50%;background:#0369a1;"></span>'
+          + '<span style="font-size:14px;font-weight:700;color:#0369a1;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,rcvT[c])+'</span>'
           + '</div>';
       });
     } else {
