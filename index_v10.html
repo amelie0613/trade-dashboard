@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v20.3</title>
+<title>貿易大漁｜管理系統 v20.4</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -4251,30 +4251,35 @@ function renderPayStats(items) {
   // ★ 嚴格只算 CSV（_source==='csv'），Firebase 預估不進此區
   var csvOnly = items.filter(function(p) { return (p._source||p.source) === 'csv'; });
 
-  // 依部門分組
+  // 依部門分組：分為正常未付、逾期兩類
   var depts = ['貿易','船務'];
   var byDept = {};
-  depts.forEach(function(d){ byDept[d] = { apCur:{}, rcvCur:{} }; });
+  depts.forEach(function(d){ 
+    byDept[d] = { 
+      apCur:{}, rcvCur:{},           // 正常未付
+      apCurOverdue:{}, rcvCurOverdue:{} // 逾期
+    }; 
+  });
 
   csvOnly.forEach(function(p) {
     if (p.isPaid) return; // 已付款不計入未結金額
     var dept = p.dept || '';
-    if (!byDept[dept]) byDept[dept] = { apCur:{}, rcvCur:{} };
+    if (!byDept[dept]) byDept[dept] = { apCur:{}, rcvCur:{}, apCurOverdue:{}, rcvCurOverdue:{} };
     var cur = (p.cur||'NTD').toUpperCase();
     var amt = p.amt || 0;
-    if (p.direction === 'receivable') {
-      byDept[dept].rcvCur[cur] = (byDept[dept].rcvCur[cur]||0) + amt;
-    } else {
-      byDept[dept].apCur[cur] = (byDept[dept].apCur[cur]||0) + amt;
-    }
+    
+    // ★ v20：區分逾期 vs 正常未付
+    var isOverdue = p.isOverdue || false;
+    var bucket = isOverdue ? (p.direction === 'receivable' ? 'rcvCurOverdue' : 'apCurOverdue')
+                           : (p.direction === 'receivable' ? 'rcvCur' : 'apCur');
+    byDept[dept][bucket][cur] = (byDept[dept][bucket][cur]||0) + amt;
   });
 
-  // ★ v20：根據幣別和應付/應收分別著色
-  function fmtDotRows(curMap, isAp) {
+  // ★ 幣別顏色對應 + 逾期特殊著色
+  function fmtDotRows(curMap, isDueMap, isAp) {
     var keys = Object.keys(curMap);
     if (!keys.length) return '<div style="color:#94a3b8;font-size:13px;margin-bottom:2px;">—</div>';
     return keys.map(function(c) {
-      // 對應幣別顏色
       var colorMap = {
         'NTD': { text: '#0369a1' },    // 藍
         'USD': { text: '#16a34a' },    // 綠
@@ -4282,38 +4287,69 @@ function renderPayStats(items) {
         'ZAR': { text: '#eab308' }     // 黃
       };
       var col = (colorMap[c] || {}).text || '#64748b'; // 預設灰
+      // 如果有逾期金額，改為紅色
+      var hasOverdue = isDueMap && isDueMap[c];
+      var finalColor = hasOverdue ? '#dc2626' : col;
       return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">'
-        + '<span style="width:6px;height:6px;border-radius:50%;background:'+col+';"></span>'
-        + '<span style="font-size:13px;font-weight:700;color:'+col+';font-family:\'DM Mono\',monospace;">'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:'+finalColor+';"></span>'
+        + '<span style="font-size:13px;font-weight:700;color:'+finalColor+';font-family:\'DM Mono\',monospace;">'
         + formatCurrency(c, curMap[c])+'</span>'
         + '</div>';
     }).join('');
   }
 
   // 計算筆數
-  function countItems(dept, dir) {
-    return csvOnly.filter(function(p){ return p.dept===dept && p.direction===dir && !p.isPaid; }).length;
+  function countItems(dept, dir, isOverdue) {
+    return csvOnly.filter(function(p){ 
+      return p.dept===dept && p.direction===dir && !p.isPaid && (isOverdue ? p.isOverdue : !p.isOverdue); 
+    }).length;
   }
 
   var cards = '';
   depts.forEach(function(dept) {
     var icon = dept==='船務'?'🚢':'📦';
-    var hasAp  = Object.keys(byDept[dept].apCur).length  > 0;
-    var hasRcv = Object.keys(byDept[dept].rcvCur).length > 0;
-    var apCnt  = countItems(dept,'payable');
-    var rcvCnt = countItems(dept,'receivable');
+    var hasAp  = Object.keys(byDept[dept].apCur).length  > 0 || Object.keys(byDept[dept].apCurOverdue).length > 0;
+    var hasRcv = Object.keys(byDept[dept].rcvCur).length > 0 || Object.keys(byDept[dept].rcvCurOverdue).length > 0;
+    var apCnt      = countItems(dept,'payable', false);
+    var apCntOverdue = countItems(dept,'payable', true);
+    var rcvCnt     = countItems(dept,'receivable', false);
+    var rcvCntOverdue = countItems(dept,'receivable', true);
 
     cards += '<div class="msum-card" style="background:#fff;border:1px solid var(--border);">'
       + '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#0369a1,#16a34a,#f97316,#eab308);"></div>'
       + '<div class="msum-dept">'+icon+' '+dept+'</div>'
       + '<div style="margin-bottom:6px;">'
-      + '<div style="font-size:10px;color:#0369a1;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應付'+(apCnt?' ('+apCnt+'筆)':'')+'</div>'
-      + fmtDotRows(byDept[dept].apCur, true)
-      + '</div>'
+      + '<div style="font-size:10px;color:#0369a1;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應付'+(apCnt+apCntOverdue?' ('+(apCnt+apCntOverdue)+'筆)':'')+'</div>';
+    
+    // 正常應付
+    if (Object.keys(byDept[dept].apCur).length > 0) {
+      cards += fmtDotRows(byDept[dept].apCur, null, true);
+    }
+    // 逾期應付（紅色）
+    if (Object.keys(byDept[dept].apCurOverdue).length > 0) {
+      cards += fmtDotRows(byDept[dept].apCurOverdue, byDept[dept].apCurOverdue, true);
+    }
+    if (Object.keys(byDept[dept].apCur).length === 0 && Object.keys(byDept[dept].apCurOverdue).length === 0) {
+      cards += '<div style="color:#94a3b8;font-size:13px;margin-bottom:2px;">—</div>';
+    }
+    
+    cards += '</div>'
       + '<div>'
-      + '<div style="font-size:10px;color:#16a34a;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應收'+(rcvCnt?' ('+rcvCnt+'筆)':'')+'</div>'
-      + fmtDotRows(byDept[dept].rcvCur, false)
-      + '</div>'
+      + '<div style="font-size:10px;color:#16a34a;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應收'+(rcvCnt+rcvCntOverdue?' ('+(rcvCnt+rcvCntOverdue)+'筆)':'')+'</div>';
+    
+    // 正常應收
+    if (Object.keys(byDept[dept].rcvCur).length > 0) {
+      cards += fmtDotRows(byDept[dept].rcvCur, null, false);
+    }
+    // 逾期應收（紅色）
+    if (Object.keys(byDept[dept].rcvCurOverdue).length > 0) {
+      cards += fmtDotRows(byDept[dept].rcvCurOverdue, byDept[dept].rcvCurOverdue, false);
+    }
+    if (Object.keys(byDept[dept].rcvCur).length === 0 && Object.keys(byDept[dept].rcvCurOverdue).length === 0) {
+      cards += '<div style="color:#94a3b8;font-size:13px;margin-bottom:2px;">—</div>';
+    }
+    
+    cards += '</div>'
       + '</div>';
   });
 
