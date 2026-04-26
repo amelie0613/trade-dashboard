@@ -541,7 +541,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 </div>
 
 <!-- ★ v30：獨立 UI 主題設定分頁 -->
-<div class="scr" id="s-ui-theme" style="display:none;">
+<div class="scr" id="s-ui-theme">
   <div style="padding:20px;">
     <div style="margin-bottom:20px;">
       <div style="font-size:18px;font-weight:700;color:var(--ink);margin-bottom:4px;">🎨 UI 主題設定</div>
@@ -5533,14 +5533,15 @@ function goTab(id) {
   if (id !== 'daily' && window._calClickHandler) {
     document.removeEventListener('click', window._calClickHandler, true);
   }
-  if (id==='admin')   renderAdmin();
-  if (id==='log')     renderLog();
-  if (id==='daily')   loadPayments(renderDaily);
-  if (id==='profile') initProfile();
+  if (id==='admin')    renderAdmin();
+  if (id==='log')      renderLog();
+  if (id==='daily')    loadPayments(renderDaily);
+  if (id==='profile')  initProfile();
   if (id==='payments'){ _payPage=1; loadPayments(); }
   if (id==='transfer') loadTransfer();
-  if (id==='mycase')  renderMyCase();
-  if (id==='dash')    renderDash();
+  if (id==='mycase')   renderMyCase();
+  if (id==='dash')     renderDash();
+  if (id==='ui-theme') initUISettingsPanel();
 }
 
 // ══════════════════════════════════════════════════════
