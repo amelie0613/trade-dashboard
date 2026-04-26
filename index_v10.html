@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v20.4</title>
+<title>貿易大漁｜管理系統 v21</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -488,7 +488,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
     </div>
     <!-- 行2：進階篩選 -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <select id="pay-filter-cur" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+      <select id="pay-filter-cur" onchange="renderPayments(); renderPayStats(allPaymentItems);" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
         <option value="">全部幣別</option>
         <option value="NTD">NTD</option>
         <option value="USD">USD</option>
@@ -496,18 +496,18 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
         <option value="EUR">EUR</option>
         <option value="ZAR">ZAR</option>
       </select>
-      <select id="pay-filter-dept" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+      <select id="pay-filter-dept" onchange="renderPayments(); renderPayStats(allPaymentItems);" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
         <option value="">全部部門</option>
         <option value="船務">船務</option>
         <option value="貿易">貿易</option>
       </select>
       <div style="display:flex;flex-direction:column;gap:2px;">
         <span style="font-size:10px;color:var(--muted);font-weight:700;">付款日 起</span>
-        <input type="date" id="pay-filter-from" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+        <input type="date" id="pay-filter-from" onchange="renderPayments(); renderPayStats(allPaymentItems);" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
       </div>
       <div style="display:flex;flex-direction:column;gap:2px;">
         <span style="font-size:10px;color:var(--muted);font-weight:700;">付款日 迄</span>
-        <input type="date" id="pay-filter-to" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+        <input type="date" id="pay-filter-to" onchange="renderPayments(); renderPayStats(allPaymentItems);" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
       </div>
       <button onclick="clearPayFilters()" style="padding:6px 14px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">清除</button>
     </div>
@@ -2507,7 +2507,7 @@ function _renderDayDetail(){
   });
   body.innerHTML = html;
 
-  // ── 底部合計（應付 / 應收 依幣別分開）──
+  // ── 底部合計 v21 升級：多幣別完整格式 ──
   if(totalEl){
     var payT = {}, rcvT = {};
     display.forEach(function(p){
@@ -2515,24 +2515,52 @@ function _renderDayDetail(){
       if(p.direction==='receivable') rcvT[c] = (rcvT[c]||0) + p.amt;
       else                           payT[c] = (payT[c]||0) + p.amt;
     });
-    var thtml = '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">合計</div>';
-    thtml += '<div style="display:flex;gap:12px;flex-wrap:wrap;">';
-    if(Object.keys(payT).length){
+
+    // ★ v21 新格式：橫排顯示多幣別（參考 Image 4 的合計方式）
+    var thtml = '<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">合 計</div>';
+    
+    // 建立完整的幣別列表（應付 + 應收，去重）
+    var allCurs = {};
+    Object.keys(payT).forEach(function(c){ allCurs[c] = true; });
+    Object.keys(rcvT).forEach(function(c){ allCurs[c] = true; });
+    var curList = Object.keys(allCurs).sort();
+
+    // 橫排顯示：[幣別1 應付] [幣別1 應收] | [幣別2 應付] [幣別2 應收]
+    thtml += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:flex-start;">';
+    
+    curList.forEach(function(cur){
+      var pAmt = payT[cur]||0;
+      var rAmt = rcvT[cur]||0;
+      
       thtml += '<div>';
-      thtml += '<div style="font-size:9px;color:#dc2626;font-weight:700;margin-bottom:2px;">↓ 應付</div>';
-      Object.keys(payT).forEach(function(c){
-        thtml += '<div style="font-size:13px;font-weight:700;color:#dc2626;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,payT[c])+'</div>';
-      });
+      
+      // 幣別標題
+      thtml += '<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;letter-spacing:.04em;">'+cur+'</div>';
+      
+      // 應付行
+      if(pAmt > 0){
+        thtml += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">'
+          + '<span style="font-size:10px;color:#dc2626;font-weight:700;">↓ 應付</span>'
+          + '<span style="font-size:13px;font-weight:700;color:#dc2626;font-family:\'DM Mono\',monospace;">'+formatCurrency(cur, pAmt)+'</span>'
+          + '</div>';
+      }
+      
+      // 應收行
+      if(rAmt > 0){
+        thtml += '<div style="display:flex;align-items:center;gap:4px;">'
+          + '<span style="font-size:10px;color:#1e3a8a;font-weight:700;">↑ 應收</span>'
+          + '<span style="font-size:13px;font-weight:700;color:#1e3a8a;font-family:\'DM Mono\',monospace;">'+formatCurrency(cur, rAmt)+'</span>'
+          + '</div>';
+      }
+      
+      // 若無任何金額
+      if(pAmt===0 && rAmt===0){
+        thtml += '<div style="font-size:11px;color:#94a3b8;">—</div>';
+      }
+      
       thtml += '</div>';
-    }
-    if(Object.keys(rcvT).length){
-      thtml += '<div>';
-      thtml += '<div style="font-size:9px;color:#1e3a8a;font-weight:700;margin-bottom:2px;">↑ 應收</div>';
-      Object.keys(rcvT).forEach(function(c){
-        thtml += '<div style="font-size:13px;font-weight:700;color:#1e3a8a;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,rcvT[c])+'</div>';
-      });
-      thtml += '</div>';
-    }
+    });
+    
     thtml += '</div>';
     totalEl.innerHTML = thtml;
   }
@@ -4222,6 +4250,8 @@ function filterPayments(f, el) {
   document.querySelectorAll('.pay-filter-btn').forEach(function(b) { b.classList.remove('on'); });
   if (el) el.classList.add('on');
   renderPayments();
+  // ★ v21：篩選時同時更新統計卡片
+  renderPayStats(allPaymentItems);
 }
 
 // ══════════════════════════════════════════════════════
@@ -4242,6 +4272,7 @@ function getPaymentColor(currency, isOverdue) {
 
 // ══════════════════════════════════════════════════════
 // 帳務管理統計卡片（只算 CSV 真實帳款）
+// ★ v21 修正：根據當前篩選條件即時更新卡片
 // 格式與日曆統計卡片相同：幣別分行 + 🔴/🔵 圓點
 // ══════════════════════════════════════════════════════
 function renderPayStats(items) {
@@ -4250,6 +4281,25 @@ function renderPayStats(items) {
 
   // ★ 嚴格只算 CSV（_source==='csv'），Firebase 預估不進此區
   var csvOnly = items.filter(function(p) { return (p._source||p.source) === 'csv'; });
+
+  // ★ v21：應用當前篩選條件（快速篩選 + 進階篩選）
+  var filterCur  = (document.getElementById('pay-filter-cur')  || {}).value || '';
+  var filterDept = (document.getElementById('pay-filter-dept') || {}).value || '';
+  var filterFrom = (document.getElementById('pay-filter-from') || {}).value || '';
+  var filterTo   = (document.getElementById('pay-filter-to')   || {}).value || '';
+
+  var filtered = csvOnly.filter(function(p) {
+    if (payFilter === 'payable')    { if (p.direction !== 'payable')    return false; }
+    if (payFilter === 'receivable') { if (p.direction !== 'receivable') return false; }
+    if (payFilter === 'unpaid')     { if (p.isPaid || p.isOverdue)      return false; }
+    if (payFilter === 'overdue')    { if (!p.isOverdue)                 return false; }
+    if (payFilter === 'done')       { if (!p.isPaid)                    return false; }
+    if (filterCur  && (p.cur  ||'').toUpperCase() !== filterCur.toUpperCase()) return false;
+    if (filterDept && (p.dept ||'') !== filterDept) return false;
+    if (filterFrom && p.dueDate && p.dueDate < filterFrom) return false;
+    if (filterTo   && p.dueDate && p.dueDate > filterTo)   return false;
+    return true;
+  });
 
   // 依部門分組：分為正常未付、逾期兩類
   var depts = ['貿易','船務'];
@@ -4261,7 +4311,7 @@ function renderPayStats(items) {
     }; 
   });
 
-  csvOnly.forEach(function(p) {
+  filtered.forEach(function(p) {
     if (p.isPaid) return; // 已付款不計入未結金額
     var dept = p.dept || '';
     if (!byDept[dept]) byDept[dept] = { apCur:{}, rcvCur:{}, apCurOverdue:{}, rcvCurOverdue:{} };
@@ -4298,9 +4348,9 @@ function renderPayStats(items) {
     }).join('');
   }
 
-  // 計算筆數
+  // 計算筆數（基於已篩選資料）
   function countItems(dept, dir, isOverdue) {
-    return csvOnly.filter(function(p){ 
+    return filtered.filter(function(p){ 
       return p.dept===dept && p.direction===dir && !p.isPaid && (isOverdue ? p.isOverdue : !p.isOverdue); 
     }).length;
   }
