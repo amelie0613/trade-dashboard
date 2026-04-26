@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v21.1</title>
+<title>貿易大漁｜管理系統 v21.2</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -4360,97 +4360,60 @@ function renderPayStats(items) {
   var cards = '';
   depts.forEach(function(dept) {
     var icon = dept==='船務'?'🚢':'📦';
-    var hasAp  = Object.keys(byDept[dept].apCur).length  > 0 || Object.keys(byDept[dept].apCurOverdue).length > 0;
-    var hasRcv = Object.keys(byDept[dept].rcvCur).length > 0 || Object.keys(byDept[dept].rcvCurOverdue).length > 0;
     var apCnt      = countItems(dept,'payable', false);
     var apCntOverdue = countItems(dept,'payable', true);
     var rcvCnt     = countItems(dept,'receivable', false);
     var rcvCntOverdue = countItems(dept,'receivable', true);
 
+    // ★ v23 修正：使用左右佈局，左邊正常帳款，右邊逾期帳款
     cards += '<div class="msum-card" style="background:#fff;border:1px solid var(--border);">'
       + '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#0369a1,#16a34a,#f97316,#eab308);"></div>'
       + '<div class="msum-dept">'+icon+' '+dept+'</div>'
-      + '<div style="margin-bottom:6px;">'
-      + '<div style="font-size:10px;color:#0369a1;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應付'+(apCnt+apCntOverdue?' ('+(apCnt+apCntOverdue)+'筆)':'')+'</div>';
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
     
-    // 正常應付
+    // 左邊：正常帳款
+    cards += '<div>'
+      + '<div style="font-size:10px;color:#0369a1;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應付'+(apCnt?' ('+apCnt+'筆)':'')+'</div>';
+    
     if (Object.keys(byDept[dept].apCur).length > 0) {
       cards += fmtDotRows(byDept[dept].apCur, null, true);
-    }
-    // 逾期應付（紅色）
-    if (Object.keys(byDept[dept].apCurOverdue).length > 0) {
-      cards += fmtDotRows(byDept[dept].apCurOverdue, byDept[dept].apCurOverdue, true);
-    }
-    if (Object.keys(byDept[dept].apCur).length === 0 && Object.keys(byDept[dept].apCurOverdue).length === 0) {
+    } else {
       cards += '<div style="color:#94a3b8;font-size:13px;margin-bottom:2px;">—</div>';
     }
     
-    cards += '</div>'
-      + '<div>'
-      + '<div style="font-size:10px;color:#16a34a;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應收'+(rcvCnt+rcvCntOverdue?' ('+(rcvCnt+rcvCntOverdue)+'筆)':'')+'</div>';
+    cards += '<div style="font-size:10px;color:#16a34a;font-weight:700;margin-bottom:3px;letter-spacing:.04em;margin-top:6px;">應收'+(rcvCnt?' ('+rcvCnt+'筆)':'')+'</div>';
     
-    // 正常應收
     if (Object.keys(byDept[dept].rcvCur).length > 0) {
       cards += fmtDotRows(byDept[dept].rcvCur, null, false);
-    }
-    // 逾期應收（紅色）
-    if (Object.keys(byDept[dept].rcvCurOverdue).length > 0) {
-      cards += fmtDotRows(byDept[dept].rcvCurOverdue, byDept[dept].rcvCurOverdue, false);
-    }
-    if (Object.keys(byDept[dept].rcvCur).length === 0 && Object.keys(byDept[dept].rcvCurOverdue).length === 0) {
+    } else {
       cards += '<div style="color:#94a3b8;font-size:13px;margin-bottom:2px;">—</div>';
     }
     
-    cards += '</div>'
-      + '</div>';
-  });
-
-  // ★ v22 修正：計算逾期帳款總計，顯示在右邊獨立卡片
-  var apOverdueTotal = {}, rcvOverdueTotal = {};
-  depts.forEach(function(d){
-    Object.keys(byDept[d].apCurOverdue).forEach(function(c){
-      apOverdueTotal[c] = (apOverdueTotal[c]||0) + byDept[d].apCurOverdue[c];
-    });
-    Object.keys(byDept[d].rcvCurOverdue).forEach(function(c){
-      rcvOverdueTotal[c] = (rcvOverdueTotal[c]||0) + byDept[d].rcvCurOverdue[c];
-    });
-  });
-
-  // 檢查是否有逾期帳款
-  var hasOverdue = Object.keys(apOverdueTotal).length > 0 || Object.keys(rcvOverdueTotal).length > 0;
-  
-  if(hasOverdue){
-    // 新增逾期帳款卡片（右邊）
-    cards += '<div class="msum-card" style="background:#fff;border:1px solid var(--border);border-left:3px solid #dc2626;">'
-      + '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:#dc2626;"></div>'
-      + '<div class="msum-dept">⚠️ 逾期放逐押</div>'
-      + '<div style="margin-bottom:6px;">';
+    cards += '</div>';
     
-    if(Object.keys(apOverdueTotal).length > 0){
-      cards += '<div style="font-size:10px;color:#dc2626;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">↓ 應付逾期</div>';
-      Object.keys(apOverdueTotal).forEach(function(c){
-        cards += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">'
-          + '<span style="width:6px;height:6px;border-radius:50%;background:#dc2626;"></span>'
-          + '<span style="font-size:13px;font-weight:700;color:#dc2626;font-family:\'DM Mono\',monospace;">'
-          + formatCurrency(c, apOverdueTotal[c])+'</span>'
-          + '</div>';
-      });
+    // 右邊：逾期帳款（紅色區塊）
+    var hasOverdue = Object.keys(byDept[dept].apCurOverdue).length > 0 || Object.keys(byDept[dept].rcvCurOverdue).length > 0;
+    cards += '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px;'+(hasOverdue?'':'display:none;')+'">'
+      + '<div style="font-size:10px;color:#dc2626;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">⚠ 逾期'+(apCntOverdue+rcvCntOverdue?' ('+(apCntOverdue+rcvCntOverdue)+'筆)':'')+'</div>';
+    
+    if (Object.keys(byDept[dept].apCurOverdue).length > 0) {
+      cards += '<div style="font-size:9px;color:#dc2626;font-weight:700;margin-bottom:2px;">↓ 應付</div>'
+        + fmtDotRows(byDept[dept].apCurOverdue, byDept[dept].apCurOverdue, true);
     }
     
-    if(Object.keys(rcvOverdueTotal).length > 0){
-      cards += '<div style="font-size:10px;color:#dc2626;font-weight:700;margin-bottom:3px;letter-spacing:.04em;margin-top:6px;">↑ 應收逾期</div>';
-      Object.keys(rcvOverdueTotal).forEach(function(c){
-        cards += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">'
-          + '<span style="width:6px;height:6px;border-radius:50%;background:#dc2626;"></span>'
-          + '<span style="font-size:13px;font-weight:700;color:#dc2626;font-family:\'DM Mono\',monospace;">'
-          + formatCurrency(c, rcvOverdueTotal[c])+'</span>'
-          + '</div>';
-      });
+    if (Object.keys(byDept[dept].rcvCurOverdue).length > 0) {
+      cards += '<div style="font-size:9px;color:#dc2626;font-weight:700;margin-bottom:2px;margin-top:4px;">↑ 應收</div>'
+        + fmtDotRows(byDept[dept].rcvCurOverdue, byDept[dept].rcvCurOverdue, false);
+    }
+    
+    if(!hasOverdue){
+      cards += '<div style="color:#94a3b8;font-size:13px;">—</div>';
     }
     
     cards += '</div>'
+      + '</div>'
       + '</div>';
-  }
+  });
 
   statsEl.style.gridTemplateColumns = 'repeat(2,1fr)';
   statsEl.innerHTML = cards;
