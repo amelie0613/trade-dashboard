@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v18</title>
+<title>貿易大漁｜管理系統 v19</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -490,14 +490,13 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
         <option value="船務">船務</option>
         <option value="貿易">貿易</option>
       </select>
-<!-- 來源篩選已移除：帳務管理只顯示 CSV 真實帳款 -->
-      <input type="hidden" id="pay-filter-src" value="csv">
+<input type="hidden" id="pay-filter-src" value="csv">
       <div style="display:flex;flex-direction:column;gap:2px;">
-        <span style="font-size:10px;color:var(--muted);font-weight:700;">結帳日 起</span>
+        <span style="font-size:10px;color:var(--muted);font-weight:700;">付款日 起</span>
         <input type="date" id="pay-filter-from" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
       </div>
       <div style="display:flex;flex-direction:column;gap:2px;">
-        <span style="font-size:10px;color:var(--muted);font-weight:700;">結帳日 迄</span>
+        <span style="font-size:10px;color:var(--muted);font-weight:700;">付款日 迄</span>
         <input type="date" id="pay-filter-to" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
       </div>
       <button onclick="clearPayFilters()" style="padding:6px 14px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">清除</button>
