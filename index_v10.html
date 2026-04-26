@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v17</title>
+<title>貿易大漁｜管理系統 v18</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -490,11 +490,8 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
         <option value="船務">船務</option>
         <option value="貿易">貿易</option>
       </select>
-      <select id="pay-filter-src" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
-        <option value="">全部來源</option>
-        <option value="csv">📄 外部帳款（CSV）</option>
-        <option value="firebase">🔥 Firebase 案件</option>
-      </select>
+<!-- 來源篩選已移除：帳務管理只顯示 CSV 真實帳款 -->
+      <input type="hidden" id="pay-filter-src" value="csv">
       <div style="display:flex;flex-direction:column;gap:2px;">
         <span style="font-size:10px;color:var(--muted);font-weight:700;">結帳日 起</span>
         <input type="date" id="pay-filter-from" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
@@ -4112,7 +4109,8 @@ function buildCombinedPayments() {
     });
   });
 
-  return { calendar: fbItems.concat(csvItems), payments: csvItems.concat(fbItems) };
+  // payments 頁只給 CSV（真實帳款），Firebase 預估只進日曆
+  return { calendar: fbItems.concat(csvItems), payments: csvItems };
 }
 
 // ══════════════════════════════════════════════════════
@@ -4151,36 +4149,77 @@ function filterPayments(f, el) {
 }
 
 // ══════════════════════════════════════════════════════
-// 統計卡片（依「部門」分類，規則六）
+// 帳務管理統計卡片（只算 CSV 真實帳款）
+// 格式與日曆統計卡片相同：幣別分行 + 🔴/🔵 圓點
 // ══════════════════════════════════════════════════════
 function renderPayStats(items) {
   var statsEl = document.getElementById('pay-stats');
   if (!statsEl) return;
 
-  // 動態收集所有部門
-  var deptSet = {};
-  items.forEach(function(p) { if (p.dept) deptSet[p.dept] = true; });
-  var depts = Object.keys(deptSet);
-  if (!depts.length) depts = ['船務','貿易'];
+  // ★ 嚴格只算 CSV（_source==='csv'），Firebase 預估不進此區
+  var csvOnly = items.filter(function(p) { return (p._source||p.source) === 'csv'; });
 
-  // 每個部門計算應收/應付（NTD 換算合計）
+  // 依部門分組
+  var depts = ['貿易','船務'];
+  var byDept = {};
+  depts.forEach(function(d){ byDept[d] = { apCur:{}, rcvCur:{} }; });
+
+  csvOnly.forEach(function(p) {
+    if (p.isPaid) return; // 已付款不計入未結金額
+    var dept = p.dept || '';
+    if (!byDept[dept]) byDept[dept] = { apCur:{}, rcvCur:{} };
+    var cur = (p.cur||'NTD').toUpperCase();
+    var amt = p.amt || 0;
+    if (p.direction === 'receivable') {
+      byDept[dept].rcvCur[cur] = (byDept[dept].rcvCur[cur]||0) + amt;
+    } else {
+      byDept[dept].apCur[cur] = (byDept[dept].apCur[cur]||0) + amt;
+    }
+  });
+
+  // 格式化：每幣別一行，帶圓點
+  function fmtDotRows(curMap, isAp) {
+    var keys = Object.keys(curMap);
+    if (!keys.length) return '<div style="color:#94a3b8;font-size:13px;margin-bottom:2px;">—</div>';
+    return keys.map(function(c) {
+      var dotCls = isAp ? 'dot-red' : 'dot-green';
+      var col    = isAp ? '#dc2626' : '#1d4ed8';
+      return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">'
+        + '<span class="'+dotCls+'"></span>'
+        + '<span style="font-size:13px;font-weight:700;color:'+col+';font-family:\'DM Mono\',monospace;">'
+        + formatCurrency(c, curMap[c])+'</span>'
+        + '</div>';
+    }).join('');
+  }
+
+  // 計算筆數
+  function countItems(dept, dir) {
+    return csvOnly.filter(function(p){ return p.dept===dept && p.direction===dir && !p.isPaid; }).length;
+  }
+
   var cards = '';
   depts.forEach(function(dept) {
-    var dItems = items.filter(function(p) { return p.dept === dept && !p.isPaid; });
-    var payable    = dItems.filter(function(p) { return p.direction==='payable'; });
-    var receivable = dItems.filter(function(p) { return p.direction==='receivable'; });
-    function sumNTD(arr) {
-      return arr.reduce(function(s, p) { return s + calcNTD(p.amt, p.cur); }, 0);
-    }
-    cards += '<div class="st s4" style="grid-column:span 1;">'
-      +'<div class="stlbl">'+dept+' 應付</div>'
-      +'<div class="stval v4" style="font-size:14px;">'+formatCurrency('NTD', sumNTD(payable))+'</div>'
-      +'<div class="stsub">'+payable.length+' 筆</div></div>';
-    cards += '<div class="st s3" style="grid-column:span 1;">'
-      +'<div class="stlbl">'+dept+' 應收</div>'
-      +'<div class="stval v3" style="font-size:14px;">'+formatCurrency('NTD', sumNTD(receivable))+'</div>'
-      +'<div class="stsub">'+receivable.length+' 筆</div></div>';
+    var icon = dept==='船務'?'🚢':'📦';
+    var hasAp  = Object.keys(byDept[dept].apCur).length  > 0;
+    var hasRcv = Object.keys(byDept[dept].rcvCur).length > 0;
+    var apCnt  = countItems(dept,'payable');
+    var rcvCnt = countItems(dept,'receivable');
+
+    cards += '<div class="msum-card" style="background:#fff;border:1px solid var(--border);">'
+      + '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#dc2626,#1d4ed8);"></div>'
+      + '<div class="msum-dept">'+icon+' '+dept+'</div>'
+      + '<div style="margin-bottom:6px;">'
+      + '<div style="font-size:10px;color:#dc2626;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應付'+(apCnt?' ('+apCnt+'筆)':'')+'</div>'
+      + fmtDotRows(byDept[dept].apCur, true)
+      + '</div>'
+      + '<div>'
+      + '<div style="font-size:10px;color:#1d4ed8;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應收'+(rcvCnt?' ('+rcvCnt+'筆)':'')+'</div>'
+      + fmtDotRows(byDept[dept].rcvCur, false)
+      + '</div>'
+      + '</div>';
   });
+
+  statsEl.style.gridTemplateColumns = 'repeat(2,1fr)';
   statsEl.innerHTML = cards;
 }
 
@@ -4214,7 +4253,8 @@ function renderPayments() {
     return true;
   });
 
-  renderPayStats(result);
+  // ★ 統計卡片永遠用全量 CSV 資料（不受頁面篩選影響）
+  renderPayStats(allPaymentItems);
 
   // ── 分頁 ─────────────────────────────────────────
   var total = result.length;
@@ -4257,9 +4297,8 @@ function makePayRow(p, today) {
 
   var isCSV = p._source === 'csv';
 
-  var srcBadge = isCSV
-    ? '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;background:#f0f9ff;color:#0369a1;border:0.5px solid #bae6fd;">📄 外部</span>'
-    : '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;background:#fef9c3;color:#92400e;border:0.5px solid #fde68a;">🔥 案件</span>';
+  // ★ 帳務管理只有 CSV 真實帳款，來源標記固定為「外部」
+  var srcBadge = '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;background:#f0f9ff;color:#0369a1;border:0.5px solid #bae6fd;">📄 CSV</span>';
 
   var statusBadge = '<span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:'+stBg+';color:'+stColor+';border:0.5px solid '+stBd+';">'+stText+'</span>';
 
@@ -4269,10 +4308,8 @@ function makePayRow(p, today) {
 
   var escId = String(p._row).replace(/'/g, "\\'");
 
-  // ★ 操作欄：CSV 不可操作（規則七）
-  var actionBtn = isCSV
-    ? '<span style="font-size:11px;color:#94a3b8;">—</span>'
-    : '<button class="btn-v" onclick="showPayInfo(\''+escId+'\')">付款資訊</button>';
+  // ★ 帳務管理全是 CSV，僅供檢視，不可操作
+  var actionBtn = '<span style="font-size:11px;color:#94a3b8;">—</span>';
 
   var dirTag = p.direction === 'receivable'
     ? '<span style="color:var(--jade);font-size:11px;font-weight:700;">↑ 應收</span>'
