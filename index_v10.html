@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v20.2</title>
+<title>貿易大漁｜管理系統 v20.3</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -501,7 +501,6 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
         <option value="船務">船務</option>
         <option value="貿易">貿易</option>
       </select>
-<input type="hidden" id="pay-filter-src" value="csv">
       <div style="display:flex;flex-direction:column;gap:2px;">
         <span style="font-size:10px;color:var(--muted);font-weight:700;">付款日 起</span>
         <input type="date" id="pay-filter-from" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
@@ -4209,7 +4208,7 @@ function forceRefreshCSV() {
 // 清除進階篩選
 // ══════════════════════════════════════════════════════
 function clearPayFilters() {
-  var ids = ['pay-filter-cur','pay-filter-dept','pay-filter-src','pay-filter-from','pay-filter-to'];
+  var ids = ['pay-filter-cur','pay-filter-dept','pay-filter-from','pay-filter-to'];
   ids.forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
   renderPayments();
 }
@@ -4223,6 +4222,22 @@ function filterPayments(f, el) {
   document.querySelectorAll('.pay-filter-btn').forEach(function(b) { b.classList.remove('on'); });
   if (el) el.classList.add('on');
   renderPayments();
+}
+
+// ══════════════════════════════════════════════════════
+// v20：帳務管理幣別顏色系統
+// NTD(藍#0369a1) USD(綠#16a34a) JPY(橙#f97316) ZAR(黃#eab308) 逾期(紅#dc2626)
+// ══════════════════════════════════════════════════════
+function getPaymentColor(currency, isOverdue) {
+  if (isOverdue) return { bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' };
+  var cur = (currency || 'NTD').toUpperCase();
+  var colorMap = {
+    'NTD': { bg: '#eff6ff', color: '#0369a1', border: '#bae6fd' },     // 藍
+    'USD': { bg: '#f0fdf4', color: '#16a34a', border: '#86efac' },     // 綠
+    'JPY': { bg: '#fff7ed', color: '#f97316', border: '#fed7aa' },     // 橙
+    'ZAR': { bg: '#fefce8', color: '#eab308', border: '#fef3c7' }      // 黃
+  };
+  return colorMap[cur] || { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' }; // 預設灰
 }
 
 // ══════════════════════════════════════════════════════
@@ -4315,7 +4330,6 @@ function renderPayments() {
   // ── 進階篩選 ─────────────────────────────────────
   var filterCur  = (document.getElementById('pay-filter-cur')  || {}).value || '';
   var filterDept = (document.getElementById('pay-filter-dept') || {}).value || '';
-  var filterSrc  = (document.getElementById('pay-filter-src')  || {}).value || '';
   var filterFrom = (document.getElementById('pay-filter-from') || {}).value || '';
   var filterTo   = (document.getElementById('pay-filter-to')   || {}).value || '';
 
@@ -4328,30 +4342,12 @@ function renderPayments() {
     if (payFilter === 'done')       { if (!p.isPaid)                    return false; }
     if (filterCur  && (p.cur  ||'').toUpperCase() !== filterCur.toUpperCase()) return false;
     if (filterDept && (p.dept ||'') !== filterDept) return false;
-    if (filterSrc  && (p._source||'') !== filterSrc) return false;
     if (filterFrom && p.dueDate && p.dueDate < filterFrom) return false;
     if (filterTo   && p.dueDate && p.dueDate > filterTo)   return false;
     return true;
   });
 
-// ══════════════════════════════════════════════════════
-// v20：帳務管理幣別顏色系統
-// NTD(藍#0369a1) USD(綠#16a34a) JPY(橙#f97316) ZAR(黃#eab308) 逾期(紅#dc2626)
-// ══════════════════════════════════════════════════════
-function getPaymentColor(currency, isOverdue) {
-  if (isOverdue) return { bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' };
-  var cur = (currency || 'NTD').toUpperCase();
-  var colorMap = {
-    'NTD': { bg: '#eff6ff', color: '#0369a1', border: '#bae6fd' },     // 藍
-    'USD': { bg: '#f0fdf4', color: '#16a34a', border: '#86efac' },     // 綠
-    'JPY': { bg: '#fff7ed', color: '#f97316', border: '#fed7aa' },     // 橙
-    'ZAR': { bg: '#fefce8', color: '#eab308', border: '#fef3c7' }      // 黃
-  };
-  return colorMap[cur] || { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' }; // 預設灰
-}
-
-// ══════════════════════════════════════════════════════
-// 統計卡片永遠用全量 CSV 資料（不受頁面篩選影響）
+  // ★ 統計卡片永遠用全量 CSV 資料（不受頁面篩選影響）
   renderPayStats(allPaymentItems);
 
   var total = result.length;
