@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v20</title>
+<title>貿易大漁｜管理系統 v25</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -538,85 +538,95 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
     <div class="asec-s">所有帳號儲存於 Firebase，即時同步所有裝置。密碼為明碼顯示，請在安全環境操作。</div>
     <div class="ugrid" id="ug"></div>
   </div>
-  <!-- ★ v28：UI 設定管理分頁 -->
-  <div class="asec" style="margin-top:30px;border-top:2px solid var(--border);padding-top:30px;">
-    <div class="asec-t">🎨 UI 主題設定</div>
-    <div class="asec-s">點選左側區域，在右側調整該區域的背景色、文字色與字體大小，設定即時套用並保存於本機。</div>
+</div>
+
+<!-- ★ v30：獨立 UI 主題設定分頁 -->
+<div class="scr" id="s-ui-theme" style="display:none;">
+  <div style="padding:20px;">
+    <div style="margin-bottom:20px;">
+      <div style="font-size:18px;font-weight:700;color:var(--ink);margin-bottom:4px;">🎨 UI 主題設定</div>
+      <div style="font-size:13px;color:var(--muted);">選擇左側區域，在右側調整背景色、文字色、框線色與字體大小。設定即時套用，保存後替代預設值。</div>
+    </div>
     
-    <div style="display:flex;gap:16px;margin-top:16px;min-height:400px;">
+    <div style="display:flex;gap:16px;min-height:calc(100vh - 200px);">
       
       <!-- 左欄：區域清單 -->
-      <div style="width:180px;flex-shrink:0;background:#f8fafc;border:1px solid var(--border);border-radius:12px;overflow:hidden;">
-        <div style="padding:10px 14px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;border-bottom:1px solid var(--border);">選擇區域</div>
-        <div id="ui-region-list" style="padding:8px;">
+      <div style="width:200px;flex-shrink:0;background:#f8fafc;border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
+        <div style="padding:12px 14px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;border-bottom:1px solid var(--border);background:#fff;">選擇要設定的區域</div>
+        <div id="ui-region-list" style="flex:1;overflow-y:auto;padding:8px;">
           <!-- 動態產生 -->
         </div>
       </div>
       
       <!-- 右欄：設定面板 -->
-      <div style="flex:1;background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:20px;">
-        <div id="ui-region-title" style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">請選擇左側區域</div>
+      <div style="flex:1;background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:20px;overflow-y:auto;">
+        <div id="ui-region-title" style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px;">請選擇左側區域</div>
+        <div id="ui-region-desc" style="font-size:12px;color:var(--muted);margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">—</div>
         
         <div id="ui-settings-panel" style="display:none;">
           <!-- 背景色 -->
-          <div style="margin-bottom:16px;">
-            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;">🎨 背景色</label>
+          <div style="margin-bottom:20px;">
+            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:8px;">🎨 背景色</label>
             <div style="display:flex;align-items:center;gap:10px;">
-              <input type="color" id="ui-bg-color" style="width:48px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">
-              <input type="text" id="ui-bg-hex" placeholder="#ffffff" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:monospace;">
-              <button onclick="uiResetProp('bg')" style="padding:6px 10px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;">重置</button>
+              <input type="color" id="ui-bg-color" style="width:50px;height:40px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">
+              <input type="text" id="ui-bg-hex" placeholder="#ffffff" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;">
+              <button onclick="uiResetProp('bg')" style="padding:8px 12px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;white-space:nowrap;">重置</button>
             </div>
           </div>
           
           <!-- 文字色 -->
-          <div style="margin-bottom:16px;">
-            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;">✏️ 文字色</label>
+          <div style="margin-bottom:20px;">
+            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:8px;">✏️ 文字色</label>
             <div style="display:flex;align-items:center;gap:10px;">
-              <input type="color" id="ui-text-color" style="width:48px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">
-              <input type="text" id="ui-text-hex" placeholder="#0b1d35" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:monospace;">
-              <button onclick="uiResetProp('text')" style="padding:6px 10px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;">重置</button>
+              <input type="color" id="ui-text-color" style="width:50px;height:40px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">
+              <input type="text" id="ui-text-hex" placeholder="#0b1d35" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;">
+              <button onclick="uiResetProp('text')" style="padding:8px 12px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;white-space:nowrap;">重置</button>
             </div>
           </div>
           
           <!-- 框線色 -->
-          <div style="margin-bottom:16px;">
-            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;">🔲 框線色</label>
+          <div style="margin-bottom:20px;">
+            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:8px;">🔲 框線色</label>
             <div style="display:flex;align-items:center;gap:10px;">
-              <input type="color" id="ui-border-color" style="width:48px;height:36px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">
-              <input type="text" id="ui-border-hex" placeholder="#e2e8f0" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:monospace;">
-              <button onclick="uiResetProp('border')" style="padding:6px 10px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;">重置</button>
+              <input type="color" id="ui-border-color" style="width:50px;height:40px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">
+              <input type="text" id="ui-border-hex" placeholder="#e2e8f0" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;">
+              <button onclick="uiResetProp('border')" style="padding:8px 12px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;white-space:nowrap;">重置</button>
             </div>
           </div>
           
           <!-- 字體大小 -->
-          <div style="margin-bottom:16px;">
-            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;">🔤 字體大小</label>
+          <div style="margin-bottom:20px;">
+            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:8px;">🔤 字體大小 (10-32px)</label>
             <div style="display:flex;align-items:center;gap:10px;">
-              <input type="range" id="ui-font-size" min="10" max="32" step="1" style="flex:1;cursor:pointer;">
-              <span id="ui-font-size-val" style="min-width:40px;font-size:13px;font-weight:700;color:var(--ink);">14px</span>
-              <button onclick="uiResetProp('fontSize')" style="padding:6px 10px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;">重置</button>
+              <input type="range" id="ui-font-size" min="10" max="32" step="1" style="flex:1;cursor:pointer;height:6px;">
+              <span id="ui-font-size-val" style="min-width:45px;font-size:12px;font-weight:700;color:var(--ink);text-align:center;">14px</span>
+              <button onclick="uiResetProp('fontSize')" style="padding:8px 12px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;white-space:nowrap;">重置</button>
             </div>
           </div>
           
           <!-- 即時預覽 -->
-          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:20px;">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;">預覽</div>
-            <div id="ui-preview-box" style="padding:12px;border-radius:8px;">示例文字 Sample Text 123</div>
+          <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px;border-top:3px solid var(--sea);">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;">📺 即時預覽</div>
+            <div id="ui-preview-box" style="padding:12px;border-radius:8px;font-weight:500;">示例文字 Sample Text 123</div>
           </div>
           
           <!-- 操作按鈕 -->
           <div style="display:flex;gap:10px;">
-            <button onclick="applyCurrentUIRegion()" style="flex:2;padding:10px;border-radius:8px;background:var(--sea);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;">✅ 套用此區域</button>
-            <button onclick="resetCurrentUIRegion()" style="flex:1;padding:10px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">↺ 重置</button>
+            <button onclick="applyCurrentUIRegion()" style="flex:1;padding:11px;border-radius:8px;background:var(--sea);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;">✅ 套用此區域</button>
+            <button onclick="resetCurrentUIRegion()" style="flex:1;padding:11px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">↺ 重置此區域</button>
           </div>
         </div>
-        
-        <!-- 全域按鈕 -->
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:10px;">
-          <button onclick="saveAllUISettings()" style="flex:1;padding:10px;border-radius:8px;background:#16a34a;color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;">💾 保存所有設定</button>
-          <button onclick="resetAllUISettings()" style="flex:1;padding:10px;border-radius:8px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;font-size:13px;font-weight:700;cursor:pointer;">🗑️ 全部重置</button>
-        </div>
       </div>
+    </div>
+    
+    <!-- 全域操作列 -->
+    <div style="margin-top:20px;padding:16px;background:#f8fafc;border:1px solid var(--border);border-radius:12px;display:flex;gap:10px;align-items:center;">
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:3px;">全部 UI 設定</div>
+        <div style="font-size:11px;color:var(--muted);">已修改的區域將完全替代預設 HTML 設定。保存後刷新頁面可看到最新效果。</div>
+      </div>
+      <button onclick="saveAllUISettings()" style="padding:10px 20px;border-radius:8px;background:#16a34a;color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">💾 保存全部設定</button>
+      <button onclick="resetAllUISettings()" style="padding:10px 20px;border-radius:8px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑️ 全部重置</button>
     </div>
   </div>
 </div>
@@ -825,22 +835,29 @@ function fetchAccountsFirebase(callback){
   });
 }
 
-// ★ v29：UI 主題設定管理 ──────────────────────────────────
+// ★ v30：完整 UI 主題設定管理系統 ──────────────────────────────────
 
-// 區域定義：名稱 / CSS 選擇器 / 預設值
+// 完整區域定義（20 個獨立可控區域）
 var UI_REGIONS = [
-  { id:'navbar',    label:'🧭 導航列',      sel:'.nav, nav, #nav, header',            defaults:{bg:'#0b1d35',text:'#ffffff',border:'transparent',fontSize:13}},
-  { id:'card',      label:'🃏 卡片',         sel:'.card, .st, .asec, .msum-card',      defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
-  { id:'table',     label:'📋 表格',         sel:'table, tbody tr, thead',             defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:13}},
-  { id:'btn-pri',   label:'🔵 主要按鈕',     sel:'.btn, button.primary, .pay-filter-btn.on', defaults:{bg:'#1d4ed8',text:'#ffffff',border:'#1d4ed8',fontSize:12}},
-  { id:'btn-sec',   label:'⚪ 次要按鈕',     sel:'.pay-filter-btn',                   defaults:{bg:'#f8fafc',text:'#475569',border:'#e2e8f0',fontSize:12}},
-  { id:'input',     label:'📝 輸入框',       sel:'input, select, textarea',            defaults:{bg:'#f8fafc',text:'#0b1d35',border:'#e2e8f0',fontSize:12}},
-  { id:'modal',     label:'🪟 彈窗',         sel:'.modal-box',                         defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
-  { id:'sidebar',   label:'📌 篩選列',       sel:'.scr > div:first-child',             defaults:{bg:'#f8fafc',text:'#0b1d35',border:'#e2e8f0',fontSize:13}},
-  { id:'badge',     label:'🏷️ 狀態標籤',    sel:'.dtag, .dcard-st',                  defaults:{bg:'#eff6ff',text:'#1e3a8a',border:'#bfdbfe',fontSize:11}},
-  { id:'calendar',  label:'📅 日曆格',       sel:'td[data-date], .cal-cell',           defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
-  { id:'page-bg',   label:'🖼️ 頁面背景',    sel:'body, .scr',                         defaults:{bg:'#f0f6fc',text:'#0b1d35',border:'transparent',fontSize:14}},
-  { id:'topbar',    label:'📊 頂部匯率列',   sel:'.rate-bar, #rate-bar',               defaults:{bg:'#0b1d35',text:'#7fa0c0',border:'transparent',fontSize:11}},
+  { id:'navbar',        label:'🧭 導航列',          desc:'頁面最頂端的深藍色橫條',           sel:'.hd',           defaults:{bg:'#0b1d35',text:'#ffffff',border:'transparent',fontSize:13}},
+  { id:'rate-bar',      label:'📊 匯率列',          desc:'導航列下方的即期匯率列',           sel:'.alert',        defaults:{bg:'linear-gradient(90deg, #78350f, #d97706)',text:'#ffffff',border:'transparent',fontSize:13}},
+  { id:'page-bg',       label:'🖼️ 頁面背景',        desc:'整個頁面的底色',                   sel:'body, .scr',    defaults:{bg:'#f0f6fc',text:'#0b1d35',border:'transparent',fontSize:14}},
+  { id:'card',          label:'🃏 卡片容器',        desc:'所有白色卡片框',                   sel:'.st, .sbox, .cc, .twrap, .daily-wrap', defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
+  { id:'payable-block', label:'💙 應付區塊',        desc:'卡片內淡藍色應付區塊',             sel:'.payable-sub',  defaults:{bg:'#eff6ff',text:'#0369a1',border:'#bae6fd',fontSize:14}},
+  { id:'receivable-block',label:'💚 應收區塊',      desc:'卡片內淡綠色應收區塊',             sel:'.receivable-sub',defaults:{bg:'#f0fdf4',text:'#16a34a',border:'#86efac',fontSize:14}},
+  { id:'overdue-block', label:'⚠️ 逾期區塊',        desc:'卡片內淡紅色逾期區塊',             sel:'.overdue-sub',  defaults:{bg:'#fff5f5',text:'#dc2626',border:'#fca5a5',fontSize:14}},
+  { id:'table',         label:'📋 表格',            desc:'帳務管理帳款列表表格',             sel:'.tbl, .dtbl',   defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:13}},
+  { id:'table-header',  label:'📋 表格標題列',      desc:'表格的 header',                    sel:'.tbl thead th, .dtbl thead th', defaults:{bg:'#f8fafc',text:'#64748b',border:'#e2e8f0',fontSize:12}},
+  { id:'btn-primary',   label:'🔵 主要按鈕',        desc:'藍色重點按鈕（被選中的篩選按鈕等）', sel:'.btn-sq, .pay-filter-btn.on, .rtab.on', defaults:{bg:'#0369a1',text:'#ffffff',border:'#0369a1',fontSize:13}},
+  { id:'btn-secondary', label:'⚪ 次要按鈕',        desc:'灰色普通按鈕',                     sel:'.btn-cl, .pay-filter-btn, .rtab', defaults:{bg:'#f1f5f9',text:'#64748b',border:'#e2e8f0',fontSize:13}},
+  { id:'input',         label:'📝 輸入框',          desc:'日期選擇、下拉選單等輸入欄位',     sel:'input, select, textarea', defaults:{bg:'#f8fafc',text:'#0b1d35',border:'#e2e8f0',fontSize:13}},
+  { id:'modal',         label:'🪟 彈窗',            desc:'Modal 彈窗內容區',                 sel:'.modal-box',    defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
+  { id:'modal-header',  label:'🪟 彈窗標題列',      desc:'Modal 頂部深藍色區域',             sel:'.mhd',          defaults:{bg:'#0b1d35',text:'#7fa0c0',border:'transparent',fontSize:14}},
+  { id:'badge',         label:'🏷️ 狀態標籤',       desc:'各式狀態標籤（已完成、逾期等）',   sel:'.bdg, .dtag, .rbadge', defaults:{bg:'#eff6ff',text:'#1e3a8a',border:'#bfdbfe',fontSize:11}},
+  { id:'calendar',      label:'📅 日曆格',          desc:'日曆頁面的日期格子',               sel:'.cal-cell, td[data-date]', defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
+  { id:'msum-card',     label:'📊 月統計卡片',      desc:'日曆主頁上方統計卡片',             sel:'.msum-card',    defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
+  { id:'label',         label:'📌 標籤文字',        desc:'各式欄位標籤（字段名稱等）',       sel:'.llbl, .dsec-t, .drow-l, .cn-lbl', defaults:{bg:'transparent',text:'#64748b',border:'transparent',fontSize:11}},
+  { id:'nav-tab',       label:'🔀 導航分頁',        desc:'頁面中間的分頁標籤（總覽、待簽核等）',sel:'.nav-tab, .day-tab', defaults:{bg:'transparent',text:'#64748b',border:'transparent',fontSize:14}}
 ];
 
 var _uiCurrentRegion = null;
@@ -849,18 +866,19 @@ var _uiAllSettings = {};
 function initUISettingsPanel(){
   // 從 localStorage 讀取已保存的設定
   try {
-    var stored = localStorage.getItem('uiRegionSettings');
+    var stored = localStorage.getItem('uiThemeSettings');
     if(stored) _uiAllSettings = JSON.parse(stored);
   } catch(e) { _uiAllSettings = {}; }
 
   // 建立左欄區域清單
   var listEl = document.getElementById('ui-region-list');
   if(!listEl) return;
+  
   listEl.innerHTML = UI_REGIONS.map(function(r){
     var hasSetting = !!_uiAllSettings[r.id];
-    return '<div id="ui-region-btn-'+r.id+'" onclick="uiSelectRegion(\''+r.id+'\')" style="padding:8px 10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">'
-      + '<span>'+r.label+'</span>'
-      + (hasSetting ? '<span style="width:8px;height:8px;border-radius:50%;background:#16a34a;"></span>' : '')
+    return '<div id="ui-region-btn-'+r.id+'" onclick="uiSelectRegion(\''+r.id+'\')" style="padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;transition:all .2s;border:1px solid transparent;">'
+      + '<span style="flex:1;">'+r.label+'</span>'
+      + (hasSetting ? '<span style="width:10px;height:10px;border-radius:50%;background:#16a34a;flex-shrink:0;"></span>' : '<span style="width:10px;height:10px;"></span>')
       + '</div>';
   }).join('');
 
@@ -903,17 +921,27 @@ function uiSelectRegion(regionId){
   // 高亮選中的區域
   UI_REGIONS.forEach(function(r){
     var btn = document.getElementById('ui-region-btn-'+r.id);
-    if(btn) btn.style.background = r.id === regionId ? '#eff6ff' : '';
+    if(btn) btn.style.background = r.id === regionId ? '#dbeafe' : '';
   });
 
-  // 更新右欄標題
-  document.getElementById('ui-region-title').textContent = region.label + ' 設定';
+  // 更新右欄標題和說明
+  document.getElementById('ui-region-title').textContent = region.label;
+  document.getElementById('ui-region-desc').textContent = region.desc;
   document.getElementById('ui-settings-panel').style.display = 'block';
 
   // 載入已保存的設定（或預設值）
   var saved = _uiAllSettings[regionId] || region.defaults;
-  document.getElementById('ui-bg-color').value = saved.bg || region.defaults.bg;
-  document.getElementById('ui-bg-hex').value = saved.bg || region.defaults.bg;
+  
+  // 處理背景色（可能是 gradient）
+  var bgVal = saved.bg || region.defaults.bg;
+  if(bgVal.includes('gradient')){
+    document.getElementById('ui-bg-color').value = '#ffffff';
+    document.getElementById('ui-bg-hex').value = bgVal;
+  } else {
+    document.getElementById('ui-bg-color').value = bgVal;
+    document.getElementById('ui-bg-hex').value = bgVal;
+  }
+  
   document.getElementById('ui-text-color').value = saved.text || region.defaults.text;
   document.getElementById('ui-text-hex').value = saved.text || region.defaults.text;
   document.getElementById('ui-border-color').value = saved.border || region.defaults.border;
@@ -927,13 +955,15 @@ function uiSelectRegion(regionId){
 function uiLivePreview(){
   var preview = document.getElementById('ui-preview-box');
   if(!preview) return;
-  var bg   = document.getElementById('ui-bg-color').value;
+  var bg   = document.getElementById('ui-bg-hex').value; // 用 hex 避免 gradient 被 picker 破壞
   var text = document.getElementById('ui-text-color').value;
   var bdr  = document.getElementById('ui-border-color').value;
   var fs   = document.getElementById('ui-font-size').value;
   preview.style.background  = bg;
   preview.style.color       = text;
-  preview.style.border      = '1px solid ' + bdr;
+  preview.style.borderColor = bdr;
+  preview.style.borderStyle = 'solid';
+  preview.style.borderWidth = '1px';
   preview.style.fontSize    = fs + 'px';
 }
 
@@ -941,8 +971,11 @@ function uiResetProp(prop){
   if(!_uiCurrentRegion) return;
   var d = _uiCurrentRegion.defaults;
   if(prop === 'bg'){
-    document.getElementById('ui-bg-color').value = d.bg;
-    document.getElementById('ui-bg-hex').value = d.bg;
+    var bgVal = d.bg;
+    if(!bgVal.includes('gradient')){
+      document.getElementById('ui-bg-color').value = bgVal;
+    }
+    document.getElementById('ui-bg-hex').value = bgVal;
   } else if(prop === 'text'){
     document.getElementById('ui-text-color').value = d.text;
     document.getElementById('ui-text-hex').value = d.text;
@@ -960,18 +993,24 @@ function applyCurrentUIRegion(){
   if(!_uiCurrentRegion) return;
   var regionId = _uiCurrentRegion.id;
   var settings = {
-    bg:       document.getElementById('ui-bg-color').value,
+    bg:       document.getElementById('ui-bg-hex').value, // 用 hex 保存，支援 gradient
     text:     document.getElementById('ui-text-color').value,
     border:   document.getElementById('ui-border-color').value,
     fontSize: parseInt(document.getElementById('ui-font-size').value)
   };
   _uiAllSettings[regionId] = settings;
   applyRegionStyle(regionId, settings);
+  
   // 更新左欄綠點
   var btn = document.getElementById('ui-region-btn-'+regionId);
-  if(btn && !btn.querySelector('span:last-child[style*="green"]')){
-    btn.innerHTML = btn.innerHTML.replace(/<span style="width.*?<\/span>/, '')
-      + '<span style="width:8px;height:8px;border-radius:50%;background:#16a34a;"></span>';
+  if(btn){
+    var dot = btn.querySelector('span:last-child');
+    if(dot && !dot.style.background){
+      dot.style.background = '#16a34a';
+      dot.style.borderRadius = '50%';
+      dot.style.width = '10px';
+      dot.style.height = '10px';
+    }
   }
   toast('✅ 已套用「' + _uiCurrentRegion.label + '」設定', '#16a34a');
 }
@@ -979,10 +1018,11 @@ function applyCurrentUIRegion(){
 function applyRegionStyle(regionId, settings){
   var region = UI_REGIONS.find(function(r){ return r.id === regionId; });
   if(!region) return;
-  // 使用 <style> 標籤注入樣式
+  
   var styleId = 'ui-style-'+regionId;
   var el = document.getElementById(styleId);
   if(!el){ el = document.createElement('style'); el.id = styleId; document.head.appendChild(el); }
+  
   el.textContent = region.sel + '{'
     + 'background:' + settings.bg + '!important;'
     + 'color:' + settings.text + '!important;'
@@ -1003,40 +1043,43 @@ function resetCurrentUIRegion(){
   delete _uiAllSettings[regionId];
   var styleEl = document.getElementById('ui-style-'+regionId);
   if(styleEl) styleEl.textContent = '';
-  uiSelectRegion(regionId);
+  
   // 移除左欄綠點
   var btn = document.getElementById('ui-region-btn-'+regionId);
-  if(btn) btn.innerHTML = btn.innerHTML.replace(/<span style="width.*?<\/span>/, '');
+  if(btn){
+    var dot = btn.querySelector('span:last-child');
+    if(dot) dot.style.background = '';
+  }
+  
+  uiSelectRegion(regionId);
   toast('↺ 已重置「' + _uiCurrentRegion.label + '」', '#64748b');
 }
 
 function saveAllUISettings(){
   try {
-    localStorage.setItem('uiRegionSettings', JSON.stringify(_uiAllSettings));
-    toast('💾 所有 UI 設定已保存', '#16a34a');
+    localStorage.setItem('uiThemeSettings', JSON.stringify(_uiAllSettings));
+    toast('💾 所有 UI 設定已保存至 localStorage', '#16a34a');
   } catch(e) {
-    toast('❌ 保存失敗', '#dc2626');
+    toast('❌ 保存失敗：' + e.message, '#dc2626');
   }
 }
 
 function resetAllUISettings(){
-  if(!confirm('確認重置所有 UI 設定為預設值？')) return;
+  if(!confirm('確認重置所有 UI 設定為預設值嗎？')) return;
   _uiAllSettings = {};
-  localStorage.removeItem('uiRegionSettings');
+  localStorage.removeItem('uiThemeSettings');
   UI_REGIONS.forEach(function(r){
     var styleEl = document.getElementById('ui-style-'+r.id);
     if(styleEl) styleEl.textContent = '';
     var btn = document.getElementById('ui-region-btn-'+r.id);
-    if(btn) btn.innerHTML = btn.innerHTML.replace(/<span style="width.*?<\/span>/, '');
+    if(btn){
+      var dot = btn.querySelector('span:last-child');
+      if(dot) dot.style.background = '';
+    }
   });
   if(_uiCurrentRegion) uiSelectRegion(_uiCurrentRegion.id);
-  toast('🗑️ 所有 UI 設定已重置', '#64748b');
+  toast('🗑️ 所有 UI 設定已重置為預設值', '#64748b');
 }
-
-function loadUISettings(){ return {}; }
-function applyUISettings(s){}
-function saveUISettings(){ saveAllUISettings(); }
-function resetUISettings(){ resetAllUISettings(); }
 
 // ── GAS 非同步通知（JSONP GET，完全繞過 CORS）─────────
 // ★ 修復：原本 fetch POST no-cors 模式下 GAS 有時收不到 body 導致不發信
@@ -1448,9 +1491,9 @@ function logout(){
 function buildNav(){
   var role=curUser.role;
   var tabs=role==='boss'
-    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'approval',l:'✅ 待簽核',p:true},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'}]
+    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'approval',l:'✅ 待簽核',p:true},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'},{i:'ui-theme',l:'🎨 UI 主題'}]
     :role==='admin'
-    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'approval',l:'✅ 待簽核',p:true},{i:'transfer',l:'💳 訂單轉入管理'},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'}]
+    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'approval',l:'✅ 待簽核',p:true},{i:'transfer',l:'💳 訂單轉入管理'},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'},{i:'ui-theme',l:'🎨 UI 主題'}]
     :role==='staff'
     ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'mycase',l:'👤 我的案件'},{i:'profile',l:'🔑 我的帳號'}]
     :role==='finance'
@@ -3178,7 +3221,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var delm = document.getElementById('DelM');
   // 背景點擊不關閉 Modal（防止誤觸）
   
-  // ★ v29：初始化 UI 設定面板
+  // ★ v30：初始化完整 UI 主題設定系統
   initUISettingsPanel();
 });
 
