@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v20</title>
+<title>貿易大漁｜管理系統 v20.2</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -570,9 +570,9 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
     <!-- tabs -->
     <div style="display:flex;gap:6px;padding:12px 16px 0;border-bottom:1px solid var(--border);background:#fff;">
       <button class="day-tab on" id="day-tab-all"      onclick="switchDayTab('all')">全部</button>
-      <button class="day-tab"    id="day-tab-payable"  onclick="switchDayTab('payable')">↓ 應付</button>
-      <button class="day-tab"    id="day-tab-receivable" onclick="switchDayTab('receivable')">↑ 應收</button>
-      <button class="day-tab"    id="day-tab-forecast" onclick="switchDayTab('forecast')">◇ 貿易大漁預估</button>
+      <button class="day-tab"    id="day-tab-trade"    onclick="switchDayTab('trade')">貿易</button>
+      <button class="day-tab"    id="day-tab-ship" onclick="switchDayTab('ship')">船務</button>
+      <button class="day-tab"    id="day-tab-forecast" onclick="switchDayTab('forecast')">◇ 案件預估</button>
     </div>
     <div style="padding:14px 16px;" id="day-body"></div>
     <!-- 合計 -->
@@ -2340,7 +2340,7 @@ function openDayDetail(dateStr){
 
 function switchDayTab(tab){
   _dayDetailTab = tab;
-  ['all','payable','receivable','forecast'].forEach(function(t){
+  ['all','trade','ship','forecast'].forEach(function(t){
     var el = document.getElementById('day-tab-'+t);
     if(el) el.className = 'day-tab'+(t===tab?' on':'');
   });
@@ -2418,29 +2418,28 @@ function _renderDayDetail(){
     });
   }catch(e){}
 
-  // ── Tab 篩選（規則二：firebase=預估，csv=真實）──
-  // 排序：Firebase預估優先 → CSV應收 → CSV應付
+  // ── v20 修改：按部門篩選（貿易/船務/案件預估）而非按方向 ──
   allItems.sort(function(a,b){
     var rank=function(x){ return x.source==='firebase'?0:(x.direction==='receivable'?1:2); };
     return rank(a)-rank(b);
   });
 
   var display = allItems.filter(function(p){
-    if(tab==='payable')    return p.direction==='payable'    && p.source==='csv';
-    if(tab==='receivable') return p.direction==='receivable' && p.source==='csv';
-    if(tab==='forecast')   return p.source==='firebase';
+    if(tab==='trade')   return p.dept==='貿易';
+    if(tab==='ship')    return p.dept==='船務';
+    if(tab==='forecast') return p.source==='firebase';
     return true;
   });
 
   // 更新 tab badge
   var counts = {
-    all:       allItems.length,
-    payable:   allItems.filter(function(p){return p.direction==='payable'    && p.source==='csv';}).length,
-    receivable:allItems.filter(function(p){return p.direction==='receivable' && p.source==='csv';}).length,
-    forecast:  allItems.filter(function(p){return p.source==='firebase';}).length
+    all:     allItems.length,
+    trade:   allItems.filter(function(p){return p.dept==='貿易';}).length,
+    ship:    allItems.filter(function(p){return p.dept==='船務';}).length,
+    forecast:allItems.filter(function(p){return p.source==='firebase';}).length
   };
-  var tabLabels = {all:'全部',payable:'↓ 應付',receivable:'↑ 應收',forecast:'◇ 貿易大漁預估'};
-  ['all','payable','receivable','forecast'].forEach(function(t){
+  var tabLabels = {all:'全部',trade:'貿易',ship:'船務',forecast:'◇ 案件預估'};
+  ['all','trade','ship','forecast'].forEach(function(t){
     var el = document.getElementById('day-tab-'+t);
     if(!el) return;
     el.innerHTML = tabLabels[t]+(counts[t]?' <span style="font-size:10px;background:rgba(0,0,0,.15);padding:0 5px;border-radius:10px;">'+counts[t]+'</span>':'');
@@ -4255,15 +4254,21 @@ function renderPayStats(items) {
     }
   });
 
-  // 格式化：每幣別一行，帶圓點
+  // ★ v20：根據幣別和應付/應收分別著色
   function fmtDotRows(curMap, isAp) {
     var keys = Object.keys(curMap);
     if (!keys.length) return '<div style="color:#94a3b8;font-size:13px;margin-bottom:2px;">—</div>';
     return keys.map(function(c) {
-      var dotCls = isAp ? 'dot-red' : 'dot-green';
-      var col    = isAp ? '#dc2626' : '#1d4ed8';
+      // 對應幣別顏色
+      var colorMap = {
+        'NTD': { text: '#0369a1' },    // 藍
+        'USD': { text: '#16a34a' },    // 綠
+        'JPY': { text: '#f97316' },    // 橙
+        'ZAR': { text: '#eab308' }     // 黃
+      };
+      var col = (colorMap[c] || {}).text || '#64748b'; // 預設灰
       return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">'
-        + '<span class="'+dotCls+'"></span>'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:'+col+';"></span>'
         + '<span style="font-size:13px;font-weight:700;color:'+col+';font-family:\'DM Mono\',monospace;">'
         + formatCurrency(c, curMap[c])+'</span>'
         + '</div>';
@@ -4284,14 +4289,14 @@ function renderPayStats(items) {
     var rcvCnt = countItems(dept,'receivable');
 
     cards += '<div class="msum-card" style="background:#fff;border:1px solid var(--border);">'
-      + '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#dc2626,#1d4ed8);"></div>'
+      + '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#0369a1,#16a34a,#f97316,#eab308);"></div>'
       + '<div class="msum-dept">'+icon+' '+dept+'</div>'
       + '<div style="margin-bottom:6px;">'
-      + '<div style="font-size:10px;color:#dc2626;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應付'+(apCnt?' ('+apCnt+'筆)':'')+'</div>'
+      + '<div style="font-size:10px;color:#0369a1;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應付'+(apCnt?' ('+apCnt+'筆)':'')+'</div>'
       + fmtDotRows(byDept[dept].apCur, true)
       + '</div>'
       + '<div>'
-      + '<div style="font-size:10px;color:#1d4ed8;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應收'+(rcvCnt?' ('+rcvCnt+'筆)':'')+'</div>'
+      + '<div style="font-size:10px;color:#16a34a;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應收'+(rcvCnt?' ('+rcvCnt+'筆)':'')+'</div>'
       + fmtDotRows(byDept[dept].rcvCur, false)
       + '</div>'
       + '</div>';
@@ -4329,7 +4334,24 @@ function renderPayments() {
     return true;
   });
 
-  // ★ 統計卡片永遠用全量 CSV 資料（不受頁面篩選影響）
+// ══════════════════════════════════════════════════════
+// v20：帳務管理幣別顏色系統
+// NTD(藍#0369a1) USD(綠#16a34a) JPY(橙#f97316) ZAR(黃#eab308) 逾期(紅#dc2626)
+// ══════════════════════════════════════════════════════
+function getPaymentColor(currency, isOverdue) {
+  if (isOverdue) return { bg: '#fef2f2', color: '#dc2626', border: '#fca5a5' };
+  var cur = (currency || 'NTD').toUpperCase();
+  var colorMap = {
+    'NTD': { bg: '#eff6ff', color: '#0369a1', border: '#bae6fd' },     // 藍
+    'USD': { bg: '#f0fdf4', color: '#16a34a', border: '#86efac' },     // 綠
+    'JPY': { bg: '#fff7ed', color: '#f97316', border: '#fed7aa' },     // 橙
+    'ZAR': { bg: '#fefce8', color: '#eab308', border: '#fef3c7' }      // 黃
+  };
+  return colorMap[cur] || { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' }; // 預設灰
+}
+
+// ══════════════════════════════════════════════════════
+// 統計卡片永遠用全量 CSV 資料（不受頁面篩選影響）
   renderPayStats(allPaymentItems);
 
   var total = result.length;
@@ -4387,14 +4409,16 @@ function renderPayments() {
   });
 }
 
-// ── 帳款表格列（含來源標記）────────────────────────────
+// ── 帳款表格列（含幣別顏色系統）────────────────────────
 function makePayRow(p, today) {
   var cur = (p.cur || 'NTD').toUpperCase();
   var amtStr = formatCurrency(cur, p.amt);
 
-  var stColor = p.isPaid ? '#16a34a' : p.isOverdue ? '#dc2626' : p.isEst ? '#d97706' : '#0369a1';
-  var stBg    = p.isPaid ? '#dcfce7' : p.isOverdue ? '#fee2e2' : p.isEst ? '#fef9c3' : '#dbeafe';
-  var stBd    = p.isPaid ? '#86efac' : p.isOverdue ? '#fca5a5' : p.isEst ? '#fde68a' : '#bfdbfe';
+  // ★ v20：根據幣別和逾期狀態決定顏色
+  var colors = getPaymentColor(cur, p.isOverdue);
+  var stBg    = colors.bg;
+  var stColor = colors.color;
+  var stBd    = colors.border;
   var stText  = p.isPaid ? '已完成'  : p.isOverdue ? '逾期'   : p.isEst ? '預估'   : '應付';
 
   var isCSV = p._source === 'csv';
@@ -4417,18 +4441,16 @@ function makePayRow(p, today) {
     ? '<span style="color:var(--jade);font-size:11px;font-weight:700;">↑ 應收</span>'
     : '<span style="color:var(--coral);font-size:11px;font-weight:700;">↓ 應付</span>';
 
-  // ★ v20：應付金額顯示負號（紅色），應收顯示正數（綠色）
-  var amtDisplay = p.direction === 'payable'
-    ? '-' + formatCurrency(cur, p.amt)   // 應付：強制加負號
-    : formatCurrency(cur, p.amt);        // 應收：正數顯示
+  // ★ v20：金額正常顯示（不加負號），顏色根據方向區分
+  var amtDisplay = formatCurrency(cur, p.amt);
 
-  return '<tr style="'+(p.isOverdue?'background:#fff5f5;':'')+'">'
+  return '<tr style="'+(p.isOverdue?'background:#fef2f2;':'')+'">'
     + '<td>'+srcBadge+'</td>'
     + '<td>'+deptBadge+'</td>'
     + '<td>'+statusBadge+' '+dirTag+'</td>'
     + '<td class="tdb" style="max-width:220px;word-break:break-all;">'+(p.note||'—')+'</td>'
     + '<td class="tdg">'+(p.category||'—')+'</td>'
-    + '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(p.direction==='receivable'?'var(--jade)':'var(--coral)')+';">'+amtDisplay+'</td>'
+    + '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+stColor+';">'+amtDisplay+'</td>'
     + '<td class="tdg" style="'+(p.isOverdue?'color:var(--coral);font-weight:700;':'')+';">'+(p.dueDate||'—')+'</td>'
     + '<td>'+actionBtn+'</td>'
     + '</tr>';
