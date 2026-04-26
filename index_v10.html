@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v23.OK</title>
+<title>貿易大漁｜管理系統 v24</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -54,8 +54,11 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .scr{display:none;padding:20px;}
 .scr.on{display:block;}
 /* STATS */
-.sg{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;width:100%;max-width:none;}
-@media(max-width:700px){.sg{grid-template-columns:1fr;}}
+.sg{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:20px;width:100%;max-width:none;}
+@media(min-width:1024px){.sg{grid-template-columns:repeat(2,1fr);}}
+/* ★ v27：總覽頁四張卡片（桌面版 1 行 4 列，平板版 2 列，手機版 1 列） */
+.sg .st{min-width:0;}
+@media(min-width:1200px){#dc .sg{grid-template-columns:repeat(4,1fr);}}
 .st{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;position:relative;overflow:hidden;}
 .st::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;}
 .s1::before{background:linear-gradient(90deg,var(--sea),var(--wave));}
@@ -487,8 +490,8 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
       <button class="pay-filter-btn"    data-f="done"       onclick="filterPayments('done',this)">已完成</button>
     </div>
     <!-- 行2：進階篩選 -->
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <select id="pay-filter-cur" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <select id="pay-filter-cur" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;outline:none;font-family:inherit;height:36px;">
         <option value="">全部幣別</option>
         <option value="NTD">NTD</option>
         <option value="USD">USD</option>
@@ -496,20 +499,20 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
         <option value="EUR">EUR</option>
         <option value="ZAR">ZAR</option>
       </select>
-      <select id="pay-filter-dept" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+      <select id="pay-filter-dept" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;outline:none;font-family:inherit;height:36px;">
         <option value="">全部部門</option>
         <option value="船務">船務</option>
         <option value="貿易">貿易</option>
       </select>
-      <div style="display:flex;flex-direction:column;gap:2px;">
+      <div style="display:flex;flex-direction:column;gap:4px;">
         <span style="font-size:10px;color:var(--muted);font-weight:700;">付款日 起</span>
-        <input type="date" id="pay-filter-from" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+        <input type="date" id="pay-filter-from" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;outline:none;font-family:inherit;height:36px;">
       </div>
-      <div style="display:flex;flex-direction:column;gap:2px;">
+      <div style="display:flex;flex-direction:column;gap:4px;">
         <span style="font-size:10px;color:var(--muted);font-weight:700;">付款日 迄</span>
-        <input type="date" id="pay-filter-to" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;outline:none;font-family:inherit;">
+        <input type="date" id="pay-filter-to" onchange="renderPayments()" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;outline:none;font-family:inherit;height:36px;">
       </div>
-      <button onclick="clearPayFilters()" style="padding:6px 14px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">清除</button>
+      <button onclick="clearPayFilters()" style="padding:8px 16px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;height:36px;">清除</button>
     </div>
   </div>
   <!-- 款項列表 -->
@@ -2224,7 +2227,7 @@ function renderDaily(){
         var hasData = items.length>0;
         var tdStyle = 'background:'+bg+';border:'+border+';height:92px;padding:5px;vertical-align:top;box-sizing:border-box;'+(hasData?'cursor:pointer;':'');
         cal += '<td style="'+tdStyle+'"'+(hasData?' data-date="'+fullDate+'"':'')+' >';
-        cal += '<div style="font-size:11px;font-weight:700;color:'+dayColor+';margin-bottom:3px;">'+cellDay+(isToday?'<span style="font-size:9px;font-weight:400;color:#0369a1;margin-left:3px;">今</span>':'')+'</div>';
+        cal += '<div style="font-size:14px;font-weight:700;color:'+dayColor+';margin-bottom:3px;">'+cellDay+(isToday?'<span style="font-size:9px;font-weight:400;color:#0369a1;margin-left:3px;">今</span>':'')+'</div>';
 
         // ── 格子 pills：排序 Firebase預估 → CSV應收 → CSV應付
         // source==='firebase' = 預估（黃）; source==='csv' = 真實（藍/紅）
