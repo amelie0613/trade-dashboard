@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v0426testok</title>
+<title>貿易大漁｜管理系統 v20 fix</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -2131,9 +2131,14 @@ function renderDaily(){
 
   // ── 套用篩選（規則二：firebase=預估，csv=真實）─────────
   var filtered = calItems.filter(function(p){
-    if(!calendarFilter.ship     && p.dept==='船務')       return false;
-    if(!calendarFilter.trade    && p.dept==='貿易')       return false;
-    if(!calendarFilter.forecast && p.source==='firebase') return false;
+    // Firebase 預估：只受「預估」開關控制，不被 dept 攔截
+    if(p.source==='firebase') {
+      if(!calendarFilter.forecast) return false;
+      return true;
+    }
+    // CSV 真實帳款：依部門開關篩選
+    if(!calendarFilter.ship  && p.dept==='船務') return false;
+    if(!calendarFilter.trade && p.dept==='貿易') return false;
     return true;
   });
 
