@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v23</title>
+<title>貿易大漁｜管理系統 v23.1</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -2003,74 +2003,76 @@ function renderMonthlySummary(calItems, yr, mo) {
   // ── 格式化：幣別 map → 每行一個幣別（帶圓點）──
   function fmtRows(map, isAp) {
     var keys = Object.keys(map);
-    if (!keys.length) return '<span style="color:#94a3b8;font-size:13px;">—</span>';
+    if (!keys.length) return '<div style="color:#94a3b8;font-size:13px;">—</div>';
     return keys.map(function(c) {
-      var dotCls = isAp ? 'dot-red' : 'dot-green';
-      var col    = isAp ? '#dc2626' : '#1d4ed8';
-      return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">'
-        + '<span class="'+dotCls+'"></span>'
-        + '<span style="font-size:13px;font-weight:700;color:'+col+';font-family:\'DM Mono\',monospace;">'+formatCurrency(c, map[c])+'</span>'
+      var color = isAp ? '#16a34a' : '#0369a1';
+      return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:'+color+';"></span>'
+        + '<span style="font-size:14px;font-weight:700;color:'+color+';font-family:\'DM Mono\',monospace;">'+formatCurrency(c, map[c])+'</span>'
         + '</div>';
     }).join('');
   }
 
-  // ── CSV 部門卡：貿易 / 船務，各一張，卡內顯示應付+應收 ──
+  // ── CSV 部門卡：貿易 / 船務，各一張，卡內左右二欄（應付淡綠 / 應收淡藍）──
   function makeDeptCard(deptLabel, deptKey) {
     var icon    = deptLabel === '船務' ? '🚢' : '📦';
     var apRows  = fmtRows(sum[deptKey].apCur,  true);
     var rcvRows = fmtRows(sum[deptKey].rcvCur, false);
-    var hasAp   = Object.keys(sum[deptKey].apCur).length  > 0;
-    var hasRcv  = Object.keys(sum[deptKey].rcvCur).length > 0;
 
-    var html = '<div class="msum-card" style="background:#fff;border:1px solid var(--border);">';
-    html += '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#dc2626,#1d4ed8);"></div>';
-    html += '<div class="msum-dept">'+icon+' '+deptLabel+'</div>';
-
-    // 應付區
-    html += '<div style="margin-bottom:6px;">';
-    html += '<div style="font-size:10px;color:#dc2626;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應付</div>';
-    html += apRows;
+    var html = '<div style="background:#fff;border:0.5px solid var(--border);border-radius:12px;padding:16px;">';
+    html += '<div style="font-size:20px;color:var(--ink);font-weight:700;margin-bottom:12px;">'+icon+' '+deptLabel+'</div>';
+    
+    // ★ 左右二欄等寬佈局
+    html += '<div style="display:flex;gap:12px;">';
+    
+    // 左欄：應付（淡綠）
+    html += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    html += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應付</div>';
+    html += '<div style="flex:1;">'+apRows+'</div>';
+    html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum[deptKey].apCur).length + '幣)</div>';
     html += '</div>';
-
-    // 應收區
-    html += '<div>';
-    html += '<div style="font-size:10px;color:#1d4ed8;font-weight:700;margin-bottom:3px;letter-spacing:.04em;">應收</div>';
-    html += rcvRows;
+    
+    // 右欄：應收（淡藍）
+    html += '<div style="flex:1;background:#eff6ff;border:0.5px solid #bae6fd;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    html += '<div style="font-size:16px;color:#0369a1;font-weight:700;margin-bottom:8px;">應收</div>';
+    html += '<div style="flex:1;">'+rcvRows+'</div>';
+    html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum[deptKey].rcvCur).length + '幣)</div>';
     html += '</div>';
-
-    html += '</div>';
+    
+    html += '</div></div>';
     return html;
   }
 
-  // ── Firebase 預估卡（黃色）──
+  // ── Firebase 預估卡（粉橘底，左右二欄）──
   function makeFcstCard() {
-    var hasAp  = Object.keys(sum.fcst.apCur).length  > 0;
-    var hasRcv = Object.keys(sum.fcst.rcvCur).length > 0;
+    var apRows  = fmtRows(sum.fcst.apCur,  true);
+    var rcvRows = fmtRows(sum.fcst.rcvCur, false);
 
-    var html = '<div class="msum-card" style="background:#fef9c3;border:1px solid #fde68a;">';
-    html += '<div style="position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#d97706,#fbbf24);"></div>';
-    html += '<div class="msum-dept">◇ 案件預估</div>';
-
-    if (hasAp) {
-      html += '<div style="margin-bottom:6px;">';
-      html += '<div style="font-size:10px;color:#dc2626;font-weight:700;margin-bottom:3px;">付款預估</div>';
-      html += fmtRows(sum.fcst.apCur, true);
-      html += '</div>';
-    }
-    if (hasRcv) {
-      html += '<div>';
-      html += '<div style="font-size:10px;color:#166534;font-weight:700;margin-bottom:3px;">收款預估</div>';
-      html += fmtRows(sum.fcst.rcvCur, false);
-      html += '</div>';
-    }
-    if (!hasAp && !hasRcv) {
-      html += '<span style="color:#94a3b8;font-size:13px;">—</span>';
-    }
+    var html = '<div style="background:#f9d4b8;border:0.5px solid #e8c5a8;border-radius:12px;padding:16px;">';
+    html += '<div style="font-size:20px;color:var(--ink);font-weight:700;margin-bottom:12px;">📁 案件預估</div>';
+    
+    // ★ 左右二欄等寬佈局
+    html += '<div style="display:flex;gap:12px;">';
+    
+    // 左欄：應付預估（淡綠）
+    html += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    html += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應付預估</div>';
+    html += '<div style="flex:1;">'+apRows+'</div>';
+    html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum.fcst.apCur).length + '幣)</div>';
     html += '</div>';
+    
+    // 右欄：應收預估（淡藍）
+    html += '<div style="flex:1;background:#eff6ff;border:0.5px solid #bae6fd;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    html += '<div style="font-size:16px;color:#0369a1;font-weight:700;margin-bottom:8px;">應收預估</div>';
+    html += '<div style="flex:1;">'+rcvRows+'</div>';
+    html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum.fcst.rcvCur).length + '幣)</div>';
+    html += '</div>';
+    
+    html += '</div></div>';
     return html;
   }
 
-  // ── 3 張卡（貿易 / 船務 / 預估），3 欄 ──
+  // ── 3 張卡（貿易 / 船務 / 預估），3 欄等寬 ──
   el.style.gridTemplateColumns = 'repeat(3,1fr)';
   el.innerHTML =
     makeDeptCard('貿易', 'trade') +
