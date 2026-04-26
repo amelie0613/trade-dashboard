@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v25</title>
+<title>貿易大漁｜管理系統 v20</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -22,7 +22,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .llbl{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.03em;text-transform:uppercase;display:block;margin-bottom:7px;}
 .linput{width:100%;background:#f8fafc;border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;font-size:16px;outline:none;font-family:inherit;margin-bottom:16px;}
 .linput:focus{border-color:var(--sea);}
-.lbtn{width:100%;padding:15px;border-radius:10px;background:linear-gradient(135deg,var(--sea),var(--wave));color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;}
+.lbtn{width:100%;padding:15px;border-radius:10px;background:linear-gradient(135deg,var(--sea),var(--wave));color:#fff;font-size:16px;font-weight:700;border:none;cursor:pointer;min-height:48px;display:flex;align-items:center;justify-content:center;}
 .lerr{color:var(--coral);font-size:13px;text-align:center;margin-top:8px;min-height:18px;}
 .lpwdbox{margin-top:16px;padding:12px 16px;background:#f8fafc;border-radius:8px;font-size:13px;color:#94a3b8;line-height:2.0;}
 /* HEADER */
@@ -50,6 +50,39 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .nav-tab.on{color:var(--sea);border-bottom-color:var(--sea);font-weight:700;}
 .pulse{display:inline-block;width:6px;height:6px;background:var(--gold);border-radius:50%;animation:pulse 1.5s infinite;margin-left:3px;vertical-align:middle;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+/* ★ v30：手機 RWD 優化 (≤480px) */
+@media(max-width:480px){
+  .scr{padding:16px;}
+  .sg{gap:8px;}
+  .st{padding:12px;}
+  .sg2{grid-template-columns:1fr;}
+  .card-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;}
+  .stval{font-size:18px;}
+  .stlbl{font-size:11px;}
+  .cc{padding:12px;}
+  .sbox{padding:14px 16px;margin-bottom:14px;}
+  .nav-tab{padding:10px 14px;font-size:13px;}
+  .msum-grid{gap:8px;grid-template-columns:1fr;}
+  .msum-card{padding:12px;}
+  .alert{padding:8px 16px;font-size:12px;}
+  .hd{padding:10px 16px;}
+  .rtabs{margin-bottom:14px;}
+  .lsub{font-size:13px;}
+  .llbl{margin-bottom:6px;}
+  .linput{margin-bottom:14px;padding:12px 14px;font-size:16px;}
+  .sf select,.sf input{padding:10px 8px;font-size:14px;}
+  .tbl thead th{padding:9px 10px;font-size:11px;}
+  .tbl td{padding:9px 10px;}
+  .dtbl td{padding:8px 12px;}
+  .daily-hd{padding:12px 16px;}
+  .chart-wrap{padding:14px 16px 18px;}
+  .mbody{padding:16px;}
+  .nav-tabs{padding:0 16px;}
+  .asec-t{font-size:16px;}
+  .asec-s{font-size:12px;}
+  .modal-box{width:calc(100vw - 20px);}
+  .daily-wrap{margin-top:12px;}
+}
 /* SCREENS */
 .scr{display:none;padding:20px;}
 .scr.on{display:block;}
@@ -86,7 +119,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .cn-lbl{font-size:11px;color:var(--muted);margin-bottom:2px;}
 .cn-val{font-size:14px;font-weight:700;}
 .cv-g{color:var(--jade);}.cv-r{color:var(--coral);}
-.cc-btn{width:100%;margin-top:10px;padding:9px;border-radius:8px;background:#f1f5f9;color:var(--sea);font-size:13px;font-weight:700;border:0.5px solid var(--border);cursor:pointer;}
+.cc-btn{width:100%;margin-top:10px;padding:11px;border-radius:8px;background:#f1f5f9;color:var(--sea);font-size:13px;font-weight:700;border:0.5px solid var(--border);cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:center;}
 .cc-btn:hover{background:#e0f2fe;}
 /* SEARCH */
 .sbox{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:16px;}
@@ -98,20 +131,20 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .sf select,.sf input{width:100%;background:#f8fafc;border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit;color:var(--ink);}
 .sf select:focus,.sf input:focus{border-color:var(--sea);}
 .sbtns{display:flex;gap:8px;}
-.btn-sq{padding:9px 20px;border-radius:8px;background:var(--sea);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;}
-.btn-cl{padding:9px 16px;border-radius:8px;background:#f1f5f9;color:var(--muted);font-size:13px;font-weight:700;border:1px solid var(--border);cursor:pointer;}
+.btn-sq{padding:12px 20px;border-radius:8px;background:var(--sea);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:center;white-space:nowrap;}
+.btn-cl{padding:12px 16px;border-radius:8px;background:#f1f5f9;color:var(--muted);font-size:13px;font-weight:700;border:1px solid var(--border);cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:center;white-space:nowrap;}
 .rc{font-size:14px;font-weight:700;color:var(--muted);margin-bottom:10px;}
 /* TABLE */
-.twrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;overflow-x:auto;}
-.tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:800px;}
+.twrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:100%;}
 .tbl thead th{padding:11px 14px;background:#f8fafc;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
 .tbl tbody tr{border-bottom:0.5px solid #f8fafc;}
 .tbl tbody tr:hover{background:#f8fafc;}
 .tbl td{padding:11px 14px;vertical-align:middle;}
 .tdg{color:var(--muted);font-size:13px;}
 .tdb{font-weight:700;}
-.btn-v{padding:5px 12px;border-radius:6px;background:var(--sea);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;}
-.btn-del{padding:5px 10px;border-radius:6px;background:#fef2f2;color:var(--coral);font-size:12px;font-weight:700;border:0.5px solid #fca5a5;cursor:pointer;margin-left:4px;}
+.btn-v{padding:8px 14px;border-radius:6px;background:var(--sea);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;min-height:40px;display:flex;align-items:center;justify-content:center;}
+.btn-del{padding:8px 12px;border-radius:6px;background:#fef2f2;color:var(--coral);font-size:12px;font-weight:700;border:0.5px solid #fca5a5;cursor:pointer;min-height:40px;display:flex;align-items:center;justify-content:center;margin-left:4px;}
 .mg{color:var(--jade);font-family:'DM Mono',monospace;font-weight:500;}
 /* DAILY TABLE */
 .daily-wrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:16px;}
@@ -129,7 +162,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 /* MODAL */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;padding:16px;}
 .modal-bg.open{display:flex;}
-.modal-box{background:var(--card);border-radius:16px;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;animation:mup .25s ease;}
+.modal-box{background:var(--card);border-radius:16px;width:calc(100vw - 32px);max-width:640px;max-height:92vh;overflow-y:auto;animation:mup .25s ease;}
 @keyframes mup{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
 .mhd{background:var(--ink);padding:16px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:flex-start;position:sticky;top:0;z-index:10;}
 .mcl{color:#7fa0c0;font-size:22px;cursor:pointer;line-height:1;padding:2px 6px;}
@@ -390,8 +423,8 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
         <span id="cal-refresh-ico" style="display:inline-block;">↻</span> 刷新
       </button>
     </div>
-    <div style="overflow-x:auto;padding:8px;">
-      <div id="cal-body" style="min-width:560px;"></div>
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px;">
+      <div id="cal-body" style="width:100%;min-width:100%;"></div>
     </div>
   </div>
 
@@ -538,98 +571,6 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
     <div class="asec-s">所有帳號儲存於 Firebase，即時同步所有裝置。密碼為明碼顯示，請在安全環境操作。</div>
     <div class="ugrid" id="ug"></div>
   </div>
-</div>
-
-<!-- ★ v30：獨立 UI 主題設定分頁 -->
-<div class="scr" id="s-ui-theme">
-  <div style="padding:20px;">
-    <div style="margin-bottom:20px;">
-      <div style="font-size:18px;font-weight:700;color:var(--ink);margin-bottom:4px;">🎨 UI 主題設定</div>
-      <div style="font-size:13px;color:var(--muted);">選擇左側區域，在右側調整背景色、文字色、框線色與字體大小。設定即時套用，保存後替代預設值。</div>
-    </div>
-    
-    <div style="display:flex;gap:16px;min-height:calc(100vh - 200px);">
-      
-      <!-- 左欄：區域清單 -->
-      <div style="width:200px;flex-shrink:0;background:#f8fafc;border:1px solid var(--border);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
-        <div style="padding:12px 14px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;border-bottom:1px solid var(--border);background:#fff;">選擇要設定的區域</div>
-        <div id="ui-region-list" style="flex:1;overflow-y:auto;padding:8px;">
-          <!-- 動態產生 -->
-        </div>
-      </div>
-      
-      <!-- 右欄：設定面板 -->
-      <div style="flex:1;background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:20px;overflow-y:auto;">
-        <div id="ui-region-title" style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px;">請選擇左側區域</div>
-        <div id="ui-region-desc" style="font-size:12px;color:var(--muted);margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">—</div>
-        
-        <div id="ui-settings-panel" style="display:none;">
-          <!-- 背景色 -->
-          <div style="margin-bottom:20px;">
-            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:8px;">🎨 背景色</label>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <input type="color" id="ui-bg-color" style="width:50px;height:40px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">
-              <input type="text" id="ui-bg-hex" placeholder="#ffffff" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;">
-              <button onclick="uiResetProp('bg')" style="padding:8px 12px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;white-space:nowrap;">重置</button>
-            </div>
-          </div>
-          
-          <!-- 文字色 -->
-          <div style="margin-bottom:20px;">
-            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:8px;">✏️ 文字色</label>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <input type="color" id="ui-text-color" style="width:50px;height:40px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">
-              <input type="text" id="ui-text-hex" placeholder="#0b1d35" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;">
-              <button onclick="uiResetProp('text')" style="padding:8px 12px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;white-space:nowrap;">重置</button>
-            </div>
-          </div>
-          
-          <!-- 框線色 -->
-          <div style="margin-bottom:20px;">
-            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:8px;">🔲 框線色</label>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <input type="color" id="ui-border-color" style="width:50px;height:40px;border:1px solid var(--border);border-radius:8px;cursor:pointer;">
-              <input type="text" id="ui-border-hex" placeholder="#e2e8f0" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;">
-              <button onclick="uiResetProp('border')" style="padding:8px 12px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;white-space:nowrap;">重置</button>
-            </div>
-          </div>
-          
-          <!-- 字體大小 -->
-          <div style="margin-bottom:20px;">
-            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:8px;">🔤 字體大小 (10-32px)</label>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <input type="range" id="ui-font-size" min="10" max="32" step="1" style="flex:1;cursor:pointer;height:6px;">
-              <span id="ui-font-size-val" style="min-width:45px;font-size:12px;font-weight:700;color:var(--ink);text-align:center;">14px</span>
-              <button onclick="uiResetProp('fontSize')" style="padding:8px 12px;border-radius:6px;background:#f1f5f9;border:1px solid var(--border);font-size:11px;cursor:pointer;white-space:nowrap;">重置</button>
-            </div>
-          </div>
-          
-          <!-- 即時預覽 -->
-          <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px;border-top:3px solid var(--sea);">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;">📺 即時預覽</div>
-            <div id="ui-preview-box" style="padding:12px;border-radius:8px;font-weight:500;">示例文字 Sample Text 123</div>
-          </div>
-          
-          <!-- 操作按鈕 -->
-          <div style="display:flex;gap:10px;">
-            <button onclick="applyCurrentUIRegion()" style="flex:1;padding:11px;border-radius:8px;background:var(--sea);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;">✅ 套用此區域</button>
-            <button onclick="resetCurrentUIRegion()" style="flex:1;padding:11px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">↺ 重置此區域</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- 全域操作列 -->
-    <div style="margin-top:20px;padding:16px;background:#f8fafc;border:1px solid var(--border);border-radius:12px;display:flex;gap:10px;align-items:center;">
-      <div style="flex:1;">
-        <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:3px;">全部 UI 設定</div>
-        <div style="font-size:11px;color:var(--muted);">已修改的區域將完全替代預設 HTML 設定。保存後刷新頁面可看到最新效果。</div>
-      </div>
-      <button onclick="saveAllUISettings()" style="padding:10px 20px;border-radius:8px;background:#16a34a;color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">💾 保存全部設定</button>
-      <button onclick="resetAllUISettings()" style="padding:10px 20px;border-radius:8px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑️ 全部重置</button>
-    </div>
-  </div>
-</div>
 </div>
 
 <!-- Detail Modal -->
@@ -833,252 +774,6 @@ function fetchAccountsFirebase(callback){
       fetchAccounts(callback);
     }
   });
-}
-
-// ★ v30：完整 UI 主題設定管理系統 ──────────────────────────────────
-
-// 完整區域定義（20 個獨立可控區域）
-var UI_REGIONS = [
-  { id:'navbar',        label:'🧭 導航列',          desc:'頁面最頂端的深藍色橫條',           sel:'.hd',           defaults:{bg:'#0b1d35',text:'#ffffff',border:'transparent',fontSize:13}},
-  { id:'rate-bar',      label:'📊 匯率列',          desc:'導航列下方的即期匯率列',           sel:'.alert',        defaults:{bg:'linear-gradient(90deg, #78350f, #d97706)',text:'#ffffff',border:'transparent',fontSize:13}},
-  { id:'page-bg',       label:'🖼️ 頁面背景',        desc:'整個頁面的底色',                   sel:'body, .scr',    defaults:{bg:'#f0f6fc',text:'#0b1d35',border:'transparent',fontSize:14}},
-  { id:'card',          label:'🃏 卡片容器',        desc:'所有白色卡片框',                   sel:'.st, .sbox, .cc, .twrap, .daily-wrap', defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
-  { id:'payable-block', label:'💙 應付區塊',        desc:'卡片內淡藍色應付區塊',             sel:'.payable-sub',  defaults:{bg:'#eff6ff',text:'#0369a1',border:'#bae6fd',fontSize:14}},
-  { id:'receivable-block',label:'💚 應收區塊',      desc:'卡片內淡綠色應收區塊',             sel:'.receivable-sub',defaults:{bg:'#f0fdf4',text:'#16a34a',border:'#86efac',fontSize:14}},
-  { id:'overdue-block', label:'⚠️ 逾期區塊',        desc:'卡片內淡紅色逾期區塊',             sel:'.overdue-sub',  defaults:{bg:'#fff5f5',text:'#dc2626',border:'#fca5a5',fontSize:14}},
-  { id:'table',         label:'📋 表格',            desc:'帳務管理帳款列表表格',             sel:'.tbl, .dtbl',   defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:13}},
-  { id:'table-header',  label:'📋 表格標題列',      desc:'表格的 header',                    sel:'.tbl thead th, .dtbl thead th', defaults:{bg:'#f8fafc',text:'#64748b',border:'#e2e8f0',fontSize:12}},
-  { id:'btn-primary',   label:'🔵 主要按鈕',        desc:'藍色重點按鈕（被選中的篩選按鈕等）', sel:'.btn-sq, .pay-filter-btn.on, .rtab.on', defaults:{bg:'#0369a1',text:'#ffffff',border:'#0369a1',fontSize:13}},
-  { id:'btn-secondary', label:'⚪ 次要按鈕',        desc:'灰色普通按鈕',                     sel:'.btn-cl, .pay-filter-btn, .rtab', defaults:{bg:'#f1f5f9',text:'#64748b',border:'#e2e8f0',fontSize:13}},
-  { id:'input',         label:'📝 輸入框',          desc:'日期選擇、下拉選單等輸入欄位',     sel:'input, select, textarea', defaults:{bg:'#f8fafc',text:'#0b1d35',border:'#e2e8f0',fontSize:13}},
-  { id:'modal',         label:'🪟 彈窗',            desc:'Modal 彈窗內容區',                 sel:'.modal-box',    defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
-  { id:'modal-header',  label:'🪟 彈窗標題列',      desc:'Modal 頂部深藍色區域',             sel:'.mhd',          defaults:{bg:'#0b1d35',text:'#7fa0c0',border:'transparent',fontSize:14}},
-  { id:'badge',         label:'🏷️ 狀態標籤',       desc:'各式狀態標籤（已完成、逾期等）',   sel:'.bdg, .dtag, .rbadge', defaults:{bg:'#eff6ff',text:'#1e3a8a',border:'#bfdbfe',fontSize:11}},
-  { id:'calendar',      label:'📅 日曆格',          desc:'日曆頁面的日期格子',               sel:'.cal-cell, td[data-date]', defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
-  { id:'msum-card',     label:'📊 月統計卡片',      desc:'日曆主頁上方統計卡片',             sel:'.msum-card',    defaults:{bg:'#ffffff',text:'#0b1d35',border:'#e2e8f0',fontSize:14}},
-  { id:'label',         label:'📌 標籤文字',        desc:'各式欄位標籤（字段名稱等）',       sel:'.llbl, .dsec-t, .drow-l, .cn-lbl', defaults:{bg:'transparent',text:'#64748b',border:'transparent',fontSize:11}},
-  { id:'nav-tab',       label:'🔀 導航分頁',        desc:'頁面中間的分頁標籤（總覽、待簽核等）',sel:'.nav-tab, .day-tab', defaults:{bg:'transparent',text:'#64748b',border:'transparent',fontSize:14}}
-];
-
-var _uiCurrentRegion = null;
-var _uiAllSettings = {};
-
-function initUISettingsPanel(){
-  // 從 localStorage 讀取已保存的設定
-  try {
-    var stored = localStorage.getItem('uiThemeSettings');
-    if(stored) _uiAllSettings = JSON.parse(stored);
-  } catch(e) { _uiAllSettings = {}; }
-
-  // 建立左欄區域清單
-  var listEl = document.getElementById('ui-region-list');
-  if(!listEl) return;
-  
-  listEl.innerHTML = UI_REGIONS.map(function(r){
-    var hasSetting = !!_uiAllSettings[r.id];
-    return '<div id="ui-region-btn-'+r.id+'" onclick="uiSelectRegion(\''+r.id+'\')" style="padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;transition:all .2s;border:1px solid transparent;">'
-      + '<span style="flex:1;">'+r.label+'</span>'
-      + (hasSetting ? '<span style="width:10px;height:10px;border-radius:50%;background:#16a34a;flex-shrink:0;"></span>' : '<span style="width:10px;height:10px;"></span>')
-      + '</div>';
-  }).join('');
-
-  // 連接 color picker 和 hex input 雙向同步
-  ['bg','text','border'].forEach(function(prop){
-    var picker = document.getElementById('ui-'+prop+'-color');
-    var hex    = document.getElementById('ui-'+prop+'-hex');
-    if(!picker || !hex) return;
-    picker.addEventListener('input', function(){
-      hex.value = picker.value;
-      uiLivePreview();
-    });
-    hex.addEventListener('input', function(){
-      if(/^#[0-9a-fA-F]{6}$/.test(hex.value)) {
-        picker.value = hex.value;
-        uiLivePreview();
-      }
-    });
-  });
-
-  // 字體大小 slider 同步
-  var slider = document.getElementById('ui-font-size');
-  var sliderVal = document.getElementById('ui-font-size-val');
-  if(slider && sliderVal){
-    slider.addEventListener('input', function(){
-      sliderVal.textContent = slider.value + 'px';
-      uiLivePreview();
-    });
-  }
-
-  // 套用所有已保存設定
-  applyAllUISettings();
-}
-
-function uiSelectRegion(regionId){
-  var region = UI_REGIONS.find(function(r){ return r.id === regionId; });
-  if(!region) return;
-  _uiCurrentRegion = region;
-
-  // 高亮選中的區域
-  UI_REGIONS.forEach(function(r){
-    var btn = document.getElementById('ui-region-btn-'+r.id);
-    if(btn) btn.style.background = r.id === regionId ? '#dbeafe' : '';
-  });
-
-  // 更新右欄標題和說明
-  document.getElementById('ui-region-title').textContent = region.label;
-  document.getElementById('ui-region-desc').textContent = region.desc;
-  document.getElementById('ui-settings-panel').style.display = 'block';
-
-  // 載入已保存的設定（或預設值）
-  var saved = _uiAllSettings[regionId] || region.defaults;
-  
-  // 處理背景色（可能是 gradient）
-  var bgVal = saved.bg || region.defaults.bg;
-  if(bgVal.includes('gradient')){
-    document.getElementById('ui-bg-color').value = '#ffffff';
-    document.getElementById('ui-bg-hex').value = bgVal;
-  } else {
-    document.getElementById('ui-bg-color').value = bgVal;
-    document.getElementById('ui-bg-hex').value = bgVal;
-  }
-  
-  document.getElementById('ui-text-color').value = saved.text || region.defaults.text;
-  document.getElementById('ui-text-hex').value = saved.text || region.defaults.text;
-  document.getElementById('ui-border-color').value = saved.border || region.defaults.border;
-  document.getElementById('ui-border-hex').value = saved.border || region.defaults.border;
-  document.getElementById('ui-font-size').value = saved.fontSize || region.defaults.fontSize;
-  document.getElementById('ui-font-size-val').textContent = (saved.fontSize || region.defaults.fontSize) + 'px';
-
-  uiLivePreview();
-}
-
-function uiLivePreview(){
-  var preview = document.getElementById('ui-preview-box');
-  if(!preview) return;
-  var bg   = document.getElementById('ui-bg-hex').value; // 用 hex 避免 gradient 被 picker 破壞
-  var text = document.getElementById('ui-text-color').value;
-  var bdr  = document.getElementById('ui-border-color').value;
-  var fs   = document.getElementById('ui-font-size').value;
-  preview.style.background  = bg;
-  preview.style.color       = text;
-  preview.style.borderColor = bdr;
-  preview.style.borderStyle = 'solid';
-  preview.style.borderWidth = '1px';
-  preview.style.fontSize    = fs + 'px';
-}
-
-function uiResetProp(prop){
-  if(!_uiCurrentRegion) return;
-  var d = _uiCurrentRegion.defaults;
-  if(prop === 'bg'){
-    var bgVal = d.bg;
-    if(!bgVal.includes('gradient')){
-      document.getElementById('ui-bg-color').value = bgVal;
-    }
-    document.getElementById('ui-bg-hex').value = bgVal;
-  } else if(prop === 'text'){
-    document.getElementById('ui-text-color').value = d.text;
-    document.getElementById('ui-text-hex').value = d.text;
-  } else if(prop === 'border'){
-    document.getElementById('ui-border-color').value = d.border;
-    document.getElementById('ui-border-hex').value = d.border;
-  } else if(prop === 'fontSize'){
-    document.getElementById('ui-font-size').value = d.fontSize;
-    document.getElementById('ui-font-size-val').textContent = d.fontSize + 'px';
-  }
-  uiLivePreview();
-}
-
-function applyCurrentUIRegion(){
-  if(!_uiCurrentRegion) return;
-  var regionId = _uiCurrentRegion.id;
-  var settings = {
-    bg:       document.getElementById('ui-bg-hex').value, // 用 hex 保存，支援 gradient
-    text:     document.getElementById('ui-text-color').value,
-    border:   document.getElementById('ui-border-color').value,
-    fontSize: parseInt(document.getElementById('ui-font-size').value)
-  };
-  _uiAllSettings[regionId] = settings;
-  applyRegionStyle(regionId, settings);
-  
-  // 更新左欄綠點
-  var btn = document.getElementById('ui-region-btn-'+regionId);
-  if(btn){
-    var dot = btn.querySelector('span:last-child');
-    if(dot && !dot.style.background){
-      dot.style.background = '#16a34a';
-      dot.style.borderRadius = '50%';
-      dot.style.width = '10px';
-      dot.style.height = '10px';
-    }
-  }
-  toast('✅ 已套用「' + _uiCurrentRegion.label + '」設定', '#16a34a');
-}
-
-function applyRegionStyle(regionId, settings){
-  var region = UI_REGIONS.find(function(r){ return r.id === regionId; });
-  if(!region) return;
-  
-  var styleId = 'ui-style-'+regionId;
-  var el = document.getElementById(styleId);
-  if(!el){ el = document.createElement('style'); el.id = styleId; document.head.appendChild(el); }
-  
-  el.textContent = region.sel + '{'
-    + 'background:' + settings.bg + '!important;'
-    + 'color:' + settings.text + '!important;'
-    + 'border-color:' + settings.border + '!important;'
-    + 'font-size:' + settings.fontSize + 'px!important;'
-    + '}';
-}
-
-function applyAllUISettings(){
-  Object.keys(_uiAllSettings).forEach(function(regionId){
-    applyRegionStyle(regionId, _uiAllSettings[regionId]);
-  });
-}
-
-function resetCurrentUIRegion(){
-  if(!_uiCurrentRegion) return;
-  var regionId = _uiCurrentRegion.id;
-  delete _uiAllSettings[regionId];
-  var styleEl = document.getElementById('ui-style-'+regionId);
-  if(styleEl) styleEl.textContent = '';
-  
-  // 移除左欄綠點
-  var btn = document.getElementById('ui-region-btn-'+regionId);
-  if(btn){
-    var dot = btn.querySelector('span:last-child');
-    if(dot) dot.style.background = '';
-  }
-  
-  uiSelectRegion(regionId);
-  toast('↺ 已重置「' + _uiCurrentRegion.label + '」', '#64748b');
-}
-
-function saveAllUISettings(){
-  try {
-    localStorage.setItem('uiThemeSettings', JSON.stringify(_uiAllSettings));
-    toast('💾 所有 UI 設定已保存至 localStorage', '#16a34a');
-  } catch(e) {
-    toast('❌ 保存失敗：' + e.message, '#dc2626');
-  }
-}
-
-function resetAllUISettings(){
-  if(!confirm('確認重置所有 UI 設定為預設值嗎？')) return;
-  _uiAllSettings = {};
-  localStorage.removeItem('uiThemeSettings');
-  UI_REGIONS.forEach(function(r){
-    var styleEl = document.getElementById('ui-style-'+r.id);
-    if(styleEl) styleEl.textContent = '';
-    var btn = document.getElementById('ui-region-btn-'+r.id);
-    if(btn){
-      var dot = btn.querySelector('span:last-child');
-      if(dot) dot.style.background = '';
-    }
-  });
-  if(_uiCurrentRegion) uiSelectRegion(_uiCurrentRegion.id);
-  toast('🗑️ 所有 UI 設定已重置為預設值', '#64748b');
 }
 
 // ── GAS 非同步通知（JSONP GET，完全繞過 CORS）─────────
@@ -1491,9 +1186,9 @@ function logout(){
 function buildNav(){
   var role=curUser.role;
   var tabs=role==='boss'
-    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'approval',l:'✅ 待簽核',p:true},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'},{i:'ui-theme',l:'🎨 UI 主題'}]
+    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'approval',l:'✅ 待簽核',p:true},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'}]
     :role==='admin'
-    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'approval',l:'✅ 待簽核',p:true},{i:'transfer',l:'💳 訂單轉入管理'},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'},{i:'ui-theme',l:'🎨 UI 主題'}]
+    ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'approval',l:'✅ 待簽核',p:true},{i:'transfer',l:'💳 訂單轉入管理'},{i:'daily',l:'🗓️ 收付日曆'},{i:'payments',l:'💰 款項管理'},{i:'log',l:'🔍 Log'},{i:'admin',l:'⚙️ 後台'}]
     :role==='staff'
     ?[{i:'dash',l:'📊 總覽 / 案件'},{i:'mycase',l:'👤 我的案件'},{i:'profile',l:'🔑 我的帳號'}]
     :role==='finance'
@@ -2208,84 +1903,6 @@ function changeMonth(delta){
   renderDaily();
 }
 
-// 載入 Payments 分頁資料
-function loadTransfer(){
-  // 載入已簽核但未轉入的案件
-  var el = document.getElementById('transfer-pending');
-  if(!el) return;
-  var payFormIds = allPayments.map(function(p){ return p['表單編號']; });
-  var pendingApproved = rows.filter(function(r){
-    var status   = (r[F.status]||'').toString();
-    var approved = status==='是'||status.indexOf('同意')>=0;
-    var formId   = (r[F.formId]||'').toString();
-    var alreadyIn= payFormIds.indexOf(formId)>=0;
-    return approved && !alreadyIn && formId;
-  }).sort(function(a,b){
-    // 新到舊排序
-    return (g(b,'time')||'') > (g(a,'time')||'') ? 1 : -1;
-  });
-
-  if(!pendingApproved.length){
-    el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted);">'
-      +'<div style="font-size:32px;margin-bottom:12px;">✅</div>'
-      +'<div style="font-size:15px;font-weight:700;">所有已簽核案件均已轉入</div>'
-      +'<div style="font-size:13px;margin-top:6px;">目前沒有待確認的款項</div>'
-      +'</div>';
-    return;
-  }
-
-  var html='<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:16px;margin-bottom:12px;">'
-    +'<div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:4px;">⏳ 待轉入款項（'+pendingApproved.length+' 筆）</div>'
-    +'<div style="font-size:12px;color:#78350f;">老闆已同意，請逐筆確認後轉入 Payments 分頁</div>'
-    +'</div>';
-
-  pendingApproved.forEach(function(r){
-    var rowNum   = r._row;
-    var rq       = "'"+rowNum+"'";
-    var caseName = (r[F.name]||'').toString();
-    var formId   = (r[F.formId]||'').toString();
-    var staff    = (r[F.staff]||'').toString();
-    var buyCur   = ((r[F.buyCur]||'TWD')).toString().toUpperCase();
-    var buyAmt   = parseFloat(r[F.buyAmt])||0;
-    var buyDate  = (r[F.buyDate]||'—').toString();
-    var sellCur  = ((r[F.sellCur]||'TWD')).toString().toUpperCase();
-    var sellAmt  = parseFloat(r[F.sellAmt])||0;
-    var sellDate = (r[F.sellDate]||'—').toString();
-    var caseType = (r[F.type]||'').toString();
-
-    html+='<div style="background:var(--card);border:0.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px;">'
-      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">'
-      +'<div>'
-      +'<div style="font-size:14px;font-weight:700;color:var(--ink);">'+caseName+'</div>'
-      +'<div style="font-size:12px;color:var(--muted);margin-top:2px;">'+formId+' · '+staff+' · '+caseType+'</div>'
-      +'</div></div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">'
-      +(buyAmt?'<div style="background:#fef2f2;border-radius:8px;padding:10px 12px;">'
-        +'<div style="font-size:10px;color:#991b1b;font-weight:700;text-transform:uppercase;margin-bottom:3px;">應付（採購）</div>'
-        +'<div style="font-size:14px;font-weight:700;color:#dc2626;">'+buyCur+' '+fmtN(buyAmt)+'</div>'
-        +'<div style="font-size:11px;color:var(--muted);margin-top:2px;">預計：'+buyDate+'</div>'
-        +'</div>':'<div></div>')
-      +(sellAmt?'<div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;">'
-        +'<div style="font-size:10px;color:#14532d;font-weight:700;text-transform:uppercase;margin-bottom:3px;">應收（銷售）</div>'
-        +'<div style="font-size:14px;font-weight:700;color:#16a34a;">'+sellCur+' '+fmtN(sellAmt)+'</div>'
-        +'<div style="font-size:11px;color:var(--muted);margin-top:2px;">預計：'+sellDate+'</div>'
-        +'</div>':'<div></div>')
-      +'</div>'
-      +'<button onclick="doAccountingConfirm('+rq+')" '
-      +'style="width:100%;padding:11px;border-radius:8px;background:#0369a1;color:#fff;border:none;'
-      +'font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.02em;">✅ 確認轉入 Payments</button>'
-      +'</div>';
-  });
-  el.innerHTML = html;
-}
-
-function loadPayments(cb){
-  jsonpGet(SCRIPT+'?action=getAllPayments', function(d, err){
-    if(d && d.status==='ok') PAYMENTS_CACHE=d.payments||[];
-    if(cb) cb();
-  });
-}
-
 // ══════════════════════════════════════════════════════
 // 當月統計卡片（5張）
 // CSV → 真實帳款（貿易/船務 應付/應收）
@@ -2406,8 +2023,9 @@ function renderMonthlySummary(calItems, yr, mo) {
     return html;
   }
 
-  // ── 3 張卡（貿易 / 船務 / 預估），3 欄等寬 ──
-  el.style.gridTemplateColumns = 'repeat(3,1fr)';
+  // ── 3 張卡（貿易 / 船務 / 預估），由 CSS media query 控制欄數 ──
+  // ★ 移除 inline style，改由 CSS .msum-grid 的 @media query 控制
+  // el.style.gridTemplateColumns = 'repeat(3,1fr)';  // ❌ 已移除，讓 CSS 生效
   el.innerHTML =
     makeDeptCard('貿易', 'trade') +
     makeDeptCard('船務', 'ship')  +
@@ -3221,8 +2839,6 @@ document.addEventListener('DOMContentLoaded', function(){
   var delm = document.getElementById('DelM');
   // 背景點擊不關閉 Modal（防止誤觸）
   
-  // ★ v30：初始化完整 UI 主題設定系統
-  initUISettingsPanel();
 });
 
 // 簽核
@@ -5541,7 +5157,6 @@ function goTab(id) {
   if (id==='transfer') loadTransfer();
   if (id==='mycase')   renderMyCase();
   if (id==='dash')     renderDash();
-  if (id==='ui-theme') initUISettingsPanel();
 }
 
 // ══════════════════════════════════════════════════════
