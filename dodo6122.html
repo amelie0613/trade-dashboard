@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>庫存管理 + 租金計算1.1</title>
+<title>庫存管理 + 租金計算</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
 
@@ -5956,8 +5956,7 @@ function exportResults() {
         '出入庫', '租金', '總計', '採購部門', '備註', '產品規格', '業務屬性明細'
     ];
 
-    const highlightCols = new Set(['天數', '淨重', '計價重量', '出入庫', '租金', '總計', '採購部門', '備註']);
-    const numericCols   = new Set(['上期結存','本期入庫','本期出庫','本期結存','天數','淨重','計價重量','出入庫','租金','總計']);
+    const numericCols = new Set(['上期結存','本期入庫','本期出庫','本期結存','天數','淨重','計價重量','出入庫','租金','總計']);
 
     // ── 1. 取得目前可見（篩選後）的列 ────────────────────────────────
     const tbody = document.getElementById('resultBody');
@@ -5976,7 +5975,28 @@ function exportResults() {
         totals[col] = rows.reduce((s, r) => s + (parseFloat(r[col]) || 0), 0);
     });
 
-    // ── 4. 用 ExcelJS 建立工作簿 ────────────────────────────────────
+    // ── 4. 顏色對應函數 ────────────────────────────────────────────
+    const getRowColor = (row) => {
+        const daysDiff = parseInt(row['天數']) || 0;
+        const status = row['庫存狀態'] || '';
+        
+        // 過期品（庫存狀態判定）
+        if (status.includes('過期')) return 'FFFF0000'; // 紅色
+        
+        // 長期在庫（天數 > 180）
+        if (daysDiff > 180) return 'FFFF9800'; // 橙色
+        
+        // 即將到期分類（按天數區間）
+        if (daysDiff <= 30) return 'FFFF0000'; // 🔴 緊急 - 紅色
+        if (daysDiff <= 90) return 'FFFF9800'; // 🟠 警示 - 橙色
+        if (daysDiff <= 180) return 'FFFFFF00'; // 🟡 注意 - 黃色
+        if (daysDiff <= 210) return 'FF00B050'; // 🟢 追蹤 - 綠色
+        
+        // 預設：全部庫存 - 黑色
+        return 'FF000000';
+    };
+
+    // ── 5. 用 ExcelJS 建立工作簿 ────────────────────────────────────
     const ExcelJS = window.ExcelJS;
     if (!ExcelJS) { alert('ExcelJS 載入失敗'); return; }
 
@@ -5995,24 +6015,13 @@ function exportResults() {
         width: widthMap[col] || 10
     }));
 
-    // ── 5. 表頭樣式 ────────────────────────────────────────────────
-    const headerFill = (col) => highlightCols.has(col) 
-        ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF8E6' } }
-        : { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF0F7' } };
-    
-    const headerFont = (col) => ({
-        name: 'Noto Sans TC',
-        size: 11,
-        bold: true,
-        color: { argb: highlightCols.has(col) ? 'FFB07020' : 'FF8A4570' }
-    });
-
+    // ── 6. 表頭樣式 ────────────────────────────────────────────────
     ws.getRow(1).height = 22;
     displayCols.forEach((col, i) => {
         const cell = ws.getRow(1).getCell(i + 1);
         cell.value = col;
-        cell.fill = headerFill(col);
-        cell.font = headerFont(col);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF0F7' } }; // 粉紅
+        cell.font = { name: 'Noto Sans TC', size: 11, bold: true, color: { argb: 'FF8A4570' } };
         cell.border = {
             top: { style: 'thin', color: { argb: 'FFF0E8F8' } },
             bottom: { style: 'thin', color: { argb: 'FFF0E8F8' } },
@@ -6022,8 +6031,10 @@ function exportResults() {
         cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
     });
 
-    // ── 6. 資料列 ────────────────────────────────────────────────
-    rows.forEach((row, rowIdx) => {
+    // ── 7. 資料列 ────────────────────────────────────────────────
+    rows.forEach((row) => {
+        const textColor = getRowColor(row); // 根據規則取顏色
+        
         const excelRow = ws.addRow(displayCols.map(col => {
             const v = row[col] !== undefined ? row[col] : '';
             if (numericCols.has(col)) {
@@ -6035,7 +6046,11 @@ function exportResults() {
 
         displayCols.forEach((col, colIdx) => {
             const cell = excelRow.getCell(colIdx + 1);
-            cell.font = { name: 'Noto Sans TC', size: 10, color: { argb: 'FF3D2C4E' } };
+            cell.font = { 
+                name: 'Noto Sans TC', 
+                size: 10, 
+                color: { argb: textColor } // 按規則著色
+            };
             cell.border = {
                 top: { style: 'thin', color: { argb: 'FFF0E8F8' } },
                 bottom: { style: 'thin', color: { argb: 'FFF0E8F8' } },
@@ -6046,7 +6061,7 @@ function exportResults() {
         });
     });
 
-    // ── 7. 合計列 ────────────────────────────────────────────────
+    // ── 8. 合計列 ────────────────────────────────────────────────
     const totalRow = ws.addRow(displayCols.map((col, i) => {
         if (i === 0) return '合計';
         if (numericCols.has(col)) {
@@ -6058,7 +6073,7 @@ function exportResults() {
 
     displayCols.forEach((col, colIdx) => {
         const cell = totalRow.getCell(colIdx + 1);
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF0F7' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF0F7' } }; // 粉紅
         cell.font = { name: 'Noto Sans TC', size: 10, bold: true, color: { argb: 'FFC0507A' } };
         cell.border = {
             top: { style: 'medium', color: { argb: 'FFF2A7C3' } },
@@ -6069,7 +6084,7 @@ function exportResults() {
         cell.alignment = { horizontal: numericCols.has(col) ? 'right' : 'left', vertical: 'center' };
     });
 
-    // ── 8. 寫入檔案 ────────────────────────────────────────────────
+    // ── 9. 寫入檔案 ────────────────────────────────────────────────
     const filename = `租金計算_${new Date().toISOString().slice(0, 10)}.xlsx`;
     wb.xlsx.writeBuffer().then(buffer => {
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
