@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>庫存管理 + 租金計算</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 
 <!-- ══ APP SWITCHER STYLES ══════════════════════════════════════ -->
 <style>
@@ -862,6 +862,9 @@
   <button class="app-switch-btn" onclick="switchApp('rental')" id="sw_rental">
     🧊 冷凍庫存租金計算
   </button>
+  <button class="app-switch-btn" onclick="window.open('inventory_dashboard.html', '_blank')" id="sw_dashboard">
+    📊 庫存儀表板
+  </button>
 </div>
 
 <!-- ══ APP 1：庫存健康管理系統 ══════════════════════════════════ -->
@@ -1130,6 +1133,20 @@
     </div>
   </div>
 
+  <!-- GLOBAL SEARCH BAR -->
+  <div id="globalSearchBar" style="background:var(--bg);padding:12px 20px 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div class="search-box" style="flex:0 0 auto;min-width:260px;">
+      <span>🔍</span>
+      <input type="text" id="search-global" placeholder="搜尋產品名稱 / 批號 / 代碼…" oninput="onGlobalSearch()" style="width:210px">
+    </div>
+    <select class="filter-select" id="filter-global-warehouse" onchange="onGlobalSearch()">
+      <option value="">全部倉庫</option>
+    </select>
+    <select class="filter-select" id="filter-global-category" onchange="onGlobalSearch()">
+      <option value="">全部類別</option>
+    </select>
+  </div>
+
   <!-- TABS -->
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('all',this)">📋 全部庫存</button>
@@ -1144,16 +1161,6 @@
   <div class="tab-content active" id="tab-all">
     <div class="table-wrap">
       <div class="table-toolbar">
-        <div class="search-box">
-          <span>🔍</span>
-          <input type="text" placeholder="搜尋產品名稱 / 批號…" id="search-all" oninput="renderTable('all')">
-        </div>
-        <select class="filter-select" id="filter-all-warehouse" onchange="renderTable('all')">
-          <option value="">全部倉庫</option>
-        </select>
-        <select class="filter-select" id="filter-all-category" onchange="renderTable('all')">
-          <option value="">全部類別</option>
-        </select>
         <span class="tbl-count" id="count-all">0 筆</span>
       </div>
       <div class="tbl-scroll" id="tbl-all-wrap">
@@ -1178,16 +1185,6 @@
   <div class="tab-content" id="tab-expired">
     <div class="table-wrap">
       <div class="table-toolbar">
-        <div class="search-box">
-          <span>🔍</span>
-          <input type="text" placeholder="搜尋…" id="search-expired" oninput="renderTable('expired')">
-        </div>
-        <select class="filter-select" id="filter-expired-warehouse" onchange="renderTable('expired')">
-          <option value="">全部倉庫</option>
-        </select>
-        <select class="filter-select" id="filter-expired-category" onchange="renderTable('expired')">
-          <option value="">全部類別</option>
-        </select>
         <span class="tbl-count" id="count-expired">0 筆</span>
       </div>
       <div class="tbl-scroll" id="tbl-expired-wrap"></div>
@@ -1202,16 +1199,6 @@
   <div class="tab-content" id="tab-long">
     <div class="table-wrap">
       <div class="table-toolbar">
-        <div class="search-box">
-          <span>🔍</span>
-          <input type="text" placeholder="搜尋…" id="search-long" oninput="renderTable('long')">
-        </div>
-        <select class="filter-select" id="filter-long-warehouse" onchange="renderTable('long')">
-          <option value="">全部倉庫</option>
-        </select>
-        <select class="filter-select" id="filter-long-category" onchange="renderTable('long')">
-          <option value="">全部類別</option>
-        </select>
         <span class="tbl-count" id="count-long">0 筆</span>
       </div>
       <div class="tbl-scroll" id="tbl-long-wrap"></div>
@@ -1241,16 +1228,6 @@
     </div>
     <div class="table-wrap">
       <div class="table-toolbar">
-        <div class="search-box">
-          <span>🔍</span>
-          <input type="text" placeholder="搜尋…" id="search-soon" oninput="renderTable('soon')">
-        </div>
-        <select class="filter-select" id="filter-soon-warehouse" onchange="renderTable('soon')">
-          <option value="">全部倉庫</option>
-        </select>
-        <select class="filter-select" id="filter-soon-category" onchange="renderTable('soon')">
-          <option value="">全部類別</option>
-        </select>
         <span class="tbl-count" id="count-soon">0 筆</span>
       </div>
       <div class="tbl-scroll" id="tbl-soon-wrap"></div>
@@ -1266,10 +1243,6 @@
     <div class="table-wrap">
       <div class="table-toolbar" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <div class="search-box">
-            <span>🔍</span>
-            <input type="text" placeholder="搜尋產品 / 批號…" id="search-price" oninput="renderPrices()">
-          </div>
           <span style="font-size:11px;color:var(--muted);">💡 直接在表格輸入單價與核算範圍</span>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -2498,12 +2471,10 @@ function buildFilters(){
   const warehouses = [...new Set(allData.map(r=>r['倉庫名稱']||'').filter(Boolean))].sort();
   const categories = [...new Set(allData.map(r=>r['產品類別']||'').filter(Boolean))].sort();
 
-  ['all','expired','long','soon'].forEach(k => {
-    const ws = document.getElementById(`filter-${k}-warehouse`);
-    const cs = document.getElementById(`filter-${k}-category`);
-    ws.innerHTML = '<option value="">全部倉庫</option>' + warehouses.map(w=>`<option>${w}</option>`).join('');
-    cs.innerHTML = '<option value="">全部類別</option>' + categories.map(c=>`<option>${c}</option>`).join('');
-  });
+  const ws = document.getElementById('filter-global-warehouse');
+  const cs = document.getElementById('filter-global-category');
+  ws.innerHTML = '<option value="">全部倉庫</option>' + warehouses.map(w=>`<option>${w}</option>`).join('');
+  cs.innerHTML = '<option value="">全部類別</option>' + categories.map(c=>`<option>${c}</option>`).join('');
 }
 
 // ─── RENDER TABLE ─────────────────────────────────────────────
@@ -2525,9 +2496,9 @@ const COLS = [
 ];
 
 function filterRows(tabKey){
-  const search    = (document.getElementById(`search-${tabKey}`)?.value||'').toLowerCase();
-  const warehouse = document.getElementById(`filter-${tabKey}-warehouse`)?.value||'';
-  const category  = document.getElementById(`filter-${tabKey}-category`)?.value||'';
+  const search    = (document.getElementById('search-global')?.value||'').toLowerCase();
+  const warehouse = document.getElementById('filter-global-warehouse')?.value||'';
+  const category  = document.getElementById('filter-global-category')?.value||'';
   const soonSeg   = tabKey==='soon' ? (document.getElementById('filter-soon-seg')?.value||'') : '';
   const { soonDays } = getThresholds();
 
@@ -2680,7 +2651,7 @@ function togglePriceView(){
 
 // ─── PRICE RENDER ─────────────────────────────────────────────
 function renderPrices(){
-  const search = (document.getElementById('search-price')?.value||'').toLowerCase();
+  const search = (document.getElementById('search-global')?.value||'').toLowerCase();
   const grid = document.getElementById('priceGrid');
 
   // 以每筆資料的 產品名稱+批號 為單位
@@ -2798,79 +2769,216 @@ function loadPriceFile(input){
 }
 
 // ─── TAB SWITCH ──────────────────────────────────────────────
+let currentTab = 'all';
+
 function switchTab(key, btn){
+  currentTab = key;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-'+key).classList.add('active');
+  // 差異比較分頁不需要全局搜尋
+  document.getElementById('globalSearchBar').style.display = key==='diff' ? 'none' : '';
   if(key==='diff') renderDiff();
-  else if(key!=='prices' && allData.length) renderTable(key);
+  else if(key==='prices') renderPrices();
+  else if(allData.length) renderTable(key);
 }
 
-// ─── EXPORT EXCEL ─────────────────────────────────────────────
-function exportExcel(){
+function onGlobalSearch(){
+  if(currentTab==='prices') renderPrices();
+  else if(['all','expired','long','soon'].includes(currentTab)) renderTable(currentTab);
+}
+
+// ─── EXPORT EXCEL (ExcelJS 帶樣式版) ──────────────────────────
+async function exportExcel(){
   if(!allData.length){ showToast('❌ 尚未載入資料'); return; }
-  const wb = XLSX.utils.book_new();
+  if(!window.ExcelJS){ showToast('❌ ExcelJS 尚未載入，請稍後再試'); return; }
 
-  const mkSheet = (rows, name) => {
-    const out = rows.map(r => {
-      const f = classify(r);
-      const {qty,price,scope,cost} = computeCost(r);
-      const expDate = r._expDate ? fmtDate(r._expDate) : (r['有效期至']||'');
-      const lotDate = r._lotDate ? fmtDate(r._lotDate) : '';
-      let daysLabel = '';
-      if(name==='長期在庫' && r._lotDate)
-        daysLabel = Math.round((TODAY-r._lotDate)/86400000);
-      else if(r._expDate){
-        const d = daysDiff(r._expDate);
-        if(d!==null) daysLabel = d;
-      }
-      return {
-        '核算組織':r['核算組織名稱']||'',
-        '產品類別':r['產品類別']||'',
-        '產品代碼':r['產品代碼']||'',
-        '產品名稱':r['產品名稱']||'',
-        '產品規格':r['產品規格']||'',
-        '庫存數量':qty,
-        '單位':r['基本單位名稱']||'',
-        '倉庫名稱':r['倉庫名稱']||'',
-        '批號':r['批號']||'',
-        '入庫日期':lotDate,
-        '有效期至':expDate,
-        '剩餘/在庫天數':daysLabel,
-        '庫存狀態': f.expired ? '過期品' : f.soon ? ('即將到期('+(f.soonSeg==='urgent'?'緊急':f.soonSeg==='warn'?'警示':f.soonSeg==='caution'?'注意':'追蹤')+')') : f.long ? '長期在庫' : '正常',
-        '存貨核算範圍名稱': scope,
-        '單價':price,
-        '存貨成本':cost,
-      };
-    });
-    return XLSX.utils.json_to_sheet(out);
-  };
-
-  XLSX.utils.book_append_sheet(wb, mkSheet(allData,'全部'),'全部庫存');
-  XLSX.utils.book_append_sheet(wb, mkSheet(allData.filter(r=>classify(r).expired),'過期品'),'❌過期品');
-  XLSX.utils.book_append_sheet(wb, mkSheet(allData.filter(r=>classify(r).long),'長期在庫'),'⏳長期在庫');
-  XLSX.utils.book_append_sheet(wb, mkSheet(allData.filter(r=>classify(r).soon),'即將到期'),'⚠️即將到期');
-
-  // 單價頁（產品名稱+批號對應）
-  const priceRows = Object.entries(prices).map(([k, pd])=>{
-    const [name, lot] = k.split('__');
-    const found = allData.find(r=>String(r['產品名稱']||'').trim()===name && String(r['批號']||'').trim()===lot) || {};
-    return {
-      '產品代碼':     found['產品代碼']||'',
-      '產品名稱':     name,
-      '批號':         lot,
-      '單位':         found['基本單位名稱']||'',
-      '單價':         pd.price||0,
-      '存貨核算範圍': pd.scope||'',
+  try {
+    // ── 共用樣式常數 ────────────────────────────────────────────
+    const BORDER = {
+      top:    { style:'thin', color:{ argb:'FFD8C8D8' } },
+      bottom: { style:'thin', color:{ argb:'FFD8C8D8' } },
+      left:   { style:'thin', color:{ argb:'FFD8C8D8' } },
+      right:  { style:'thin', color:{ argb:'FFD8C8D8' } },
     };
-  });
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(priceRows),'單價表');
 
-  const today = TODAY;
-  const fn = `庫存管理報表_${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}.xlsx`;
-  XLSX.writeFile(wb, fn);
-  showToast('✅ 已匯出 Excel');
+    // row-class → ARGB 背景色（對應 CSS 定義）
+    const ROW_BG = {
+      'row-expired': 'FFFFF5F5',
+      'row-urgent':  'FFFFF5F5',
+      'row-warn':    'FFFFF8F0',
+      'row-long':    'FFFFF8F0',
+      'row-caution': 'FFFFFEF0',
+      'row-track':   'FFF5FFF0',
+      '':            'FFFFFFFF',
+    };
+
+    // 工作表名稱 → 表頭 ARGB（對應 colHeader()）
+    const HDR_COLOR = {
+      '全部庫存': 'FF7B6BAA',
+      '過期品':   'FFE07070',
+      '長期在庫': 'FFE0904A',
+      '即將到期': 'FFD0736A',
+      '單價表':   'FF7B6BAA',
+    };
+
+    // 欄位定義：[表頭文字, 欄寬, numFmt|null]
+    const MAIN_COLS = (dayColLabel) => [
+      ['核算組織',       20,  null],
+      ['產品類別',       14,  null],
+      ['產品代碼',       16,  null],
+      ['產品名稱',       30,  null],
+      ['產品規格',       16,  null],
+      ['庫存數量',       12,  '#,##0.##'],
+      ['單位',            8,  null],
+      ['倉庫名稱',       18,  null],
+      ['批號',           22,  null],
+      ['入庫日期',       14,  'yyyy/mm/dd'],
+      ['有效期至',       14,  'yyyy/mm/dd'],
+      [dayColLabel,      16,  '#,##0'],
+      ['庫存狀態',       20,  null],
+      ['存貨核算範圍',   24,  null],
+      ['單價',           14,  '#,##0.00'],
+      ['存貨成本',       16,  '#,##0'],
+    ];
+
+    const PRICE_COLS = [
+      ['產品代碼',     16,  null],
+      ['產品名稱',     30,  null],
+      ['批號',         22,  null],
+      ['單位',          8,  null],
+      ['單價',         14,  '#,##0.00'],
+      ['存貨核算範圍', 24,  null],
+    ];
+
+    // ── 工具函數 ────────────────────────────────────────────────
+    const applyHeaderStyle = (ws, hdrArgb) => {
+      const row = ws.getRow(1);
+      row.height = 22;
+      row.eachCell({ includeEmpty: true }, cell => {
+        cell.font      = { bold:true, color:{ argb:'FFFFFFFF' }, size:11 };
+        cell.fill      = { type:'pattern', pattern:'solid', fgColor:{ argb:hdrArgb } };
+        cell.alignment = { horizontal:'center', vertical:'middle' };
+        cell.border    = BORDER;
+      });
+      ws.views = [{ state:'frozen', ySplit:1 }];
+    };
+
+    const applyDataCellStyle = (cell, bgArgb, numFmt) => {
+      cell.fill      = { type:'pattern', pattern:'solid', fgColor:{ argb:bgArgb } };
+      cell.border    = BORDER;
+      cell.alignment = { vertical:'middle' };
+      if(numFmt) cell.numFmt = numFmt;
+    };
+
+    // ── Workbook ────────────────────────────────────────────────
+    const wb = new window.ExcelJS.Workbook();
+    wb.creator = '庫存管理系統';
+    wb.created = new Date();
+
+    // ── 主要庫存工作表 ──────────────────────────────────────────
+    const mkStyledSheet = (rows, sheetName, dayColLabel) => {
+      const ws   = wb.addWorksheet(sheetName);
+      const cols = MAIN_COLS(dayColLabel);
+
+      ws.columns = cols.map(([h, w]) => ({ header:h, width:w }));
+      applyHeaderStyle(ws, HDR_COLOR[sheetName] || 'FF7B6BAA');
+
+      rows.forEach(r => {
+        const f = classify(r);
+        const { qty, price, scope, cost } = computeCost(r);
+
+        // 在庫/剩餘天數：與原邏輯相同
+        let daysVal = null;
+        if(sheetName === '長期在庫' && r._lotDate)
+          daysVal = Math.round((TODAY - r._lotDate) / 86400000);
+        else if(r._expDate){
+          const d = daysDiff(r._expDate);
+          if(d !== null) daysVal = d;
+        }
+
+        const statusLabel = f.expired ? '過期品' :
+          f.soon ? ('即將到期(' + (f.soonSeg==='urgent'?'緊急':f.soonSeg==='warn'?'警示':f.soonSeg==='caution'?'注意':'追蹤') + ')') :
+          f.long ? '長期在庫' : '正常';
+
+        // 日期欄傳 Date 物件，ExcelJS 才能套用 numFmt 格式化
+        const addedRow = ws.addRow([
+          r['核算組織名稱'] || '',
+          r['產品類別']     || '',
+          r['產品代碼']     || '',
+          r['產品名稱']     || '',
+          r['產品規格']     || '',
+          qty,
+          r['基本單位名稱'] || '',
+          r['倉庫名稱']     || '',
+          r['批號']         || '',
+          r._lotDate || null,
+          r._expDate || null,
+          daysVal,
+          statusLabel,
+          scope,
+          price,
+          cost,
+        ]);
+
+        const bgArgb = ROW_BG[getRowClass(f, r)] || 'FFFFFFFF';
+        addedRow.eachCell({ includeEmpty:true }, (cell, colNum) => {
+          applyDataCellStyle(cell, bgArgb, cols[colNum - 1]?.[2]);
+        });
+      });
+    };
+
+    mkStyledSheet(allData,                                    '全部庫存', '剩餘/在庫天數');
+    mkStyledSheet(allData.filter(r => classify(r).expired),  '過期品',   '超期天數');
+    mkStyledSheet(allData.filter(r => classify(r).long),     '長期在庫', '在庫天數');
+    mkStyledSheet(allData.filter(r => classify(r).soon),     '即將到期', '剩餘天數');
+
+    // ── 單價工作表 ──────────────────────────────────────────────
+    const priceWs = wb.addWorksheet('單價表');
+    priceWs.columns = PRICE_COLS.map(([h, w]) => ({ header:h, width:w }));
+    applyHeaderStyle(priceWs, HDR_COLOR['單價表']);
+
+    Object.entries(prices).forEach(([k, pd]) => {
+      const [name, lot] = k.split('__');
+      const found = allData.find(r =>
+        String(r['產品名稱']||'').trim() === name &&
+        String(r['批號']||'').trim() === lot
+      ) || {};
+      const addedRow = priceWs.addRow([
+        found['產品代碼']     || '',
+        name,
+        lot,
+        found['基本單位名稱'] || '',
+        pd.price || 0,
+        pd.scope || '',
+      ]);
+      addedRow.eachCell({ includeEmpty:true }, (cell, colNum) => {
+        applyDataCellStyle(cell, 'FFFFFFFF', PRICE_COLS[colNum - 1]?.[2]);
+      });
+    });
+
+    // ── 下載 ────────────────────────────────────────────────────
+    const t = TODAY;
+    const dateStr = `${t.getFullYear()}${String(t.getMonth()+1).padStart(2,'0')}${String(t.getDate()).padStart(2,'0')}`;
+    const fn = `庫存管理報表_${dateStr}.xlsx`;
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob   = new Blob([buffer], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement('a');
+    a.href       = url;
+    a.download   = fn;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('✅ 已匯出 Excel');
+
+  } catch(err) {
+    console.error('exportExcel error:', err);
+    showToast('❌ 匯出失敗：' + err.message);
+  }
 }
 
 function exportPriceExcel(){
@@ -5956,7 +6064,8 @@ function exportResults() {
         '出入庫', '租金', '總計', '採購部門', '備註', '產品規格', '業務屬性明細'
     ];
 
-    const numericCols = new Set(['上期結存','本期入庫','本期出庫','本期結存','天數','淨重','計價重量','出入庫','租金','總計']);
+    const highlightCols = new Set(['天數', '淨重', '計價重量', '出入庫', '租金', '總計', '採購部門', '備註']);
+    const numericCols   = new Set(['上期結存','本期入庫','本期出庫','本期結存','天數','淨重','計價重量','出入庫','租金','總計']);
 
     // ── 1. 取得目前可見（篩選後）的列 ────────────────────────────────
     const tbody = document.getElementById('resultBody');
@@ -5975,67 +6084,72 @@ function exportResults() {
         totals[col] = rows.reduce((s, r) => s + (parseFloat(r[col]) || 0), 0);
     });
 
-    // ── 4. 顏色對應函數 ────────────────────────────────────────────
-    const getRowColor = (row) => {
-        const daysDiff = parseInt(row['天數']) || 0;
-        const status = row['庫存狀態'] || '';
-        
-        // 過期品（庫存狀態判定）
-        if (status.includes('過期')) return 'FFFF0000'; // 紅色
-        
-        // 長期在庫（天數 > 180）
-        if (daysDiff > 180) return 'FFFF9800'; // 橙色
-        
-        // 即將到期分類（按天數區間）
-        if (daysDiff <= 30) return 'FFFF0000'; // 🔴 緊急 - 紅色
-        if (daysDiff <= 90) return 'FFFF9800'; // 🟠 警示 - 橙色
-        if (daysDiff <= 180) return 'FFFFFF00'; // 🟡 注意 - 黃色
-        if (daysDiff <= 210) return 'FF00B050'; // 🟢 追蹤 - 綠色
-        
-        // 預設：全部庫存 - 黑色
-        return 'FF000000';
+    // ── 4. 樣式定義 ──────────────────────────────────────────────────
+    const border = {
+        top:    { style: 'thin', color: { rgb: 'F0E8F8' } },
+        bottom: { style: 'thin', color: { rgb: 'F0E8F8' } },
+        left:   { style: 'thin', color: { rgb: 'F0E8F8' } },
+        right:  { style: 'thin', color: { rgb: 'F0E8F8' } }
+    };
+    const borderTotal = {
+        top:    { style: 'medium', color: { rgb: 'F2A7C3' } },
+        bottom: { style: 'medium', color: { rgb: 'F2A7C3' } },
+        left:   { style: 'thin',   color: { rgb: 'F2A7C3' } },
+        right:  { style: 'thin',   color: { rgb: 'F2A7C3' } }
     };
 
-    // ── 5. 用 ExcelJS 建立工作簿 ────────────────────────────────────
-    const ExcelJS = window.ExcelJS;
-    if (!ExcelJS) { alert('ExcelJS 載入失敗'); return; }
-
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('租金計算結果');
-
-    // 設定欄寬
-    const widthMap = {
-        '產品名稱': 22, '核算組織名稱': 16, '業務屬性明細': 18,
-        '批號': 16, '[期初]': 12, '[期末]': 12, '備註': 18,
-        '倉庫': 14, '存貨屬性': 12, '庫存狀態': 10, '採購部門': 12
+    // 表頭：一般欄（粉紅）
+    const sHeader = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFDF0F7' } },
+        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FF8A4570' } },
+        border,
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
     };
-    ws.columns = displayCols.map((col, i) => ({
-        header: col,
-        key: col,
-        width: widthMap[col] || 10
-    }));
+    // 表頭：高亮欄（黃）
+    const sHeaderHL = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFFF8E6' } },
+        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FFB07020' } },
+        border,
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+    };
+    // 資料列：一般文字
+    const sData = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+        font: { name: 'Noto Sans TC', sz: 10, color: { rgb: 'FF3D2C4E' } },
+        border,
+        alignment: { horizontal: 'left', vertical: 'center' }
+    };
+    // 資料列：數值（右對齊）
+    const sDataNum = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+        font: { name: 'Noto Sans TC', sz: 10, color: { rgb: 'FF3D2C4E' } },
+        border,
+        alignment: { horizontal: 'right', vertical: 'center' }
+    };
+    // 合計列：文字
+    const sTotal = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFDF0F7' } },
+        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FFC0507A' } },
+        border: borderTotal,
+        alignment: { horizontal: 'left', vertical: 'center' }
+    };
+    // 合計列：數值（右對齊）
+    const sTotalNum = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFDF0F7' } },
+        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FFC0507A' } },
+        border: borderTotal,
+        alignment: { horizontal: 'right', vertical: 'center' }
+    };
 
-    // ── 6. 表頭樣式 ────────────────────────────────────────────────
-    ws.getRow(1).height = 22;
-    displayCols.forEach((col, i) => {
-        const cell = ws.getRow(1).getCell(i + 1);
-        cell.value = col;
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF0F7' } }; // 粉紅
-        cell.font = { name: 'Noto Sans TC', size: 11, bold: true, color: { argb: 'FF8A4570' } };
-        cell.border = {
-            top: { style: 'thin', color: { argb: 'FFF0E8F8' } },
-            bottom: { style: 'thin', color: { argb: 'FFF0E8F8' } },
-            left: { style: 'thin', color: { argb: 'FFF0E8F8' } },
-            right: { style: 'thin', color: { argb: 'FFF0E8F8' } }
-        };
-        cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
-    });
+    // ── 5. 建立 AOA（陣列 of 陣列）資料 ─────────────────────────────
+    const aoa = [];
 
-    // ── 7. 資料列 ────────────────────────────────────────────────
-    rows.forEach((row) => {
-        const textColor = getRowColor(row); // 根據規則取顏色
-        
-        const excelRow = ws.addRow(displayCols.map(col => {
+    // 表頭列
+    aoa.push(displayCols.map(col => col));
+
+    // 資料列
+    rows.forEach(row => {
+        aoa.push(displayCols.map(col => {
             const v = row[col] !== undefined ? row[col] : '';
             if (numericCols.has(col)) {
                 const n = parseFloat(v);
@@ -6043,64 +6157,65 @@ function exportResults() {
             }
             return v === null ? '' : String(v);
         }));
-
-        displayCols.forEach((col, colIdx) => {
-            const cell = excelRow.getCell(colIdx + 1);
-            cell.font = { 
-                name: 'Noto Sans TC', 
-                size: 10, 
-                color: { argb: textColor } // 按規則著色
-            };
-            cell.border = {
-                top: { style: 'thin', color: { argb: 'FFF0E8F8' } },
-                bottom: { style: 'thin', color: { argb: 'FFF0E8F8' } },
-                left: { style: 'thin', color: { argb: 'FFF0E8F8' } },
-                right: { style: 'thin', color: { argb: 'FFF0E8F8' } }
-            };
-            cell.alignment = { horizontal: numericCols.has(col) ? 'right' : 'left', vertical: 'center' };
-        });
     });
 
-    // ── 8. 合計列 ────────────────────────────────────────────────
-    const totalRow = ws.addRow(displayCols.map((col, i) => {
+    // 合計列
+    const totalRowData = displayCols.map((col, i) => {
         if (i === 0) return '合計';
         if (numericCols.has(col)) {
             const n = totals[col] || 0;
             return Math.round(n * 100) / 100;
         }
         return '';
-    }));
+    });
+    aoa.push(totalRowData);
 
-    displayCols.forEach((col, colIdx) => {
-        const cell = totalRow.getCell(colIdx + 1);
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF0F7' } }; // 粉紅
-        cell.font = { name: 'Noto Sans TC', size: 10, bold: true, color: { argb: 'FFC0507A' } };
-        cell.border = {
-            top: { style: 'medium', color: { argb: 'FFF2A7C3' } },
-            bottom: { style: 'medium', color: { argb: 'FFF2A7C3' } },
-            left: { style: 'thin', color: { argb: 'FFF2A7C3' } },
-            right: { style: 'thin', color: { argb: 'FFF2A7C3' } }
+    // ── 6. 建立 worksheet & 套樣式 ───────────────────────────────────
+    const ws = window.XLSX.utils.aoa_to_sheet(aoa);
+
+    const totalDataRows = aoa.length;
+    const totalCols     = displayCols.length;
+
+    for (let R = 0; R < totalDataRows; R++) {
+        for (let C = 0; C < totalCols; C++) {
+            const cellAddr = window.XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[cellAddr]) ws[cellAddr] = { v: '', t: 's' };
+
+            const col      = displayCols[C];
+            const isHL     = highlightCols.has(col);
+            const isNumCol = numericCols.has(col);
+            const isHeader = R === 0;
+            const isLast   = R === totalDataRows - 1;
+
+            if (isHeader) {
+                ws[cellAddr].s = isHL ? sHeaderHL : sHeader;
+            } else if (isLast) {
+                ws[cellAddr].s = isNumCol ? sTotalNum : sTotal;
+            } else {
+                ws[cellAddr].s = isNumCol ? sDataNum : sData;
+            }
+        }
+    }
+
+    // ── 7. 欄寬設定 ──────────────────────────────────────────────────
+    ws['!cols'] = displayCols.map(col => {
+        const wideMap = {
+            '產品名稱': 22, '核算組織名稱': 16, '業務屬性明細': 18,
+            '批號': 16, '[期初]': 12, '[期末]': 12, '備註': 18,
+            '倉庫': 14, '存貨屬性': 12, '庫存狀態': 10, '採購部門': 12
         };
-        cell.alignment = { horizontal: numericCols.has(col) ? 'right' : 'left', vertical: 'center' };
+        return { wch: wideMap[col] || 10 };
     });
 
-    // ── 9. 寫入檔案 ────────────────────────────────────────────────
+    // 列高：表頭稍高
+    ws['!rows'] = [{ hpt: 22 }];
+
+    // ── 8. 生成 & 下載 ───────────────────────────────────────────────
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, '租金計算結果');
     const filename = `租金計算_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    wb.xlsx.writeBuffer().then(buffer => {
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        showStatus('✅ 彩色報表已下載！', 'success');
-    }).catch(err => {
-        console.error('匯出失敗:', err);
-        showStatus('❌ 匯出失敗：' + err.message, 'error');
-    });
+    window.XLSX.writeFile(wb, filename);
+    showStatus('✅ 彩色報表已下載！', 'success');
 }
 // 掛載所有函式到 window
 window.doInitLedger = doInitLedger;
