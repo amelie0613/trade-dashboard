@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>庫存管理 + 租金計算</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<title>庫存管理 + 租金計算1.1</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
 
 <!-- ══ APP SWITCHER STYLES ══════════════════════════════════════ -->
 <style>
@@ -5975,72 +5976,55 @@ function exportResults() {
         totals[col] = rows.reduce((s, r) => s + (parseFloat(r[col]) || 0), 0);
     });
 
-    // ── 4. 樣式定義 ──────────────────────────────────────────────────
-    const border = {
-        top:    { style: 'thin', color: { rgb: 'F0E8F8' } },
-        bottom: { style: 'thin', color: { rgb: 'F0E8F8' } },
-        left:   { style: 'thin', color: { rgb: 'F0E8F8' } },
-        right:  { style: 'thin', color: { rgb: 'F0E8F8' } }
-    };
-    const borderTotal = {
-        top:    { style: 'medium', color: { rgb: 'F2A7C3' } },
-        bottom: { style: 'medium', color: { rgb: 'F2A7C3' } },
-        left:   { style: 'thin',   color: { rgb: 'F2A7C3' } },
-        right:  { style: 'thin',   color: { rgb: 'F2A7C3' } }
-    };
+    // ── 4. 用 ExcelJS 建立工作簿 ────────────────────────────────────
+    const ExcelJS = window.ExcelJS;
+    if (!ExcelJS) { alert('ExcelJS 載入失敗'); return; }
 
-    // 表頭：一般欄（粉紅）
-    const sHeader = {
-        fill: { patternType: 'solid', fgColor: { rgb: 'FFFDF0F7' } },
-        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FF8A4570' } },
-        border,
-        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
-    };
-    // 表頭：高亮欄（黃）
-    const sHeaderHL = {
-        fill: { patternType: 'solid', fgColor: { rgb: 'FFFFF8E6' } },
-        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FFB07020' } },
-        border,
-        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
-    };
-    // 資料列：一般文字
-    const sData = {
-        fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
-        font: { name: 'Noto Sans TC', sz: 10, color: { rgb: 'FF3D2C4E' } },
-        border,
-        alignment: { horizontal: 'left', vertical: 'center' }
-    };
-    // 資料列：數值（右對齊）
-    const sDataNum = {
-        fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
-        font: { name: 'Noto Sans TC', sz: 10, color: { rgb: 'FF3D2C4E' } },
-        border,
-        alignment: { horizontal: 'right', vertical: 'center' }
-    };
-    // 合計列：文字
-    const sTotal = {
-        fill: { patternType: 'solid', fgColor: { rgb: 'FFFDF0F7' } },
-        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FFC0507A' } },
-        border: borderTotal,
-        alignment: { horizontal: 'left', vertical: 'center' }
-    };
-    // 合計列：數值（右對齊）
-    const sTotalNum = {
-        fill: { patternType: 'solid', fgColor: { rgb: 'FFFDF0F7' } },
-        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FFC0507A' } },
-        border: borderTotal,
-        alignment: { horizontal: 'right', vertical: 'center' }
-    };
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('租金計算結果');
 
-    // ── 5. 建立 AOA（陣列 of 陣列）資料 ─────────────────────────────
-    const aoa = [];
+    // 設定欄寬
+    const widthMap = {
+        '產品名稱': 22, '核算組織名稱': 16, '業務屬性明細': 18,
+        '批號': 16, '[期初]': 12, '[期末]': 12, '備註': 18,
+        '倉庫': 14, '存貨屬性': 12, '庫存狀態': 10, '採購部門': 12
+    };
+    ws.columns = displayCols.map((col, i) => ({
+        header: col,
+        key: col,
+        width: widthMap[col] || 10
+    }));
 
-    // 表頭列
-    aoa.push(displayCols.map(col => col));
+    // ── 5. 表頭樣式 ────────────────────────────────────────────────
+    const headerFill = (col) => highlightCols.has(col) 
+        ? { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF8E6' } }
+        : { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF0F7' } };
+    
+    const headerFont = (col) => ({
+        name: 'Noto Sans TC',
+        size: 11,
+        bold: true,
+        color: { argb: highlightCols.has(col) ? 'FFB07020' : 'FF8A4570' }
+    });
 
-    // 資料列
-    rows.forEach(row => {
-        aoa.push(displayCols.map(col => {
+    ws.getRow(1).height = 22;
+    displayCols.forEach((col, i) => {
+        const cell = ws.getRow(1).getCell(i + 1);
+        cell.value = col;
+        cell.fill = headerFill(col);
+        cell.font = headerFont(col);
+        cell.border = {
+            top: { style: 'thin', color: { argb: 'FFF0E8F8' } },
+            bottom: { style: 'thin', color: { argb: 'FFF0E8F8' } },
+            left: { style: 'thin', color: { argb: 'FFF0E8F8' } },
+            right: { style: 'thin', color: { argb: 'FFF0E8F8' } }
+        };
+        cell.alignment = { horizontal: 'center', vertical: 'center', wrapText: true };
+    });
+
+    // ── 6. 資料列 ────────────────────────────────────────────────
+    rows.forEach((row, rowIdx) => {
+        const excelRow = ws.addRow(displayCols.map(col => {
             const v = row[col] !== undefined ? row[col] : '';
             if (numericCols.has(col)) {
                 const n = parseFloat(v);
@@ -6048,65 +6032,60 @@ function exportResults() {
             }
             return v === null ? '' : String(v);
         }));
+
+        displayCols.forEach((col, colIdx) => {
+            const cell = excelRow.getCell(colIdx + 1);
+            cell.font = { name: 'Noto Sans TC', size: 10, color: { argb: 'FF3D2C4E' } };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FFF0E8F8' } },
+                bottom: { style: 'thin', color: { argb: 'FFF0E8F8' } },
+                left: { style: 'thin', color: { argb: 'FFF0E8F8' } },
+                right: { style: 'thin', color: { argb: 'FFF0E8F8' } }
+            };
+            cell.alignment = { horizontal: numericCols.has(col) ? 'right' : 'left', vertical: 'center' };
+        });
     });
 
-    // 合計列
-    const totalRowData = displayCols.map((col, i) => {
+    // ── 7. 合計列 ────────────────────────────────────────────────
+    const totalRow = ws.addRow(displayCols.map((col, i) => {
         if (i === 0) return '合計';
         if (numericCols.has(col)) {
             const n = totals[col] || 0;
             return Math.round(n * 100) / 100;
         }
         return '';
-    });
-    aoa.push(totalRowData);
+    }));
 
-    // ── 6. 建立 worksheet & 套樣式 ───────────────────────────────────
-    const ws = window.XLSX.utils.aoa_to_sheet(aoa);
-
-    const totalDataRows = aoa.length;
-    const totalCols     = displayCols.length;
-
-    for (let R = 0; R < totalDataRows; R++) {
-        for (let C = 0; C < totalCols; C++) {
-            const cellAddr = window.XLSX.utils.encode_cell({ r: R, c: C });
-            if (!ws[cellAddr]) ws[cellAddr] = { v: '', t: 's' };
-
-            const col      = displayCols[C];
-            const isHL     = highlightCols.has(col);
-            const isNumCol = numericCols.has(col);
-            const isHeader = R === 0;
-            const isLast   = R === totalDataRows - 1;
-
-            if (isHeader) {
-                ws[cellAddr].s = isHL ? sHeaderHL : sHeader;
-            } else if (isLast) {
-                ws[cellAddr].s = isNumCol ? sTotalNum : sTotal;
-            } else {
-                ws[cellAddr].s = isNumCol ? sDataNum : sData;
-            }
-        }
-    }
-
-    // ── 7. 欄寬設定 ──────────────────────────────────────────────────
-    ws['!cols'] = displayCols.map(col => {
-        const wideMap = {
-            '產品名稱': 22, '核算組織名稱': 16, '業務屬性明細': 18,
-            '批號': 16, '[期初]': 12, '[期末]': 12, '備註': 18,
-            '倉庫': 14, '存貨屬性': 12, '庫存狀態': 10, '採購部門': 12
+    displayCols.forEach((col, colIdx) => {
+        const cell = totalRow.getCell(colIdx + 1);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF0F7' } };
+        cell.font = { name: 'Noto Sans TC', size: 10, bold: true, color: { argb: 'FFC0507A' } };
+        cell.border = {
+            top: { style: 'medium', color: { argb: 'FFF2A7C3' } },
+            bottom: { style: 'medium', color: { argb: 'FFF2A7C3' } },
+            left: { style: 'thin', color: { argb: 'FFF2A7C3' } },
+            right: { style: 'thin', color: { argb: 'FFF2A7C3' } }
         };
-        return { wch: wideMap[col] || 10 };
+        cell.alignment = { horizontal: numericCols.has(col) ? 'right' : 'left', vertical: 'center' };
     });
 
-    // 列高：表頭稍高
-    ws['!rows'] = [{ hpt: 22 }];
-
-    // ── 8. 生成 & 下載 ───────────────────────────────────────────────
-    const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, '租金計算結果');
+    // ── 8. 寫入檔案 ────────────────────────────────────────────────
     const filename = `租金計算_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    window.XLSX.writeFile(wb, filename);
-    showStatus('✅ 彩色報表已下載！', 'success');
+    wb.xlsx.writeBuffer().then(buffer => {
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        showStatus('✅ 彩色報表已下載！', 'success');
+    }).catch(err => {
+        console.error('匯出失敗:', err);
+        showStatus('❌ 匯出失敗：' + err.message, 'error');
+    });
 }
 // 掛載所有函式到 window
 window.doInitLedger = doInitLedger;
