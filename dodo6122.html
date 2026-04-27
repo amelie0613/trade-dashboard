@@ -6105,7 +6105,7 @@ function exportResults() {
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, '租金計算結果');
     const filename = `租金計算_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    window.XLSX.writeFile(wb, filename, { bookType: 'xlsx', type: 'binary', cellStyles: true });
+    window.XLSX.writeFile(wb, filename);
     showStatus('✅ 彩色報表已下載！', 'success');
 }
 // 掛載所有函式到 window
