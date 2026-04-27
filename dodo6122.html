@@ -10,53 +10,12 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;700&family=Nunito:wght@400;600;700;800&display=swap');
 
-  /* ══════════════════════════════════════════
-     UNIFIED DESIGN TOKEN SYSTEM
-     所有色彩統一從此處控制
-  ══════════════════════════════════════════ */
-  :root {
-    /* ── 品牌色 ── */
-    --brand-dark:    #2A1F2D;   /* 導覽列 / header 底色 */
-    --brand-primary: #6B5B95;   /* 主要紫（深），按鈕、標題、強調 */
-    --brand-accent:  #F2A7C3;   /* 粉色，active 底線、border 裝飾 */
-    --brand-violet:  #C9A8E0;   /* 淺紫，focus ring、icon */
-
-    /* ── 功能色（Semantic） ── */
-    --color-danger:  #F08080;   /* 過期 / 錯誤 / 紅 */
-    --color-warning: #F7A35C;   /* 警示 / 橘 */
-    --color-caution: #F7D96B;   /* 注意 / 黃 */
-    --color-success: #8DCC7A;   /* 成功 / 綠 */
-    --color-info:    #7EC8E3;   /* 資訊 / 藍 */
-    --color-coral:   #E8836A;   /* 珊瑚（租金計算主色） */
-
-    /* ── 背景層 ── */
-    --bg-page:       #FDF6EE;   /* 兩個 app 共用頁面底色 */
-    --bg-card:       #FFFFFF;   /* 卡片白底 */
-    --bg-table-head: #F5F0FF;   /* 表格 header 淺紫底 */
-    --bg-panel:      #FDF0F7;   /* 粉色面板底 */
-    --bg-highlight:  #FFF8E6;   /* 黃色 highlight */
-
-    /* ── 文字層 ── */
-    --text-primary:  #3D2C4E;   /* 主文字（深紫灰） */
-    --text-secondary:#8A6A9A;   /* 次要文字 */
-    --text-muted:    #9B8EAB;   /* 淡灰紫 */
-
-    /* ── 邊框 / 陰影 ── */
-    --border:        #EDD8F0;   /* 通用邊框 */
-    --border-input:  #E0CCEE;   /* 輸入框邊框 */
-    --shadow:        0 4px 20px rgba(107,91,149,0.10);
-    --shadow-hover:  0 8px 30px rgba(107,91,149,0.18);
-
-    /* ── 尺寸 ── */
-    --r: 18px;
-  }
-
   /* ── SWITCHER ────────────────────────────── */
   .app-switcher {
     display: flex;
     justify-content: center;
     gap: 0;
-    background: var(--brand-dark);
+    background: #2a1f2d;
     position: sticky;
     top: 0;
     z-index: 10000;
@@ -81,22 +40,22 @@
   }
   .app-switch-btn.active {
     color: white;
-    border-bottom-color: var(--brand-accent);
+    border-bottom-color: #F2A7C3;
     background: rgba(255,255,255,0.1);
   }
   .app-page { display: none; }
   .app-page.active { display: block; }
 
-  /* ── WOOD APP 外層留白 ── */
+  /* ── WOOD APP 外層留白（對齊租金工具風格） */
   #app_wood {
-    background: var(--bg-page);
+    background: #fdf6ee;
     padding: 2rem 1rem;
     min-height: calc(100vh - 52px);
   }
   .wood-container {
     max-width: 1400px;
     margin: 0 auto;
-    background: var(--bg-card);
+    background: white;
     border-radius: 20px;
     box-shadow: 0 8px 40px rgba(42,31,45,0.12);
     overflow: hidden;
@@ -106,36 +65,40 @@
 
   /* ── WOOD APP (庫存系統) global styles ──── */
 
-  /* 舊的 :root 別名，保持向下相容 */
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;700&display=swap');
+
   :root {
-    --pink:   var(--brand-accent);
-    --red:    var(--color-danger);
-    --orange: var(--color-warning);
-    --yellow: var(--color-caution);
-    --green:  var(--color-success);
-    --blue:   var(--color-info);
-    --purple: var(--brand-primary);
-    --coral:  var(--color-coral);
-    --violet: var(--brand-violet);
+    --pink:   #F2A7C3;
+    --red:    #F08080;
+    --orange: #F7A35C;
+    --yellow: #F7D96B;
+    --green:  #8DCC7A;
+    --blue:   #7EC8E3;
+    --purple: #6B5B95;
+    --coral:  #E8836A;
+    --violet: #C9A8E0;
     --white:  #FFFFFF;
-    --bg:     var(--bg-page);
-    --card:   var(--bg-card);
-    --text:   var(--text-primary);
-    --muted:  var(--text-muted);
+    --bg:     #FFF6FA;
+    --card:   #FFFFFF;
+    --text:   #3D2C4E;
+    --muted:  #9B8EAB;
+    --border: #EDD8F0;
+    --shadow: 0 4px 20px rgba(107,91,149,0.10);
+    --r: 18px;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
     font-family: 'Noto Sans TC', sans-serif;
-    background: var(--bg-page);
-    color: var(--text-primary);
+    background: var(--bg);
+    color: var(--text);
     min-height: 100vh;
   }
 
   /* ── HEADER ──────────────────────────────── */
   .header {
-    background: var(--brand-dark);
+    background: #2a1f2d;
     padding: 2rem 2rem 1.5rem;
     position: relative;
     overflow: hidden;
@@ -196,18 +159,18 @@
     transition: transform .2s, box-shadow .2s;
     cursor: default;
   }
-  .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); }
-  .kpi-card.red    { border-color: var(--color-danger); }
-  .kpi-card.orange { border-color: var(--color-warning); }
-  .kpi-card.coral  { border-color: var(--color-coral); }
-  .kpi-card.blue   { border-color: var(--color-info); }
-  .kpi-label { font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing:.5px; }
+  .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(107,91,149,0.18); }
+  .kpi-card.red    { border-color: var(--red); }
+  .kpi-card.orange { border-color: var(--orange); }
+  .kpi-card.coral  { border-color: var(--coral); }
+  .kpi-card.blue   { border-color: var(--blue); }
+  .kpi-label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing:.5px; }
   .kpi-value { font-size: 32px; font-weight: 900; line-height: 1; }
-  .kpi-card.red    .kpi-value { color: var(--color-danger); }
-  .kpi-card.orange .kpi-value { color: var(--color-warning); }
-  .kpi-card.coral  .kpi-value { color: var(--color-coral); }
-  .kpi-card.blue   .kpi-value { color: var(--brand-primary); }
-  .kpi-sub { font-size: 11px; color: var(--text-muted); }
+  .kpi-card.red    .kpi-value { color: var(--red); }
+  .kpi-card.orange .kpi-value { color: var(--orange); }
+  .kpi-card.coral  .kpi-value { color: var(--coral); }
+  .kpi-card.blue   .kpi-value { color: var(--purple); }
+  .kpi-sub { font-size: 11px; color: var(--muted); }
 
   /* ── CONTROL BAR ─────────────────────────── */
   .control-bar {
@@ -219,7 +182,7 @@
     display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
   }
   .ctrl-group { display: flex; flex-direction: column; gap: 4px; }
-  .ctrl-group label { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing:.5px; }
+  .ctrl-group label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing:.5px; }
 
   .btn {
     display: inline-flex; align-items: center; gap: 6px;
@@ -230,12 +193,12 @@
   }
   .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
   .btn:active { transform: translateY(0); }
-  .btn-primary  { background: var(--brand-primary); color: white; }
-  .btn-green    { background: var(--color-success);  color: #2a5a1a; }
-  .btn-orange   { background: var(--color-warning); color: white; }
-  .btn-blue     { background: var(--color-info);   color: #1a4a5a; }
-  .btn-red      { background: var(--color-danger);    color: white; }
-  .btn-ghost    { background: var(--border); color: var(--text-primary); }
+  .btn-primary  { background: var(--purple); color: white; }
+  .btn-green    { background: var(--green);  color: #2a5a1a; }
+  .btn-orange   { background: var(--orange); color: white; }
+  .btn-blue     { background: var(--blue);   color: #1a4a5a; }
+  .btn-red      { background: var(--red);    color: white; }
+  .btn-ghost    { background: var(--border); color: var(--text); }
 
   input[type=file] { display: none; }
 
@@ -250,7 +213,7 @@
     outline: none;
     transition: border-color .2s;
   }
-  select:focus, input[type=number]:focus { border-color: var(--brand-violet); }
+  select:focus, input[type=number]:focus { border-color: var(--violet); }
 
   /* ── TABS ────────────────────────────────── */
   .tabs {
@@ -263,19 +226,19 @@
     border: none; background: transparent;
     font-family: 'Noto Sans TC', sans-serif;
     font-size: 13px; font-weight: 700;
-    color: var(--text-muted); cursor: pointer;
+    color: var(--muted); cursor: pointer;
     border-radius: 12px 12px 0 0;
     transition: all .2s;
     border: 2px solid transparent;
     border-bottom: none;
     margin-bottom: -3px;
   }
-  .tab-btn:hover { color: var(--text-primary); background: rgba(107,91,149,.07); }
+  .tab-btn:hover { color: var(--text); background: rgba(107,91,149,.07); }
   .tab-btn.active {
-    color: var(--brand-primary);
-    background: var(--bg-card);
-    border-color: var(--border) var(--border) var(--bg-card);
-    border-bottom: 3px solid var(--bg-card);
+    color: var(--purple);
+    background: white;
+    border-color: var(--border) var(--border) white;
+    border-bottom: 3px solid white;
   }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
@@ -290,32 +253,32 @@
   }
   .table-toolbar {
     display: flex; align-items: center; gap: 12px;
-    padding: 14px 18px; background: var(--bg-page);
+    padding: 14px 18px; background: var(--bg);
     border-bottom: 1px solid var(--border);
     flex-wrap: wrap;
   }
   .search-box {
     display: flex; align-items: center; gap: 8px;
-    background: var(--bg-card); border: 2px solid var(--border);
+    background: white; border: 2px solid var(--border);
     border-radius: 10px; padding: 6px 12px;
     transition: border-color .2s;
   }
-  .search-box:focus-within { border-color: var(--brand-violet); }
+  .search-box:focus-within { border-color: var(--violet); }
   .search-box input {
     border: none; outline: none; background: transparent;
     font-family: 'Noto Sans TC', sans-serif; font-size: 13px;
-    width: 180px; color: var(--text-primary);
+    width: 180px; color: var(--text);
   }
   .filter-select {
     padding: 7px 12px; border: 2px solid var(--border);
     border-radius: 10px; font-size: 13px;
     font-family: 'Noto Sans TC', sans-serif;
-    color: var(--text-primary); background: var(--bg-card); outline: none;
+    color: var(--text); background: white; outline: none;
     transition: border-color .2s;
   }
-  .filter-select:focus { border-color: var(--brand-violet); }
+  .filter-select:focus { border-color: var(--violet); }
 
-  .tbl-count { margin-left:auto; font-size:12px; color:var(--text-muted); font-weight:600; }
+  .tbl-count { margin-left:auto; font-size:12px; color:var(--muted); font-weight:600; }
 
   .tbl-scroll { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
@@ -337,7 +300,7 @@
   td { padding: 9px 10px; white-space: nowrap; }
 
 
-  /* ── DENSE TABLE ──────────────────────────── */
+  /* ── DENSE TABLE (like screenshot) ──────── */
   .tbl-scroll { overflow-x: auto; }
   table { width:100%; border-collapse:collapse; font-size:13px; min-width:900px; }
   thead th {
@@ -348,7 +311,7 @@
     border-bottom: 2px solid rgba(255,255,255,.2);
   }
   thead th:hover { filter:brightness(1.1); }
-  tbody tr { border-bottom:1px solid var(--border); transition:background .1s; }
+  tbody tr { border-bottom:1px solid #F0EAF5; transition:background .1s; }
   tbody tr:last-child { border-bottom:none; }
   tbody tr:hover { background:rgba(107,91,149,.05) !important; }
   td { padding:8px 12px; white-space:nowrap; font-size:13px; }
@@ -356,7 +319,7 @@
   /* diff 變化標記 */
   .diff-new  { background:#F0FFF4; }
   .diff-gone { background:#FFF5F5; }
-  .diff-up   { background:#EEF6FF; }
+  .diff-up   { background:#F0F8FF; }
   .diff-down { background:#FFF8F0; }
   .chg-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
   .chg-new  { background:#C6F6D5; color:#276749; }
@@ -369,11 +332,11 @@
     display: inline-block; padding: 2px 9px;
     border-radius: 20px; font-size: 11px; font-weight: 700;
   }
-  .badge-red    { background: #FFE8E8; color: #B03030; }
-  .badge-orange { background: #FFF0E0; color: #A04010; }
-  .badge-yellow { background: #FFFBE0; color: #806000; }
+  .badge-red    { background: #FFE8E8; color: #C03030; }
+  .badge-orange { background: #FFF0E0; color: #B05010; }
+  .badge-yellow { background: #FFFBE0; color: #906000; }
   .badge-green  { background: #E8FFE0; color: #2A7A10; }
-  .badge-gray   { background: #F0EDF5; color: var(--brand-primary); }
+  .badge-gray   { background: #F0EDF5; color: #6B5B95; }
 
   .row-expired { background: #FFF5F5; }
   .row-urgent  { background: #FFF5F5; }
@@ -384,11 +347,11 @@
 
   .tbl-footer {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 18px; background: var(--bg-page);
+    padding: 10px 18px; background: var(--bg);
     border-top: 2px solid var(--border);
-    font-size: 12px; color: var(--text-muted); font-weight: 600;
+    font-size: 12px; color: var(--muted); font-weight: 600;
   }
-  .tbl-footer strong { color: var(--brand-primary); }
+  .tbl-footer strong { color: var(--purple); }
 
   /* ── PRICE EDITOR ────────────────────────── */
   .price-grid {
@@ -407,18 +370,18 @@
     display: flex; align-items: center; gap: 12px;
     transition: border-color .2s, box-shadow .2s;
   }
-  .price-card:focus-within { border-color: var(--brand-violet); box-shadow: 0 0 0 3px rgba(107,91,149,.12); }
-  .price-code { font-size: 11px; font-weight: 800; color: var(--brand-primary); min-width: 42px; }
-  .price-name { flex: 1; font-size: 12px; color: var(--text-primary); }
+  .price-card:focus-within { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(107,91,149,.12); }
+  .price-code { font-size: 11px; font-weight: 800; color: var(--purple); min-width: 42px; }
+  .price-name { flex: 1; font-size: 12px; color: var(--text); }
   .price-input {
     width: 88px; padding: 6px 10px;
     border: 2px solid var(--border);
     border-radius: 8px; font-size: 13px; font-weight: 700;
-    color: var(--text-primary); text-align: right;
+    color: var(--text); text-align: right;
     font-family: 'DM Sans', sans-serif;
     outline: none; transition: border-color .2s;
   }
-  .price-input:focus { border-color: var(--brand-violet); }
+  .price-input:focus { border-color: var(--violet); }
 
   /* ── SETTINGS ────────────────────────────── */
   .settings-grid {
@@ -426,10 +389,10 @@
     gap: 20px; padding: 20px;
   }
   .setting-card {
-    background: var(--bg-card); border-radius: 14px;
+    background: white; border-radius: 14px;
     border: 2px solid var(--border); padding: 18px;
   }
-  .setting-card h4 { font-size: 13px; font-weight: 800; color: var(--brand-primary); margin-bottom: 14px; }
+  .setting-card h4 { font-size: 13px; font-weight: 800; color: var(--purple); margin-bottom: 14px; }
   .setting-row {
     display: flex; align-items: center; justify-content: space-between;
     padding: 8px 0; border-bottom: 1px solid var(--border);
@@ -443,7 +406,7 @@
   .price-tbl-wrap { overflow-x: auto; }
   .price-tbl { width:100%; border-collapse:collapse; font-size:13px; }
   .price-tbl thead th {
-    background: var(--brand-primary); color: white;
+    background: var(--purple); color: white;
     padding: 10px 12px; font-size:11px; font-weight:800;
     letter-spacing:.5px; text-align:center; white-space:nowrap;
     border: 1px solid rgba(255,255,255,.2);
@@ -452,9 +415,9 @@
   .price-tbl tbody tr:hover { background: rgba(107,91,149,.04); }
   .price-tbl td { padding: 7px 10px; border-right: 1px solid var(--border); }
   .price-tbl td:last-child { border-right: none; }
-  .price-tbl .td-code  { font-size:11px; font-weight:800; color:var(--brand-primary); text-align:center; white-space:nowrap; }
-  .price-tbl .td-name  { font-size:12px; color:var(--text-primary); }
-  .price-tbl .td-lot   { font-size:11px; color:var(--text-muted); text-align:center; white-space:nowrap; }
+  .price-tbl .td-code  { font-size:11px; font-weight:800; color:var(--purple); text-align:center; white-space:nowrap; }
+  .price-tbl .td-name  { font-size:12px; color:var(--text); }
+  .price-tbl .td-lot   { font-size:11px; color:var(--muted); text-align:center; white-space:nowrap; }
   .price-tbl .td-src   { text-align:center; }
   .price-tbl .td-num   { text-align:right; }
   .price-tbl input.tbl-price-input {
@@ -463,14 +426,14 @@
     font-size:13px; font-weight:700; font-family:'DM Sans',sans-serif;
     outline:none; transition: border-color .15s;
   }
-  .price-tbl input.tbl-price-input:focus { border-color: var(--brand-violet); }
+  .price-tbl input.tbl-price-input:focus { border-color: var(--violet); }
   .price-tbl input.tbl-scope-input {
     width: 110px; padding: 5px 8px;
     border: 2px solid var(--border); border-radius:7px;
     font-size:12px; font-family:'Noto Sans TC',sans-serif;
     outline:none; transition: border-color .15s;
   }
-  .price-tbl input.tbl-scope-input:focus { border-color: var(--brand-violet); }
+  .price-tbl input.tbl-scope-input:focus { border-color: var(--violet); }
 
 
   /* ── SCOPE COST TABLE ───────────────────── */
@@ -484,7 +447,7 @@
   .scope-table-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 18px;
-    background: linear-gradient(90deg, var(--brand-primary), #9B73C7);
+    background: linear-gradient(90deg, var(--purple), #9B73C7);
     cursor: pointer;
     user-select: none;
   }
@@ -493,8 +456,8 @@
   .scope-tbl-body { overflow-x:auto; }
   .scope-tbl { width:100%; border-collapse:collapse; font-size:13px; }
   .scope-tbl th {
-    padding: 9px 14px; background: var(--bg-table-head);
-    font-size:11px; font-weight:800; color:var(--brand-primary);
+    padding: 9px 14px; background: #F5F0FF;
+    font-size:11px; font-weight:800; color:var(--purple);
     text-align:right; white-space:nowrap;
     border-bottom: 2px solid var(--border);
   }
@@ -503,9 +466,9 @@
     padding: 9px 14px; border-bottom:1px solid var(--border);
     text-align:right; white-space:nowrap; font-size:12px;
   }
-  .scope-tbl td:first-child { text-align:left; font-weight:700; color:var(--brand-primary); }
+  .scope-tbl td:first-child { text-align:left; font-weight:700; color:var(--purple); }
   .scope-tbl tbody tr:hover { background: rgba(107,91,149,.04); }
-  .scope-tbl tbody tr:last-child td { border-bottom:none; font-weight:800; background:var(--bg-table-head); color:var(--brand-primary); }
+  .scope-tbl tbody tr:last-child td { border-bottom:none; font-weight:800; background:#F5F0FF; color:var(--purple); }
   .cost-zero { color:#CCC; }
 
   /* ── UPLOAD ZONE ─────────────────────────── */
@@ -516,17 +479,17 @@
     text-align: center;
     cursor: pointer;
     transition: all .2s;
-    background: var(--bg-card);
+    background: white;
     margin: 20px;
   }
-  .upload-zone:hover, .upload-zone.drag { border-color: var(--brand-violet); background: rgba(107,91,149,.04); }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--violet); background: rgba(107,91,149,.04); }
   .upload-zone .icon { font-size: 40px; margin-bottom: 12px; }
-  .upload-zone h3 { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
-  .upload-zone p  { font-size: 13px; color: var(--text-muted); }
+  .upload-zone h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .upload-zone p  { font-size: 13px; color: var(--muted); }
 
   /* ── EMPTY STATE ─────────────────────────── */
   .empty-state {
-    text-align: center; padding: 48px 20px; color: var(--text-muted);
+    text-align: center; padding: 48px 20px; color: var(--muted);
   }
   .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: .5; }
   .empty-state p { font-size: 14px; }
@@ -534,7 +497,7 @@
   /* ── TOAST ───────────────────────────────── */
   .toast {
     position: fixed; bottom: 28px; right: 28px;
-    background: var(--brand-primary); color: white;
+    background: var(--purple); color: white;
     padding: 12px 22px; border-radius: 14px;
     font-size: 13px; font-weight: 700;
     box-shadow: 0 8px 30px rgba(107,91,149,.35);
@@ -556,261 +519,309 @@
 
   .loader {
     display: none; position: fixed; inset: 0; z-index: 9999;
-    background: rgba(253,246,238,.88);
+    background: rgba(255,246,250,.85);
     justify-content: center; align-items: center;
     flex-direction: column; gap: 16px;
   }
   .loader.show { display: flex; }
   .spin { width: 40px; height: 40px; border: 4px solid var(--border);
-    border-top-color: var(--brand-primary); border-radius: 50%;
+    border-top-color: var(--purple); border-radius: 50%;
     animation: spin .7s linear infinite; }
   @keyframes spin { to{ transform:rotate(360deg); } }
 
 
   /* ── RENTAL APP (租金計算) scoped styles ── */
-  /* 租金 app 繼承全域 token，不再重複定義變數 */
-#app_rental {
-    font-family: 'Nunito', sans-serif;
-    background: var(--bg-page);
-    min-height: calc(100vh - 52px);
-    padding: 2rem 1rem;
-    position: relative;
-    overflow-x: hidden;
-  }
+#app_rental 600;700;800&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+
+    #app_rental {
+        --pink:   #f2a7c3;
+        --orange: #f7a35c;
+        --yellow: #f7d96b;
+        --blue:   #7ec8e3;
+        --green:  #8dcc7a;
+        --coral:  #e8836a;
+        --purple: #c9a8e0;
+        --dark:   #2a1f2d;
+        --cream:  #fdf6ee;
+        --text:   #3d2c1e;
+    }
+
+
+    #app_rental {
+        font-family: 'Nunito', sans-serif;
+        background: var(--cream);
+        min-height: 100vh;
+        padding: 2rem 1rem;
+        position: relative;
+        overflow-x: hidden;
+    }
+#app_rental /* 背景飄落小花 */
+    #app_rental::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+            radial-gradient(circle 6px at 8% 12%, var(--pink) 70%, transparent 71%),
+            radial-gradient(circle 4px at 15% 35%, var(--yellow) 70%, transparent 71%),
+            radial-gradient(circle 7px at 92% 8%, var(--blue) 70%, transparent 71%),
+            radial-gradient(circle 5px at 85% 25%, var(--orange) 70%, transparent 71%),
+            radial-gradient(circle 4px at 3% 60%, var(--green) 70%, transparent 71%),
+            radial-gradient(circle 6px at 96% 55%, var(--coral) 70%, transparent 71%),
+            radial-gradient(circle 5px at 50% 95%, var(--purple) 70%, transparent 71%),
+            radial-gradient(circle 4px at 70% 88%, var(--yellow) 70%, transparent 71%),
+            radial-gradient(circle 6px at 25% 90%, var(--pink) 70%, transparent 71%);
+        opacity: 0.5;
+        z-index: 0;
+    }
 #app_rental .container {
-    max-width: 1400px;
-    margin: 0 auto;
-    background: var(--bg-card);
-    border-radius: 20px;
-    box-shadow: 0 8px 40px rgba(42,31,45,0.12);
-    overflow: hidden;
-    position: relative;
-    z-index: 1;
-  }
+        max-width: 1400px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 8px 40px rgba(42,31,45,0.12);
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+    }
 #app_rental .header {
-    background: var(--brand-dark);
-    color: white;
-    padding: 2rem 2rem 1.5rem;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-  }
-#app_rental .flower-band {
-    display: flex;
-    justify-content: center;
-    gap: 0.4rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-  }
+        background: var(--dark);
+        color: white;
+        padding: 2rem 2rem 1.5rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+#app_rental /* 頂部小花裝飾帶 */
+    .flower-band {
+        display: flex;
+        justify-content: center;
+        gap: 0.4rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
 #app_rental .flower-band svg {
-    width: 28px;
-    height: 28px;
-    animation: sway 3s ease-in-out infinite;
-  }
+        width: 28px;
+        height: 28px;
+        animation: sway 3s ease-in-out infinite;
+    }
 #app_rental .flower-band svg:nth-child(odd) { animation-delay: 0.5s; }
 #app_rental .flower-band svg:nth-child(3n) { animation-delay: 1s; }
+
+    @keyframes sway {
+        0%, 100% { transform: rotate(-8deg) scale(1); }
+        50% { transform: rotate(8deg) scale(1.08); }
+    }
 #app_rental .header h1 {
-    font-size: 1.8rem;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    margin-bottom: 0.3rem;
-  }
+        font-size: 1.8rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        margin-bottom: 0.3rem;
+    }
 #app_rental .header p {
-    opacity: 0.7;
-    font-size: 0.9rem;
-    font-weight: 400;
-  }
+        opacity: 0.7;
+        font-size: 0.9rem;
+        font-weight: 400;
+    }
 #app_rental .content {
-    padding: 1.5rem 2rem 2rem;
-  }
+        padding: 1.5rem 2rem 2rem;
+    }
 #app_rental .top-panel {
-    background: var(--bg-panel);
-    border: 2px solid var(--brand-accent);
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-  }
+        background: #fdf0f7;
+        border: 2px solid var(--pink);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
 #app_rental .top-grid {
-    display: grid;
-    grid-template-columns: 2fr 1.5fr;
-    gap: 1.5rem;
-    align-items: start;
-  }
+        display: grid;
+        grid-template-columns: 2fr 1.5fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
 @media (max-width: 1024px) {
-  #app_rental .top-grid { grid-template-columns: 1fr; }
+#app_rental .top-grid { grid-template-columns: 1fr; }
+
+    
 }
 #app_rental .section-title {
-    font-size: 0.8rem;
-    font-weight: 800;
-    color: var(--color-coral);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 0.8rem;
-    padding-bottom: 0.4rem;
-    border-bottom: 2px dashed var(--brand-accent);
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-#app_rental .form-group { margin-bottom: 0.8rem; }
+        font-size: 0.8rem;
+        font-weight: 800;
+        color: var(--coral);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.8rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 2px dashed var(--pink);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+#app_rental .form-group {
+        margin-bottom: 0.8rem;
+    }
 #app_rental label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 0.3rem;
-    color: var(--text-primary);
-    font-size: 0.85rem;
-  }
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+        color: var(--text);
+        font-size: 0.85rem;
+    }
 #app_rental input, #app_rental select {
-    width: 100%;
-    padding: 0.55rem 0.75rem;
-    border: 1.5px solid var(--border-input);
-    border-radius: 10px;
-    font-size: 0.88rem;
-    font-family: 'Nunito', sans-serif;
-    background: var(--bg-card);
-    color: var(--text-primary);
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
+        width: 100%;
+        padding: 0.55rem 0.75rem;
+        border: 1.5px solid #e8d5ef;
+        border-radius: 10px;
+        font-size: 0.88rem;
+        font-family: 'Nunito', sans-serif;
+        background: white;
+        color: var(--text);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
 #app_rental input:focus, #app_rental select:focus {
-    outline: none;
-    border-color: var(--brand-accent);
-    box-shadow: 0 0 0 3px rgba(242,167,195,0.2);
-  }
+        outline: none;
+        border-color: var(--pink);
+        box-shadow: 0 0 0 3px rgba(242,167,195,0.2);
+    }
 #app_rental .file-input-label {
-    display: block;
-    padding: 0.75rem;
-    background: var(--bg-card);
-    border: 2px dashed var(--color-info);
-    border-radius: 10px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: #4A8DAA;
-    font-weight: 700;
-    font-size: 0.85rem;
-  }
+        display: block;
+        padding: 0.75rem;
+        background: white;
+        border: 2px dashed var(--blue);
+        border-radius: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #5b9dba;
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
 #app_rental .file-input-label:hover {
-    background: #EEF8FC;
-    border-color: #4A8DAA;
-  }
+        background: #eef8fc;
+        border-color: #5b9dba;
+    }
 #app_rental .file-input-label.has-file {
-    border-color: var(--color-success);
-    color: #3A8A27;
-    background: #F0FAF0;
-  }
+        border-color: var(--green);
+        color: #4a9a37;
+        background: #f0faf0;
+    }
 #app_rental input[type="file"] { display: none; }
 #app_rental .button-group {
-    display: flex;
-    gap: 0.7rem;
-    margin-top: 1.2rem;
-  }
+        display: flex;
+        gap: 0.7rem;
+        margin-top: 1.2rem;
+    }
 #app_rental button {
-    flex: 1;
-    padding: 0.75rem;
-    border: none;
-    border-radius: 10px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: all 0.18s;
-    font-size: 0.9rem;
-    font-family: 'Nunito', sans-serif;
-  }
+        flex: 1;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 10px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: all 0.18s;
+        font-size: 0.9rem;
+        font-family: 'Nunito', sans-serif;
+    }
 #app_rental .btn-primary {
-    background: var(--color-coral);
-    color: white;
-    box-shadow: 0 3px 10px rgba(232,131,106,0.35);
-  }
-#app_rental .btn-primary:hover { background: #D06050; transform: translateY(-1px); }
+        background: var(--coral);
+        color: white;
+        box-shadow: 0 3px 10px rgba(232,131,106,0.35);
+    }
+#app_rental .btn-primary:hover { background: #d96d55; transform: translateY(-1px); }
 #app_rental .btn-primary:active { transform: scale(0.97); }
 #app_rental .btn-secondary {
-    background: var(--bg-card);
-    color: var(--color-coral);
-    border: 2px solid var(--color-coral);
-  }
-#app_rental .btn-secondary:hover { background: #FFF3F0; }
+        background: white;
+        color: var(--coral);
+        border: 2px solid var(--coral);
+    }
+#app_rental .btn-secondary:hover { background: #fff3f0; }
 #app_rental .status {
-    margin-top: 0.8rem;
-    padding: 0.75rem 1rem;
-    border-radius: 10px;
-    font-size: 0.85rem;
-    font-weight: 600;
-  }
-#app_rental .status.success { background: #F0FAF0; color: #2D7A2D; border: 1.5px solid var(--color-success); }
-#app_rental .status.error   { background: #FFF0F0; color: #B03030; border: 1.5px solid var(--color-coral); }
-#app_rental .status.info    { background: #EEF8FC; color: #2A6A82; border: 1.5px solid var(--color-info); }
+        margin-top: 0.8rem;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+#app_rental .status.success { background: #f0faf0; color: #2d7a2d; border: 1.5px solid var(--green); }
+#app_rental .status.error { background: #fff0f0; color: #b93030; border: 1.5px solid var(--coral); }
+#app_rental .status.info { background: #eef8fc; color: #2a6a82; border: 1.5px solid var(--blue); }
 #app_rental .result-section {
-    background: var(--bg-card);
-    border: 2px solid var(--border);
-    border-radius: 16px;
-    padding: 1.5rem;
-  }
+        background: white;
+        border: 2px solid #ecdff5;
+        border-radius: 16px;
+        padding: 1.5rem;
+    }
 #app_rental table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.75rem;
-  }
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.75rem;
+    }
 #app_rental th, #app_rental td {
-    padding: 0.5rem 0.6rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-  }
+        padding: 0.5rem 0.6rem;
+        text-align: left;
+        border-bottom: 1px solid #f0e8f8;
+    }
 #app_rental th {
-    background: var(--bg-panel);
-    font-weight: 700;
-    color: #7A3560;
-    white-space: nowrap;
-  }
+        background: #fdf0f7;
+        font-weight: 700;
+        color: #8a4570;
+        white-space: nowrap;
+    }
 #app_rental th.highlight {
-    background: var(--bg-highlight);
-    color: #A06010;
-  }
-#app_rental tr:hover { background: #FDF6FF; }
+        background: #fff8e6;
+        color: #b07020;
+    }
+#app_rental tr:hover { background: #fdf6ff; }
 #app_rental .config-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.6rem;
-  }
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+    }
 #app_rental .config-item {
-    background: var(--bg-card);
-    padding: 0.7rem 0.8rem;
-    border-radius: 8px;
-    border: 1.5px solid var(--border-input);
-  }
+        background: white;
+        padding: 0.7rem 0.8rem;
+        border-radius: 8px;
+        border: 1.5px solid #e8d5ef;
+    }
 #app_rental .config-item label {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-bottom: 0.25rem;
-  }
+        font-size: 0.75rem;
+        color: #8a6a9a;
+        margin-bottom: 0.25rem;
+    }
 #app_rental .export-btn {
-    background: var(--color-success);
-    color: white;
-    margin-top: 1rem;
-    width: 100%;
-    box-shadow: 0 3px 10px rgba(141,204,122,0.35);
-  }
-#app_rental .export-btn:hover { background: #5AA348; transform: translateY(-1px); }
+        background: var(--green);
+        color: white;
+        margin-top: 1rem;
+        width: 100%;
+        box-shadow: 0 3px 10px rgba(141,204,122,0.35);
+    }
+#app_rental .export-btn:hover { background: #6ab358; transform: translateY(-1px); }
 #app_rental .summary-cards {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    margin-bottom: 1rem;
-  }
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
 #app_rental .card {
-    padding: 1rem;
-    border-radius: 12px;
-    text-align: center;
-  }
-#app_rental .card:nth-child(1) { background: var(--bg-panel); border: 2px solid var(--brand-accent); }
-#app_rental .card:nth-child(2) { background: #FFF8E8; border: 2px solid var(--color-caution); }
-#app_rental .card-label { font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; margin-bottom: 0.3rem; }
-#app_rental .card-value { font-size: 1.5rem; font-weight: 800; color: var(--color-coral); }
+        padding: 1rem;
+        border-radius: 12px;
+        text-align: center;
+    }
+#app_rental .card:nth-child(1) { background: #fdf0f7; border: 2px solid var(--pink); }
+#app_rental .card:nth-child(2) { background: #fff8e8; border: 2px solid var(--yellow); }
+#app_rental .card-label { font-size: 0.8rem; color: #8a6a7a; font-weight: 600; margin-bottom: 0.3rem; }
+#app_rental .card-value { font-size: 1.5rem; font-weight: 800; color: var(--coral); }
 #app_rental .overflow-auto { overflow-x: auto; }
-#app_rental .panel { background: var(--bg-page); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; }
-#app_rental .tabs { display:flex; border-bottom: 2px solid var(--border); margin-bottom:1.5rem; }
-#app_rental .tab { padding:0.8rem 1.2rem; cursor:pointer; border:none; background:none; font-weight:600; color:var(--text-muted); border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.2s; font-family:'Nunito',sans-serif; }
-#app_rental .tab.active { color: var(--color-coral); border-bottom-color: var(--color-coral); }
+#app_rental .panel { background: #f8f9fb; border: 1px solid #e0e4e8; border-radius: 8px; padding: 1.5rem; }
+#app_rental .tabs { display:flex; border-bottom: 2px solid #e0e4e8; margin-bottom:1.5rem; }
+#app_rental .tab { padding:0.8rem 1.2rem; cursor:pointer; border:none; background:none; font-weight:600; color:#999; border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.2s; font-family:'Nunito',sans-serif; }
+#app_rental .tab.active { color: var(--coral); border-bottom-color: var(--coral); }
 #app_rental .tab-content { display:none; }
 #app_rental .tab-content.active { display:block; }
+
+
 
   /* ── Fix rental body decoration to be scoped ── */
   #app_rental::before {
@@ -981,7 +992,7 @@
 <!-- LOADER -->
 <div class="loader" id="loader">
   <div class="spin"></div>
-  <p style="color:var(--brand-primary);font-weight:700;font-size:14px;">資料處理中…</p>
+  <p style="color:var(--purple);font-weight:700;font-size:14px;">資料處理中…</p>
 </div>
 
 <!-- TOAST -->
@@ -1408,6 +1419,316 @@
 
 <!-- ══ APP 2：租金計算工具 ═══════════════════════════════════════ -->
 <div id="app_rental" class="app-page">
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --pink:   #f2a7c3;
+        --orange: #f7a35c;
+        --yellow: #f7d96b;
+        --blue:   #7ec8e3;
+        --green:  #8dcc7a;
+        --coral:  #e8836a;
+        --purple: #c9a8e0;
+        --dark:   #2a1f2d;
+        --cream:  #fdf6ee;
+        --text:   #3d2c1e;
+    }
+
+    body {
+        font-family: 'Nunito', sans-serif;
+        background: var(--cream);
+        min-height: 100vh;
+        padding: 2rem 1rem;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    /* 背景飄落小花 */
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+            radial-gradient(circle 6px at 8% 12%, var(--pink) 70%, transparent 71%),
+            radial-gradient(circle 4px at 15% 35%, var(--yellow) 70%, transparent 71%),
+            radial-gradient(circle 7px at 92% 8%, var(--blue) 70%, transparent 71%),
+            radial-gradient(circle 5px at 85% 25%, var(--orange) 70%, transparent 71%),
+            radial-gradient(circle 4px at 3% 60%, var(--green) 70%, transparent 71%),
+            radial-gradient(circle 6px at 96% 55%, var(--coral) 70%, transparent 71%),
+            radial-gradient(circle 5px at 50% 95%, var(--purple) 70%, transparent 71%),
+            radial-gradient(circle 4px at 70% 88%, var(--yellow) 70%, transparent 71%),
+            radial-gradient(circle 6px at 25% 90%, var(--pink) 70%, transparent 71%);
+        opacity: 0.5;
+        z-index: 0;
+    }
+
+    .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 8px 40px rgba(42,31,45,0.12);
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+    }
+
+    .header {
+        background: var(--dark);
+        color: white;
+        padding: 2rem 2rem 1.5rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* 頂部小花裝飾帶 */
+    .flower-band {
+        display: flex;
+        justify-content: center;
+        gap: 0.4rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    .flower-band svg {
+        width: 28px;
+        height: 28px;
+        animation: sway 3s ease-in-out infinite;
+    }
+    .flower-band svg:nth-child(odd) { animation-delay: 0.5s; }
+    .flower-band svg:nth-child(3n) { animation-delay: 1s; }
+    @keyframes sway {
+        0%, 100% { transform: rotate(-8deg) scale(1); }
+        50% { transform: rotate(8deg) scale(1.08); }
+    }
+
+    .header h1 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        margin-bottom: 0.3rem;
+    }
+    .header p {
+        opacity: 0.7;
+        font-size: 0.9rem;
+        font-weight: 400;
+    }
+
+    .content {
+        padding: 1.5rem 2rem 2rem;
+    }
+
+    .top-panel {
+        background: #fdf0f7;
+        border: 2px solid var(--pink);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .top-grid {
+        display: grid;
+        grid-template-columns: 2fr 1.5fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+    @media (max-width: 1024px) {
+        .top-grid { grid-template-columns: 1fr; }
+    }
+
+    .section-title {
+        font-size: 0.8rem;
+        font-weight: 800;
+        color: var(--coral);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.8rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 2px dashed var(--pink);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .form-group {
+        margin-bottom: 0.8rem;
+    }
+
+    label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+        color: var(--text);
+        font-size: 0.85rem;
+    }
+
+    input, select {
+        width: 100%;
+        padding: 0.55rem 0.75rem;
+        border: 1.5px solid #e8d5ef;
+        border-radius: 10px;
+        font-size: 0.88rem;
+        font-family: 'Nunito', sans-serif;
+        background: white;
+        color: var(--text);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus, select:focus {
+        outline: none;
+        border-color: var(--pink);
+        box-shadow: 0 0 0 3px rgba(242,167,195,0.2);
+    }
+
+    .file-input-label {
+        display: block;
+        padding: 0.75rem;
+        background: white;
+        border: 2px dashed var(--blue);
+        border-radius: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #5b9dba;
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+    .file-input-label:hover {
+        background: #eef8fc;
+        border-color: #5b9dba;
+    }
+    .file-input-label.has-file {
+        border-color: var(--green);
+        color: #4a9a37;
+        background: #f0faf0;
+    }
+    input[type="file"] { display: none; }
+
+    .button-group {
+        display: flex;
+        gap: 0.7rem;
+        margin-top: 1.2rem;
+    }
+
+    button {
+        flex: 1;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 10px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: all 0.18s;
+        font-size: 0.9rem;
+        font-family: 'Nunito', sans-serif;
+    }
+    .btn-primary {
+        background: var(--coral);
+        color: white;
+        box-shadow: 0 3px 10px rgba(232,131,106,0.35);
+    }
+    .btn-primary:hover { background: #d96d55; transform: translateY(-1px); }
+    .btn-primary:active { transform: scale(0.97); }
+
+    .btn-secondary {
+        background: white;
+        color: var(--coral);
+        border: 2px solid var(--coral);
+    }
+    .btn-secondary:hover { background: #fff3f0; }
+
+    .status {
+        margin-top: 0.8rem;
+        padding: 0.75rem 1rem;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .status.success { background: #f0faf0; color: #2d7a2d; border: 1.5px solid var(--green); }
+    .status.error   { background: #fff0f0; color: #b93030; border: 1.5px solid var(--coral); }
+    .status.info    { background: #eef8fc; color: #2a6a82; border: 1.5px solid var(--blue); }
+
+    .result-section {
+        background: white;
+        border: 2px solid #ecdff5;
+        border-radius: 16px;
+        padding: 1.5rem;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.75rem;
+    }
+    th, td {
+        padding: 0.5rem 0.6rem;
+        text-align: left;
+        border-bottom: 1px solid #f0e8f8;
+    }
+    th {
+        background: #fdf0f7;
+        font-weight: 700;
+        color: #8a4570;
+        white-space: nowrap;
+    }
+    th.highlight {
+        background: #fff8e6;
+        color: #b07020;
+    }
+    tr:hover { background: #fdf6ff; }
+
+    .config-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+    }
+    .config-item {
+        background: white;
+        padding: 0.7rem 0.8rem;
+        border-radius: 8px;
+        border: 1.5px solid #e8d5ef;
+    }
+    .config-item label {
+        font-size: 0.75rem;
+        color: #8a6a9a;
+        margin-bottom: 0.25rem;
+    }
+
+    .export-btn {
+        background: var(--green);
+        color: white;
+        margin-top: 1rem;
+        width: 100%;
+        box-shadow: 0 3px 10px rgba(141,204,122,0.35);
+    }
+    .export-btn:hover { background: #6ab358; transform: translateY(-1px); }
+
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    .card {
+        padding: 1rem;
+        border-radius: 12px;
+        text-align: center;
+    }
+    .card:nth-child(1) { background: #fdf0f7; border: 2px solid var(--pink); }
+    .card:nth-child(2) { background: #fff8e8; border: 2px solid var(--yellow); }
+    .card-label { font-size: 0.8rem; color: #8a6a7a; font-weight: 600; margin-bottom: 0.3rem; }
+    .card-value { font-size: 1.5rem; font-weight: 800; color: var(--coral); }
+
+    .overflow-auto { overflow-x: auto; }
+    .panel { background: #f8f9fb; border: 1px solid #e0e4e8; border-radius: 8px; padding: 1.5rem; }
+    .tabs { display:flex; border-bottom: 2px solid #e0e4e8; margin-bottom:1.5rem; }
+    .tab { padding:0.8rem 1.2rem; cursor:pointer; border:none; background:none; font-weight:600; color:#999; border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.2s; font-family:'Nunito',sans-serif; }
+    .tab.active { color: var(--coral); border-bottom-color: var(--coral); }
+    .tab-content { display:none; }
+    .tab-content.active { display:block; }
+</style>
+
 <div id="page_calc">
 <div class="container">
     <div class="header">
@@ -3227,7 +3548,7 @@ function render(){
 
 buildSummary();
 render();
-<\/script>
+</script>
 </body>
 </html>`;
 
@@ -5625,33 +5946,167 @@ function toggleTotalRow() {
 
 function exportResults() {
     if (!calculatedData) return;
-    
-    // 定義匯出欄位順序（跟顯示表格一致）
-    const exportCols = [
-        '產品類別', '產品代碼', '產品名稱', '產品規格', '基本單位',
+
+    const displayCols = [
+        '序號', '核算組織名稱', '產品類別', '產品代碼', '產品名稱', '基本單位',
         '倉庫', '存貨屬性', '批號', '庫存狀態',
         '上期結存', '本期入庫', '本期出庫', '本期結存',
         '[期初]', '[期末]', '天數', '淨重', '計價重量',
-        '出入庫', '租金', '總計', '採購部門', '業務屬性明細', '備註'
+        '出入庫', '租金', '總計', '採購部門', '備註', '產品規格', '業務屬性明細'
     ];
-    
-    // 只匯出指定欄位，並按順序排列
-    const exportData = calculatedData.map(row => {
-        const newRow = {};
-        exportCols.forEach(col => {
-            if (row.hasOwnProperty(col)) {
-                newRow[col] = row[col];
-            }
-        });
-        return newRow;
+
+    const highlightCols = new Set(['天數', '淨重', '計價重量', '出入庫', '租金', '總計', '採購部門', '備註']);
+    const numericCols   = new Set(['上期結存','本期入庫','本期出庫','本期結存','天數','淨重','計價重量','出入庫','租金','總計']);
+
+    // ── 1. 取得目前可見（篩選後）的列 ────────────────────────────────
+    const tbody = document.getElementById('resultBody');
+    if (!tbody) return;
+    const visibleRows = Array.from(tbody.querySelectorAll('tr[data-row]'))
+        .filter(r => r.style.display !== 'none');
+
+    if (visibleRows.length === 0) { alert('目前沒有可匯出的資料'); return; }
+
+    // ── 2. 從 calculatedData 取對應資料 ──────────────────────────────
+    const rows = visibleRows.map(tr => calculatedData[parseInt(tr.dataset.row)]).filter(Boolean);
+
+    // ── 3. 計算合計列 ────────────────────────────────────────────────
+    const totals = {};
+    numericCols.forEach(col => {
+        totals[col] = rows.reduce((s, r) => s + (parseFloat(r[col]) || 0), 0);
     });
-    
-    const ws = window.XLSX.utils.json_to_sheet(exportData);
+
+    // ── 4. 樣式定義 ──────────────────────────────────────────────────
+    const border = {
+        top:    { style: 'thin', color: { rgb: 'F0E8F8' } },
+        bottom: { style: 'thin', color: { rgb: 'F0E8F8' } },
+        left:   { style: 'thin', color: { rgb: 'F0E8F8' } },
+        right:  { style: 'thin', color: { rgb: 'F0E8F8' } }
+    };
+    const borderTotal = {
+        top:    { style: 'medium', color: { rgb: 'F2A7C3' } },
+        bottom: { style: 'medium', color: { rgb: 'F2A7C3' } },
+        left:   { style: 'thin',   color: { rgb: 'F2A7C3' } },
+        right:  { style: 'thin',   color: { rgb: 'F2A7C3' } }
+    };
+
+    // 表頭：一般欄（粉紅）
+    const sHeader = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFDF0F7' } },
+        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FF8A4570' } },
+        border,
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+    };
+    // 表頭：高亮欄（黃）
+    const sHeaderHL = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFFF8E6' } },
+        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FFB07020' } },
+        border,
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
+    };
+    // 資料列：一般文字
+    const sData = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+        font: { name: 'Noto Sans TC', sz: 10, color: { rgb: 'FF3D2C4E' } },
+        border,
+        alignment: { horizontal: 'left', vertical: 'center' }
+    };
+    // 資料列：數值（右對齊）
+    const sDataNum = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFFFFFF' } },
+        font: { name: 'Noto Sans TC', sz: 10, color: { rgb: 'FF3D2C4E' } },
+        border,
+        alignment: { horizontal: 'right', vertical: 'center' }
+    };
+    // 合計列：文字
+    const sTotal = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFDF0F7' } },
+        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FFC0507A' } },
+        border: borderTotal,
+        alignment: { horizontal: 'left', vertical: 'center' }
+    };
+    // 合計列：數值（右對齊）
+    const sTotalNum = {
+        fill: { patternType: 'solid', fgColor: { rgb: 'FFFDF0F7' } },
+        font: { name: 'Noto Sans TC', bold: true, sz: 10, color: { rgb: 'FFC0507A' } },
+        border: borderTotal,
+        alignment: { horizontal: 'right', vertical: 'center' }
+    };
+
+    // ── 5. 建立 AOA（陣列 of 陣列）資料 ─────────────────────────────
+    const aoa = [];
+
+    // 表頭列
+    aoa.push(displayCols.map(col => col));
+
+    // 資料列
+    rows.forEach(row => {
+        aoa.push(displayCols.map(col => {
+            const v = row[col] !== undefined ? row[col] : '';
+            if (numericCols.has(col)) {
+                const n = parseFloat(v);
+                return isNaN(n) ? '' : n;
+            }
+            return v === null ? '' : String(v);
+        }));
+    });
+
+    // 合計列
+    const totalRowData = displayCols.map((col, i) => {
+        if (i === 0) return '合計';
+        if (numericCols.has(col)) {
+            const n = totals[col] || 0;
+            return Math.round(n * 100) / 100;
+        }
+        return '';
+    });
+    aoa.push(totalRowData);
+
+    // ── 6. 建立 worksheet & 套樣式 ───────────────────────────────────
+    const ws = window.XLSX.utils.aoa_to_sheet(aoa);
+
+    const totalDataRows = aoa.length;
+    const totalCols     = displayCols.length;
+
+    for (let R = 0; R < totalDataRows; R++) {
+        for (let C = 0; C < totalCols; C++) {
+            const cellAddr = window.XLSX.utils.encode_cell({ r: R, c: C });
+            if (!ws[cellAddr]) ws[cellAddr] = { v: '', t: 's' };
+
+            const col      = displayCols[C];
+            const isHL     = highlightCols.has(col);
+            const isNumCol = numericCols.has(col);
+            const isHeader = R === 0;
+            const isLast   = R === totalDataRows - 1;
+
+            if (isHeader) {
+                ws[cellAddr].s = isHL ? sHeaderHL : sHeader;
+            } else if (isLast) {
+                ws[cellAddr].s = isNumCol ? sTotalNum : sTotal;
+            } else {
+                ws[cellAddr].s = isNumCol ? sDataNum : sData;
+            }
+        }
+    }
+
+    // ── 7. 欄寬設定 ──────────────────────────────────────────────────
+    ws['!cols'] = displayCols.map(col => {
+        const wideMap = {
+            '產品名稱': 22, '核算組織名稱': 16, '業務屬性明細': 18,
+            '批號': 16, '[期初]': 12, '[期末]': 12, '備註': 18,
+            '倉庫': 14, '存貨屬性': 12, '庫存狀態': 10, '採購部門': 12
+        };
+        return { wch: wideMap[col] || 10 };
+    });
+
+    // 列高：表頭稍高
+    ws['!rows'] = [{ hpt: 22 }];
+
+    // ── 8. 生成 & 下載 ───────────────────────────────────────────────
     const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, "租金計算結果");
-    const filename = `租金計算_${new Date().toISOString().slice(0,10)}.xlsx`;
-    window.XLSX.writeFile(wb, filename);
-    showStatus('✅ 檔案已下載！', 'success');
+    window.XLSX.utils.book_append_sheet(wb, ws, '租金計算結果');
+    const filename = `租金計算_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    window.XLSX.writeFile(wb, filename, { bookType: 'xlsx', type: 'binary', cellStyles: true });
+    showStatus('✅ 彩色報表已下載！', 'success');
 }
 // 掛載所有函式到 window
 window.doInitLedger = doInitLedger;
@@ -5880,9 +6335,9 @@ async function calcProfit() {
         document.getElementById('profit_filter_bar').style.display = 'flex';
 
         renderProfitTable();
-        statusEl.innerHTML = `<span style="color:#3A8A27; font-weight:700;">✅ 試算完成：${matched} 筆比對到，${unmatched} 筆未比對</span>`;
+        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 試算完成：${matched} 筆比對到，${unmatched} 筆未比對</span>`;
     } catch(e) {
-        statusEl.innerHTML = `<span style="color:#E8836A;">❌ 失敗：${e.message}</span>`;
+        statusEl.innerHTML = `<span style="color:#e8836a;">❌ 失敗：${e.message}</span>`;
         console.error(e);
     }
 }
@@ -5924,12 +6379,12 @@ function renderProfitTable() {
             const val = r[col] !== undefined && r[col] !== '' ? r[col] : '';
             if (col === '租金單價') {
                 const display = val !== '' ? parseFloat(val).toFixed(5) : '-';
-                html += `<td style="text-align:right; white-space:nowrap; color:${hasRent?'#6B5B95':'#ccc'}; font-weight:${hasRent?'700':'400'};">${display}</td>`;
+                html += `<td style="text-align:right; white-space:nowrap; color:${hasRent?'#8a5aa0':'#ccc'}; font-weight:${hasRent?'700':'400'};">${display}</td>`;
             } else if (col === '租金費用') {
                 const display = val !== '' ? Number(val).toLocaleString() : '-';
-                html += `<td style="text-align:right; white-space:nowrap; color:${hasRent?'#C0507A':'#ccc'}; font-weight:${hasRent?'800':'400'};">${display}</td>`;
+                html += `<td style="text-align:right; white-space:nowrap; color:${hasRent?'#c0507a':'#ccc'}; font-weight:${hasRent?'800':'400'};">${display}</td>`;
             } else if (col === '租金來源') {
-                const sourceColor = val === '加工成品' ? '#E8836A' : (val === '租金結果' ? '#5AA348' : (val === '總帳' ? '#4A8DAA' : '#ddd'));
+                const sourceColor = val === '加工成品' ? '#f7a35c' : (val === '租金結果' ? '#8dcc7a' : (val === '總帳' ? '#7ec8e3' : '#ddd'));
                 const display = val || '-';
                 html += `<td style="text-align:center; white-space:nowrap; color:${sourceColor}; font-weight:${hasRent?'700':'400'}; font-size:0.7rem;">${display}</td>`;
             } else {
@@ -5941,10 +6396,10 @@ function renderProfitTable() {
 
     // 合計列
     const totalRent = filtered.reduce((s, r) => s + (parseFloat(r.租金費用)||0), 0);
-    html += `<tr style="background:#F5F0FF; font-weight:800;">`;
+    html += `<tr style="background:#fdf0f7; font-weight:800;">`;
     allCols.forEach((col, i) => {
-        if (i === 0) html += `<td style="color:#C0507A;">合計（篩選後）</td>`;
-        else if (col === '租金費用') html += `<td style="text-align:right; color:#C0507A;">$${Math.round(totalRent).toLocaleString()}</td>`;
+        if (i === 0) html += `<td style="color:#c0507a;">合計（篩選後）</td>`;
+        else if (col === '租金費用') html += `<td style="text-align:right; color:#c0507a;">$${Math.round(totalRent).toLocaleString()}</td>`;
         else html += `<td></td>`;
     });
     html += `</tr></tbody></table></div></div>`;
