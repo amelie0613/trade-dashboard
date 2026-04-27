@@ -2639,6 +2639,22 @@ function showD(rowNum){
       +'</div>';
   }
 
+  // ── 重發通知按鈕（admin 專屬）────────────────────────
+  if(curUser && (curUser.role==='admin' || curUser.role==='boss')){
+    var isFilllWait = isFillPending(r);
+    var isApprWait  = isPend(r) || (g(r,'status').includes('退') || g(r,'status')==='退回');
+    if(isApprWait || isFilllWait){
+      h+='<div style="display:flex;gap:8px;margin:10px 0 4px;">';
+      if(isApprWait){
+        h+='<button onclick="doResendNotify('+rq+',\'resendApproval\')" style="flex:1;padding:9px 0;border-radius:9px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-size:12px;font-weight:700;cursor:pointer;">↩ 重發審核通知</button>';
+      }
+      if(isFilllWait){
+        h+='<button onclick="doResendNotify('+rq+',\'resendFillRequest\')" style="flex:1;padding:9px 0;border-radius:9px;background:#fffbeb;color:#92400e;border:1px solid #fde68a;font-size:12px;font-weight:700;cursor:pointer;">↩ 重發補填通知</button>';
+      }
+      h+='</div>';
+    }
+  }
+
   // 董事長簽核區（待審核 或 退回後業務已修改 → 都顯示）
   var needApprove = isPend(r) || (g(r,'status').includes('退') || g(r,'status')==='退回');
   if(curUser&&(curUser.role==='boss'||curUser.role==='admin')&&needApprove){
@@ -2694,6 +2710,7 @@ function showD(rowNum){
         +'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;">'
           +'<div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">銷售（應收）</div>'
           +ef2('e-buyer-'+rowNum,'客戶名稱',g(r,'buyer'))
+          +ef2('e-sellpay-'+rowNum,'收款條件',g(r,'sellPay'))
           // 分期 1~3
           +(function(){
             var rows3='';
@@ -2720,6 +2737,7 @@ function showD(rowNum){
         +'<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px;">'
           +'<div style="font-size:11px;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">採購（應付）</div>'
           +ef2('e-supp-'+rowNum,'供應商',g(r,'supp'))
+          +ef2('e-buypay-'+rowNum,'付款條件',g(r,'buyPay'))
           // 分期 1~3
           +(function(){
             var rowsb='';
@@ -2874,7 +2892,40 @@ function doApp(rowNum,status){
   }
 }
 
-// 會計確認轉入 Payments
+// 重發通知：resendApproval / resendFillRequest
+// 僅重發 Email，不改資料狀態、不產生重複寫入
+function doResendNotify(rowNum, action){
+  var r = rows.find(function(x){ return x._row===rowNum; });
+  if(!r) return;
+  var formId   = r[F.formId]||'';
+  var caseName = g(r,'name')||'';
+  var staff    = g(r,'staff')||'';
+  var buyPeriods = (r.purchase&&r.purchase.periods&&r.purchase.periods.length)
+    ? r.purchase.periods.map(function(p){return{name:p.name||'',cur:p.currency||p.cur||'TWD',amt:parseFloat(p.amount||p.amt)||0,date:p.expectedDate||p.date||'',note:p.note||''}; })
+    : (function(){ var a=[]; for(var i=1;i<=3;i++){var v=parseFloat(r['採購期'+i+'金額'])||0;if(v||r['採購期'+i+'預計日'])a.push({name:r['採購期'+i+'名稱']||('第'+i+'期'),cur:r['採購期'+i+'幣別']||'TWD',amt:v,date:r['採購期'+i+'預計日']||'',note:r['採購期'+i+'備註']||''});} return a; })();
+  var sellPeriods = (r.sales&&r.sales.periods&&r.sales.periods.length)
+    ? r.sales.periods.map(function(p){return{name:p.name||'',cur:p.currency||p.cur||'TWD',amt:parseFloat(p.amount||p.amt)||0,date:p.expectedDate||p.date||'',note:p.note||''}; })
+    : (function(){ var a=[]; for(var i=1;i<=3;i++){var v=parseFloat(r['銷售期'+i+'金額'])||0;if(v||r['銷售期'+i+'預計日'])a.push({name:r['銷售期'+i+'名稱']||('第'+i+'期'),cur:r['銷售期'+i+'幣別']||'TWD',amt:v,date:r['銷售期'+i+'預計日']||'',note:r['銷售期'+i+'備註']||''});} return a; })();
+  backupActionToGAS({
+    action:       action,
+    formId:       formId,
+    caseName:     caseName,
+    staff:        staff,
+    type:         g(r,'type')||'',
+    supplier:     r['供應商（賣方）']||r.supplier||'',
+    buyer:        r['客戶（買方）']  ||r.buyer   ||'',
+    buyPay:       r['付款條件（採購）']||r.buyPay ||'',
+    sellPay:      r['收款條件（銷售）']||r.sellPay||'',
+    buyPeriods:   buyPeriods,
+    sellPeriods:  sellPeriods,
+    resent:       true,
+    resentBy:     curUser ? curUser.name : '',
+  });
+  var label = action==='resendApproval' ? '審核通知' : '補填通知';
+  toast('↩ '+label+'已重新發送','#0369a1');
+  addLog('重發通知（'+label+'）', curUser?curUser.name:'', caseName, action, formId);
+}
+
 // 補填銷售內容 - 開啟表單帶入 formId
 function openFillSell(rowNum){
   var r = rows.find(function(x){ return x._row===rowNum; });
@@ -3059,8 +3110,10 @@ function doEdit(rowNum){
     ['e-name-',    'meta.caseName'],
     ['e-asst-',    'meta.assistant'],
     ['e-supp-',    'purchase.supplier'],
+    ['e-buypay-',  'purchase.paymentTerms'],
     ['e-buyrem-',  'purchase.note'],
     ['e-buyer-',   'sales.customer'],
+    ['e-sellpay-', 'sales.paymentTerms'],
     ['e-sellrem-', 'sales.note'],
     ['e-trade-',   'logistics.tradeTerms'],
     ['e-etd-',     'logistics.etd'],
@@ -3097,8 +3150,8 @@ function doEdit(rowNum){
     if(r){
       var zhMap = {
         'meta.staff':'業務名稱','meta.caseType':'案件屬性','meta.caseName':'案件名稱','meta.assistant':'承辦業助',
-        'purchase.supplier':'供應商（賣方）','purchase.note':'備註（採購）',
-        'sales.customer':'客戶（買方）','sales.note':'備註（銷售）',
+        'purchase.supplier':'供應商（賣方）','purchase.paymentTerms':'付款條件（採購）','purchase.note':'備註（採購）',
+        'sales.customer':'客戶（買方）','sales.paymentTerms':'收款條件（銷售）','sales.note':'備註（銷售）',
         'logistics.tradeTerms':'貿易條件','logistics.etd':'ETD 出貨日','logistics.eta':'ETA 到貨日',
         'logistics.origin':'出貨地/發貨港口','logistics.destination':'目的地/收貨港口',
         // ★ 費用欄位已移至 FEE_MAP 處理，此處不重複
@@ -5036,6 +5089,24 @@ function approveTransfer(formId, periodIdx, periodType) {
       var pName = (p && p.periodName) || ('第'+(periodIdx+1)+'期');
       var pCase = (p && p.caseName)   || formId;
       addLog('審核確認', who, pCase + '【' + pName + '】', 'status → approved', formId);
+      // ★ 訂單轉入備份：寫入 GAS OrderImport 分頁
+      backupActionToGAS({
+        action:      'orderImport',
+        formId:      formId,
+        caseName:    p ? p.caseName   : '',
+        staff:       p ? p.staff      : '',
+        caseType:    p ? p.caseType   : '',
+        periodType:  pType,
+        periodName:  pName,
+        periodIdx:   periodIdx,
+        cur:         p ? p.cur        : 'TWD',
+        amt:         p ? p.amt        : 0,
+        dueDate:     p ? p.dueDate    : '',
+        confirmedBy: who,
+        confirmedAt: target.approvedAt,
+        acctNote:    p ? (p.acctNote||'') : '',
+        periodStatus:'approved',
+      });
       toast('✅ 已審核確認', '#16a34a');
       _buildTransferItems();
     } else {

@@ -529,7 +529,9 @@ function ensureAuth(){
 }
 
 // ══════════════════════════════════════════════════════
-// ★ 案件編號產生（TYYYYMMDDA01 格式，查 Firebase 當天已有幾筆）
+// ★ 案件編號產生（TYYYYMMDDA01 格式）
+// 使用 Firestore transaction 原子遞增 counters/daily
+// 刪除案件不影響序號，完全禁止遞補
 // ══════════════════════════════════════════════════════
 async function generateFormId(){
   var now   = new Date();
@@ -543,31 +545,32 @@ async function generateFormId(){
     var db = getFirebaseDb();
     if(!db) throw new Error('db null');
 
-    // 查詢當天所有案件
-    var snap = await db.collection('cases')
-      .where('meta.formIdPrefix', '==', prefix)
-      .get();
+    var counterRef = db.collection('counters').doc('daily');
 
-    var seq = snap.size + 1; // 從 01 開始
-    var seqStr = ('0' + seq).slice(-2); // 至少兩位
-    var formId = prefix + 'A' + seqStr; // e.g. T20260424A01
+    // ★ 原子遞增：transaction 保證不重複，刪除案件不影響序號
+    var newSeq = await db.runTransaction(async function(t){
+      var doc  = await t.get(counterRef);
+      var data = doc.exists ? doc.data() : {};
+      var next = (data[prefix] || 0) + 1;
+      var upd  = {};
+      upd[prefix] = next;
+      if(doc.exists){ t.update(counterRef, upd); }
+      else           { t.set(counterRef, upd);    }
+      return next;
+    });
 
-    // 防衝突：若 formId 已存在，遞增直到找到空位
-    var exists = true;
-    while(exists){
-      var checkDoc = await db.collection('cases').doc(formId).get();
-      if(!checkDoc.exists){
-        exists = false;
-      } else {
-        seq++;
-        seqStr = ('0' + seq).slice(-2);
-        formId = prefix + 'A' + seqStr;
-      }
+    var seqStr = ('0' + newSeq).slice(-2);
+    var formId = prefix + 'A' + seqStr;
+
+    // 安全驗證（transaction 已保證唯一，此處為最終防線）
+    var checkDoc = await db.collection('cases').doc(formId).get();
+    if(checkDoc.exists){
+      newSeq++;
+      formId = prefix + 'A' + ('0' + newSeq).slice(-2);
     }
     return formId;
   } catch(e){
-    console.warn('generateFormId Firebase 失敗，使用備援：', e);
-    // 備援：時間戳記（不重複）
+    console.warn('generateFormId 失敗，使用備援：', e);
     return prefix + 'A' + String(Date.now()).slice(-4);
   }
 }
