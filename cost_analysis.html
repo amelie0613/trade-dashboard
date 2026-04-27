@@ -75,7 +75,7 @@
     }
 
     .content {
-      padding: 24px;
+      padding: 20px 24px 24px;
     }
 
     .kpi-grid {
@@ -87,18 +87,19 @@
 
     .kpi-card {
       background: #f8fafc;
-      border-left: 4px solid;
+      border: 1px solid #e2e8f0;
+      border-left-width: 5px;          /* 左邊框加粗 */
+      border-left-color: #0052CC;      /* 預設色，各卡片會覆寫 */
       border-radius: 8px;
       padding: 16px;
       display: flex;
       flex-direction: column;
-      border: 1px solid #e2e8f0;
     }
 
-    .kpi-card.blue { border-left-color: #0052CC; }
-    .kpi-card.red { border-left-color: #DC2626; }
+    .kpi-card.blue   { border-left-color: #0052CC; }
+    .kpi-card.red    { border-left-color: #DC2626; }
     .kpi-card.orange { border-left-color: #EA580C; }
-    .kpi-card.purple { border-left-color: #0052CC; }
+    .kpi-card.purple { border-left-color: #7C3AED; }
 
     .kpi-label {
       font-size: 14px;
@@ -231,22 +232,20 @@
     }
 
     @media (max-width: 768px) {
-      .kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .header { flex-direction: column; gap: 12px; }
+      table { font-size: 11px; }
+      th, td { padding: 6px 4px; }
+    }
 
-      .header {
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      table {
-        font-size: 10px;
-      }
-
-      th, td {
-        padding: 8px 4px;
-      }
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body { padding: 0; background: white; }
+      .container { border-radius: 0; box-shadow: none; max-width: 100%; width: 100%; }
+      .header-actions { display: none; }
+      .child-row.hidden { display: none !important; }
+      table { page-break-inside: avoid; }
+      tr { page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -257,7 +256,7 @@
     <h1>🔍 各倉庫貨幣區間成本分析</h1>
     <div class="header-actions">
       <button class="btn btn-secondary" onclick="window.history.back()">← 返回</button>
-      <button class="btn btn-primary" onclick="exportImage()">📥 匯出圖片</button>
+      <button class="btn btn-primary" onclick="exportImage()">📥 匯出 PDF</button>
     </div>
   </div>
 
@@ -292,7 +291,7 @@
     <!-- Table Section -->
     <div class="table-section">
       <div class="table-title">
-        📋 按倉庫分類的成本成本明細（可展開/收合）
+        📋 按倉庫分類的成本明細（可展開/收合）
       </div>
 
       <div class="table-wrapper">
@@ -460,8 +459,8 @@ function exportImage() {
     margin:0 !important;
   `;
 
-  // 稍等一個 repaint 再截圖
-  requestAnimationFrame(() => {
+  // 雙 RAF 確保瀏覽器 repaint 完成再截圖
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     const opt = {
       margin:      0,
       filename:    `成本分析報告_${new Date().toLocaleDateString('zh-TW')}.pdf`,
@@ -491,7 +490,7 @@ function exportImage() {
     };
 
     html2pdf().set(opt).from(el).save().then(restore).catch(restore);
-  });
+  }));
 }
 
 // ── 初始化 ────────────────────────────────────────────────────────
