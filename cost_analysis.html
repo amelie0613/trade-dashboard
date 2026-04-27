@@ -37,7 +37,7 @@
     }
 
     .header h1 {
-      font-size: 24px;
+      font-size: 26px;
       font-weight: 900;
       letter-spacing: 0.02em;
     }
@@ -52,7 +52,7 @@
       border-radius: 8px;
       border: none;
       font-family: 'Noto Sans TC', sans-serif;
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.2s;
@@ -101,7 +101,7 @@
     .kpi-card.purple { border-left-color: #0052CC; }
 
     .kpi-label {
-      font-size: 12px;
+      font-size: 14px;
       font-weight: 600;
       color: #666;
       margin-bottom: 6px;
@@ -110,7 +110,7 @@
     }
 
     .kpi-value {
-      font-size: 28px;
+      font-size: 30px;
       font-weight: 900;
       margin-bottom: 4px;
     }
@@ -121,7 +121,7 @@
     .kpi-card.purple .kpi-value { color: #0052CC; }
 
     .kpi-sub {
-      font-size: 12px;
+      font-size: 14px;
       color: #999;
     }
 
@@ -130,7 +130,7 @@
     }
 
     .table-title {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 700;
       color: #0052CC;
       padding: 12px;
@@ -144,32 +144,35 @@
     }
 
     .table-wrapper {
-      overflow-x: auto;
       border-radius: 8px;
       border: 1px solid #d0d9e8;
+      overflow: hidden;
     }
 
+    /* table-layout:fixed + 明確欄寬 → 確保不超出 A4 直式寬度 */
     table {
       width: 100%;
+      table-layout: fixed;
       border-collapse: collapse;
-      font-size: 12px;
     }
 
     th {
       background: #0052CC;
       color: white;
-      padding: 12px 8px;
-      text-align: left;
+      padding: 10px 6px;
+      text-align: center;
       font-weight: 700;
       font-size: 14px;
-      white-space: nowrap;
       border: 1px solid #fff;
+      overflow: hidden;
+      word-break: break-word;
     }
 
     td {
-      padding: 10px 8px;
-      font-size: 12px;
+      padding: 9px 6px;
+      font-size: 13px;
       border: 1px solid #e2e8f0;
+      overflow: hidden;
     }
 
     tr.parent-row td {
@@ -181,7 +184,6 @@
     tr.child-row td {
       background: #fafbfc;
       color: #444;
-      padding-left: 30px;
     }
 
     tr.total-row td {
@@ -224,7 +226,7 @@
       padding: 16px 24px;
       background: #f5f5f5;
       border-top: 1px solid #edd8f0;
-      font-size: 12px;
+      font-size: 14px;
       color: #999;
     }
 
@@ -297,12 +299,12 @@
         <table id="costTable">
           <thead>
             <tr>
-              <th style="width: 26%;">核算範圍 / 倉庫</th>
-              <th style="width: 16%; text-align:right;">全部成本</th>
-              <th style="width: 15%; text-align:right;">正常</th>
-              <th style="width: 15%; text-align:right; color:#ffcccc;">過期品</th>
-              <th style="width: 15%; text-align:right;">長期在庫</th>
-              <th style="width: 13%; text-align:right;">即將到期</th>
+              <th style="width:28%;">核算範圍 / 倉庫</th>
+              <th style="width:15%;">全部成本</th>
+              <th style="width:14%;">正常</th>
+              <th style="width:14%; color:#ffcccc;">過期品</th>
+              <th style="width:15%;">長期在庫</th>
+              <th style="width:14%;">即將到期</th>
             </tr>
           </thead>
           <tbody id="tableBody">
@@ -360,7 +362,7 @@ function renderTable() {
       <td>
         ${hasChildren ? `<span class="expand-btn" onclick="toggleChildren(this)"></span>` : ''}
         ${parent.name}
-        ${hasChildren ? `<span style="font-size:12px;color:#999;margin-left:6px;">(${parent.children.length} 個倉庫)</span>` : ''}
+        ${hasChildren ? `<span style="font-size:14px;color:#999;margin-left:6px;">(${parent.children.length} 個倉庫)</span>` : ''}
       </td>
       <td class="currency" style="text-align:right;">${fmt(parent.total)}</td>
       <td class="currency" style="text-align:right;">${fmt(parent.normal)}</td>
@@ -426,51 +428,69 @@ function updateKPIs(kpi) {
   document.getElementById('kpi-soon-pct').textContent     = kpi.soon     + ' 件';
 }
 
-// ── 匯出 PDF ──────────────────────────────────────────────────────
+// ── 匯出 PDF（A4 直式，單頁完整輸出）────────────────────────────
 function exportImage() {
   const btn = document.querySelector('.btn-primary');
   btn.textContent = '⏳ 產生中...';
   btn.disabled = true;
 
-  const el = document.getElementById('reportContainer');
+  const el    = document.getElementById('reportContainer');
+  const body  = document.body;
+  const actions = el.querySelector('.header-actions');
 
-  // 暫時將容器寬度鎖定為 A4 直式可列印寬度（794px ≈ 210mm @96dpi）
-  const origStyle = el.style.cssText;
-  el.style.cssText += ';width:794px !important;max-width:794px !important;border-radius:0;box-shadow:none;';
+  // 隱藏按鈕
+  if (actions) actions.style.visibility = 'hidden';
 
-  const opt = {
-    margin:      0,
-    filename:    `成本分析報告_${new Date().toLocaleDateString('zh-TW')}.pdf`,
-    image:       { type: 'jpeg', quality: 1.0 },
-    html2canvas: {
-      scale:       2,
-      useCORS:     true,
-      logging:     false,
-      width:       794,
-      windowWidth: 794
-    },
-    jsPDF: {
-      orientation: 'portrait',
-      unit:        'mm',
-      format:      'a4'
-    },
-    pagebreak: { mode: 'avoid-all' }
-  };
+  // 儲存原始樣式
+  const origBodyPad = body.style.padding;
+  const origBodyBg  = body.style.background;
+  const origElCSS   = el.getAttribute('style') || '';
 
-  html2pdf().set(opt).from(el).toPdf().get('pdf').then(pdf => {
-    // 縮放內容撐滿整張 A4，不留白邊，不跳頁
-    const totalPages = pdf.internal.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-      pdf.setPage(i);
-    }
-  }).save().then(() => {
-    el.style.cssText = origStyle;
-    btn.textContent = '📥 匯出 PDF';
-    btn.disabled = false;
-  }).catch(() => {
-    el.style.cssText = origStyle;
-    btn.textContent = '📥 匯出 PDF';
-    btn.disabled = false;
+  // A4 直式可列印寬度 = 794px（210mm @96dpi），去除左右 padding 各 20px
+  const A4W = 794;
+
+  // 暫套印列模式
+  body.style.padding    = '0';
+  body.style.background = '#fff';
+  el.style.cssText = `
+    width:${A4W}px !important;
+    max-width:${A4W}px !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+    margin:0 !important;
+  `;
+
+  // 稍等一個 repaint 再截圖
+  requestAnimationFrame(() => {
+    const opt = {
+      margin:      0,
+      filename:    `成本分析報告_${new Date().toLocaleDateString('zh-TW')}.pdf`,
+      image:       { type: 'jpeg', quality: 1.0 },
+      html2canvas: {
+        scale:       2,
+        useCORS:     true,
+        logging:     false,
+        windowWidth: A4W,
+        width:       A4W
+      },
+      jsPDF: {
+        orientation: 'portrait',
+        unit:        'mm',
+        format:      'a4'
+      },
+      pagebreak: { mode: 'avoid-all' }
+    };
+
+    const restore = () => {
+      body.style.padding    = origBodyPad;
+      body.style.background = origBodyBg;
+      el.setAttribute('style', origElCSS);
+      if (actions) actions.style.visibility = '';
+      btn.textContent = '📥 匯出 PDF';
+      btn.disabled    = false;
+    };
+
+    html2pdf().set(opt).from(el).save().then(restore).catch(restore);
   });
 }
 
