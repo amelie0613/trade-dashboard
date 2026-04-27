@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -701,9 +701,7 @@ function readAllFirebase(cb){
       snap.forEach(function(doc){
         var val = doc.data();
         if(val) result.push(Object.assign({ _firebaseKey: doc.id }, val));
-      });
-      console.log('📦 Firebase reads 本次：'+result.length+' 筆');
-      cb(result, null);
+      });      cb(result, null);
     })
     .catch(function(e){ cb(null, e.toString()); });
 }
@@ -792,9 +790,7 @@ function backupActionToGAS(payload){
   window[cbName] = function(d){
     clearTimeout(timer); done = true;
     delete window[cbName];
-    if(script.parentNode) script.parentNode.removeChild(script);
-    console.log('✅ GAS 通知完成（action:', payload.action, '）', d);
-  };
+    if(script.parentNode) script.parentNode.removeChild(script);  };
   var qs = '?callback='+cbName+'&payload='+encodeURIComponent(JSON.stringify(payload))+'&_='+Date.now();
   script.src = SCRIPT + qs;
   script.onerror = function(){
@@ -898,12 +894,8 @@ function doLogin(u){
   setInterval(function(){
     var cacheTime = parseInt(localStorage.getItem('cases_cache_time')||'0');
     var age = Date.now() - cacheTime;
-    if(age > 1800000){ // 超過 30 分鐘才重讀
-      console.log('⏰ 快取過期（'+Math.round(age/60000)+'分鐘），重新讀取 Firebase');
-      load();
-    } else {
-      console.log('✅ 快取有效（剩 '+Math.round((1800000-age)/60000)+'分鐘），略過讀取');
-    }
+    if(age > 1800000){ // 超過 30 分鐘才重讀      load();
+    } else {    }
   }, 600000); // 每 10 分鐘檢查一次
   setInterval(fetchRates, 1800000);
   // Firebase Auth 登入完成後才讀資料
@@ -1064,10 +1056,7 @@ function isPend(r){
   // 待補填中的案件不算待審核（補填完成後才讓老闆簽核）
   var fillStat = (r[F.fillStatus]||r['銷售補填狀態']||'').toString().trim();
   if(g(r,'formId')==='T20260414729'){
-    console.log('T20260414729 isPend check:',
-      'fillStat=['+fillStat+']',
-      'F.fillStatus='+F.fillStatus,
-      'r[key]=['+r[F.fillStatus]+']');
+    
   }
   if(fillStat==='待補填') return false;
   var s=g(r,'status');
@@ -1250,9 +1239,7 @@ function load(){
   // ★ 讀取 Firebase（只讀一次，存入 allData）
   // ❌ 禁止 onSnapshot，避免爆 reads
   readAllFirebase(function(fbRows, fbErr){
-    if(fbRows && fbRows.length > 0){
-      console.log('✅ Firebase 讀取成功，共 '+fbRows.length+' 筆');
-      var normalized = [];
+    if(fbRows && fbRows.length > 0){      var normalized = [];
       for(var _i=0; _i<fbRows.length; _i++){
         var _r = fbRows[_i];
         var _staff = (_r.meta && _r.meta.staff) || _r['staff'] || _r['業務名稱'] || '';
@@ -1261,15 +1248,11 @@ function load(){
       // ★ 存入 allData，所有 render/篩選/分頁/搜尋皆用 allData（不再 fetch）
       allData = normalized;
       saveCacheToStorage(allData);   // ★ 同步快取到 localStorage
-      window.rows = allData;
-      console.log('✅ allData 賦值，共 '+allData.length+' 筆');
-      onLoad();
+      window.rows = allData;      onLoad();
     } else {
       console.warn('⚠️ Firebase 無資料（'+fbErr+'），嘗試 localStorage 快取');
       var cached = loadCacheFromStorage();
-      if(cached && cached.length > 0){
-        console.log('📦 使用 localStorage 快取，共 '+cached.length+' 筆');
-        allData = cached;
+      if(cached && cached.length > 0){        allData = cached;
         window.rows = allData;
         onLoad();
       } else {
@@ -1444,9 +1427,7 @@ function loadViaJSONP(){
     delete window[cbName];
     if(script.parentNode) script.parentNode.removeChild(script);
     if(d && d.status==='ok' && d.rows && d.rows.length>0){
-      window.rows = d.rows.filter(function(r){return g(r,'staff')!=='';});
-      console.log('✅ JSONP getData01 成功，共 '+rows.length+' 筆（FormResponses01）');
-      onLoad();
+      window.rows = d.rows.filter(function(r){return g(r,'staff')!=='';});      onLoad();
     } else if(d && d.status==='ok' && d.rows && d.rows.length===0){
       console.warn('⚠️ FormResponses01 無資料');
       showErr('FormResponses01 尚無資料，請確認試算表已有案件記錄');
@@ -1455,9 +1436,7 @@ function loadViaJSONP(){
       loadCSV();
     }
   };
-  var jsonpUrl = SCRIPT+'?action=getData01&callback='+cbName+'&_='+Date.now();
-  console.log('🚀 JSONP 發出請求（FormResponses01）：', jsonpUrl);
-  script.src = jsonpUrl;
+  var jsonpUrl = SCRIPT+'?action=getData01&callback='+cbName+'&_='+Date.now();  script.src = jsonpUrl;
   script.onerror = function(){
     if(done) return;
     done = true;
@@ -1472,15 +1451,12 @@ function loadViaJSONP(){
 
 function loadCSV(){
   // 直接讀 Google Sheets 公開 CSV（不透過 proxy）
-  console.log('📄 改用 CSV 直連備援...');
   fetch(CSV+'&_='+Date.now())
     .then(function(r){return r.text();})
     .then(function(c){
       var p=parseCSV(c);
       if(p.length>0){
-        window.rows=p;
-        console.log('✅ CSV 直連成功，共 '+p.length+' 筆');
-        onLoad();
+        window.rows=p;        onLoad();
       } else {
         showErr('無法讀取資料，請確認：<br>1. Apps Script 已重新部署<br>2. FormResponses01 分頁有資料');
       }
@@ -1492,7 +1468,7 @@ function loadCSV(){
         .then(function(r){return r.text();})
         .then(function(c){
           var p=parseCSV(c);
-          if(p.length>0){window.rows=p;console.log('✅ proxy CSV 成功，共 '+p.length+' 筆');onLoad();}
+          if(p.length>0){window.rows=p;onLoad();}
           else showErr('所有讀取管道失敗，請確認：<br>1. Google Sheets 已公開發布<br>2. Apps Script 已重新部署');
         })
         .catch(function(e2){
@@ -1503,17 +1479,7 @@ function loadCSV(){
 function onLoad(){
   // 診斷：印出第一筆資料的關鍵欄位
   if(rows.length > 0){
-    var r0 = rows[0];
-    console.log('=== onLoad 第一筆診斷 ===');
-    console.log('案件名稱:', r0['案件名稱']);
-    console.log('業務名稱:', r0['業務名稱']);
-    console.log('案件屬性:', r0['案件屬性']);
-    console.log('採購期1金額:', r0['採購期1金額'], typeof r0['採購期1金額']);
-    console.log('銷售期1金額:', r0['銷售期1金額'], typeof r0['銷售期1金額']);
-    console.log('表單編號:', r0['表單編號']);
-    console.log('_row:', r0._row);
-    console.log('欄位總數:', Object.keys(r0).length);
-  }
+    var r0 = rows[0];  }
   // 去重
   var seen={};var deduped=[];
   rows.slice().reverse().forEach(function(r){
@@ -1610,9 +1576,9 @@ function renderDash(){
 
   // ★ 4 個統計卡片
   var statsHtml='<div class="sg">'
-    +'<div class="st s1"><div class="stlbl">總出貨金額（已審核）</div><div class="stval v1">'+fmtM(tS)+'</div><div class="stsub">NTD 換算</div></div>'
-    +'<div class="st s2"><div class="stlbl">預估總毛利（已審核）</div><div class="stval v2">'+fmtM(tP)+'</div><div class="stsub">毛利率 '+mg+'%</div></div>'
-    +'<div class="st s3"><div class="stlbl">案件總數</div><div class="stval v3">'+total+'</div><div class="stsub">已審核 '+apprCnt+' 筆</div></div>'
+    +'<div class="st s1"><div class="stlbl">總進貨金額（已審核）</div><div class="stval v1">'+fmtM(tB)+'</div><div class="stsub">NTD 換算</div></div>'
+    +'<div class="st s2"><div class="stlbl">總出貨金額（已審核）</div><div class="stval v2">'+fmtM(tS)+'</div><div class="stsub">NTD 換算</div></div>'
+    +'<div class="st s3"><div class="stlbl">預估總毛利（已審核）</div><div class="stval v3">'+fmtM(tP)+'</div><div class="stsub">毛利率 '+mg+'%</div></div>'
     +'<div class="st s4"><div class="stlbl">待審核</div><div class="stval v4">'+pend+'</div><div class="stsub">筆合約</div></div>'
     +'</div>';
 
@@ -1794,11 +1760,7 @@ function isMyCase(r){
     || staff.indexOf(myName) >= 0
     || cleanStaff.indexOf(myName) >= 0;
   if(g(r,'formId')==='T20260410190'){
-    console.log('T20260410190 isMyCase check:',
-      'staff=['+staff+']',
-      'myName=['+myName+']',
-      'cleanStaff=['+cleanStaff+']',
-      'match='+match);
+    
   }
   return match;
 }
@@ -1821,7 +1783,7 @@ function renderMyCase(){
       '<div class="st s1"><div class="stlbl">總進貨成本</div><div class="stval v1">'+fmtM(tB)+'</div><div class="stsub">NTD 換算</div></div>'
      +'<div class="st s2"><div class="stlbl">總出貨金額</div><div class="stval v2">'+fmtM(tS)+'</div><div class="stsub">NTD 換算</div></div>'
      +'<div class="st s3"><div class="stlbl">預估總毛利</div><div class="stval v3">'+fmtM(tP)+'</div><div class="stsub">毛利率 '+mg+'%</div></div>'
-     +'<div class="st s4"><div class="stlbl">待審核</div><div class="stval v4">'+pend+'</div><div class="stsub">筆合約</div></div>';
+     +'<div class="st s3"><div class="stlbl">待審核</div><div class="stval v4">'+pend+'</div><div class="stsub">筆合約</div></div>';
   }
 
   // 卡片列表（新到舊）
@@ -2574,7 +2536,7 @@ function showD(rowNum){
     h+='<div class="dsec"><div class="dsec-t tb">　採購（賣方）</div><div class="dgrid">'
       +dr('供應商',      r[F.supp]||'—')
       +dr('採購幣別',    buyPeriods3.length?(buyPeriods3[0].cur||'TWD'):'TWD')
-      +dr('應付總金額',  'NT$'+fmtN(m.buyNTD))
+      +dr('應付總金額',  (function(){var bp=buyPeriods3;if(bp.length){var cur=bp[0].cur||'TWD';var allSame=bp.every(function(p){return (p.cur||'TWD')===cur;});if(allSame){var tot=bp.reduce(function(s,p){return s+p.amt;},0);return cur+' '+fmtN(tot)+(cur==='TWD'?'':' <span style="color:#64748b;font-size:11px;">(≈NT$'+fmtN(m.buyNTD)+')</span>');}}return 'NT$'+fmtN(m.buyNTD);}()))
       +dr('折合NTD',    'NT$'+fmtN(m.buyNTD))
       +dr('付款條件',    r[F.buyPay]||'—')
       +dr('賣方合約',    r[F.buyCon]||'未選')
@@ -2590,7 +2552,7 @@ function showD(rowNum){
     h+='<div class="dsec"><div class="dsec-t ts">　銷售（買方）</div><div class="dgrid">'
       +dr('客戶名稱',    r[F.buyer]||'—')
       +dr('銷售幣別',    sellPeriods3.length?(sellPeriods3[0].cur||'TWD'):'TWD')
-      +dr('應收總金額',  'NT$'+fmtN(m.sellNTD))
+      +dr('應收總金額',  (function(){var sp=sellPeriods3;if(sp.length){var cur=sp[0].cur||'TWD';var allSame=sp.every(function(p){return (p.cur||'TWD')===cur;});if(allSame){var tot=sp.reduce(function(s,p){return s+p.amt;},0);return cur+' '+fmtN(tot)+(cur==='TWD'?'':' <span style="color:#64748b;font-size:11px;">(≈NT$'+fmtN(m.sellNTD)+')</span>');}}return 'NT$'+fmtN(m.sellNTD);}()))
       +dr('折合NTD',    'NT$'+fmtN(m.sellNTD))
       +dr('收款條件',    r[F.sellPay]||'—')
       +dr('買方合約',    r[F.sellCon]||'未選')
@@ -3819,19 +3781,10 @@ function changePwd(){
   if(!oldP||!newP||!cfP){errEl.textContent='請填寫所有欄位';return;}
   // 診斷比對
   var storedPwd = (curUser.pwd||'').toString().trim();
-  var inputOld  = oldP.trim();
-  console.log('=== changePwd 診斷 ===');
-  console.log('curUser.id:', curUser.id);
-  console.log('storedPwd:', storedPwd, '| 長度:', storedPwd.length);
-  console.log('inputOld:', inputOld,   '| 長度:', inputOld.length);
-  console.log('相符:', inputOld === storedPwd);
-  // charCode 比對
+  var inputOld  = oldP.trim();  // charCode 比對
   var sc=[],ic=[];
   for(var i=0;i<storedPwd.length;i++) sc.push(storedPwd.charCodeAt(i));
   for(var j=0;j<inputOld.length;j++)  ic.push(inputOld.charCodeAt(j));
-  console.log('storedPwd charCode:', sc.join(','));
-  console.log('inputOld  charCode:', ic.join(','));
-
   if(storedPwd.length === 32){
     errEl.textContent='密碼格式異常（Hash），請聯絡管理員至 Sheets 重設密碼';return;
   }
@@ -3903,9 +3856,7 @@ function loadPaymentsFromSheet(cb) {
       var cached = localStorage.getItem(CSV_CACHE_KEY);
       if (cached) {
         _csvRawItems = JSON.parse(cached);
-        allPayments  = _csvRawItems;
-        console.log('📦 CSV 快取命中，共 '+_csvRawItems.length+' 筆');
-        if (cb) cb(_csvRawItems);
+        allPayments  = _csvRawItems;        if (cb) cb(_csvRawItems);
         return;
       }
     }
@@ -3921,9 +3872,7 @@ function loadPaymentsFromSheet(cb) {
       try {
         localStorage.setItem(CSV_CACHE_KEY, JSON.stringify(parsed));
         localStorage.setItem(CSV_CACHE_TIME_KEY, Date.now().toString());
-      } catch(e) {}
-      console.log('✅ CSV 讀取完成，共 '+parsed.length+' 筆（已快取5分鐘）');
-      if (cb) cb(parsed);
+      } catch(e) {}      if (cb) cb(parsed);
     })
     .catch(function(e) {
       console.warn('帳款 CSV 讀取失敗：', e);
@@ -4022,9 +3971,7 @@ function loadPaymentStatusFromFirebase(cb) {
       snap.forEach(function(doc) {
         var d = doc.data();
         if (d && d.rowId) _fbPayStatus[String(d.rowId)] = d;
-      });
-      console.log('✅ Firebase payments_status 讀取完成，共 '+Object.keys(_fbPayStatus).length+' 筆');
-      if (cb) cb();
+      });      if (cb) cb();
     })
     .catch(function(e) {
       console.warn('讀取 payments_status 失敗：', e);
@@ -4642,7 +4589,6 @@ function _buildTransferItems() {
           // 非同步寫回，不阻塞畫面
           (function(fid, arr) {
             _writePeriodsToFirebase(fid, 'purchase', arr, function(ok) {
-              if (ok) console.log('✅ 初始化 purchase.periods：' + fid);
             });
           })(formId, initBuyPeriods);
           // 同步更新本地快取
@@ -4705,7 +4651,6 @@ function _buildTransferItems() {
           });
           (function(fid, arr) {
             _writePeriodsToFirebase(fid, 'sales', arr, function(ok) {
-              if (ok) console.log('✅ 初始化 sales.periods：' + fid);
             });
           })(formId, initSellPeriods);
           if (!r.sales) r.sales = {};
