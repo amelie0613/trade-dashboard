@@ -1129,6 +1129,7 @@
 
     <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn btn-green" onclick="exportExcel()">📤 匯出 Excel</button>
+      <button class="btn btn-blue" onclick="exportCostAnalysis()" style="background:#0052CC;color:white;">📊 成本分析</button>
       <button class="btn btn-primary" onclick="openSheetsPanel()">☁️ 寫入 Google Sheets</button>
     </div>
   </div>
@@ -6571,6 +6572,17 @@ function openDashboard(){
   window.dashboardData = allData;
   localStorage.setItem('inventoryData', JSON.stringify(allData));
   window.open('dashboard.html', 'inventory_dashboard', 'width=1400,height=900,resizable=yes,scrollbars=yes');
+}
+
+// 匯出成本分析
+function exportCostAnalysis(){
+  if(!allData || !allData.length){
+    showToast('❌ 請先加載庫存數據');
+    return;
+  }
+  window.inventoryData = allData;
+  localStorage.setItem('inventoryData', JSON.stringify(allData));
+  window.open('cost_analysis.html', 'cost_analysis', 'width=1400,height=900,resizable=yes,scrollbars=yes');
 }
 
 </script>

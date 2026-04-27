@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>各倉庫貨幣區間成本分析</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background: linear-gradient(135deg, #f0f4f9 0%, #e8f4ff 100%);
+      min-height: 100vh;
+      padding: 20px;
+      color: #1a1a1a;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 82, 204, 0.12);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #003D7A 0%, #0052CC 100%);
+      color: white;
+      padding: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      filter: brightness(1.1);
+      transform: translateY(-2px);
+    }
+
+    .btn-primary {
+      background: #f08080;
+      color: white;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.3);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .content {
+      padding: 24px;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      background: #f8fafc;
+      border-left: 4px solid;
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #e2e8f0;
+    }
+
+    .kpi-card.blue { border-left-color: #0052CC; }
+    .kpi-card.red { border-left-color: #DC2626; }
+    .kpi-card.orange { border-left-color: #EA580C; }
+    .kpi-card.purple { border-left-color: #0052CC; }
+
+    .kpi-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 900;
+      margin-bottom: 4px;
+    }
+
+    .kpi-card.blue .kpi-value { color: #0052CC; }
+    .kpi-card.red .kpi-value { color: #DC2626; }
+    .kpi-card.orange .kpi-value { color: #EA580C; }
+    .kpi-card.purple .kpi-value { color: #0052CC; }
+
+    .kpi-sub {
+      font-size: 11px;
+      color: #999;
+    }
+
+    .table-section {
+      margin-top: 16px;
+    }
+
+    .table-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0052CC;
+      padding: 12px;
+      background: #f0f4f9;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-left: 4px solid #0052CC;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid #d0d9e8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th {
+      background: #0052CC;
+      color: white;
+      padding: 12px 8px;
+      text-align: left;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid #fff;
+    }
+
+    td {
+      padding: 10px 8px;
+      border: 1px solid #e2e8f0;
+    }
+
+    tr.parent-row td {
+      background: #f0f4f9;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    tr.child-row td {
+      background: #fafbfc;
+      color: #444;
+      padding-left: 30px;
+    }
+
+    tr.total-row td {
+      background: #e0e7ff;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+
+    .currency {
+      color: #0052CC;
+      font-weight: 700;
+    }
+
+    .expired-value {
+      color: #DC2626 !important;
+      font-weight: 700;
+    }
+
+    .expand-btn {
+      cursor: pointer;
+      user-select: none;
+      font-weight: bold;
+      color: #0052CC;
+      margin-right: 6px;
+    }
+
+    .expand-btn:before {
+      content: '▼ ';
+    }
+
+    .expand-btn.collapsed:before {
+      content: '▶ ';
+    }
+
+    .child-row.hidden {
+      display: none;
+    }
+
+    .footer {
+      padding: 16px 24px;
+      background: #f5f5f5;
+      border-top: 1px solid #edd8f0;
+      font-size: 11px;
+      color: #999;
+    }
+
+    @media (max-width: 768px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .header {
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      table {
+        font-size: 10px;
+      }
+
+      th, td {
+        padding: 8px 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container" id="reportContainer">
+  <div class="header">
+    <h1>🔍 各倉庫貨幣區間成本分析</h1>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="window.history.back()">← 返回</button>
+      <button class="btn btn-primary" onclick="exportImage()">📥 匯出圖片</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card blue">
+        <div class="kpi-label">總庫存番數</div>
+        <div class="kpi-value" data-kpi="total">—</div>
+        <div class="kpi-sub">筆商品</div>
+      </div>
+
+      <div class="kpi-card red">
+        <div class="kpi-label">過期品</div>
+        <div class="kpi-value" data-kpi="expired">—</div>
+        <div class="kpi-sub" id="kpi-expired-pct">0件</div>
+      </div>
+
+      <div class="kpi-card orange">
+        <div class="kpi-label">長期在庫</div>
+        <div class="kpi-value" data-kpi="longterm">—</div>
+        <div class="kpi-sub" id="kpi-longterm-pct">0件</div>
+      </div>
+
+      <div class="kpi-card purple">
+        <div class="kpi-label">即將到期</div>
+        <div class="kpi-value" data-kpi="soon">—</div>
+        <div class="kpi-sub" id="kpi-soon-pct">0件</div>
+      </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="table-section">
+      <div class="table-title">
+        📋 按倉庫分類的成本成本明細（可展開/收合）
+      </div>
+
+      <div class="table-wrapper">
+        <table id="costTable">
+          <thead>
+            <tr>
+              <th style="width: 18%;">核算範圍/倉庫</th>
+              <th style="width: 12%;">全部成本</th>
+              <th style="width: 11%;">正常</th>
+              <th style="width: 11%;">過期品</th>
+              <th style="width: 11%;">長期在庫</th>
+              <th style="width: 11%;">即將到期</th>
+              <th style="width: 11%;">平均單價</th>
+              <th style="width: 8%;">數量</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <!-- 動態生成 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    💡 說明：每個核算範圍可點擊展開查看個別倉庫的成本明細 | 🔵 藍色數字表示成本 | ⚠️ 紅色數字表示過期品
+  </div>
+</div>
+
+<script>
+let costData = [];
+
+// 分類函數（來自主程序）
+function classify(row) {
+  if (!row.expDate) return { normal: true };
+  const exp = new Date(row.expDate);
+  const now = new Date();
+  const daysLeft = (exp - now) / (1000 * 60 * 60 * 24);
+
+  if (daysLeft < 0) return { expired: true };
+  if (daysLeft <= 30) return { soon: true };
+  if (daysLeft > 365) return { long: true };
+  return { normal: true };
+}
+
+// 計算成本（假設價格 × 數量）
+function calculateCost(row) {
+  const price = parseFloat(row.price) || 0;
+  const qty = parseFloat(row.quantity) || 0;
+  return price * qty;
+}
+
+// 解析庫存數據並生成成本分析
+function parseCostData(inventoryData) {
+  if (!Array.isArray(inventoryData) || !inventoryData.length) {
+    return getMockData();
+  }
+
+  // 按類別和倉庫分組
+  const grouped = {};
+
+  inventoryData.forEach(row => {
+    const category = row.category || '其他';
+    const warehouse = row.warehouse || '未分類';
+    const cost = calculateCost(row);
+    const classification = classify(row);
+
+    if (!grouped[category]) {
+      grouped[category] = {};
+    }
+    if (!grouped[category][warehouse]) {
+      grouped[category][warehouse] = {
+        total: 0, normal: 0, expired: 0, longterm: 0, soon: 0,
+        qty: 0, prices: []
+      };
+    }
+
+    grouped[category][warehouse].total += cost;
+    grouped[category][warehouse].qty++;
+    grouped[category][warehouse].prices.push(parseFloat(row.price) || 0);
+
+    if (classification.expired) grouped[category][warehouse].expired += cost;
+    else if (classification.soon) grouped[category][warehouse].soon += cost;
+    else if (classification.long) grouped[category][warehouse].longterm += cost;
+    else grouped[category][warehouse].normal += cost;
+  });
+
+  // 組織成樹狀結構
+  const result = [];
+  for (const [category, warehouses] of Object.entries(grouped)) {
+    const children = [];
+    let categoryTotal = 0, categoryNormal = 0, categoryExpired = 0, categoryLongterm = 0, categorySoon = 0, categoryQty = 0, categoryPrices = [];
+
+    for (const [warehouse, data] of Object.entries(warehouses)) {
+      const avgPrice = data.prices.length > 0 ? Math.round(data.prices.reduce((a, b) => a + b, 0) / data.prices.length) : 0;
+      children.push({
+        name: warehouse,
+        total: Math.round(data.total),
+        normal: Math.round(data.normal),
+        expired: Math.round(data.expired),
+        longterm: Math.round(data.longterm),
+        soon: Math.round(data.soon),
+        price: avgPrice,
+        qty: data.qty
+      });
+
+      categoryTotal += data.total;
+      categoryNormal += data.normal;
+      categoryExpired += data.expired;
+      categoryLongterm += data.longterm;
+      categorySoon += data.soon;
+      categoryQty += data.qty;
+      categoryPrices.push(...data.prices);
+    }
+
+    const categoryAvgPrice = categoryPrices.length > 0 ? Math.round(categoryPrices.reduce((a, b) => a + b, 0) / categoryPrices.length) : 0;
+
+    result.push({
+      name: category,
+      children: children,
+      total: Math.round(categoryTotal),
+      normal: Math.round(categoryNormal),
+      expired: Math.round(categoryExpired),
+      longterm: Math.round(categoryLongterm),
+      soon: Math.round(categorySoon),
+      price: categoryAvgPrice,
+      qty: categoryQty
+    });
+  }
+
+  return result.length > 0 ? result : getMockData();
+}
+
+// 模擬數據（當無真實數據時使用）
+function getMockData() {
+  return [
+    {
+      name: '大金盆倉',
+      children: [
+        { name: 'A倉庫', total: 25000000, normal: 22000000, expired: 150000, longterm: 2500000, soon: 350000, price: 6200, qty: 48 },
+        { name: 'B倉庫', total: 21500000, normal: 19200000, expired: 120000, longterm: 1800000, soon: 400000, price: 8100, qty: 42 },
+        { name: 'C倉庫', total: 21742206, normal: 10450930, expired: 104904, longterm: 10571555, soon: 594816, price: 9800, qty: 35 }
+      ],
+      total: 68242206, normal: 51650930, expired: 374904, longterm: 14871555, soon: 1344816, price: 8500, qty: 125
+    }
+  ];
+}
+
+function formatCurrency(num) {
+  if (num === 0) return '—';
+  return '$' + num.toLocaleString();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+
+  costData.forEach((parent, parentIdx) => {
+    // 父行
+    const parentRow = document.createElement('tr');
+    parentRow.className = 'parent-row';
+    const expiredClass = parent.expired > 0 ? 'expired-value' : 'currency';
+    parentRow.innerHTML = `
+      <td>
+        <span class="expand-btn" onclick="toggleChildren(this)">${parent.name}</span>
+      </td>
+      <td class="currency">${formatCurrency(parent.total)}</td>
+      <td class="currency">${formatCurrency(parent.normal)}</td>
+      <td class="${expiredClass}">${formatCurrency(parent.expired)}</td>
+      <td class="currency">${formatCurrency(parent.longterm)}</td>
+      <td class="currency">${formatCurrency(parent.soon)}</td>
+      <td>${parent.price ? '$' + parent.price : '—'}</td>
+      <td>${parent.qty}</td>
+    `;
+    tbody.appendChild(parentRow);
+
+    // 子行
+    parent.children.forEach(child => {
+      const childRow = document.createElement('tr');
+      childRow.className = 'child-row';
+      const childExpiredClass = child.expired > 0 ? 'expired-value' : 'currency';
+      childRow.innerHTML = `
+        <td>└─ ${child.name}</td>
+        <td class="currency">${formatCurrency(child.total)}</td>
+        <td class="currency">${formatCurrency(child.normal)}</td>
+        <td class="${childExpiredClass}">${formatCurrency(child.expired)}</td>
+        <td class="currency">${formatCurrency(child.longterm)}</td>
+        <td class="currency">${formatCurrency(child.soon)}</td>
+        <td>${child.price ? '$' + child.price : '—'}</td>
+        <td>${child.qty}</td>
+      `;
+      tbody.appendChild(childRow);
+    });
+  });
+
+  // 合計行
+  const totalRow = document.createElement('tr');
+  totalRow.className = 'total-row';
+  const grandTotal = costData.reduce((sum, d) => sum + d.total, 0);
+  const grandNormal = costData.reduce((sum, d) => sum + d.normal, 0);
+  const grandExpired = costData.reduce((sum, d) => sum + d.expired, 0);
+  const grandLongterm = costData.reduce((sum, d) => sum + d.longterm, 0);
+  const grandSoon = costData.reduce((sum, d) => sum + d.soon, 0);
+  const grandQty = costData.reduce((sum, d) => sum + d.qty, 0);
+
+  const totalExpiredClass = grandExpired > 0 ? 'expired-value' : 'currency';
+  totalRow.innerHTML = `
+    <td>合計</td>
+    <td class="currency">${formatCurrency(grandTotal)}</td>
+    <td class="currency">${formatCurrency(grandNormal)}</td>
+    <td class="${totalExpiredClass}">${formatCurrency(grandExpired)}</td>
+    <td class="currency">${formatCurrency(grandLongterm)}</td>
+    <td class="currency">${formatCurrency(grandSoon)}</td>
+    <td>—</td>
+    <td>${grandQty}</td>
+  `;
+  tbody.appendChild(totalRow);
+}
+
+function toggleChildren(btn) {
+  const parentRow = btn.closest('tr');
+  const allRows = document.querySelectorAll('tr');
+  let foundParent = false;
+  let isCollapsing = false;
+
+  allRows.forEach(row => {
+    if (row === parentRow) {
+      foundParent = true;
+      isCollapsing = btn.classList.contains('collapsed') === false;
+      btn.classList.toggle('collapsed');
+    } else if (foundParent && row.classList.contains('parent-row')) {
+      foundParent = false;
+    } else if (foundParent && row.classList.contains('child-row')) {
+      if (isCollapsing) {
+        row.classList.add('hidden');
+      } else {
+        row.classList.remove('hidden');
+      }
+    }
+  });
+}
+
+function exportImage() {
+  const element = document.getElementById('reportContainer');
+  const opt = {
+    margin: 6,
+    filename: `成本分析報告_${new Date().toLocaleDateString('zh-TW')}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { orientation: 'landscape', unit: 'mm', format: 'a4' }
+  };
+
+  html2pdf().set(opt).from(element).save();
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', () => {
+  // 從 localStorage 或 window.opener 取得數據
+  let inventoryData = [];
+  try {
+    if (window.opener?.inventoryData) {
+      inventoryData = window.opener.inventoryData;
+    } else {
+      const stored = localStorage.getItem('inventoryData');
+      if (stored) inventoryData = JSON.parse(stored);
+    }
+  } catch (e) {
+    console.warn('Error loading inventory data:', e);
+  }
+
+  // 解析數據或使用模擬數據
+  costData = parseCostData(inventoryData);
+
+  // 更新 KPI
+  updateKPIs(inventoryData);
+
+  // 渲染表格
+  renderTable();
+});
+
+// 更新 KPI 卡片
+function updateKPIs(inventoryData) {
+  if (!Array.isArray(inventoryData) || !inventoryData.length) {
+    document.querySelector('[data-kpi="total"]').textContent = '0';
+    return;
+  }
+
+  const total = inventoryData.length;
+  const expired = inventoryData.filter(r => classify(r).expired).length;
+  const soon = inventoryData.filter(r => classify(r).soon).length;
+  const slow = inventoryData.filter(r => classify(r).long).length;
+
+  document.querySelector('[data-kpi="total"]').textContent = total;
+  document.querySelector('[data-kpi="expired"]').textContent = expired;
+  document.querySelector('[data-kpi="longterm"]').textContent = slow;
+  document.querySelector('[data-kpi="soon"]').textContent = soon;
+}
+</script>
+
+</body>
+</html>
