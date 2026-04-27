@@ -77,53 +77,88 @@
       padding: 20px 24px 24px;
     }
 
-    .kpi-grid {
+    .scope-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
       margin-bottom: 24px;
     }
 
-    .kpi-card {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-left-width: 5px;          /* 左邊框加粗 */
-      border-left-color: #0052CC;      /* 預設色，各卡片會覆寫 */
-      border-radius: 8px;
-      padding: 16px;
+    .scope-card {
+      background: #fff;
+      border: 1px solid #d0d9e8;
+      border-top: 4px solid #0052CC;
+      border-radius: 10px;
+      padding: 14px 16px;
       display: flex;
       flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,82,204,0.07);
     }
 
-    .kpi-card.blue   { border-left-color: #0052CC; }
-    .kpi-card.red    { border-left-color: #DC2626; }
-    .kpi-card.orange { border-left-color: #EA580C; }
-    .kpi-card.purple { border-left-color: #7C3AED; }
-
-    .kpi-label {
-      font-size: 14px;
-      font-weight: 600;
-      color: #666;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .scope-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e8edf5;
     }
 
-    .kpi-value {
-      font-size: 30px;
-      font-weight: 900;
-      margin-bottom: 4px;
+    .scope-card-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: #003D7A;
+      line-height: 1.3;
     }
 
-    .kpi-card.blue .kpi-value { color: #0052CC; }
-    .kpi-card.red .kpi-value { color: #DC2626; }
-    .kpi-card.orange .kpi-value { color: #EA580C; }
-    .kpi-card.purple .kpi-value { color: #0052CC; }
-
-    .kpi-sub {
-      font-size: 14px;
+    .scope-card-wh {
+      font-size: 11px;
       color: #999;
+      margin-top: 2px;
+      font-weight: 400;
     }
+
+    .scope-card-total {
+      font-size: 20px;
+      font-weight: 900;
+      color: #0052CC;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .scope-card-total-label {
+      font-size: 10px;
+      color: #999;
+      text-align: right;
+    }
+
+    .scope-card-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .scope-card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .scope-card-row-label {
+      color: #555;
+      font-weight: 600;
+    }
+
+    .scope-card-row-value {
+      font-weight: 700;
+      color: #0052CC;
+      text-align: right;
+    }
+
+    .scope-card-row-value.red   { color: #DC2626; }
+    .scope-card-row-value.orange { color: #EA580C; }
+    .scope-card-row-value.muted  { color: #bbb; font-weight: 400; }
 
     .table-section {
       margin-top: 16px;
@@ -298,32 +333,8 @@
   </div>
 
   <div class="content">
-    <!-- KPI Cards -->
-    <div class="kpi-grid">
-      <div class="kpi-card blue">
-        <div class="kpi-label">總庫存番數</div>
-        <div class="kpi-value" data-kpi="total">—</div>
-        <div class="kpi-sub">筆商品</div>
-      </div>
-
-      <div class="kpi-card red">
-        <div class="kpi-label">過期品</div>
-        <div class="kpi-value" data-kpi="expired">—</div>
-        <div class="kpi-sub" id="kpi-expired-pct">0件</div>
-      </div>
-
-      <div class="kpi-card orange">
-        <div class="kpi-label">長期在庫</div>
-        <div class="kpi-value" data-kpi="longterm">—</div>
-        <div class="kpi-sub" id="kpi-longterm-pct">0件</div>
-      </div>
-
-      <div class="kpi-card purple">
-        <div class="kpi-label">即將到期</div>
-        <div class="kpi-value" data-kpi="soon">—</div>
-        <div class="kpi-sub" id="kpi-soon-pct">0件</div>
-      </div>
-    </div>
+    <!-- 核算範圍卡片（動態生成） -->
+    <div class="scope-grid" id="scopeGrid"></div>
 
     <!-- Table Section -->
     <div class="table-section">
@@ -453,15 +464,59 @@ function toggleChildren(btn) {
   }
 }
 
-// ── 更新 KPI 卡片 ─────────────────────────────────────────────────
-function updateKPIs(kpi) {
-  document.querySelector('[data-kpi="total"]').textContent    = kpi.total    ?? '—';
-  document.querySelector('[data-kpi="expired"]').textContent  = kpi.expired  ?? '—';
-  document.querySelector('[data-kpi="longterm"]').textContent = kpi.longterm ?? '—';
-  document.querySelector('[data-kpi="soon"]').textContent     = kpi.soon     ?? '—';
-  document.getElementById('kpi-expired-pct').textContent  = kpi.expired  + ' 件';
-  document.getElementById('kpi-longterm-pct').textContent = kpi.longterm + ' 件';
-  document.getElementById('kpi-soon-pct').textContent     = kpi.soon     + ' 件';
+// ── 渲染核算範圍卡片 ──────────────────────────────────────────────
+function renderScopeCards() {
+  const grid = document.getElementById('scopeGrid');
+  grid.innerHTML = '';
+
+  if (!costData.length) return;
+
+  const borderColors = ['#0052CC','#2563EB','#1D4ED8','#3B82F6','#6366F1','#7C3AED'];
+
+  costData.forEach((scope, i) => {
+    const color = borderColors[i % borderColors.length];
+    const whCount = scope.children ? scope.children.length : 0;
+
+    const fmtCard = v => v > 0
+      ? '$' + v.toLocaleString()
+      : '<span style="color:#ccc;">—</span>';
+
+    const card = document.createElement('div');
+    card.className = 'scope-card';
+    card.style.borderTopColor = color;
+
+    card.innerHTML = `
+      <div class="scope-card-header">
+        <div>
+          <div class="scope-card-name">${scope.name}</div>
+          <div class="scope-card-wh">${whCount > 0 ? whCount + ' 個倉庫' : '—'}</div>
+        </div>
+        <div>
+          <div class="scope-card-total-label">總成本</div>
+          <div class="scope-card-total" style="color:${color};">${fmtCard(scope.total)}</div>
+        </div>
+      </div>
+      <div class="scope-card-rows">
+        <div class="scope-card-row">
+          <span class="scope-card-row-label">正常品</span>
+          <span class="scope-card-row-value">${fmtCard(scope.normal)}</span>
+        </div>
+        <div class="scope-card-row">
+          <span class="scope-card-row-label" style="color:#DC2626;">過期品</span>
+          <span class="scope-card-row-value ${scope.expired > 0 ? 'red' : 'muted'}">${fmtCard(scope.expired)}</span>
+        </div>
+        <div class="scope-card-row">
+          <span class="scope-card-row-label" style="color:#EA580C;">長期在庫</span>
+          <span class="scope-card-row-value ${scope.longterm > 0 ? 'orange' : 'muted'}">${fmtCard(scope.longterm)}</span>
+        </div>
+        <div class="scope-card-row">
+          <span class="scope-card-row-label">即將到期</span>
+          <span class="scope-card-row-value ${scope.soon > 0 ? '' : 'muted'}">${fmtCard(scope.soon)}</span>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
 }
 
 // ── 匯出 PDF（使用瀏覽器原生列印，版面 100% 精確）──────────────
@@ -485,11 +540,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (payload && payload.costData && payload.costData.length) {
     costData = payload.costData;
-    updateKPIs(payload.kpiData || { total: 0, expired: 0, longterm: 0, soon: 0 });
-  } else {
-    updateKPIs({ total: 0, expired: 0, longterm: 0, soon: 0 });
   }
 
+  renderScopeCards();
   renderTable();
 });
 </script>
