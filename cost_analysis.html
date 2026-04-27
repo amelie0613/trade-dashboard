@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>各倉庫貨幣區間成本分析</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
 
@@ -238,14 +237,52 @@
       th, td { padding: 6px 4px; }
     }
 
+    /* ── 列印 / PDF 輸出樣式 ─────────────────────────── */
+    @page {
+      size: A4 portrait;
+      margin: 10mm 8mm;
+    }
+
     @media print {
-      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-      body { padding: 0; background: white; }
-      .container { border-radius: 0; box-shadow: none; max-width: 100%; width: 100%; }
-      .header-actions { display: none; }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: white !important;
+        width: 100%;
+      }
+
+      .container {
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+      }
+
+      /* 隱藏按鈕列 */
+      .header-actions { display: none !important; }
+
+      /* 保持子列隱藏狀態 */
       .child-row.hidden { display: none !important; }
-      table { page-break-inside: avoid; }
-      tr { page-break-inside: avoid; }
+
+      /* 防止表格跨頁斷行 */
+      table { page-break-inside: auto; }
+      thead { display: table-header-group; }
+      tr    { page-break-inside: avoid; }
+
+      /* 背景色強制輸出 */
+      .header       { background: linear-gradient(135deg, #003D7A 0%, #0052CC 100%) !important; }
+      th            { background: #0052CC !important; color: white !important; }
+      tr.parent-row td { background: #f0f4f9 !important; }
+      tr.total-row  td { background: #e0e7ff !important; }
+      .kpi-card     { background: #f8fafc !important; }
+      .table-title  { background: #f0f4f9 !important; }
+      .footer       { background: #f5f5f5 !important; }
     }
   </style>
 </head>
@@ -427,70 +464,13 @@ function updateKPIs(kpi) {
   document.getElementById('kpi-soon-pct').textContent     = kpi.soon     + ' 件';
 }
 
-// ── 匯出 PDF（A4 直式，單頁完整輸出）────────────────────────────
+// ── 匯出 PDF（使用瀏覽器原生列印，版面 100% 精確）──────────────
 function exportImage() {
-  const btn = document.querySelector('.btn-primary');
-  btn.textContent = '⏳ 產生中...';
-  btn.disabled = true;
+  // 展開所有子列，確保 PDF 完整顯示
+  document.querySelectorAll('.child-row.hidden').forEach(r => r.classList.remove('hidden'));
+  document.querySelectorAll('.expand-btn').forEach(b => b.classList.remove('collapsed'));
 
-  const el    = document.getElementById('reportContainer');
-  const body  = document.body;
-  const actions = el.querySelector('.header-actions');
-
-  // 隱藏按鈕
-  if (actions) actions.style.visibility = 'hidden';
-
-  // 儲存原始樣式
-  const origBodyPad = body.style.padding;
-  const origBodyBg  = body.style.background;
-  const origElCSS   = el.getAttribute('style') || '';
-
-  // A4 直式可列印寬度 = 794px（210mm @96dpi），去除左右 padding 各 20px
-  const A4W = 794;
-
-  // 暫套印列模式
-  body.style.padding    = '0';
-  body.style.background = '#fff';
-  el.style.cssText = `
-    width:${A4W}px !important;
-    max-width:${A4W}px !important;
-    border-radius:0 !important;
-    box-shadow:none !important;
-    margin:0 !important;
-  `;
-
-  // 雙 RAF 確保瀏覽器 repaint 完成再截圖
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    const opt = {
-      margin:      0,
-      filename:    `成本分析報告_${new Date().toLocaleDateString('zh-TW')}.pdf`,
-      image:       { type: 'jpeg', quality: 1.0 },
-      html2canvas: {
-        scale:       2,
-        useCORS:     true,
-        logging:     false,
-        windowWidth: A4W,
-        width:       A4W
-      },
-      jsPDF: {
-        orientation: 'portrait',
-        unit:        'mm',
-        format:      'a4'
-      },
-      pagebreak: { mode: 'avoid-all' }
-    };
-
-    const restore = () => {
-      body.style.padding    = origBodyPad;
-      body.style.background = origBodyBg;
-      el.setAttribute('style', origElCSS);
-      if (actions) actions.style.visibility = '';
-      btn.textContent = '📥 匯出 PDF';
-      btn.disabled    = false;
-    };
-
-    html2pdf().set(opt).from(el).save().then(restore).catch(restore);
-  }));
+  window.print();
 }
 
 // ── 初始化 ────────────────────────────────────────────────────────
