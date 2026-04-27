@@ -862,7 +862,7 @@
   <button class="app-switch-btn" onclick="switchApp('rental')" id="sw_rental">
     🧊 冷凍庫存租金計算
   </button>
-  <button class="app-switch-btn" onclick="window.open('inventory_dashboard.html', '_blank')" id="sw_dashboard">
+  <button class="app-switch-btn" onclick="openDashboard()" id="sw_dashboard">
     📊 庫存儀表板
   </button>
 </div>
@@ -1133,6 +1133,9 @@
     </div>
   </div>
 
+  <!-- MAIN CONTENT WRAPPER -->
+  <div class="main-content">
+
   <!-- GLOBAL SEARCH BAR -->
   <div id="globalSearchBar" style="background:var(--bg);padding:12px 20px 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <div class="search-box" style="flex:0 0 auto;min-width:260px;">
@@ -1387,7 +1390,7 @@
     </div>
   </div>
 
-</div><!-- /main -->
+  </div><!-- /main -->
 </div><!-- /wood-container -->
 </div><!-- end app_wood -->
 
@@ -2865,8 +2868,21 @@ async function exportExcel(){
       ws.views = [{ state:'frozen', ySplit:1 }];
     };
 
-    const applyDataCellStyle = (cell, bgArgb, numFmt) => {
+    // 字體顏色對應表（按 row class）
+    const FONT_COLOR = {
+      'row-expired': 'FFd62728',  // 紅色
+      'row-urgent':  'FFd62728',  // 紅色
+      'row-warn':    'FFff7f0e',  // 橙色
+      'row-long':    'FFff7f0e',  // 橙色
+      'row-caution': 'FF9467bd',  // 紫色
+      'row-track':   'FF2ca02c',  // 綠色
+      '':            'FF000000'   // 黑色（正常）
+    };
+
+    const applyDataCellStyle = (cell, bgArgb, numFmt, rowClass) => {
+      const fontArgb = FONT_COLOR[rowClass] || 'FF000000';
       cell.fill      = { type:'pattern', pattern:'solid', fgColor:{ argb:bgArgb } };
+      cell.font      = { color:{ argb:fontArgb }, size:11 };
       cell.border    = BORDER;
       cell.alignment = { vertical:'middle' };
       if(numFmt) cell.numFmt = numFmt;
@@ -2922,9 +2938,10 @@ async function exportExcel(){
           cost,
         ]);
 
-        const bgArgb = ROW_BG[getRowClass(f, r)] || 'FFFFFFFF';
+        const rowClass = getRowClass(f, r);
+        const bgArgb = ROW_BG[rowClass] || 'FFFFFFFF';
         addedRow.eachCell({ includeEmpty:true }, (cell, colNum) => {
-          applyDataCellStyle(cell, bgArgb, cols[colNum - 1]?.[2]);
+          applyDataCellStyle(cell, bgArgb, cols[colNum - 1]?.[2], rowClass);
         });
       });
     };
@@ -2954,7 +2971,7 @@ async function exportExcel(){
         pd.scope || '',
       ]);
       addedRow.eachCell({ includeEmpty:true }, (cell, colNum) => {
-        applyDataCellStyle(cell, 'FFFFFFFF', PRICE_COLS[colNum - 1]?.[2]);
+        applyDataCellStyle(cell, 'FFFFFFFF', PRICE_COLS[colNum - 1]?.[2], '');
       });
     });
 
@@ -6548,6 +6565,13 @@ window.autoFormatDate = autoFormatDate;
 window.dragOver = dragOver;
 window.dragLeave = dragLeave;
 window.dropFile = dropFile;
+
+// 開啟獨立仪表板
+function openDashboard(){
+  window.dashboardData = allData;
+  localStorage.setItem('inventoryData', JSON.stringify(allData));
+  window.open('dashboard.html', 'inventory_dashboard', 'width=1400,height=900,resizable=yes,scrollbars=yes');
+}
 
 </script>
 
