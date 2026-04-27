@@ -3343,9 +3343,25 @@ function doEdit(rowNum){
     if(btn){btn.disabled=false;btn.textContent='💾 儲存修改';}
   }
 
+  // ★ 待補填案件：只要銷售期有資料就自動標記完成
+  var isFillWaiting = r && (r[F.fillStatus]||r['銷售補填狀態']||'').toString().trim() === '待補填';
+  if(isFillWaiting){
+    var hasSellData = newSellPeriods.length > 0 ||
+      (function(){
+        for(var _i=1;_i<=3;_i++){
+          if(parseFloat(r['銷售期'+_i+'金額'])||0) return true;
+        }
+        return false;
+      })();
+    if(hasSellData){
+      firestoreFields['銷售補填狀態']    = '已完成';
+      firestoreFields['transfer.fillStatus'] = '已完成';
+      if(r){ r[F.fillStatus]='已完成'; r['銷售補填狀態']='已完成'; }
+    }
+  }
+
   if(formId){
     updateFirebase(formId, firestoreFields, function(ok){
-      if(!ok) console.warn('Firestore 寫入失敗');
       onEditDone();
     });
   } else {
