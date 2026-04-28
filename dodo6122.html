@@ -3,909 +3,760 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>庫存管理 + 租金計算</title>
+<title>庫存暨租金管理系統</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-
-<!-- ══ APP SWITCHER STYLES ══════════════════════════════════════ -->
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;700&family=Nunito:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;700&family=Nunito:wght@400;600;700;800&display=swap');
 
-  /* ── SWITCHER ────────────────────────────── */
-  .app-switcher {
-    display: flex;
-    justify-content: center;
-    gap: 0;
-    background: #2a1f2d;
-    position: sticky;
-    top: 0;
-    z-index: 10000;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-  }
-  .app-switch-btn {
-    padding: 14px 32px;
-    border: none;
-    background: transparent;
-    color: rgba(255,255,255,0.6);
-    font-family: 'Noto Sans TC', 'Nunito', sans-serif;
-    font-size: 14px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: all 0.2s;
-    border-bottom: 3px solid transparent;
-    letter-spacing: 0.5px;
-  }
-  .app-switch-btn:hover {
-    color: rgba(255,255,255,0.9);
-    background: rgba(255,255,255,0.07);
-  }
-  .app-switch-btn.active {
-    color: white;
-    border-bottom-color: #F2A7C3;
-    background: rgba(255,255,255,0.1);
-  }
-  .app-page { display: none; }
-  .app-page.active { display: block; }
-
-  /* ── WOOD APP 外層留白（對齊租金工具風格） */
-  #app_wood {
-    background: #fdf6ee;
-    padding: 2rem 1rem;
-    min-height: calc(100vh - 52px);
-  }
-  .wood-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    background: white;
-    border-radius: 20px;
-    box-shadow: 0 8px 40px rgba(42,31,45,0.12);
-    overflow: hidden;
-    position: relative;
-    z-index: 1;
-  }
-
-  /* ── WOOD APP (庫存系統) global styles ──── */
-
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;700&display=swap');
-
-  :root {
-    --pink:   #F2A7C3;
-    --red:    #F08080;
-    --orange: #F7A35C;
-    --yellow: #F7D96B;
-    --green:  #8DCC7A;
-    --blue:   #7EC8E3;
-    --purple: #6B5B95;
-    --coral:  #E8836A;
-    --violet: #C9A8E0;
-    --white:  #FFFFFF;
-    --bg:     #FFF6FA;
-    --card:   #FFFFFF;
-    --text:   #3D2C4E;
-    --muted:  #9B8EAB;
-    --border: #EDD8F0;
-    --shadow: 0 4px 20px rgba(107,91,149,0.10);
-    --r: 18px;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'Noto Sans TC', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
-
-  /* ── HEADER ──────────────────────────────── */
-  .header {
-    background: #2a1f2d;
-    padding: 2rem 2rem 1.5rem;
-    position: relative;
-    overflow: hidden;
-    text-align: center;
-    box-shadow: 0 6px 30px rgba(0,0,0,0.35);
-  }
-  .header::before { display: none; }
-
-  /* 花朵帶（SVG，仿租金工具） */
-  .header-flowers {
-    display: flex;
-    justify-content: center;
-    gap: 0.4rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-    position: static;
-    pointer-events: none;
-  }
-  .header-flowers svg {
-    width: 28px; height: 28px;
-    animation: sway 3s ease-in-out infinite;
-  }
-  .header-flowers svg:nth-child(odd)  { animation-delay: 0.5s; }
-  .header-flowers svg:nth-child(3n)   { animation-delay: 1s; }
-  @keyframes sway {
-    0%,100%{ transform: rotate(-8deg) scale(1); }
-    50%    { transform: rotate(8deg)  scale(1.08); }
-  }
-
-  .header-content {
-    position: relative; z-index: 1;
-    display: flex; align-items: center; justify-content: center;
-    gap: 12px; flex-wrap: wrap;
-  }
-  .header-logo { font-size: 32px; }
-  .header-title { color: white; }
-  .header-title h1 { font-size: 1.8rem; font-weight: 900; letter-spacing: 0.02em; margin-bottom: 0.3rem; }
-  .header-title p  { font-size: 0.9rem; opacity: 0.7; font-weight: 400; }
-  .header-date { color: rgba(255,255,255,0.75); font-size: 12px; margin-left: 12px; white-space: nowrap; }
-
-  /* ── LAYOUT ──────────────────────────────── */
-  .main { max-width: 100%; margin: 0; padding: 24px 24px; }
-
-  /* ── KPI CARDS ───────────────────────────── */
-  .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-  .kpi-card {
-    background: var(--card);
-    border-radius: var(--r);
-    padding: 20px;
-    box-shadow: var(--shadow);
-    border-left: 5px solid;
-    display: flex; flex-direction: column; gap: 6px;
-    transition: transform .2s, box-shadow .2s;
-    cursor: default;
-  }
-  .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(107,91,149,0.18); }
-  .kpi-card.red    { border-color: var(--red); }
-  .kpi-card.orange { border-color: var(--orange); }
-  .kpi-card.coral  { border-color: var(--coral); }
-  .kpi-card.blue   { border-color: var(--blue); }
-  .kpi-label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing:.5px; }
-  .kpi-value { font-size: 32px; font-weight: 900; line-height: 1; }
-  .kpi-card.red    .kpi-value { color: var(--red); }
-  .kpi-card.orange .kpi-value { color: var(--orange); }
-  .kpi-card.coral  .kpi-value { color: var(--coral); }
-  .kpi-card.blue   .kpi-value { color: var(--purple); }
-  .kpi-sub { font-size: 11px; color: var(--muted); }
-
-  /* ── CONTROL BAR ─────────────────────────── */
-  .control-bar {
-    background: var(--card);
-    border-radius: var(--r);
-    padding: 18px 22px;
-    box-shadow: var(--shadow);
-    margin-bottom: 20px;
-    display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
-  }
-  .ctrl-group { display: flex; flex-direction: column; gap: 4px; }
-  .ctrl-group label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing:.5px; }
-
-  .btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 9px 18px; border-radius: 12px; border: none;
-    font-family: 'Noto Sans TC', sans-serif;
-    font-size: 13px; font-weight: 700; cursor: pointer;
-    transition: all .2s;
-  }
-  .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
-  .btn:active { transform: translateY(0); }
-  .btn-primary  { background: var(--purple); color: white; }
-  .btn-green    { background: var(--green);  color: #2a5a1a; }
-  .btn-orange   { background: var(--orange); color: white; }
-  .btn-blue     { background: var(--blue);   color: #1a4a5a; }
-  .btn-red      { background: var(--red);    color: white; }
-  .btn-ghost    { background: var(--border); color: var(--text); }
-
-  input[type=file] { display: none; }
-
-  select, input[type=number] {
-    border: 2px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 12px;
-    font-family: 'Noto Sans TC', sans-serif;
-    font-size: 13px;
-    color: var(--text);
-    background: white;
-    outline: none;
-    transition: border-color .2s;
-  }
-  select:focus, input[type=number]:focus { border-color: var(--violet); }
-
-  /* ── TABS ────────────────────────────────── */
-  .tabs {
-    display: flex; gap: 6px; margin-bottom: 0;
-    border-bottom: 3px solid var(--border);
-    padding-bottom: 0;
-  }
-  .tab-btn {
-    padding: 10px 20px;
-    border: none; background: transparent;
-    font-family: 'Noto Sans TC', sans-serif;
-    font-size: 13px; font-weight: 700;
-    color: var(--muted); cursor: pointer;
-    border-radius: 12px 12px 0 0;
-    transition: all .2s;
-    border: 2px solid transparent;
-    border-bottom: none;
-    margin-bottom: -3px;
-  }
-  .tab-btn:hover { color: var(--text); background: rgba(107,91,149,.07); }
-  .tab-btn.active {
-    color: var(--purple);
-    background: white;
-    border-color: var(--border) var(--border) white;
-    border-bottom: 3px solid white;
-  }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
-
-  /* ── TABLE WRAPPER ───────────────────────── */
-  .table-wrap {
-    background: var(--card);
-    border-radius: 0 var(--r) var(--r) var(--r);
-    box-shadow: var(--shadow);
-    overflow: hidden;
-    margin-bottom: 24px;
-  }
-  .table-toolbar {
-    display: flex; align-items: center; gap: 12px;
-    padding: 14px 18px; background: var(--bg);
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-  }
-  .search-box {
-    display: flex; align-items: center; gap: 8px;
-    background: white; border: 2px solid var(--border);
-    border-radius: 10px; padding: 6px 12px;
-    transition: border-color .2s;
-  }
-  .search-box:focus-within { border-color: var(--violet); }
-  .search-box input {
-    border: none; outline: none; background: transparent;
-    font-family: 'Noto Sans TC', sans-serif; font-size: 13px;
-    width: 180px; color: var(--text);
-  }
-  .filter-select {
-    padding: 7px 12px; border: 2px solid var(--border);
-    border-radius: 10px; font-size: 13px;
-    font-family: 'Noto Sans TC', sans-serif;
-    color: var(--text); background: white; outline: none;
-    transition: border-color .2s;
-  }
-  .filter-select:focus { border-color: var(--violet); }
-
-  /* ── MULTI-SELECT WAREHOUSE DROPDOWN ─────── */
-  .multi-select-wrap { position: relative; }
-  .multi-select-btn {
-    cursor: pointer; text-align: left; background: white;
-    min-width: 140px; max-width: 240px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    font-family: inherit;
-  }
-  .multi-select-dropdown {
-    position: absolute; top: calc(100% + 4px); left: 0;
-    background: white; border: 2px solid var(--border);
-    border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-    z-index: 9999; min-width: 170px; max-height: 260px; overflow-y: auto;
-  }
-  .multi-select-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 7px 12px; font-size: 13px; cursor: pointer;
-    transition: background 0.15s; user-select: none;
-  }
-  .multi-select-item:hover { background: var(--bg); }
-  .multi-select-item:first-child { border-bottom: 1px solid var(--border); }
-  .multi-select-item input[type=checkbox] {
-    width: 15px; height: 15px; accent-color: var(--purple); cursor: pointer; flex-shrink: 0;
-  }
-
-  .tbl-count { margin-left:auto; font-size:12px; color:var(--muted); font-weight:600; }
-
-  .tbl-scroll { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
-  thead th {
-    position: sticky; top: 0; z-index: 2;
-    padding: 12px 10px;
-    font-size: 11px; font-weight: 800;
-    letter-spacing: .5px; color: white;
-    cursor: pointer; white-space: nowrap;
-    user-select: none;
-    transition: filter .15s;
-  }
-  thead th:hover { filter: brightness(1.12); }
-  thead th .sort-icon { margin-left: 3px; opacity: .6; font-size: 10px; }
-
-  tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
-  tbody tr:hover { background: rgba(107,91,149,.04); }
-  tbody tr:last-child { border-bottom: none; }
-  td { padding: 9px 10px; white-space: nowrap; }
-
-
-  /* ── DENSE TABLE (like screenshot) ──────── */
-  .tbl-scroll { overflow-x: auto; }
-  table { width:100%; border-collapse:collapse; font-size:13px; min-width:900px; }
-  thead th {
-    position:sticky; top:0; z-index:2;
-    padding: 10px 12px; font-size:11px; font-weight:800;
-    letter-spacing:.4px; color:white; cursor:pointer;
-    white-space:nowrap; user-select:none; transition:filter .15s;
-    border-bottom: 2px solid rgba(255,255,255,.2);
-  }
-  thead th:hover { filter:brightness(1.1); }
-  tbody tr { border-bottom:1px solid #F0EAF5; transition:background .1s; }
-  tbody tr:last-child { border-bottom:none; }
-  tbody tr:hover { background:rgba(107,91,149,.05) !important; }
-  td { padding:8px 12px; white-space:nowrap; font-size:13px; }
-
-  /* diff 變化標記 */
-  .diff-new  { background:#F0FFF4; }
-  .diff-gone { background:#FFF5F5; }
-  .diff-up   { background:#F0F8FF; }
-  .diff-down { background:#FFF8F0; }
-  .chg-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
-  .chg-new  { background:#C6F6D5; color:#276749; }
-  .chg-gone { background:#FED7D7; color:#9B2C2C; }
-  .chg-up   { background:#BEE3F8; color:#2A69AC; }
-  .chg-down { background:#FEEBC8; color:#C05621; }
-  .chg-same { background:#EDF2F7; color:#718096; }
-
-  .badge {
-    display: inline-block; padding: 2px 9px;
-    border-radius: 20px; font-size: 11px; font-weight: 700;
-  }
-  .badge-red    { background: #FFE8E8; color: #C03030; }
-  .badge-orange { background: #FFF0E0; color: #B05010; }
-  .badge-yellow { background: #FFFBE0; color: #906000; }
-  .badge-green  { background: #E8FFE0; color: #2A7A10; }
-  .badge-gray   { background: #F0EDF5; color: #6B5B95; }
-
-  .row-expired { background: #FFF5F5; }
-  .row-urgent  { background: #FFF5F5; }
-  .row-warn    { background: #FFF8F0; }
-  .row-caution { background: #FFFEF0; }
-  .row-track   { background: #F5FFF0; }
-  .row-long    { background: #FFF8F0; }
-
-  .tbl-footer {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 18px; background: var(--bg);
-    border-top: 2px solid var(--border);
-    font-size: 12px; color: var(--muted); font-weight: 600;
-  }
-  .tbl-footer strong { color: var(--purple); }
-
-  /* ── PRICE EDITOR ────────────────────────── */
-  .price-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 12px;
-    padding: 18px;
-    max-height: 520px;
-    overflow-y: auto;
-  }
-  .price-card {
-    background: white;
-    border: 2px solid var(--border);
-    border-radius: 14px;
-    padding: 14px;
-    display: flex; align-items: center; gap: 12px;
-    transition: border-color .2s, box-shadow .2s;
-  }
-  .price-card:focus-within { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(107,91,149,.12); }
-  .price-code { font-size: 11px; font-weight: 800; color: var(--purple); min-width: 42px; }
-  .price-name { flex: 1; font-size: 12px; color: var(--text); }
-  .price-input {
-    width: 88px; padding: 6px 10px;
-    border: 2px solid var(--border);
-    border-radius: 8px; font-size: 13px; font-weight: 700;
-    color: var(--text); text-align: right;
-    font-family: 'DM Sans', sans-serif;
-    outline: none; transition: border-color .2s;
-  }
-  .price-input:focus { border-color: var(--violet); }
-
-  /* ── SETTINGS ────────────────────────────── */
-  .settings-grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 20px; padding: 20px;
-  }
-  .setting-card {
-    background: white; border-radius: 14px;
-    border: 2px solid var(--border); padding: 18px;
-  }
-  .setting-card h4 { font-size: 13px; font-weight: 800; color: var(--purple); margin-bottom: 14px; }
-  .setting-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 0; border-bottom: 1px solid var(--border);
-  }
-  .setting-row:last-child { border-bottom: none; }
-  .setting-label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-  .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-
-
-  /* ── PRICE TABLE ─────────────────────────── */
-  .price-tbl-wrap { overflow-x: auto; }
-  .price-tbl { width:100%; border-collapse:collapse; font-size:13px; }
-  .price-tbl thead th {
-    background: var(--purple); color: white;
-    padding: 10px 12px; font-size:11px; font-weight:800;
-    letter-spacing:.5px; text-align:center; white-space:nowrap;
-    border: 1px solid rgba(255,255,255,.2);
-  }
-  .price-tbl tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
-  .price-tbl tbody tr:hover { background: rgba(107,91,149,.04); }
-  .price-tbl td { padding: 7px 10px; border-right: 1px solid var(--border); }
-  .price-tbl td:last-child { border-right: none; }
-  .price-tbl .td-code  { font-size:11px; font-weight:800; color:var(--purple); text-align:center; white-space:nowrap; }
-  .price-tbl .td-name  { font-size:12px; color:var(--text); }
-  .price-tbl .td-lot   { font-size:11px; color:var(--muted); text-align:center; white-space:nowrap; }
-  .price-tbl .td-src   { text-align:center; }
-  .price-tbl .td-num   { text-align:right; }
-  .price-tbl input.tbl-price-input {
-    width: 90px; padding: 5px 8px; text-align:right;
-    border: 2px solid var(--border); border-radius:7px;
-    font-size:13px; font-weight:700; font-family:'DM Sans',sans-serif;
-    outline:none; transition: border-color .15s;
-  }
-  .price-tbl input.tbl-price-input:focus { border-color: var(--violet); }
-  .price-tbl input.tbl-scope-input {
-    width: 110px; padding: 5px 8px;
-    border: 2px solid var(--border); border-radius:7px;
-    font-size:12px; font-family:'Noto Sans TC',sans-serif;
-    outline:none; transition: border-color .15s;
-  }
-  .price-tbl input.tbl-scope-input:focus { border-color: var(--violet); }
-
-
-  /* ── SCOPE COST TABLE ───────────────────── */
-  .scope-table-wrap {
-    background: var(--card);
-    border-radius: var(--r);
-    box-shadow: var(--shadow);
-    margin-bottom: 20px;
-    overflow: hidden;
-  }
-  .scope-table-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 18px;
-    background: linear-gradient(90deg, var(--purple), #9B73C7);
-    cursor: pointer;
-    user-select: none;
-  }
-  .scope-table-header h4 { color:white; font-size:13px; font-weight:800; }
-  .scope-table-header span { color:rgba(255,255,255,.7); font-size:12px; }
-  .scope-tbl-body { overflow-x:auto; }
-  .scope-tbl { width:100%; border-collapse:collapse; font-size:13px; }
-  .scope-tbl th {
-    padding: 9px 14px; background: #F5F0FF;
-    font-size:11px; font-weight:800; color:var(--purple);
-    text-align:right; white-space:nowrap;
-    border-bottom: 2px solid var(--border);
-  }
-  .scope-tbl th:first-child { text-align:left; }
-  .scope-tbl td {
-    padding: 9px 14px; border-bottom:1px solid var(--border);
-    text-align:right; white-space:nowrap; font-size:12px;
-  }
-  .scope-tbl td:first-child { text-align:left; font-weight:700; color:var(--purple); }
-  .scope-tbl tbody tr:hover { background: rgba(107,91,149,.04); }
-  .scope-tbl tbody tr:last-child td { border-bottom:none; font-weight:800; background:#F5F0FF; color:var(--purple); }
-  .cost-zero { color:#CCC; }
-
-  /* ── UPLOAD ZONE ─────────────────────────── */
-  .upload-zone {
-    border: 3px dashed var(--border);
-    border-radius: var(--r);
-    padding: 40px;
-    text-align: center;
-    cursor: pointer;
-    transition: all .2s;
-    background: white;
-    margin: 20px;
-  }
-  .upload-zone:hover, .upload-zone.drag { border-color: var(--violet); background: rgba(107,91,149,.04); }
-  .upload-zone .icon { font-size: 40px; margin-bottom: 12px; }
-  .upload-zone h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
-  .upload-zone p  { font-size: 13px; color: var(--muted); }
-
-  /* ── EMPTY STATE ─────────────────────────── */
-  .empty-state {
-    text-align: center; padding: 48px 20px; color: var(--muted);
-  }
-  .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: .5; }
-  .empty-state p { font-size: 14px; }
-
-  /* ── TOAST ───────────────────────────────── */
-  .toast {
-    position: fixed; bottom: 28px; right: 28px;
-    background: var(--purple); color: white;
-    padding: 12px 22px; border-radius: 14px;
-    font-size: 13px; font-weight: 700;
-    box-shadow: 0 8px 30px rgba(107,91,149,.35);
-    transform: translateY(80px); opacity: 0;
-    transition: all .3s cubic-bezier(.4,0,.2,1);
-    z-index: 999;
-  }
-  .toast.show { transform: translateY(0); opacity: 1; }
-
-  /* ── RESPONSIVE ──────────────────────────── */
-  @media(max-width:900px){
-    .kpi-grid { grid-template-columns: repeat(2,1fr); }
-    .settings-grid { grid-template-columns: 1fr; }
-  }
-  @media(max-width:600px){
-    .kpi-grid { grid-template-columns: 1fr 1fr; }
-    .main { padding: 16px; }
-  }
-
-  .loader {
-    display: none; position: fixed; inset: 0; z-index: 9999;
-    background: rgba(255,246,250,.85);
-    justify-content: center; align-items: center;
-    flex-direction: column; gap: 16px;
-  }
-  .loader.show { display: flex; }
-  .spin { width: 40px; height: 40px; border: 4px solid var(--border);
-    border-top-color: var(--purple); border-radius: 50%;
-    animation: spin .7s linear infinite; }
-  @keyframes spin { to{ transform:rotate(360deg); } }
-
-
-  /* ── RENTAL APP (租金計算) scoped styles ── */
-#app_rental 600;700;800&display=swap');
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-
-    #app_rental {
-        --pink:   #f2a7c3;
-        --orange: #f7a35c;
-        --yellow: #f7d96b;
-        --blue:   #7ec8e3;
-        --green:  #8dcc7a;
-        --coral:  #e8836a;
-        --purple: #c9a8e0;
-        --dark:   #2a1f2d;
-        --cream:  #fdf6ee;
-        --text:   #3d2c1e;
-    }
-
-
-    #app_rental {
-        font-family: 'Nunito', sans-serif;
-        background: var(--cream);
-        min-height: 100vh;
-        padding: 2rem 1rem;
-        position: relative;
-        overflow-x: hidden;
-    }
-#app_rental /* 背景飄落小花 */
-    #app_rental::before {
-        content: '';
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        background-image:
-            radial-gradient(circle 6px at 8% 12%, var(--pink) 70%, transparent 71%),
-            radial-gradient(circle 4px at 15% 35%, var(--yellow) 70%, transparent 71%),
-            radial-gradient(circle 7px at 92% 8%, var(--blue) 70%, transparent 71%),
-            radial-gradient(circle 5px at 85% 25%, var(--orange) 70%, transparent 71%),
-            radial-gradient(circle 4px at 3% 60%, var(--green) 70%, transparent 71%),
-            radial-gradient(circle 6px at 96% 55%, var(--coral) 70%, transparent 71%),
-            radial-gradient(circle 5px at 50% 95%, var(--purple) 70%, transparent 71%),
-            radial-gradient(circle 4px at 70% 88%, var(--yellow) 70%, transparent 71%),
-            radial-gradient(circle 6px at 25% 90%, var(--pink) 70%, transparent 71%);
-        opacity: 0.5;
-        z-index: 0;
-    }
-#app_rental .container {
-        max-width: 1400px;
-        margin: 0 auto;
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 8px 40px rgba(42,31,45,0.12);
-        overflow: hidden;
-        position: relative;
-        z-index: 1;
-    }
-#app_rental .header {
-        background: var(--dark);
-        color: white;
-        padding: 2rem 2rem 1.5rem;
-        text-align: center;
-        position: relative;
-        overflow: hidden;
-    }
-#app_rental /* 頂部小花裝飾帶 */
-    .flower-band {
-        display: flex;
-        justify-content: center;
-        gap: 0.4rem;
-        margin-bottom: 1rem;
-        flex-wrap: wrap;
-    }
-#app_rental .flower-band svg {
-        width: 28px;
-        height: 28px;
-        animation: sway 3s ease-in-out infinite;
-    }
-#app_rental .flower-band svg:nth-child(odd) { animation-delay: 0.5s; }
-#app_rental .flower-band svg:nth-child(3n) { animation-delay: 1s; }
-
-    @keyframes sway {
-        0%, 100% { transform: rotate(-8deg) scale(1); }
-        50% { transform: rotate(8deg) scale(1.08); }
-    }
-#app_rental .header h1 {
-        font-size: 1.8rem;
-        font-weight: 800;
-        letter-spacing: 0.02em;
-        margin-bottom: 0.3rem;
-    }
-#app_rental .header p {
-        opacity: 0.7;
-        font-size: 0.9rem;
-        font-weight: 400;
-    }
-#app_rental .content {
-        padding: 1.5rem 2rem 2rem;
-    }
-#app_rental .top-panel {
-        background: #fdf0f7;
-        border: 2px solid var(--pink);
-        border-radius: 16px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-#app_rental .top-grid {
-        display: grid;
-        grid-template-columns: 2fr 1.5fr;
-        gap: 1.5rem;
-        align-items: start;
-    }
-@media (max-width: 1024px) {
-#app_rental .top-grid { grid-template-columns: 1fr; }
-
-    
+/* ══ DESIGN TOKENS ══════════════════════════════════════════════ */
+:root {
+  /* Status / Brand colors (backward-compatible with existing JS) */
+  --pink:   #F2A7C3;
+  --red:    #ef4444;
+  --orange: #F7A35C;
+  --yellow: #F7D96B;
+  --green:  #22c55e;
+  --blue:   #3b82f6;
+  --purple: #6B5B95;
+  --coral:  #E8836A;
+  --violet: #C9A8E0;
+  --white:  #FFFFFF;
+  /* Layout semantics (new) */
+  --bg:     #F0F4F8;
+  --card:   #FFFFFF;
+  --text:   #1a2540;
+  --muted:  #64748b;
+  --border: #e2e8f0;
+  --shadow: 0 1px 4px rgba(30,42,74,0.08), 0 4px 16px rgba(30,42,74,0.06);
+  --r:      12px;
+  /* Sidebar */
+  --sidebar-bg:    #1E2A4A;
+  --sidebar-w:     240px;
+  --header-h:      60px;
+  /* Theme accent (overridable) */
+  --accent:        #6B5B95;
+  --accent-rgb:    107,91,149;
+  --accent-light:  #f3f0fb;
 }
-#app_rental .section-title {
-        font-size: 0.8rem;
-        font-weight: 800;
-        color: var(--coral);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-bottom: 0.8rem;
-        padding-bottom: 0.4rem;
-        border-bottom: 2px dashed var(--pink);
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-#app_rental .form-group {
-        margin-bottom: 0.8rem;
-    }
-#app_rental label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 0.3rem;
-        color: var(--text);
-        font-size: 0.85rem;
-    }
-#app_rental input, #app_rental select {
-        width: 100%;
-        padding: 0.55rem 0.75rem;
-        border: 1.5px solid #e8d5ef;
-        border-radius: 10px;
-        font-size: 0.88rem;
-        font-family: 'Nunito', sans-serif;
-        background: white;
-        color: var(--text);
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-#app_rental input:focus, #app_rental select:focus {
-        outline: none;
-        border-color: var(--pink);
-        box-shadow: 0 0 0 3px rgba(242,167,195,0.2);
-    }
-#app_rental .file-input-label {
-        display: block;
-        padding: 0.75rem;
-        background: white;
-        border: 2px dashed var(--blue);
-        border-radius: 10px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        color: #5b9dba;
-        font-weight: 700;
-        font-size: 0.85rem;
-    }
-#app_rental .file-input-label:hover {
-        background: #eef8fc;
-        border-color: #5b9dba;
-    }
-#app_rental .file-input-label.has-file {
-        border-color: var(--green);
-        color: #4a9a37;
-        background: #f0faf0;
-    }
-#app_rental input[type="file"] { display: none; }
-#app_rental .button-group {
-        display: flex;
-        gap: 0.7rem;
-        margin-top: 1.2rem;
-    }
-#app_rental button {
-        flex: 1;
-        padding: 0.75rem;
-        border: none;
-        border-radius: 10px;
-        font-weight: 800;
-        cursor: pointer;
-        transition: all 0.18s;
-        font-size: 0.9rem;
-        font-family: 'Nunito', sans-serif;
-    }
-#app_rental .btn-primary {
-        background: var(--coral);
-        color: white;
-        box-shadow: 0 3px 10px rgba(232,131,106,0.35);
-    }
-#app_rental .btn-primary:hover { background: #d96d55; transform: translateY(-1px); }
-#app_rental .btn-primary:active { transform: scale(0.97); }
-#app_rental .btn-secondary {
-        background: white;
-        color: var(--coral);
-        border: 2px solid var(--coral);
-    }
-#app_rental .btn-secondary:hover { background: #fff3f0; }
-#app_rental .status {
-        margin-top: 0.8rem;
-        padding: 0.75rem 1rem;
-        border-radius: 10px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-#app_rental .status.success { background: #f0faf0; color: #2d7a2d; border: 1.5px solid var(--green); }
-#app_rental .status.error { background: #fff0f0; color: #b93030; border: 1.5px solid var(--coral); }
-#app_rental .status.info { background: #eef8fc; color: #2a6a82; border: 1.5px solid var(--blue); }
-#app_rental .result-section {
-        background: white;
-        border: 2px solid #ecdff5;
-        border-radius: 16px;
-        padding: 1.5rem;
-    }
-#app_rental table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.75rem;
-    }
-#app_rental th, #app_rental td {
-        padding: 0.5rem 0.6rem;
-        text-align: left;
-        border-bottom: 1px solid #f0e8f8;
-    }
-#app_rental th {
-        background: #fdf0f7;
-        font-weight: 700;
-        color: #8a4570;
-        white-space: nowrap;
-    }
-#app_rental th.highlight {
-        background: #fff8e6;
-        color: #b07020;
-    }
-#app_rental tr:hover { background: #fdf6ff; }
-#app_rental .config-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.6rem;
-    }
-#app_rental .config-item {
-        background: white;
-        padding: 0.7rem 0.8rem;
-        border-radius: 8px;
-        border: 1.5px solid #e8d5ef;
-    }
-#app_rental .config-item label {
-        font-size: 0.75rem;
-        color: #8a6a9a;
-        margin-bottom: 0.25rem;
-    }
-#app_rental .export-btn {
-        background: var(--green);
-        color: white;
-        margin-top: 1rem;
-        width: 100%;
-        box-shadow: 0 3px 10px rgba(141,204,122,0.35);
-    }
-#app_rental .export-btn:hover { background: #6ab358; transform: translateY(-1px); }
-#app_rental .summary-cards {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-        margin-bottom: 1rem;
-    }
-#app_rental .card {
-        padding: 1rem;
-        border-radius: 12px;
-        text-align: center;
-    }
-#app_rental .card:nth-child(1) { background: #fdf0f7; border: 2px solid var(--pink); }
-#app_rental .card:nth-child(2) { background: #fff8e8; border: 2px solid var(--yellow); }
-#app_rental .card-label { font-size: 0.8rem; color: #8a6a7a; font-weight: 600; margin-bottom: 0.3rem; }
-#app_rental .card-value { font-size: 1.5rem; font-weight: 800; color: var(--coral); }
-#app_rental .overflow-auto { overflow-x: auto; }
-#app_rental .panel { background: #f8f9fb; border: 1px solid #e0e4e8; border-radius: 8px; padding: 1.5rem; }
-#app_rental .tabs { display:flex; border-bottom: 2px solid #e0e4e8; margin-bottom:1.5rem; }
-#app_rental .tab { padding:0.8rem 1.2rem; cursor:pointer; border:none; background:none; font-weight:600; color:#999; border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.2s; font-family:'Nunito',sans-serif; }
-#app_rental .tab.active { color: var(--coral); border-bottom-color: var(--coral); }
-#app_rental .tab-content { display:none; }
-#app_rental .tab-content.active { display:block; }
 
+*{box-sizing:border-box;margin:0;padding:0;}
 
+body{
+  font-family:'Noto Sans TC',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+}
 
-  /* ── Fix rental body decoration to be scoped ── */
-  #app_rental::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      radial-gradient(circle 6px at 8% 12%, #f2a7c3 70%, transparent 71%),
-      radial-gradient(circle 4px at 15% 35%, #f7d96b 70%, transparent 71%),
-      radial-gradient(circle 7px at 92% 8%, #7ec8e3 70%, transparent 71%),
-      radial-gradient(circle 5px at 85% 25%, #f7a35c 70%, transparent 71%),
-      radial-gradient(circle 4px at 3% 60%, #8dcc7a 70%, transparent 71%),
-      radial-gradient(circle 6px at 96% 55%, #e8836a 70%, transparent 71%),
-      radial-gradient(circle 5px at 50% 95%, #c9a8e0 70%, transparent 71%),
-      radial-gradient(circle 4px at 70% 88%, #f7d96b 70%, transparent 71%),
-      radial-gradient(circle 6px at 25% 90%, #f2a7c3 70%, transparent 71%);
-    opacity: 0.5;
-    z-index: 0;
-    display: none;
-  }
-  #app_rental.active::before { display: block; }
+/* ══ APP SHELL ══════════════════════════════════════════════════ */
+.app-shell{
+  display:flex;
+  height:100vh;
+  overflow:hidden;
+}
+
+/* ══ SIDEBAR ════════════════════════════════════════════════════ */
+.sidebar{
+  width:var(--sidebar-w);
+  min-width:var(--sidebar-w);
+  background:var(--sidebar-bg);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  z-index:200;
+}
+.sidebar-logo{
+  padding:20px 20px 16px;
+  font-size:15px;
+  font-weight:900;
+  color:white;
+  letter-spacing:0.3px;
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0;
+}
+.sidebar-logo .logo-icon{
+  width:34px;height:34px;background:var(--accent);
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+}
+.sidebar-logo .logo-text{font-size:13px;line-height:1.3;color:rgba(255,255,255,0.92);}
+.sidebar-logo .logo-sub{font-size:10px;font-weight:400;color:rgba(255,255,255,0.45);letter-spacing:0;}
+
+.nav-list{
+  flex:1;
+  list-style:none;
+  padding:12px 0;
+  overflow-y:auto;
+}
+.nav-item{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:11px 20px;
+  cursor:pointer;
+  color:rgba(255,255,255,0.6);
+  font-size:13.5px;
+  font-weight:500;
+  transition:background .15s,color .15s;
+  user-select:none;
+  border-left:3px solid transparent;
+}
+.nav-item:hover{
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.9);
+}
+.nav-item.active{
+  background:rgba(255,255,255,0.1);
+  color:#fff;
+  border-left-color:var(--accent);
+  font-weight:700;
+}
+.nav-item .nav-icon{font-size:16px;flex-shrink:0;}
+.nav-item .nav-badge{
+  margin-left:auto;font-size:10px;font-weight:800;
+  background:var(--red);color:#fff;
+  padding:1px 6px;border-radius:10px;
+  display:none;
+}
+.nav-item .nav-badge.show{display:inline;}
+
+.sidebar-bottom{
+  padding:16px 20px;
+  border-top:1px solid rgba(255,255,255,0.08);
+  flex-shrink:0;
+}
+.sidebar-upload-btn{
+  display:flex;align-items:center;gap:8px;
+  width:100%;padding:9px 14px;
+  background:rgba(255,255,255,0.08);
+  border:1.5px dashed rgba(255,255,255,0.25);
+  border-radius:10px;
+  color:rgba(255,255,255,0.65);
+  font-size:12px;font-weight:600;
+  cursor:pointer;transition:.15s;
+  font-family:inherit;
+}
+.sidebar-upload-btn:hover{background:rgba(255,255,255,0.13);color:#fff;}
+
+/* ══ MAIN AREA ══════════════════════════════════════════════════ */
+.main-area{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  min-width:0;
+}
+
+/* ══ TOP HEADER ════════════════════════════════════════════════ */
+.app-header{
+  height:var(--header-h);
+  min-height:var(--header-h);
+  background:#fff;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  padding:0 24px;
+  gap:16px;
+  z-index:100;
+  flex-shrink:0;
+  box-shadow:0 1px 4px rgba(30,42,74,0.05);
+}
+.header-title{
+  font-size:17px;
+  font-weight:800;
+  color:var(--text);
+  flex:1;
+}
+.header-right{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+.header-date{
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.4;
+  text-align:right;
+}
+.header-avatar{
+  width:34px;height:34px;
+  border-radius:50%;
+  background:var(--accent);
+  color:#fff;
+  font-size:13px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* ══ VIEW AREA ══════════════════════════════════════════════════ */
+.view-area{
+  flex:1;
+  overflow-y:auto;
+  padding:24px;
+}
+.view-panel{display:none;}
+.view-panel.active{display:block;}
+
+/* ══ DASHBOARD ══════════════════════════════════════════════════ */
+.db-kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:16px;
+  margin-bottom:24px;
+}
+@media(max-width:1100px){.db-kpi-grid{grid-template-columns:repeat(2,1fr);}}
+.db-kpi-card{
+  background:#fff;
+  border-radius:var(--r);
+  padding:20px 22px;
+  box-shadow:var(--shadow);
+  display:flex;
+  align-items:center;
+  gap:16px;
+  transition:.2s;
+}
+.db-kpi-card:hover{transform:translateY(-2px);box-shadow:0 4px 20px rgba(30,42,74,0.12);}
+.db-kpi-icon{
+  width:48px;height:48px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;flex-shrink:0;
+}
+.db-kpi-info{flex:1;min-width:0;}
+.db-kpi-label{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:4px;}
+.db-kpi-value{font-size:26px;font-weight:900;line-height:1;color:var(--text);}
+.db-kpi-card.blue  .db-kpi-icon{background:#eff6ff;color:#2563eb;}
+.db-kpi-card.red   .db-kpi-icon{background:#fef2f2;color:#dc2626;}
+.db-kpi-card.amber .db-kpi-icon{background:#fffbeb;color:#d97706;}
+.db-kpi-card.green .db-kpi-icon{background:#f0fdf4;color:#16a34a;}
+.db-kpi-card.blue  .db-kpi-value{color:#2563eb;}
+.db-kpi-card.red   .db-kpi-value{color:#dc2626;}
+.db-kpi-card.amber .db-kpi-value{color:#d97706;}
+.db-kpi-card.green .db-kpi-value{color:#16a34a;}
+
+.section-card{
+  background:#fff;
+  border-radius:var(--r);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  margin-bottom:20px;
+}
+.section-card-header{
+  padding:16px 20px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.section-card-header h3{font-size:14px;font-weight:800;color:var(--text);}
+.section-card-body{overflow-x:auto;}
+
+.dash-table{width:100%;border-collapse:collapse;font-size:13px;}
+.dash-table th{
+  background:#f8fafc;
+  padding:10px 14px;
+  text-align:left;
+  font-size:11px;font-weight:700;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  border-bottom:1px solid var(--border);
+}
+.dash-table td{
+  padding:10px 14px;
+  border-bottom:1px solid #f1f5f9;
+  color:var(--text);
+}
+.dash-table tr:last-child td{border-bottom:none;}
+.dash-table tr:hover td{background:#f8fafc;}
+
+/* ══ INVENTORY MODULE ═══════════════════════════════════════════ */
+.inv-card{
+  background:#fff;
+  border-radius:var(--r);
+  box-shadow:var(--shadow);
+  margin-bottom:16px;
+  overflow:hidden;
+}
+
+/* KPI ROW */
+.kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:14px;
+  margin-bottom:16px;
+}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+.kpi-card{
+  background:#fff;
+  border-radius:var(--r);
+  box-shadow:var(--shadow);
+  padding:18px 20px;
+  display:flex;flex-direction:column;
+}
+.kpi-card.red   {border-top:3px solid var(--red);}
+.kpi-card.orange{border-top:3px solid var(--orange);}
+.kpi-card.coral {border-top:3px solid var(--coral);}
+.kpi-card .kpi-label{font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:6px;}
+.kpi-card .kpi-value{font-size:28px;font-weight:900;color:var(--text);line-height:1;}
+.kpi-card .kpi-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+
+/* CONTROL BAR */
+.control-bar{
+  background:#fff;
+  border-radius:var(--r);
+  box-shadow:var(--shadow);
+  padding:14px 18px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:16px;
+}
+.ctrl-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.ctrl-group label{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;}
+.ctrl-group input[type=number]{
+  padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:13px;font-family:inherit;outline:none;
+}
+.ctrl-group input:focus{border-color:var(--accent);}
+
+/* TABS */
+.tabs{
+  display:flex;
+  border-bottom:2px solid var(--border);
+  background:#fff;
+  padding:0 20px;
+  gap:0;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+}
+.tab-btn{
+  padding:12px 18px;
+  border:none;
+  background:transparent;
+  color:var(--muted);
+  font-family:inherit;
+  font-size:13.5px;
+  font-weight:600;
+  cursor:pointer;
+  border-bottom:2px solid transparent;
+  margin-bottom:-2px;
+  transition:.15s;
+  white-space:nowrap;
+}
+.tab-btn:hover{color:var(--accent);}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:800;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* TABLE STYLES */
+.table-wrap{background:#fff;border-radius:0 0 var(--r) var(--r);}
+.table-toolbar{
+  padding:10px 16px;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.tbl-count{font-size:12px;font-weight:700;color:var(--muted);}
+.tbl-scroll{overflow-x:auto;max-height:520px;overflow-y:auto;}
+.tbl-footer{
+  padding:10px 16px;
+  display:flex;gap:20px;
+  font-size:12px;font-weight:600;color:var(--muted);
+  border-top:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.tbl-footer strong{color:var(--text);}
+
+/* data table */
+table.data-tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.data-tbl th{
+  position:sticky;top:0;z-index:2;
+  background:var(--accent);
+  color:#fff;
+  padding:9px 12px;
+  text-align:left;
+  font-weight:700;
+  white-space:nowrap;
+  cursor:pointer;
+  user-select:none;
+}
+table.data-tbl th:hover{background:#7b6ba0;}
+table.data-tbl td{
+  padding:8px 12px;
+  white-space:nowrap;
+  color:var(--text);
+}
+table.data-tbl tbody tr:nth-child(even) td{background:#fafbfc;}
+table.data-tbl tbody tr:hover td{background:#f0f4ff;}
+table.data-tbl .row-expired td{background:#fff5f5!important;}
+table.data-tbl .row-urgent  td{background:#fff5f5!important;}
+table.data-tbl .row-warn    td{background:#fff8f0!important;}
+table.data-tbl .row-long    td{background:#fff8f0!important;}
+table.data-tbl .row-caution td{background:#fffef0!important;}
+table.data-tbl .row-track   td{background:#f5fff0!important;}
+
+/* upload zone */
+.upload-zone{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:60px 20px;
+  border:2px dashed var(--border);
+  border-radius:12px;
+  margin:20px;
+  cursor:pointer;
+  transition:.2s;
+  text-align:center;
+}
+.upload-zone:hover{border-color:var(--accent);background:var(--accent-light);}
+.upload-zone.drag{border-color:var(--accent);background:var(--accent-light);}
+.upload-zone .icon{font-size:36px;}
+.upload-zone h3{font-size:15px;font-weight:700;color:var(--text);}
+.upload-zone p{font-size:12px;color:var(--muted);}
+
+/* empty state */
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;
+  gap:10px;padding:48px 20px;text-align:center;
+}
+.empty-state .icon{font-size:32px;}
+.empty-state p{font-size:13px;color:var(--muted);}
+
+/* SCOPE COST TABLE */
+.scope-table-wrap{
+  background:#fff;
+  border-radius:var(--r);
+  box-shadow:var(--shadow);
+  margin-bottom:16px;
+  overflow:hidden;
+}
+.scope-table-header{
+  padding:12px 18px;
+  display:flex;align-items:center;gap:8px;
+  cursor:pointer;
+  border-bottom:1px solid var(--border);
+}
+.scope-table-header h4{font-size:13px;font-weight:800;color:var(--text);}
+.scope-tbl-body{overflow-x:auto;}
+.scope-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.scope-tbl th{
+  background:#f8fafc;padding:8px 12px;
+  font-size:11px;font-weight:700;color:var(--muted);
+  text-align:right;border-bottom:1px solid var(--border);
+}
+.scope-tbl th:first-child{text-align:left;}
+.scope-tbl td{
+  padding:8px 12px;text-align:right;
+  border-bottom:1px solid #f1f5f9;color:var(--text);
+}
+.scope-tbl td:first-child{text-align:left;}
+.scope-tbl .scope-child td{background:#fafbfc;padding-left:24px;}
+
+/* GLOBAL SEARCH BAR */
+#globalSearchBar{
+  background:#fff;
+  padding:12px 18px;
+  display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.search-box{
+  display:flex;align-items:center;gap:8px;
+  background:#f8fafc;border:1.5px solid var(--border);
+  border-radius:8px;padding:7px 12px;
+}
+.search-box input{
+  border:none;background:transparent;outline:none;
+  font-size:13px;font-family:inherit;color:var(--text);
+  min-width:180px;
+}
+.filter-select{
+  padding:7px 10px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:13px;font-family:inherit;
+  outline:none;background:#f8fafc;color:var(--text);
+  cursor:pointer;
+}
+.filter-select:focus{border-color:var(--accent);}
+
+/* Multi-select warehouse */
+.multi-select-wrap{position:relative;}
+.multi-select-btn{
+  padding:7px 10px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:13px;font-family:inherit;
+  background:#f8fafc;color:var(--text);cursor:pointer;
+  white-space:nowrap;
+}
+.multi-select-dropdown{
+  position:absolute;top:calc(100% + 4px);left:0;
+  background:#fff;border:1.5px solid var(--border);
+  border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.12);
+  z-index:500;min-width:180px;max-height:280px;overflow-y:auto;
+  padding:6px 0;
+}
+.multi-select-item{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 14px;cursor:pointer;font-size:13px;
+  color:var(--text);
+}
+.multi-select-item:hover{background:#f3f0fb;}
+.multi-select-item input[type=checkbox]{cursor:pointer;}
+
+/* BUTTONS */
+.btn{
+  padding:8px 14px;border-radius:8px;border:none;
+  font-size:12.5px;font-weight:700;font-family:inherit;
+  cursor:pointer;transition:.15s;white-space:nowrap;
+}
+.btn:hover{filter:brightness(0.93);}
+.btn:disabled{opacity:.4;cursor:not-allowed;filter:none;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-green{background:#16a34a;color:#fff;}
+.btn-blue{background:#2563eb;color:#fff;}
+.btn-red{background:var(--red);color:#fff;}
+.btn-ghost{
+  background:#f8fafc;color:var(--text);
+  border:1.5px solid var(--border);
+}
+.btn-ghost:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+
+/* PRICE TABLE */
+.price-tbl-wrap{overflow-x:auto;}
+.price-grid-tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+.price-grid-tbl th{
+  background:var(--accent);color:#fff;
+  padding:9px 12px;text-align:left;font-weight:700;
+  position:sticky;top:0;z-index:2;
+}
+.price-grid-tbl td{
+  padding:7px 12px;border-bottom:1px solid var(--border);
+}
+.price-grid-tbl tr:hover td{background:#f8f8ff;}
+.price-grid-tbl input.price-input{
+  width:100%;padding:5px 8px;
+  border:1.5px solid var(--border);border-radius:6px;
+  font-size:12.5px;font-family:inherit;outline:none;
+  background:#fafbfc;
+}
+.price-grid-tbl input.price-input:focus{border-color:var(--accent);background:#fff;}
+
+/* BADGE */
+.badge{
+  display:inline-flex;align-items:center;
+  padding:3px 10px;border-radius:20px;
+  font-size:12px;font-weight:700;
+}
+.badge-red   {background:#fef2f2;color:#dc2626;}
+.badge-orange{background:#fff7ed;color:#ea580c;}
+.badge-yellow{background:#fefce8;color:#ca8a04;}
+.badge-green {background:#f0fdf4;color:#16a34a;}
+
+/* LOADER */
+.loader{
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(255,255,255,0.75);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;
+  flex-direction:column;gap:16px;
+}
+.loader.show{display:flex;}
+.spin{
+  width:42px;height:42px;
+  border:4px solid #e0d8f0;
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* TOAST */
+.toast{
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:#1a2540;color:#fff;
+  padding:12px 24px;border-radius:30px;
+  font-size:13.5px;font-weight:700;
+  opacity:0;transition:.3s;z-index:9999;
+  pointer-events:none;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ══ RENTAL MODULE ══════════════════════════════════════════════ */
+.rental-subnav{
+  display:flex;gap:0;
+  background:var(--sidebar-bg);
+  border-radius:var(--r) var(--r) 0 0;
+  padding:16px 20px 0;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.rental-subnav .rsn-btn{
+  padding:9px 20px;border-radius:20px;
+  border:2px solid rgba(255,255,255,0.4);
+  background:transparent;color:rgba(255,255,255,0.65);
+  font-family:'Nunito','Noto Sans TC',sans-serif;
+  font-size:13px;font-weight:800;
+  cursor:pointer;transition:.15s;
+  margin-bottom:10px;
+}
+.rental-subnav .rsn-btn:hover{
+  background:rgba(255,255,255,0.1);color:#fff;
+}
+.rental-subnav .rsn-btn.active{
+  background:#fff;color:#5a3a8a;
+  border-color:#fff;
+}
+
+/* Rental inner styles (scoped) */
+.rental-content{
+  background:#fdf6ee;
+  border-radius:0 0 var(--r) var(--r);
+  overflow:hidden;
+}
+.rental-content .container{
+  max-width:none;margin:0;background:#fff;
+  border-radius:0;box-shadow:none;
+}
+.rental-content .header{display:none!important;}
+.rental-content .content{padding:1.5rem;}
+
+/* Keep rental-specific button styles */
+.rental-content .btn-primary{
+  background:linear-gradient(135deg,#764ba2,#5a3a8a);
+  color:white;border:none;border-radius:10px;
+  padding:0.7rem 1.5rem;font-weight:800;cursor:pointer;
+  font-family:'Nunito','Noto Sans TC',sans-serif;font-size:0.9rem;
+  transition:.2s;
+}
+.rental-content .btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(118,75,162,.4);}
+.rental-content .btn-secondary{
+  background:#f0e6fa;color:#764ba2;border:none;border-radius:10px;
+  padding:0.7rem 1.5rem;font-weight:800;cursor:pointer;
+  font-family:'Nunito','Noto Sans TC',sans-serif;font-size:0.9rem;
+}
+.rental-content .top-panel{
+  background:#f8f9fb;border:1px solid #e0e4e8;
+  border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;
+}
+.rental-content .top-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;
+}
+.rental-content .section-title{
+  font-size:0.85rem;font-weight:800;
+  color:#764ba2;margin-bottom:0.8rem;
+  text-transform:uppercase;letter-spacing:0.05em;
+}
+.rental-content .form-group{margin-bottom:0.8rem;}
+.rental-content .form-group label{
+  display:block;font-size:0.8rem;font-weight:700;
+  color:#8a6a7a;margin-bottom:0.3rem;
+}
+.rental-content .form-group input{
+  width:100%;padding:0.6rem 0.8rem;
+  border:1.5px solid #e0c8e8;border-radius:8px;
+  font-size:0.9rem;font-family:inherit;outline:none;background:#fff;
+}
+.rental-content .form-group input:focus{border-color:#764ba2;}
+.rental-content .file-input-label{
+  display:block;padding:0.6rem;
+  border:2px dashed #c9a8e0;border-radius:10px;
+  text-align:center;cursor:pointer;font-size:0.82rem;
+  color:#8a5aa0;background:#fdf5ff;transition:.15s;
+}
+.rental-content .file-input-label:hover{background:#f5e8ff;border-color:#9b5fc0;}
+.rental-content .button-group{display:flex;gap:0.5rem;margin-top:0.5rem;}
+.rental-content .config-item label{
+  display:block;font-size:0.78rem;font-weight:700;
+  color:#8a6a7a;margin-bottom:0.25rem;
+}
+.rental-content .config-item input{
+  width:100%;padding:0.4rem 0.6rem;
+  border:1px solid #e0c8e8;border-radius:6px;
+  font-size:0.82rem;font-family:inherit;
+}
+.rental-content .panel{
+  background:#f8f9fb;border:1px solid #e0e4e8;
+  border-radius:8px;padding:1.5rem;
+}
+.rental-content .tabs{
+  display:flex;border-bottom:2px solid #e0e4e8;margin-bottom:1.5rem;
+  background:transparent;padding:0;
+}
+.rental-content .tab{
+  padding:0.8rem 1.2rem;cursor:pointer;border:none;background:none;
+  font-weight:600;color:#999;border-bottom:3px solid transparent;
+  margin-bottom:-2px;transition:.2s;
+  font-family:'Nunito','Noto Sans TC',sans-serif;
+}
+.rental-content .tab.active{color:#e8836a;border-bottom-color:#e8836a;}
+.rental-content .tab-content{display:none;}
+.rental-content .tab-content.active{display:block;}
+.rental-content .card{
+  background:#fff;border:1.5px solid #e8ddf2;border-radius:12px;
+  padding:1rem 1.2rem;
+}
+.rental-content .card-label{font-size:0.8rem;color:#8a6a7a;font-weight:600;margin-bottom:0.3rem;}
+.rental-content .card-value{font-size:1.5rem;font-weight:800;color:#e8836a;}
+.rental-content .overflow-auto{overflow-x:auto;}
+
+/* ══ DIFF MODULE ════════════════════════════════════════════════ */
+.diff-upload-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px;
+  margin-bottom:14px;
+}
+.diff-upload-card{
+  border:2px dashed var(--border);border-radius:14px;
+  padding:16px;cursor:pointer;transition:.2s;background:#fff;
+}
+.diff-upload-card:hover{border-color:var(--accent);}
+
+/* ══ SETTINGS VIEW ══════════════════════════════════════════════ */
+.settings-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:16px;
+}
+.settings-section{
+  background:#fff;border-radius:var(--r);
+  box-shadow:var(--shadow);padding:20px;
+}
+.settings-section h3{
+  font-size:13px;font-weight:800;color:var(--text);
+  margin-bottom:14px;padding-bottom:10px;
+  border-bottom:1px solid var(--border);
+}
+.settings-row{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:12px;
+}
+.settings-row label{font-size:13px;color:var(--muted);flex:1;}
+.settings-row input[type=color]{
+  width:40px;height:32px;border:1.5px solid var(--border);
+  border-radius:6px;cursor:pointer;padding:2px;
+}
+.settings-row input[type=number]{
+  padding:6px 10px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:13px;font-family:inherit;
+  outline:none;width:90px;
+}
+.settings-row input:focus{border-color:var(--accent);}
+
+/* email fields (hidden by default) */
+#emailFields{display:none;}
+
 </style>
-
-<script>
-  window._currentUser = null;
-  window._fbReady = true;
-</script>
 </head>
 <body>
 
-<!-- ══ APP SWITCHER BAR ══════════════════════════════════════════ -->
-<div class="app-switcher">
-  <button class="app-switch-btn active" onclick="switchApp('wood')" id="sw_wood">
-    🌸 庫存健康管理系統
-  </button>
-  <button class="app-switch-btn" onclick="switchApp('rental')" id="sw_rental">
-    🧊 冷凍庫存租金計算
-  </button>
-  <button class="app-switch-btn" onclick="openDashboard()" id="sw_dashboard">
-    📊 庫存儀表板
-  </button>
-</div>
+<!-- ══ GLOBAL OVERLAYS ═══════════════════════════════════════════ -->
 
-<!-- ══ APP 1：庫存健康管理系統 ══════════════════════════════════ -->
-<div id="app_wood" class="app-page active">
 <!-- GITHUB PANEL -->
-<div id="githubPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(61,44,78,.45);backdrop-filter:blur(4px);" onclick="if(event.target===this)closeGithubPanel()">
+<div id="githubPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(26,37,64,.5);backdrop-filter:blur(4px);" onclick="if(event.target===this)closeGithubPanel()">
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;padding:28px 32px;width:min(540px,95vw);box-shadow:0 20px 60px rgba(107,91,149,.3);">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
       <span style="font-size:28px;">🐙</span>
       <div>
-        <h3 style="font-size:16px;font-weight:900;color:var(--purple);">儲存單價表到 GitHub</h3>
+        <h3 style="font-size:16px;font-weight:900;color:var(--accent);">儲存單價表到 GitHub</h3>
         <p style="font-size:12px;color:var(--muted);">以 JSON 格式儲存，下次可直接從 GitHub 載入</p>
       </div>
       <button onclick="closeGithubPanel()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">✕</button>
     </div>
-
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div>
         <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">GitHub Personal Access Token <span style="color:var(--red)">*</span></label>
@@ -934,13 +785,11 @@
           style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;"
           onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
       </div>
-
-      <div style="background:#F5F0FF;border-radius:10px;padding:12px;font-size:11px;color:var(--muted);line-height:1.7;">
-        💡 <b>下次載入單價</b>：在單價設定頁籤填入 GitHub Raw 網址，點「從 GitHub 載入」即可還原所有單價與核算範圍。<br>
+      <div style="background:#f5f0ff;border-radius:10px;padding:12px;font-size:11px;color:var(--muted);line-height:1.7;">
+        💡 <b>下次載入單價</b>：在單價設定頁填入 GitHub Raw 網址，點「從 GitHub 載入」即可還原所有單價與核算範圍。<br>
         Raw 網址格式：<code style="background:#EEE;padding:1px 4px;border-radius:4px;">https://raw.githubusercontent.com/[使用者]/[Repo]/main/prices.json</code>
       </div>
     </div>
-
     <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeGithubPanel()">取消</button>
       <button class="btn btn-primary" onclick="savePricesToGithub()" id="ghSaveBtn">🐙 儲存到 GitHub</button>
@@ -950,20 +799,18 @@
 </div>
 
 <!-- GOOGLE SHEETS PANEL -->
-<div id="sheetsPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(61,44,78,.45);backdrop-filter:blur(4px);" onclick="if(event.target===this)closeSheetsPanel()">
+<div id="sheetsPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(26,37,64,.5);backdrop-filter:blur(4px);" onclick="if(event.target===this)closeSheetsPanel()">
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;padding:28px 32px;width:min(560px,95vw);box-shadow:0 20px 60px rgba(107,91,149,.3);">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
       <span style="font-size:28px;">☁️</span>
       <div>
-        <h3 style="font-size:16px;font-weight:900;color:var(--purple);">寫入 Google Sheets</h3>
+        <h3 style="font-size:16px;font-weight:900;color:var(--accent);">寫入 Google Sheets</h3>
         <p style="font-size:12px;color:var(--muted);">透過 Apps Script 將分析結果推送到指定試算表</p>
       </div>
       <button onclick="closeSheetsPanel()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">✕</button>
     </div>
-
-    <!-- 說明步驟 -->
-    <div id="sheetsSetupGuide" style="background:#F5F0FF;border-radius:14px;padding:16px;margin-bottom:16px;font-size:12px;line-height:1.8;color:#3D2C4E;">
-      <strong style="font-size:13px;color:var(--purple);">📋 第一次使用？三步驟設定：</strong><br>
+    <div id="sheetsSetupGuide" style="background:#f5f0ff;border-radius:14px;padding:16px;margin-bottom:16px;font-size:12px;line-height:1.8;color:#3D2C4E;">
+      <strong style="font-size:13px;color:var(--accent);">📋 第一次使用？三步驟設定：</strong><br>
       <b>Step 1.</b> 開啟你要寫入的 Google Sheet → 上方選單點「<b>擴充功能</b>」→「<b>Apps Script</b>」<br>
       <b>Step 2.</b> 把下方程式碼貼入，按「<b>部署 → 新增部署</b>」→ 類型選「<b>網頁應用程式</b>」→ 存取權設「<b>任何人</b>」→ 複製網址<br>
       <b>Step 3.</b> 把網址貼到下方「Apps Script 網址」欄位，點「寫入」<br>
@@ -972,1139 +819,29 @@
         <button class="btn btn-ghost" style="font-size:11px;padding:5px 12px;" onclick="document.getElementById('sheetsSetupGuide').style.display='none'">收起說明</button>
       </div>
     </div>
-
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div>
         <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Google Sheet ID（已預填）</label>
         <input id="sheetId" type="text" value="1vAjncE2dWp95g0tCzOcprCgu3caWPPr6qw42Hb4xyMI" readonly
-          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:12px;font-family:monospace;outline:none;color:var(--muted);background:#F8F8F8;">
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:12px;font-family:monospace;background:#f8f9fb;outline:none;">
       </div>
       <div>
-        <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Apps Script 部署網址</label>
-        <input id="appsScriptUrl" type="text" value="https://script.google.com/macros/s/AKfycbzcHHwc6iAxtDrq2f3ahNDzN2RPm_mtCD1bCLgVXFlGJIoxcqdb3sQSAXV_foUssiTZ/exec"
-          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;color:var(--text);"
-          onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
-      </div>
-      <div style="background:#F0FFF4;border-radius:12px;padding:14px;font-size:12px;color:#2A5A3A;line-height:1.8;">
-        <strong>📋 將自動寫入 4 個分頁：</strong><br>
-        <span style="display:inline-block;margin:2px 4px;padding:2px 10px;background:#E8F8E0;border-radius:8px;font-weight:700;">全部庫存</span>
-        <span style="display:inline-block;margin:2px 4px;padding:2px 10px;background:#FFE8E8;border-radius:8px;font-weight:700;">過期品</span>
-        <span style="display:inline-block;margin:2px 4px;padding:2px 10px;background:#FFF0E0;border-radius:8px;font-weight:700;">長期在庫</span>
-        <span style="display:inline-block;margin:2px 4px;padding:2px 10px;background:#FFFBE0;border-radius:8px;font-weight:700;">即將到期</span><br>
-        <span style="font-size:11px;color:#666;">每次寫入會清除並重寫各分頁內容</span>
-      </div>
-    </div>
-
-    <div style="margin-top:16px;padding:14px;background:#FFF8F0;border-radius:12px;display:flex;flex-direction:column;gap:10px;">
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:700;">
-        <input type="checkbox" id="enableEmail" style="width:16px;height:16px;accent-color:var(--coral);">
-        📧 寫入後發送郵件通知
-      </label>
-      <div id="emailFields" style="display:none;flex-direction:column;gap:8px;">
-        <input id="emailTo" type="email" placeholder="收件人 email（多個用逗號分隔）"
-          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;"
-          onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
-        <input id="emailSubject" type="text" placeholder="郵件主旨" value="庫存健康報告"
-          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;"
+        <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px;">Apps Script 網址 <span style="color:var(--red)">*</span></label>
+        <input id="sheetsUrl" type="text" placeholder="https://script.google.com/macros/s/..."
+          style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;"
           onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
       </div>
     </div>
-    
-    <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeSheetsPanel()">取消</button>
-      <button class="btn btn-primary" onclick="writeToSheets()" id="writeSheetsBtn">☁️ 開始寫入</button>
+      <button class="btn btn-primary" onclick="writeToSheets()" id="sheetsSaveBtn">☁️ 寫入</button>
     </div>
-    <div id="sheetsStatus" style="margin-top:12px;font-size:12px;text-align:center;min-height:18px;color:var(--muted);"></div>
+    <div id="sheetsStatus" style="margin-top:10px;font-size:12px;text-align:center;min-height:18px;color:var(--muted);"></div>
   </div>
 </div>
 
-<!-- LOADER -->
-<div class="loader" id="loader">
-  <div class="spin"></div>
-  <p style="color:var(--purple);font-weight:700;font-size:14px;">資料處理中…</p>
-</div>
-
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
-
-<!-- HEADER -->
-<div class="wood-container">
-<div class="header">
-  <div class="header-flowers">
-    <!-- 粉紅花 -->
-    <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-      <ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(40)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(80)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(120)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(160)"/>
-      <circle r="4" fill="#f7d96b"/>
-    </g></svg>
-    <!-- 橙花 -->
-    <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-      <ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(45)"/><ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(90)"/><ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(135)"/>
-      <circle r="4" fill="#f7d96b"/>
-    </g></svg>
-    <!-- 藍花 -->
-    <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-      <ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(40)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(80)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(120)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(160)"/>
-      <circle r="4" fill="#f7d96b"/>
-    </g></svg>
-    <!-- 綠花 -->
-    <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-      <ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(60)"/><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(120)"/>
-      <circle r="4" fill="#f7d96b"/>
-    </g></svg>
-    <!-- 珊瑚花 -->
-    <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-      <ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(40)"/><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(80)"/><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(120)"/><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(160)"/>
-      <circle r="4" fill="#f7d96b"/>
-    </g></svg>
-    <!-- 紫花 -->
-    <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-      <ellipse rx="7" ry="3.5" fill="#c9a8e0" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#c9a8e0" transform="rotate(45)"/><ellipse rx="7" ry="3.5" fill="#c9a8e0" transform="rotate(90)"/><ellipse rx="7" ry="3.5" fill="#c9a8e0" transform="rotate(135)"/>
-      <circle r="4" fill="#f7d96b"/>
-    </g></svg>
-    <!-- 粉花2 -->
-    <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-      <ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(30)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(70)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(110)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(150)"/>
-      <circle r="4" fill="#f7d96b"/>
-    </g></svg>
-    <!-- 黃花 -->
-    <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-      <ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(40)"/><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(80)"/><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(120)"/><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(160)"/>
-      <circle r="4" fill="#e8836a"/>
-    </g></svg>
-    <!-- 藍花2 -->
-    <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-      <ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(20)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(60)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(100)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(140)"/>
-      <circle r="4" fill="#f7d96b"/>
-    </g></svg>
-    <!-- 橙花2 -->
-    <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-      <ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(60)"/><ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(120)"/>
-      <circle r="4" fill="#f7d96b"/>
-    </g></svg>
-  </div>
-  <div class="header-content">
-    <div class="header-logo">🌸</div>
-    <div class="header-title">
-      <h1>庫存健康管理系統</h1>
-      <p>過期品 ／ 長期在庫 ／ 即將到期 ／ 存貨成本分析</p>
-    </div>
-    <div class="header-date" id="headerDate"></div>
-  </div>
-</div>
-
-<div class="main">
-
-  <!-- KPI -->
-  <div class="kpi-grid" id="kpiGrid">
-    <div class="kpi-card blue">
-      <div class="kpi-label">📦 總庫存筆數</div>
-      <div class="kpi-value" id="kpi-total">—</div>
-      <div class="kpi-sub">已載入資料</div>
-    </div>
-    <div class="kpi-card red">
-      <div class="kpi-label">❌ 過期品</div>
-      <div class="kpi-value" id="kpi-expired">—</div>
-      <div class="kpi-sub">有效期已過</div>
-    </div>
-    <div class="kpi-card orange">
-      <div class="kpi-label">⏳ 長期在庫</div>
-      <div class="kpi-value" id="kpi-long">—</div>
-      <div class="kpi-sub">入庫超過3年</div>
-    </div>
-    <div class="kpi-card coral">
-      <div class="kpi-label">⚠️ 即將到期</div>
-      <div class="kpi-value" id="kpi-soon">—</div>
-      <div class="kpi-sub" id="kpi-soon-sub">效期未滿210天</div>
-    </div>
-  </div>
-
-
-  <!-- SCOPE COST TABLE -->
-  <div class="scope-table-wrap" id="scopeCostWrap" style="display:none;">
-    <div class="scope-table-header" onclick="toggleScopeTable()">
-      <h4>💰 各存貨核算範圍成本分析</h4>
-      <span id="scopeToggleHint">▼ 點擊收合</span>
-    </div>
-    <div class="scope-tbl-body" id="scopeTblBody">
-      <table class="scope-tbl" id="scopeCostTbl"></table>
-    </div>
-  </div>
-
-  <!-- CONTROL BAR -->
-  <div class="control-bar">
-    <div class="ctrl-group">
-      <label>📂 匯入庫存報表</label>
-      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-        📥 上傳 xlsx 檔案
-      </button>
-      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="loadFile(this)">
-    </div>
-
-    <div class="ctrl-group">
-      <label>⚠️ 即將到期天數閾值</label>
-      <input type="number" id="soonDays" value="210" min="1" max="999" style="width:100px"
-             onchange="recompute()">
-    </div>
-
-    <div class="ctrl-group">
-      <label>⏳ 長期在庫年限</label>
-      <input type="number" id="longYears" value="3" min="1" max="20" style="width:80px"
-             onchange="recompute()">
-    </div>
-
-    <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
-      <button class="btn btn-green" onclick="exportExcel()">📤 匯出 Excel</button>
-      <button class="btn btn-blue" onclick="exportCostAnalysis()" style="background:#0052CC;color:white;">📊 成本分析</button>
-      <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;color:white;">📋 明細報表</button>
-      <button class="btn btn-primary" onclick="openSheetsPanel()">☁️ 寫入 Google Sheets</button>
-    </div>
-  </div>
-
-  <!-- MAIN CONTENT WRAPPER -->
-  <div class="main-content">
-
-  <!-- GLOBAL SEARCH BAR -->
-  <div id="globalSearchBar" style="background:var(--bg);padding:12px 20px 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-    <div class="search-box" style="flex:0 0 auto;min-width:260px;">
-      <span>🔍</span>
-      <input type="text" id="search-global" placeholder="搜尋產品名稱 / 批號 / 代碼…" oninput="onGlobalSearch()" style="width:210px">
-    </div>
-    <div class="multi-select-wrap" id="warehouse-multi-wrap">
-      <button class="filter-select multi-select-btn" type="button" onclick="toggleWarehouseDropdown()" id="warehouse-multi-btn">全部倉庫 &#9660;</button>
-      <div class="multi-select-dropdown" id="warehouse-multi-dropdown" style="display:none;"></div>
-    </div>
-    <select class="filter-select" id="filter-global-category" onchange="onGlobalSearch()">
-      <option value="">全部類別</option>
-    </select>
-  </div>
-
-  <!-- TABS -->
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('all',this)">📋 全部庫存</button>
-    <button class="tab-btn" onclick="switchTab('expired',this)">❌ 過期品</button>
-    <button class="tab-btn" onclick="switchTab('long',this)">⏳ 長期在庫</button>
-    <button class="tab-btn" onclick="switchTab('soon',this)">⚠️ 即將到期</button>
-    <button class="tab-btn" onclick="switchTab('prices',this)">💰 單價設定</button>
-    <button class="tab-btn" onclick="switchTab('diff',this)">📊 差異比較</button>
-  </div>
-
-  <!-- TAB: all -->
-  <div class="tab-content active" id="tab-all">
-    <div class="table-wrap">
-      <div class="table-toolbar">
-        <span class="tbl-count" id="count-all">0 筆</span>
-      </div>
-      <div class="tbl-scroll" id="tbl-all-wrap">
-        <div class="upload-zone" id="uploadZone"
-             onclick="document.getElementById('fileInput').click()"
-             ondragover="event.preventDefault();this.classList.add('drag')"
-             ondragleave="this.classList.remove('drag')"
-             ondrop="handleDrop(event)">
-          <div class="icon">📂</div>
-          <h3>拖曳或點擊上傳庫存 xlsx</h3>
-          <p>支援 ERP 匯出的標準庫存格式</p>
-        </div>
-      </div>
-      <div class="tbl-footer" id="footer-all" style="display:none">
-        <span>庫存數量合計：<strong id="sum-all-qty">0</strong></span>
-        <span>存貨成本合計：<strong id="sum-all-cost">$0</strong></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB: expired -->
-  <div class="tab-content" id="tab-expired">
-    <div class="table-wrap">
-      <div class="table-toolbar">
-        <span class="tbl-count" id="count-expired">0 筆</span>
-      </div>
-      <div class="tbl-scroll" id="tbl-expired-wrap"></div>
-      <div class="tbl-footer" id="footer-expired" style="display:none">
-        <span>庫存數量合計：<strong id="sum-expired-qty">0</strong></span>
-        <span>存貨成本合計：<strong id="sum-expired-cost">$0</strong></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB: long -->
-  <div class="tab-content" id="tab-long">
-    <div class="table-wrap">
-      <div class="table-toolbar">
-        <span class="tbl-count" id="count-long">0 筆</span>
-      </div>
-      <div class="tbl-scroll" id="tbl-long-wrap"></div>
-      <div class="tbl-footer" id="footer-long" style="display:none">
-        <span>庫存數量合計：<strong id="sum-long-qty">0</strong></span>
-        <span>存貨成本合計：<strong id="sum-long-cost">$0</strong></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB: soon -->
-  <div class="tab-content" id="tab-soon">
-    <!-- 分段彙總 -->
-    <div style="background:white;border-radius:var(--r);box-shadow:var(--shadow);padding:16px 20px;margin-bottom:12px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-      <span style="font-size:13px;font-weight:800;color:var(--purple);">分段統計：</span>
-      <span class="badge badge-red"   id="seg-urgent">🔴 緊急(≤30天) 0筆</span>
-      <span class="badge badge-orange" id="seg-warn">🟠 警示(31-90天) 0筆</span>
-      <span class="badge badge-yellow" id="seg-caution">🟡 注意(91-180天) 0筆</span>
-      <span class="badge badge-green"  id="seg-track">🟢 追蹤(181-210天) 0筆</span>
-      <select class="filter-select" id="filter-soon-seg" onchange="renderTable('soon')" style="margin-left:auto;">
-        <option value="">全部區段</option>
-        <option value="urgent">🔴 緊急 ≤30天</option>
-        <option value="warn">🟠 警示 31-90天</option>
-        <option value="caution">🟡 注意 91-180天</option>
-        <option value="track">🟢 追蹤 181-210天</option>
-      </select>
-    </div>
-    <div class="table-wrap">
-      <div class="table-toolbar">
-        <span class="tbl-count" id="count-soon">0 筆</span>
-      </div>
-      <div class="tbl-scroll" id="tbl-soon-wrap"></div>
-      <div class="tbl-footer" id="footer-soon" style="display:none">
-        <span>庫存數量合計：<strong id="sum-soon-qty">0</strong></span>
-        <span>存貨成本合計：<strong id="sum-soon-cost">$0</strong></span>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB: prices -->
-  <div class="tab-content" id="tab-prices">
-    <div class="table-wrap">
-      <div class="table-toolbar" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:11px;color:var(--muted);">💡 直接在表格輸入單價與核算範圍</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-blue" onclick="document.getElementById('priceFileInput').click()">📥 匯入單價 xlsx</button>
-          <input type="file" id="priceFileInput" accept=".xlsx,.xls" onchange="loadPriceFile(this)" style="display:none">
-          <button class="btn btn-green" onclick="exportPriceExcel()">📤 匯出單價 xlsx</button>
-          <button class="btn" style="background:#4285f4;color:white;" onclick="ghBackupPrices()">☁️ 備份到 GitHub</button>
-          <button class="btn" style="background:white;color:#4285f4;border:2px solid #4285f4;" onclick="ghLoadPrices()">📥 從 GitHub 載入</button>
-          <button class="btn btn-ghost" style="font-size:11px;padding:7px 12px;" onclick="ghSetPriceConfig()" title="設定 GitHub Token / Repo">🔑 設定</button>
-          <span id="ghPriceStatus" style="font-size:12px;color:var(--muted);font-weight:700;min-width:80px;"></span>
-        </div>
-      </div>
-      <!-- 單價表格 -->
-      <div class="price-tbl-wrap" id="priceGrid" style="max-height:520px;overflow-y:auto;">
-        <div class="empty-state">
-          <div class="icon">💰</div>
-          <p>請先上傳庫存資料，產品清單將自動出現</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- TAB: diff -->
-  <div class="tab-content" id="tab-diff">
-    <div class="table-wrap">
-      <!-- 上傳區 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:18px 18px 0;">
-        <!-- 本期期末 -->
-        <div id="diffCardA" onclick="document.getElementById('diffFileA').click()"
-             ondragover="event.preventDefault();this.style.borderColor='var(--pink)'"
-             ondragleave="this.style.borderColor=''"
-             ondrop="diffHandleDrop(event,'A')"
-             style="border:2px dashed var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:.2s;background:var(--card);">
-          <input type="file" id="diffFileA" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('A',this)">
-          <div style="font-size:26px;margin-bottom:8px;">📅</div>
-          <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin-bottom:4px;">本期期末</div>
-          <div style="font-size:14px;font-weight:700;">本期期末庫存</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:3px;">讀取「本期結存」欄</div>
-          <div id="diffLabelA" style="font-size:12px;font-weight:700;color:var(--muted);margin-top:8px;">等待上傳…</div>
-        </div>
-        <!-- 上期期末 -->
-        <div id="diffCardB" onclick="document.getElementById('diffFileB').click()"
-             ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
-             ondragleave="this.style.borderColor=''"
-             ondrop="diffHandleDrop(event,'B')"
-             style="border:2px dashed var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:.2s;background:var(--card);">
-          <input type="file" id="diffFileB" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('B',this)">
-          <div style="font-size:26px;margin-bottom:8px;">📁</div>
-          <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin-bottom:4px;">上期期末</div>
-          <div style="font-size:14px;font-weight:700;">上期期末庫存</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:3px;">讀取「本期結存」欄</div>
-          <div id="diffLabelB" style="font-size:12px;font-weight:700;color:var(--muted);margin-top:8px;">等待上傳…</div>
-        </div>
-      </div>
-      <!-- 單價狀態列 -->
-      <div style="margin:10px 18px 0;padding:10px 14px;background:#f5f0fd;border-radius:10px;border-left:3px solid var(--violet);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <span style="font-size:13px;color:var(--purple);">💰 單價資料</span>
-        <span id="diffPriceStatusLabel" style="font-size:12px;font-weight:700;color:var(--muted);">尚未設定單價</span>
-        <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;margin-left:auto;" onclick="switchTab('prices',document.querySelector('.tab-btn:nth-child(5)'))">前往單價設定 →</button>
-      </div>
-
-      <!-- 執行列 -->
-      <div style="display:flex;gap:10px;align-items:center;padding:14px 18px;flex-wrap:wrap;">
-        <button class="btn btn-primary" id="diffBtnRun" onclick="runDiff()" disabled>▶ 執行差異比較</button>
-        <button class="btn btn-green" id="diffBtnExport" onclick="exportDiffExcel()" disabled>📤 匯出差異表</button>
-        <button class="btn btn-blue" id="diffBtnReport" onclick="exportDiffReport()" disabled style="background:#1D4ED8;color:white;">📋 明細報表</button>
-        <button class="btn btn-ghost" id="diffBtnShare" onclick="exportSharePage()" disabled style="border:2px solid var(--violet);color:var(--purple);">📱 匯出手機分享頁</button>
-      </div>
-
-      <!-- 成本摘要 -->
-      <div id="diffCostSummary" style="display:none;margin:0 18px 14px;padding:14px 18px;background:#f5f0fd;border-radius:12px;border-left:4px solid var(--purple);">
-        <div style="font-size:12px;font-weight:900;color:var(--purple);margin-bottom:10px;">💰 成本差異摘要</div>
-        <div style="display:flex;gap:28px;flex-wrap:wrap;">
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--muted);">本期總庫存成本</div>
-            <div id="diffCostA" style="font-size:20px;font-weight:900;color:var(--purple);">—</div>
-          </div>
-          <div>
-            <div style="font-size:11px;font-weight:700;color:var(--muted);">上期總庫存成本</div>
-            <div id="diffCostB" style="font-size:20px;font-weight:900;color:var(--purple);">—</div>
-          </div>
-          <div id="diffCostDiffBox">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);">成本差異（本期－上期）</div>
-            <div id="diffCostDiff" style="font-size:20px;font-weight:900;">—</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 差異統計 -->
-      <div id="diffStats" style="display:none;padding:10px 18px;background:var(--bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;gap:16px;flex-wrap:wrap;">
-        <span style="font-size:12px;">🟢 新增：<strong id="diffNew" style="color:var(--green)">0</strong></span>
-        <span style="font-size:12px;">🔴 消失：<strong id="diffGone" style="color:var(--red)">0</strong></span>
-        <span style="font-size:12px;">🔵 數量增加：<strong id="diffUp" style="color:#4488CC">0</strong></span>
-        <span style="font-size:12px;">🟠 數量減少：<strong id="diffDown" style="color:var(--orange)">0</strong></span>
-        <span style="font-size:12px;">⚪ 無變化：<strong id="diffSame" style="color:var(--muted)">0</strong></span>
-      </div>
-
-      <!-- 篩選列 -->
-      <div style="display:flex;gap:8px;padding:10px 18px;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap;">
-        <select class="filter-select" id="diffFilter" onchange="renderDiff()">
-          <option value="">全部變化</option>
-          <option value="new">🟢 新增</option>
-          <option value="gone">🔴 消失</option>
-          <option value="up">🔵 數量增加</option>
-          <option value="down">🟠 數量減少</option>
-          <option value="same">⚪ 無變化</option>
-        </select>
-        <select class="filter-select" id="diffWarehouse" onchange="renderDiff()"><option value="">全部倉庫</option></select>
-        <select class="filter-select" id="diffCategory" onchange="renderDiff()"><option value="">全部類別</option></select>
-        <span class="tbl-count" id="diffCount">0 筆</span>
-      </div>
-
-      <div class="tbl-scroll" id="tbl-diff-wrap">
-        <div class="empty-state"><div class="icon">📊</div><p>請上傳本期期末與上期期末兩份 xlsx，再按「執行差異比較」</p></div>
-      </div>
-    </div>
-  </div>
-
-  </div><!-- /main -->
-</div><!-- /wood-container -->
-</div><!-- end app_wood -->
-
-<!-- ══ APP 2：租金計算工具 ═══════════════════════════════════════ -->
-<div id="app_rental" class="app-page">
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    :root {
-        --pink:   #f2a7c3;
-        --orange: #f7a35c;
-        --yellow: #f7d96b;
-        --blue:   #7ec8e3;
-        --green:  #8dcc7a;
-        --coral:  #e8836a;
-        --purple: #c9a8e0;
-        --dark:   #2a1f2d;
-        --cream:  #fdf6ee;
-        --text:   #3d2c1e;
-    }
-
-    body {
-        font-family: 'Nunito', sans-serif;
-        background: var(--cream);
-        min-height: 100vh;
-        padding: 2rem 1rem;
-        position: relative;
-        overflow-x: hidden;
-    }
-
-    /* 背景飄落小花 */
-    body::before {
-        content: '';
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        background-image:
-            radial-gradient(circle 6px at 8% 12%, var(--pink) 70%, transparent 71%),
-            radial-gradient(circle 4px at 15% 35%, var(--yellow) 70%, transparent 71%),
-            radial-gradient(circle 7px at 92% 8%, var(--blue) 70%, transparent 71%),
-            radial-gradient(circle 5px at 85% 25%, var(--orange) 70%, transparent 71%),
-            radial-gradient(circle 4px at 3% 60%, var(--green) 70%, transparent 71%),
-            radial-gradient(circle 6px at 96% 55%, var(--coral) 70%, transparent 71%),
-            radial-gradient(circle 5px at 50% 95%, var(--purple) 70%, transparent 71%),
-            radial-gradient(circle 4px at 70% 88%, var(--yellow) 70%, transparent 71%),
-            radial-gradient(circle 6px at 25% 90%, var(--pink) 70%, transparent 71%);
-        opacity: 0.5;
-        z-index: 0;
-    }
-
-    .container {
-        max-width: 1400px;
-        margin: 0 auto;
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 8px 40px rgba(42,31,45,0.12);
-        overflow: hidden;
-        position: relative;
-        z-index: 1;
-    }
-
-    .header {
-        background: var(--dark);
-        color: white;
-        padding: 2rem 2rem 1.5rem;
-        text-align: center;
-        position: relative;
-        overflow: hidden;
-    }
-
-    /* 頂部小花裝飾帶 */
-    .flower-band {
-        display: flex;
-        justify-content: center;
-        gap: 0.4rem;
-        margin-bottom: 1rem;
-        flex-wrap: wrap;
-    }
-    .flower-band svg {
-        width: 28px;
-        height: 28px;
-        animation: sway 3s ease-in-out infinite;
-    }
-    .flower-band svg:nth-child(odd) { animation-delay: 0.5s; }
-    .flower-band svg:nth-child(3n) { animation-delay: 1s; }
-    @keyframes sway {
-        0%, 100% { transform: rotate(-8deg) scale(1); }
-        50% { transform: rotate(8deg) scale(1.08); }
-    }
-
-    .header h1 {
-        font-size: 1.8rem;
-        font-weight: 800;
-        letter-spacing: 0.02em;
-        margin-bottom: 0.3rem;
-    }
-    .header p {
-        opacity: 0.7;
-        font-size: 0.9rem;
-        font-weight: 400;
-    }
-
-    .content {
-        padding: 1.5rem 2rem 2rem;
-    }
-
-    .top-panel {
-        background: #fdf0f7;
-        border: 2px solid var(--pink);
-        border-radius: 16px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .top-grid {
-        display: grid;
-        grid-template-columns: 2fr 1.5fr;
-        gap: 1.5rem;
-        align-items: start;
-    }
-    @media (max-width: 1024px) {
-        .top-grid { grid-template-columns: 1fr; }
-    }
-
-    .section-title {
-        font-size: 0.8rem;
-        font-weight: 800;
-        color: var(--coral);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-bottom: 0.8rem;
-        padding-bottom: 0.4rem;
-        border-bottom: 2px dashed var(--pink);
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-    }
-
-    .form-group {
-        margin-bottom: 0.8rem;
-    }
-
-    label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 0.3rem;
-        color: var(--text);
-        font-size: 0.85rem;
-    }
-
-    input, select {
-        width: 100%;
-        padding: 0.55rem 0.75rem;
-        border: 1.5px solid #e8d5ef;
-        border-radius: 10px;
-        font-size: 0.88rem;
-        font-family: 'Nunito', sans-serif;
-        background: white;
-        color: var(--text);
-        transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    input:focus, select:focus {
-        outline: none;
-        border-color: var(--pink);
-        box-shadow: 0 0 0 3px rgba(242,167,195,0.2);
-    }
-
-    .file-input-label {
-        display: block;
-        padding: 0.75rem;
-        background: white;
-        border: 2px dashed var(--blue);
-        border-radius: 10px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        color: #5b9dba;
-        font-weight: 700;
-        font-size: 0.85rem;
-    }
-    .file-input-label:hover {
-        background: #eef8fc;
-        border-color: #5b9dba;
-    }
-    .file-input-label.has-file {
-        border-color: var(--green);
-        color: #4a9a37;
-        background: #f0faf0;
-    }
-    input[type="file"] { display: none; }
-
-    .button-group {
-        display: flex;
-        gap: 0.7rem;
-        margin-top: 1.2rem;
-    }
-
-    button {
-        flex: 1;
-        padding: 0.75rem;
-        border: none;
-        border-radius: 10px;
-        font-weight: 800;
-        cursor: pointer;
-        transition: all 0.18s;
-        font-size: 0.9rem;
-        font-family: 'Nunito', sans-serif;
-    }
-    .btn-primary {
-        background: var(--coral);
-        color: white;
-        box-shadow: 0 3px 10px rgba(232,131,106,0.35);
-    }
-    .btn-primary:hover { background: #d96d55; transform: translateY(-1px); }
-    .btn-primary:active { transform: scale(0.97); }
-
-    .btn-secondary {
-        background: white;
-        color: var(--coral);
-        border: 2px solid var(--coral);
-    }
-    .btn-secondary:hover { background: #fff3f0; }
-
-    .status {
-        margin-top: 0.8rem;
-        padding: 0.75rem 1rem;
-        border-radius: 10px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-    .status.success { background: #f0faf0; color: #2d7a2d; border: 1.5px solid var(--green); }
-    .status.error   { background: #fff0f0; color: #b93030; border: 1.5px solid var(--coral); }
-    .status.info    { background: #eef8fc; color: #2a6a82; border: 1.5px solid var(--blue); }
-
-    .result-section {
-        background: white;
-        border: 2px solid #ecdff5;
-        border-radius: 16px;
-        padding: 1.5rem;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.75rem;
-    }
-    th, td {
-        padding: 0.5rem 0.6rem;
-        text-align: left;
-        border-bottom: 1px solid #f0e8f8;
-    }
-    th {
-        background: #fdf0f7;
-        font-weight: 700;
-        color: #8a4570;
-        white-space: nowrap;
-    }
-    th.highlight {
-        background: #fff8e6;
-        color: #b07020;
-    }
-    tr:hover { background: #fdf6ff; }
-
-    .config-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.6rem;
-    }
-    .config-item {
-        background: white;
-        padding: 0.7rem 0.8rem;
-        border-radius: 8px;
-        border: 1.5px solid #e8d5ef;
-    }
-    .config-item label {
-        font-size: 0.75rem;
-        color: #8a6a9a;
-        margin-bottom: 0.25rem;
-    }
-
-    .export-btn {
-        background: var(--green);
-        color: white;
-        margin-top: 1rem;
-        width: 100%;
-        box-shadow: 0 3px 10px rgba(141,204,122,0.35);
-    }
-    .export-btn:hover { background: #6ab358; transform: translateY(-1px); }
-
-    .summary-cards {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-        margin-bottom: 1rem;
-    }
-    .card {
-        padding: 1rem;
-        border-radius: 12px;
-        text-align: center;
-    }
-    .card:nth-child(1) { background: #fdf0f7; border: 2px solid var(--pink); }
-    .card:nth-child(2) { background: #fff8e8; border: 2px solid var(--yellow); }
-    .card-label { font-size: 0.8rem; color: #8a6a7a; font-weight: 600; margin-bottom: 0.3rem; }
-    .card-value { font-size: 1.5rem; font-weight: 800; color: var(--coral); }
-
-    .overflow-auto { overflow-x: auto; }
-    .panel { background: #f8f9fb; border: 1px solid #e0e4e8; border-radius: 8px; padding: 1.5rem; }
-    .tabs { display:flex; border-bottom: 2px solid #e0e4e8; margin-bottom:1.5rem; }
-    .tab { padding:0.8rem 1.2rem; cursor:pointer; border:none; background:none; font-weight:600; color:#999; border-bottom:3px solid transparent; margin-bottom:-2px; transition:all 0.2s; font-family:'Nunito',sans-serif; }
-    .tab.active { color: var(--coral); border-bottom-color: var(--coral); }
-    .tab-content { display:none; }
-    .tab-content.active { display:block; }
-</style>
-
-<div id="page_calc">
-<div class="container">
-    <div class="header">
-        <div class="flower-band">
-            <!-- 粉紅花 -->
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-                <ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(40)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(80)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(120)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(160)"/>
-                <circle r="4" fill="#f7d96b"/>
-            </g></svg>
-            <!-- 橙花 -->
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-                <ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(45)"/><ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(90)"/><ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(135)"/>
-                <circle r="4" fill="#f7d96b"/>
-            </g></svg>
-            <!-- 藍花 -->
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-                <ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(40)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(80)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(120)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(160)"/>
-                <circle r="4" fill="#f7d96b"/>
-            </g></svg>
-            <!-- 綠花 -->
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-                <ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(60)"/><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(120)"/>
-                <circle r="4" fill="#f7d96b"/>
-            </g></svg>
-            <!-- 珊瑚花 -->
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-                <ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(40)"/><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(80)"/><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(120)"/><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(160)"/>
-                <circle r="4" fill="#f7d96b"/>
-            </g></svg>
-            <!-- 紫花 -->
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-                <ellipse rx="7" ry="3.5" fill="#c9a8e0" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#c9a8e0" transform="rotate(45)"/><ellipse rx="7" ry="3.5" fill="#c9a8e0" transform="rotate(90)"/><ellipse rx="7" ry="3.5" fill="#c9a8e0" transform="rotate(135)"/>
-                <circle r="4" fill="#f7d96b"/>
-            </g></svg>
-            <!-- 粉花 2 -->
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-                <ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(30)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(70)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(110)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(150)"/>
-                <circle r="4" fill="#f7d96b"/>
-            </g></svg>
-            <!-- 黃花 -->
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-                <ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(40)"/><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(80)"/><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(120)"/><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(160)"/>
-                <circle r="4" fill="#e8836a"/>
-            </g></svg>
-            <!-- 藍花 2 -->
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-                <ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(20)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(60)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(100)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(140)"/>
-                <circle r="4" fill="#f7d96b"/>
-            </g></svg>
-            <!-- 橙花 2 -->
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)">
-                <ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(60)"/><ellipse rx="7" ry="3.5" fill="#f7a35c" transform="rotate(120)"/>
-                <circle r="4" fill="#f7d96b"/>
-            </g></svg>
-        </div>
-        <h1>🧊 冷凍庫存租金計算工具</h1>
-        <p>自動合併表格、計算租金成本、匯出結果</p>
-        <div id="authBar"></div>
-        <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:1rem;">
-            <button onclick="switchPage('calc')" id="btn_calc"
-                style="padding:0.5rem 1.5rem; border-radius:20px; border:2px solid white; background:white; color:#764ba2; font-weight:800; font-size:0.9rem; cursor:pointer; font-family:'Nunito',sans-serif;">
-                📋 租金計算
-            </button>
-            <button onclick="switchPage('ledger')" id="btn_ledger"
-                style="padding:0.5rem 1.5rem; border-radius:20px; border:2px solid rgba(255,255,255,0.5); background:transparent; color:white; font-weight:800; font-size:0.9rem; cursor:pointer; font-family:'Nunito',sans-serif;">
-                📊 月結算總帳
-            </button>
-            <button onclick="switchPage('profit')" id="btn_profit"
-                style="padding:0.5rem 1.5rem; border-radius:20px; border:2px solid rgba(255,255,255,0.5); background:transparent; color:white; font-weight:800; font-size:0.9rem; cursor:pointer; font-family:'Nunito',sans-serif;">
-                💹 利潤分析
-            </button>
-        </div>
-    </div>
-
-    <div class="content">
-        <!-- 上方：設定區域 -->
-        <div class="top-panel">
-            <div class="top-grid">
-
-                <!-- 區塊1：上傳檔案 -->
-                <div>
-                    <div class="section-title">📤 上傳檔案</div>
-                    <div class="form-group">
-                        <label>租金表 (.xlsx)</label>
-                        <label class="file-input-label" id="label1" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file1',this)">
-                            點擊或拖拉檔案至此
-                        </label>
-                        <input type="file" id="file1" accept=".xlsx" />
-                    </div>
-                    <div class="form-group">
-                        <label>出入庫記錄表 (.xlsx)</label>
-                        <label class="file-input-label" id="label2" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file2',this)">
-                            點擊或拖拉檔案至此
-                        </label>
-                        <input type="file" id="file2" accept=".xlsx" />
-                    </div>
-                    <div class="form-group">
-                        <label>重量表 (.xlsx)</label>
-                        <label class="file-input-label" id="label3" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file3',this)">
-                            點擊或拖拉檔案至此
-                        </label>
-                        <input type="file" id="file3" accept=".xlsx" />
-                    </div>
-                </div>
-
-                <!-- 區塊2：計算設定 -->
-                <div>
-                    <div class="section-title">⚙️ 計算設定</div>
-                    <div class="form-group">
-                        <label>設定期初日期</label>
-                        <input type="text" id="startDate" placeholder="輸入 20260401" maxlength="10"
-                               oninput="autoFormatDate(this)" style="letter-spacing:0.05em;" />
-                    </div>
-                    <div class="form-group">
-                        <label>設定期末日期</label>
-                        <input type="text" id="endDate" placeholder="輸入 20260415" maxlength="10"
-                               oninput="autoFormatDate(this)" style="letter-spacing:0.05em;" />
-                    </div>
-                    <div class="form-group">
-                        <label>日租金費率 (每15天/公斤，$)</label>
-                        <input type="number" id="dailyRate" value="0.8" step="0.01" />
-                    </div>
-                    <div class="form-group">
-                        <label>出入庫酌收 (1次/公斤，$)</label>
-                        <input type="number" id="handlingFee" value="1.0" step="0.01" />
-                    </div>
-                    <div class="button-group">
-                        <button class="btn-primary" onclick="processFiles()">計算</button>
-                        <button class="btn-secondary" onclick="resetForm()">清除</button>
-                    </div>
-                    <div style="margin-top:0.8rem;">
-                        <button onclick="openSettings()" style="width:100%; background:none; border:1.5px dashed #c9a8e0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-size:0.82rem; font-weight:700; cursor:pointer;">🔧 欄位對應設定</button>
-                    </div>
-                    <div id="status"></div>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- 下方：結果區域 -->
-        <div id="results">
-            <p style="color: #999; text-align: center; padding: 2rem;">
-                上傳檔案後點擊「計算」查看結果
-            </p>
-        </div>
-    </div>
-</div>
-</div><!-- end page_calc -->
-
-<!-- ===== 月結算總帳頁面 ===== -->
-<div id="page_ledger" style="display:none;">
-<div class="container">
-    <div class="header">
-        <div class="flower-band">
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)"><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(40)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(80)"/><circle r="4" fill="#f7d96b"/></g></svg>
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)"><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(60)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(120)"/><circle r="4" fill="#f7d96b"/></g></svg>
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)"><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(45)"/><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(90)"/><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(135)"/><circle r="4" fill="#f7d96b"/></g></svg>
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)"><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(60)"/><ellipse rx="7" ry="3.5" fill="#e8836a" transform="rotate(120)"/><circle r="4" fill="#f7d96b"/></g></svg>
-        </div>
-        <h1>📊 月結算總帳</h1>
-        <p>累計租金管理・期初開帳・月結更新</p>
-        <div id="authBar2" style="margin-top:0.8rem; display:flex; justify-content:center;"></div>
-        <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:1rem;">
-            <button onclick="switchPage('calc')" id="btn_calc2"
-                style="padding:0.5rem 1.5rem; border-radius:20px; border:2px solid rgba(255,255,255,0.5); background:transparent; color:white; font-weight:800; font-size:0.9rem; cursor:pointer; font-family:'Nunito',sans-serif;">
-                📋 租金計算
-            </button>
-            <button onclick="switchPage('ledger')" id="btn_ledger2"
-                style="padding:0.5rem 1.5rem; border-radius:20px; border:2px solid white; background:white; color:#764ba2; font-weight:800; font-size:0.9rem; cursor:pointer; font-family:'Nunito',sans-serif;">
-                📊 月結算總帳
-            </button>
-            <button onclick="switchPage('profit')" id="btn_profit2"
-                style="padding:0.5rem 1.5rem; border-radius:20px; border:2px solid rgba(255,255,255,0.5); background:transparent; color:white; font-weight:800; font-size:0.9rem; cursor:pointer; font-family:'Nunito',sans-serif;">
-                💹 利潤分析
-            </button>
-        </div>
-    </div>
-
-    <div class="content">
-        <!-- 總帳操作區 -->
-        <div class="top-panel" style="margin-bottom:1.5rem;">
-            <div style="display:grid; grid-template-columns:2fr 1fr 1.2fr; gap:1.5rem;">
-
-                <!-- 月結算 -->
-                <div>
-                    <div class="section-title">📅 月結算（每月執行）</div>
-                    <p style="font-size:0.8rem; color:#8a6a7a; margin-bottom:0.8rem;">上傳當月上半期 + 下半期計算結果</p>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
-                        <div class="form-group">
-                            <label>上半期結果 (.xlsx)</label>
-                            <div style="border:2px dashed #7ec8e3; border-radius:10px; padding:0.5rem; background:white;"
-                                ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'ledger_file_first',this)">
-                                <input type="file" id="ledger_file_first" accept=".xlsx"
-                                    onchange="ledgerFileChanged('ledger_file_first')"
-                                    style="width:100%; font-size:0.8rem; border:none; background:transparent;" />
-                                <div id="ledger_label_first" style="font-size:0.75rem; color:#5b9dba; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>下半期結果 (.xlsx)</label>
-                            <div style="border:2px dashed #7ec8e3; border-radius:10px; padding:0.5rem; background:white;"
-                                ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'ledger_file_second',this)">
-                                <input type="file" id="ledger_file_second" accept=".xlsx"
-                                    onchange="ledgerFileChanged('ledger_file_second')"
-                                    style="width:100%; font-size:0.8rem; border:none; background:transparent;" />
-                                <div id="ledger_label_second" style="font-size:0.75rem; color:#5b9dba; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display:flex; gap:0.8rem; align-items:flex-end;">
-                        <div class="form-group" style="flex:1; margin-bottom:0;">
-                            <label>月份標籤（例：3月）</label>
-                            <input type="text" id="ledger_month_label" placeholder="例：3月" />
-                        </div>
-                        <button onclick="previewMonthly()" class="btn-primary" style="flex:none; padding:0.6rem 1.2rem; margin-bottom:0;">🔍 預覽月結算</button>
-                    </div>
-                    <div id="ledger_status_monthly" style="margin-top:0.5rem; font-size:0.82rem;"></div>
-                </div>
-
-                <!-- 手動上傳總檔 -->
-                <div>
-                    <div class="section-title">📤 上傳總檔</div>
-                    <p style="font-size:0.8rem; color:#8a6a7a; margin-bottom:0.8rem;">直接覆蓋本地總帳資料</p>
-                    <div class="form-group">
-                        <label>本期總檔 (.xlsx)</label>
-                        <div style="border:2px dashed #c9a8e0; border-radius:10px; padding:0.5rem; background:white;"
-                            ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'ledger_file_upload',this)">
-                            <input type="file" id="ledger_file_upload" accept=".xlsx"
-                                onchange="ledgerFileChanged('ledger_file_upload')"
-                                style="width:100%; font-size:0.8rem; border:none; background:transparent;" />
-                            <div id="ledger_label_upload" style="font-size:0.75rem; color:#8a5aa0; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
-                        </div>
-                    </div>
-                    <button onclick="doUploadLedger()" class="btn-primary" style="width:100%; margin-top:0.3rem; background:#8a5aa0;">📤 匯入總帳</button>
-                    <div id="ledger_status_upload" style="margin-top:0.5rem; font-size:0.82rem;"></div>
-                </div>
-
-                <!-- 總帳狀態 -->
-                <div>
-                    <div class="section-title">💾 總帳狀態</div>
-                    <div id="ledger_db_status" style="font-size:0.85rem; color:#8a6a7a; margin-bottom:1rem;">讀取中...</div>
-                    <button onclick="viewLedger()" class="btn-secondary" style="width:100%; margin-bottom:0.5rem;">📋 檢視目前總帳</button>
-                    <button onclick="exportLedger()" style="width:100%; background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.75rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif; margin-bottom:0.5rem;">📥 匯出總帳 Excel</button>
-                    <button onclick="syncToFirestore()" style="width:100%; background:#4285f4; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 GitHub</button>
-                    <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #4285f4; color:#4285f4; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 GitHub 載入</button>
-                    <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 復原上一步</button>
-                    <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
-                    <hr style="border:none; border-top:1px solid #f0e0f0; margin:0.8rem 0;">
-                    <button onclick="setGitHubToken()" style="width:100%; background:none; border:1.5px solid #aaa; color:#888; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">🔑 設定 GitHub Token</button>
-                    <button onclick="clearLedger()" style="width:100%; background:none; border:1.5px solid #e8836a; color:#e8836a; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem;">🗑️ 清除總帳資料</button>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- 預覽 / 總帳顯示區 -->
-        <div id="ledger_results">
-            <p style="color:#999; text-align:center; padding:2rem;">選擇操作後結果會顯示在這裡</p>
-        </div>
-    </div>
-</div>
-</div>
-
-
-<!-- ===== 利潤分析頁面 ===== -->
-<div id="page_profit" style="display:none;">
-<div class="container">
-    <div class="header">
-        <div class="flower-band">
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)"><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(40)"/><ellipse rx="7" ry="3.5" fill="#f2a7c3" transform="rotate(80)"/><circle r="4" fill="#f7d96b"/></g></svg>
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)"><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(60)"/><ellipse rx="7" ry="3.5" fill="#8dcc7a" transform="rotate(120)"/><circle r="4" fill="#f7d96b"/></g></svg>
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)"><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(45)"/><ellipse rx="7" ry="3.5" fill="#7ec8e3" transform="rotate(90)"/><circle r="4" fill="#f7d96b"/></g></svg>
-            <svg viewBox="0 0 40 40"><g transform="translate(20,20)"><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(0)"/><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(60)"/><ellipse rx="7" ry="3.5" fill="#f7d96b" transform="rotate(120)"/><circle r="4" fill="#e8836a"/></g></svg>
-        </div>
-        <h1>💹 利潤分析</h1>
-        <p>帶入分攤租金・試算租金費用・匯出報表</p>
-        <div style="display:flex; justify-content:center; gap:0.5rem; margin-top:1rem;">
-            <button onclick="switchPage('calc')" id="btn_calc3"
-                style="padding:0.5rem 1.5rem; border-radius:20px; border:2px solid rgba(255,255,255,0.5); background:transparent; color:white; font-weight:800; font-size:0.9rem; cursor:pointer; font-family:'Nunito',sans-serif;">
-                📋 租金計算
-            </button>
-            <button onclick="switchPage('ledger')" id="btn_ledger3"
-                style="padding:0.5rem 1.5rem; border-radius:20px; border:2px solid rgba(255,255,255,0.5); background:transparent; color:white; font-weight:800; font-size:0.9rem; cursor:pointer; font-family:'Nunito',sans-serif;">
-                📊 月結算總帳
-            </button>
-            <button onclick="switchPage('profit')" id="btn_profit3"
-                style="padding:0.5rem 1.5rem; border-radius:20px; border:2px solid white; background:white; color:#764ba2; font-weight:800; font-size:0.9rem; cursor:pointer; font-family:'Nunito',sans-serif;">
-                💹 利潤分析
-            </button>
-        </div>
-    </div>
-
-    <div class="content">
-        <div class="top-panel">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; align-items:start;">
-                <!-- 左欄：上傳三個源檔案 -->
-                <div>
-                    <!-- 1. 利潤明細表 -->
-                    <div class="section-title">📤 1️⃣ 利潤明細表 (.xlsx)</div>
-                    <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">需包含：產品、批號、數量、專案 (若有調撥)</p>
-                    <div style="border:2px dashed #7ec8e3; border-radius:10px; padding:0.6rem; background:white; margin-bottom:0.8rem;"
-                        ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'profit_file',this)">
-                        <input type="file" id="profit_file" accept=".xlsx"
-                            onchange="profitFileChanged(this)"
-                            style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
-                        <div id="profit_file_label" style="font-size:0.7rem; color:#5b9dba; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
-                    </div>
-                    <div id="profit_upload_status" style="margin-top:0.3rem; font-size:0.8rem;"></div>
-                    <div id="profit_sheet_selector" style="display:none; margin-top:0.5rem;">
-                        <label style="font-size:0.75rem; color:#8a6a7a; font-weight:700;">選工作表：</label>
-                        <select id="profit_sheet_select" style="margin-left:0.3rem; font-size:0.75rem; border:1px solid #7ec8e3; border-radius:6px; padding:0.2rem 0.4rem;"></select>
-                    </div>
-
-                    <!-- 2. 租金計算結果 -->
-                    <div class="section-title" style="margin-top:1rem;">📤 2️⃣ 租金計算結果 (上/下期)</div>
-                    <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">上傳上期或下期結果，帶出分攤單價</p>
-                    <div style="border:2px dashed #8dcc7a; border-radius:10px; padding:0.6rem; background:white; margin-bottom:0.8rem;"
-                        ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'rental_result_file',this)">
-                        <input type="file" id="rental_result_file" accept=".xlsx"
-                            onchange="rentalResultFileChanged(this)"
-                            style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
-                        <div id="rental_result_label" style="font-size:0.7rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
-                    </div>
-                    <div id="rental_result_status" style="font-size:0.8rem; color:#6aa85a;"></div>
-
-                    <!-- 3. 加工單 -->
-                    <div class="section-title" style="margin-top:1rem;">📤 3️⃣ 加工單 (可選)</div>
-                    <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">自動計算加工成品的租金單價</p>
-                    <div style="border:2px dashed #f7a35c; border-radius:10px; padding:0.6rem; background:white;"
-                        ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'processing_form_file',this)">
-                        <input type="file" id="processing_form_file" accept=".xlsx"
-                            onchange="processingFormFileChanged(this)"
-                            style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
-                        <div id="processing_form_label" style="font-size:0.7rem; color:#d97a3a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
-                    </div>
-                    <div id="processing_form_status" style="font-size:0.8rem; color:#d97a3a;"></div>
-                </div>
-                <!-- 設定與操作 -->
-                <div>
-                    <div class="section-title">⚙️ 欄位對應設定</div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.8rem;">
-                        <div class="config-item"><label>產品代碼欄</label><input type="text" id="pcol_code" value="產品" /></div>
-                        <div class="config-item"><label>產品名稱欄</label><input type="text" id="pcol_name" value="產品名稱" /></div>
-                        <div class="config-item"><label>批號欄</label><input type="text" id="pcol_batch" value="批號" /></div>
-                        <div class="config-item"><label>數量欄</label><input type="text" id="pcol_qty" value="數量" /></div>
-                    </div>
-                    <div style="display:flex; gap:0.7rem;">
-                        <button onclick="calcProfit()" class="btn-primary" style="flex:2;">🔍 試算租金費用</button>
-                        <button onclick="exportProfit()" style="flex:1; background:#8dcc7a; color:white; border:none; border-radius:10px; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">📥 匯出 Excel</button>
-                    </div>
-                    <div id="profit_calc_status" style="margin-top:0.5rem; font-size:0.82rem;"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 合計卡片 -->
-        <div id="profit_summary" style="display:none; display:flex; gap:0.8rem; flex-wrap:wrap; margin-bottom:1rem;">
-            <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:10px; padding:0.6rem 1rem; text-align:center; min-width:120px;">
-                <div style="font-size:0.72rem; color:#c0507a; font-weight:700;">總筆數</div>
-                <div style="font-size:1.2rem; font-weight:800; color:#c0507a;" id="ps_total">-</div>
-            </div>
-            <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.6rem 1rem; text-align:center; min-width:120px;">
-                <div style="font-size:0.72rem; color:#4a9a37; font-weight:700;">比對到租金</div>
-                <div style="font-size:1.2rem; font-weight:800; color:#4a9a37;" id="ps_matched">-</div>
-            </div>
-            <div style="background:#fff8e8; border:1.5px solid #f7d96b; border-radius:10px; padding:0.6rem 1rem; text-align:center; min-width:140px;">
-                <div style="font-size:0.72rem; color:#b07020; font-weight:700;">租金費用合計</div>
-                <div style="font-size:1.2rem; font-weight:800; color:#b07020;" id="ps_rent_total">-</div>
-            </div>
-            <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.6rem 1rem; text-align:center; min-width:120px;">
-                <div style="font-size:0.72rem; color:#2a6a82; font-weight:700;">未比對到</div>
-                <div style="font-size:1.2rem; font-weight:800; color:#2a6a82;" id="ps_unmatched">-</div>
-            </div>
-        </div>
-
-        <!-- 篩選列 -->
-        <div id="profit_filter_bar" style="display:none; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.8rem;">
-            <input type="text" id="profit_filter" placeholder="搜尋產品名稱 / 批號..."
-                style="width:220px; padding:0.5rem 0.7rem; font-size:0.85rem;"
-                oninput="applyProfitFilter()" />
-            <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; cursor:pointer;">
-                <input type="checkbox" id="profit_show_unmatched" onchange="applyProfitFilter()"> 只顯示未比對
-            </label>
-            <span id="profit_filter_note" style="font-size:0.8rem; color:#999;"></span>
-        </div>
-
-        <!-- 結果表格 -->
-        <div id="profit_results">
-            <p style="color:#999; text-align:center; padding:2rem;">上傳利潤明細表後點擊「試算租金費用」</p>
-        </div>
-    </div>
-</div>
-</div><!-- end page_profit -->
-
-<!-- 後台：欄位對應設定 overlay -->
-<div id="settingsOverlay" style="display:none; position:fixed; inset:0; background:rgba(42,31,45,0.55); z-index:999; align-items:center; justify-content:center;">
+<!-- RENTAL SETTINGS OVERLAY -->
+<div id="settingsOverlay" style="display:none; position:fixed; inset:0; background:rgba(26,37,64,0.55); z-index:999; align-items:center; justify-content:center;">
     <div style="background:white; border-radius:20px; padding:2rem; width:640px; max-width:95vw; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; border-bottom:2px dashed #f2a7c3; padding-bottom:1rem;">
             <h2 style="font-size:1.2rem; font-weight:800; color:#3d2c1e;">🔧 欄位對應設定</h2>
@@ -2113,7 +850,6 @@
         <div style="margin-bottom:1rem; font-size:0.82rem; color:#8a6a7a; background:#fdf0f7; padding:0.75rem 1rem; border-radius:10px;">
             若 ERP 匯出的欄位名稱有所不同，請在此修改對應欄位名稱。
         </div>
-
         <p style="font-size:0.78rem; font-weight:800; color:#e8836a; margin:0.5rem 0 0.6rem; text-transform:uppercase; letter-spacing:0.06em;">📋 租金表</p>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin-bottom:1.2rem;">
             <div class="config-item"><label>產品名稱</label><input type="text" id="col_product1" value="產品名稱" /></div>
@@ -2122,7 +858,6 @@
             <div class="config-item"><label>期末數量（本期結存）</label><input type="text" id="col_end" value="本期結存" /></div>
             <div class="config-item"><label>本期入庫</label><input type="text" id="col_inbound" value="本期入庫" /></div>
         </div>
-
         <p style="font-size:0.78rem; font-weight:800; color:#7ec8e3; margin:0.5rem 0 0.6rem; text-transform:uppercase; letter-spacing:0.06em;">📦 出入庫記錄表</p>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin-bottom:1.2rem;">
             <div class="config-item"><label>產品名稱</label><input type="text" id="col_product2" value="產品名稱" /></div>
@@ -2131,31 +866,862 @@
             <div class="config-item"><label>業務屬性</label><input type="text" id="col_type" value="業務屬性" /></div>
             <div class="config-item"><label>部門名稱</label><input type="text" id="col_dept" value="部門名稱" /></div>
         </div>
-
         <p style="font-size:0.78rem; font-weight:800; color:#8dcc7a; margin:0.5rem 0 0.6rem; text-transform:uppercase; letter-spacing:0.06em;">⚖️ 重量表</p>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin-bottom:1.5rem;">
             <div class="config-item"><label>產品名稱</label><input type="text" id="col_product3" value="產品名稱" /></div>
             <div class="config-item"><label>重量欄</label><input type="text" id="col_weight" value="重量" /></div>
         </div>
-
         <button onclick="closeSettings()" style="width:100%; background:#e8836a; color:white; border:none; border-radius:10px; padding:0.8rem; font-weight:800; font-size:0.95rem; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 儲存並關閉</button>
     </div>
 </div>
-</div><!-- end app_rental -->
 
-<!-- ══ APP SWITCHER LOGIC ════════════════════════════════════════ -->
+<!-- LOADER -->
+<div class="loader" id="loader">
+  <div class="spin"></div>
+  <p style="color:var(--accent);font-weight:700;font-size:14px;">資料處理中…</p>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- HIDDEN INPUTS (required by JS) -->
+<input type="file" id="fileInput" accept=".xlsx,.xls" onchange="loadFile(this)" style="display:none">
+<input type="file" id="priceFileInput" accept=".xlsx,.xls" onchange="loadPriceFile(this)" style="display:none">
+
+<!-- ══ APP SHELL ══════════════════════════════════════════════════ -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">📦</div>
+      <div>
+        <div class="logo-text">庫存暨租金管理</div>
+        <div class="logo-sub">Enterprise Dashboard</div>
+      </div>
+    </div>
+    <ul class="nav-list">
+      <li class="nav-item active" data-view="dashboard" onclick="navSwitch('dashboard')">
+        <span class="nav-icon">📊</span> 總覽儀表板
+      </li>
+      <li class="nav-item" data-view="inventory" onclick="navSwitch('inventory')">
+        <span class="nav-icon">📋</span> 庫存管理
+        <span class="nav-badge" id="nav-badge-expired">0</span>
+      </li>
+      <li class="nav-item" data-view="diff" onclick="navSwitch('diff')">
+        <span class="nav-icon">🔄</span> 差異比較
+      </li>
+      <li class="nav-item" data-view="rental" onclick="navSwitch('rental')">
+        <span class="nav-icon">🧊</span> 租金計算
+      </li>
+      <li class="nav-item" data-view="prices" onclick="navSwitch('prices')">
+        <span class="nav-icon">💰</span> 單價設定
+      </li>
+      <li class="nav-item" data-view="settings" onclick="navSwitch('settings')">
+        <span class="nav-icon">⚙️</span> 系統設定
+      </li>
+    </ul>
+    <div class="sidebar-bottom">
+      <button class="sidebar-upload-btn" onclick="document.getElementById('fileInput').click()">
+        <span>📂</span> 匯入庫存 xlsx
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+
+    <!-- TOP HEADER -->
+    <header class="app-header">
+      <div class="header-title" id="headerTitle">總覽儀表板</div>
+      <div class="header-right">
+        <div class="header-date" id="headerDate"></div>
+        <div class="header-avatar">D</div>
+      </div>
+    </header>
+
+    <!-- VIEW AREA -->
+    <div class="view-area">
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- VIEW: DASHBOARD                                           -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="view-panel active" id="view-dashboard">
+
+        <!-- KPI Cards -->
+        <div class="db-kpi-grid">
+          <div class="db-kpi-card blue">
+            <div class="db-kpi-icon">📦</div>
+            <div class="db-kpi-info">
+              <div class="db-kpi-label">總庫存筆數</div>
+              <div class="db-kpi-value" id="db-total">—</div>
+            </div>
+          </div>
+          <div class="db-kpi-card red">
+            <div class="db-kpi-icon">❌</div>
+            <div class="db-kpi-info">
+              <div class="db-kpi-label">過期品</div>
+              <div class="db-kpi-value" id="db-expired">—</div>
+            </div>
+          </div>
+          <div class="db-kpi-card amber">
+            <div class="db-kpi-icon">⏳</div>
+            <div class="db-kpi-info">
+              <div class="db-kpi-label">長期在庫</div>
+              <div class="db-kpi-value" id="db-long">—</div>
+            </div>
+          </div>
+          <div class="db-kpi-card green">
+            <div class="db-kpi-icon">💰</div>
+            <div class="db-kpi-info">
+              <div class="db-kpi-label">存貨成本合計</div>
+              <div class="db-kpi-value" id="db-cost" style="font-size:18px;">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📂 匯入庫存 xlsx</button>
+          <button class="btn btn-blue" onclick="navSwitch('inventory')">📋 庫存管理</button>
+          <button class="btn btn-ghost" onclick="navSwitch('diff')">🔄 差異比較</button>
+          <button class="btn btn-ghost" onclick="exportCostAnalysis()">📊 成本分析報表</button>
+        </div>
+
+        <!-- Flagged Items Table -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <span style="font-size:18px;">⚠️</span>
+            <h3>需要關注的品項（過期 + 即將到期）</h3>
+          </div>
+          <div class="section-card-body">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>產品名稱</th>
+                  <th>批號</th>
+                  <th>倉庫</th>
+                  <th>有效期至</th>
+                  <th>庫存數量</th>
+                  <th>狀態</th>
+                </tr>
+              </thead>
+              <tbody id="db-flagged-tbody">
+                <tr><td colspan="6" style="text-align:center;color:#aaa;padding:2rem;">尚未載入庫存資料</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- VIEW: INVENTORY                                           -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="view-panel" id="view-inventory">
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">📦 總庫存筆數</div>
+            <div class="kpi-value" id="kpi-total">—</div>
+            <div class="kpi-sub">已載入資料</div>
+          </div>
+          <div class="kpi-card red">
+            <div class="kpi-label">❌ 過期品</div>
+            <div class="kpi-value" id="kpi-expired">—</div>
+            <div class="kpi-sub">有效期已過</div>
+          </div>
+          <div class="kpi-card orange">
+            <div class="kpi-label">⏳ 長期在庫</div>
+            <div class="kpi-value" id="kpi-long">—</div>
+            <div class="kpi-sub">入庫超過3年</div>
+          </div>
+          <div class="kpi-card coral">
+            <div class="kpi-label">⚠️ 即將到期</div>
+            <div class="kpi-value" id="kpi-soon">—</div>
+            <div class="kpi-sub" id="kpi-soon-sub">效期未滿210天</div>
+          </div>
+        </div>
+
+        <!-- Scope Cost Table -->
+        <div class="scope-table-wrap" id="scopeCostWrap" style="display:none;">
+          <div class="scope-table-header" onclick="toggleScopeTable()">
+            <h4>💰 各存貨核算範圍成本分析</h4>
+            <span id="scopeToggleHint" style="font-size:12px;color:var(--muted);margin-left:auto;">▼ 點擊收合</span>
+          </div>
+          <div class="scope-tbl-body" id="scopeTblBody">
+            <table class="scope-tbl" id="scopeCostTbl"></table>
+          </div>
+        </div>
+
+        <!-- Control Bar -->
+        <div class="control-bar">
+          <div class="ctrl-group">
+            <label>⚠️ 即將到期天數閾值</label>
+            <input type="number" id="soonDays" value="210" min="1" max="999" style="width:90px" onchange="recompute()">
+          </div>
+          <div class="ctrl-group">
+            <label>⏳ 長期在庫年限</label>
+            <input type="number" id="longYears" value="3" min="1" max="20" style="width:70px" onchange="recompute()">
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-green" onclick="exportExcel()">📤 匯出 Excel</button>
+            <button class="btn btn-blue" onclick="exportCostAnalysis()">📊 成本分析</button>
+            <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;">📋 明細報表</button>
+            <button class="btn btn-primary" onclick="openSheetsPanel()">☁️ 寫入 Sheets</button>
+          </div>
+        </div>
+
+        <!-- Main content card -->
+        <div class="inv-card">
+          <!-- Global Search Bar -->
+          <div id="globalSearchBar" style="padding:12px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+            <div class="search-box">
+              <span>🔍</span>
+              <input type="text" id="search-global" placeholder="搜尋產品名稱 / 批號 / 代碼…" oninput="onGlobalSearch()" style="width:200px">
+            </div>
+            <div class="multi-select-wrap" id="warehouse-multi-wrap">
+              <button class="multi-select-btn filter-select" type="button" onclick="toggleWarehouseDropdown()" id="warehouse-multi-btn">全部倉庫 &#9660;</button>
+              <div class="multi-select-dropdown" id="warehouse-multi-dropdown" style="display:none;"></div>
+            </div>
+            <select class="filter-select" id="filter-global-category" onchange="onGlobalSearch()">
+              <option value="">全部類別</option>
+            </select>
+          </div>
+
+          <!-- Tabs -->
+          <div class="tabs" style="border-radius:0;">
+            <button class="tab-btn active" onclick="switchTab('all',this)">📋 全部庫存</button>
+            <button class="tab-btn" onclick="switchTab('expired',this)">❌ 過期品</button>
+            <button class="tab-btn" onclick="switchTab('long',this)">⏳ 長期在庫</button>
+            <button class="tab-btn" onclick="switchTab('soon',this)">⚠️ 即將到期</button>
+          </div>
+
+          <!-- TAB: all -->
+          <div class="tab-content active" id="tab-all">
+            <div class="table-wrap">
+              <div class="table-toolbar">
+                <span class="tbl-count" id="count-all">0 筆</span>
+              </div>
+              <div class="tbl-scroll" id="tbl-all-wrap">
+                <div class="upload-zone" id="uploadZone"
+                     onclick="document.getElementById('fileInput').click()"
+                     ondragover="event.preventDefault();this.classList.add('drag')"
+                     ondragleave="this.classList.remove('drag')"
+                     ondrop="handleDrop(event)">
+                  <div class="icon">📂</div>
+                  <h3>拖曳或點擊上傳庫存 xlsx</h3>
+                  <p>支援 ERP 匯出的標準庫存格式</p>
+                </div>
+              </div>
+              <div class="tbl-footer" id="footer-all" style="display:none">
+                <span>庫存數量合計：<strong id="sum-all-qty">0</strong></span>
+                <span>存貨成本合計：<strong id="sum-all-cost">$0</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: expired -->
+          <div class="tab-content" id="tab-expired">
+            <div class="table-wrap">
+              <div class="table-toolbar">
+                <span class="tbl-count" id="count-expired">0 筆</span>
+              </div>
+              <div class="tbl-scroll" id="tbl-expired-wrap"></div>
+              <div class="tbl-footer" id="footer-expired" style="display:none">
+                <span>庫存數量合計：<strong id="sum-expired-qty">0</strong></span>
+                <span>存貨成本合計：<strong id="sum-expired-cost">$0</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: long -->
+          <div class="tab-content" id="tab-long">
+            <div class="table-wrap">
+              <div class="table-toolbar">
+                <span class="tbl-count" id="count-long">0 筆</span>
+              </div>
+              <div class="tbl-scroll" id="tbl-long-wrap"></div>
+              <div class="tbl-footer" id="footer-long" style="display:none">
+                <span>庫存數量合計：<strong id="sum-long-qty">0</strong></span>
+                <span>存貨成本合計：<strong id="sum-long-cost">$0</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: soon -->
+          <div class="tab-content" id="tab-soon">
+            <div style="background:#fff;padding:14px 18px;border-bottom:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+              <span style="font-size:12px;font-weight:800;color:var(--muted);">分段統計：</span>
+              <span class="badge badge-red"   id="seg-urgent">🔴 緊急(≤30天) 0筆</span>
+              <span class="badge badge-orange" id="seg-warn">🟠 警示(31-90天) 0筆</span>
+              <span class="badge badge-yellow" id="seg-caution">🟡 注意(91-180天) 0筆</span>
+              <span class="badge badge-green"  id="seg-track">🟢 追蹤(181-210天) 0筆</span>
+              <select class="filter-select" id="filter-soon-seg" onchange="renderTable('soon')" style="margin-left:auto;">
+                <option value="">全部區段</option>
+                <option value="urgent">🔴 緊急 ≤30天</option>
+                <option value="warn">🟠 警示 31-90天</option>
+                <option value="caution">🟡 注意 91-180天</option>
+                <option value="track">🟢 追蹤 181-210天</option>
+              </select>
+            </div>
+            <div class="table-wrap" style="border-radius:0;">
+              <div class="table-toolbar">
+                <span class="tbl-count" id="count-soon">0 筆</span>
+              </div>
+              <div class="tbl-scroll" id="tbl-soon-wrap"></div>
+              <div class="tbl-footer" id="footer-soon" style="display:none">
+                <span>庫存數量合計：<strong id="sum-soon-qty">0</strong></span>
+                <span>存貨成本合計：<strong id="sum-soon-cost">$0</strong></span>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /inv-card -->
+      </div><!-- /view-inventory -->
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- VIEW: DIFF                                                -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="view-panel" id="view-diff">
+        <div class="section-card">
+          <div class="section-card-header">
+            <span style="font-size:18px;">🔄</span>
+            <h3>差異比較</h3>
+          </div>
+          <div style="padding:18px;">
+
+            <!-- Upload cards -->
+            <div class="diff-upload-grid">
+              <div id="diffCardA" onclick="document.getElementById('diffFileA').click()"
+                   ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+                   ondragleave="this.style.borderColor=''"
+                   ondrop="diffHandleDrop(event,'A')"
+                   class="diff-upload-card">
+                <input type="file" id="diffFileA" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('A',this)">
+                <div style="font-size:26px;margin-bottom:8px;">📅</div>
+                <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin-bottom:4px;">本期期末</div>
+                <div style="font-size:14px;font-weight:700;">本期期末庫存</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:3px;">讀取「本期結存」欄</div>
+                <div id="diffLabelA" style="font-size:12px;font-weight:700;color:var(--muted);margin-top:8px;">等待上傳…</div>
+              </div>
+              <div id="diffCardB" onclick="document.getElementById('diffFileB').click()"
+                   ondragover="event.preventDefault();this.style.borderColor='var(--blue)'"
+                   ondragleave="this.style.borderColor=''"
+                   ondrop="diffHandleDrop(event,'B')"
+                   class="diff-upload-card">
+                <input type="file" id="diffFileB" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('B',this)">
+                <div style="font-size:26px;margin-bottom:8px;">📁</div>
+                <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin-bottom:4px;">上期期末</div>
+                <div style="font-size:14px;font-weight:700;">上期期末庫存</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:3px;">讀取「本期結存」欄</div>
+                <div id="diffLabelB" style="font-size:12px;font-weight:700;color:var(--muted);margin-top:8px;">等待上傳…</div>
+              </div>
+            </div>
+
+            <!-- Price status bar -->
+            <div style="margin-bottom:12px;padding:10px 14px;background:#f5f0fd;border-radius:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="font-size:13px;color:var(--accent);">💰 單價資料</span>
+              <span id="diffPriceStatusLabel" style="font-size:12px;font-weight:700;color:var(--muted);">尚未設定單價</span>
+              <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;margin-left:auto;" onclick="navSwitch('prices')">前往單價設定 →</button>
+            </div>
+
+            <!-- Run buttons -->
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+              <button class="btn btn-primary" id="diffBtnRun" onclick="runDiff()" disabled>▶ 執行差異比較</button>
+              <button class="btn btn-green" id="diffBtnExport" onclick="exportDiffExcel()" disabled>📤 匯出差異表</button>
+              <button class="btn btn-blue" id="diffBtnReport" onclick="exportDiffReport()" disabled style="background:#1D4ED8;">📋 明細報表</button>
+              <button class="btn btn-ghost" id="diffBtnShare" onclick="exportSharePage()" disabled style="border-color:var(--violet);color:var(--accent);">📱 匯出手機分享頁</button>
+            </div>
+
+            <!-- Cost summary -->
+            <div id="diffCostSummary" style="display:none;margin-bottom:14px;padding:14px 18px;background:#f5f0fd;border-radius:12px;border-left:4px solid var(--accent);">
+              <div style="font-size:12px;font-weight:900;color:var(--accent);margin-bottom:10px;">💰 成本差異摘要</div>
+              <div style="display:flex;gap:28px;flex-wrap:wrap;">
+                <div>
+                  <div style="font-size:11px;font-weight:700;color:var(--muted);">本期總庫存成本</div>
+                  <div id="diffCostA" style="font-size:20px;font-weight:900;color:var(--accent);">—</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:700;color:var(--muted);">上期總庫存成本</div>
+                  <div id="diffCostB" style="font-size:20px;font-weight:900;color:var(--accent);">—</div>
+                </div>
+                <div id="diffCostDiffBox">
+                  <div style="font-size:11px;font-weight:700;color:var(--muted);">成本差異（本期－上期）</div>
+                  <div id="diffCostDiff" style="font-size:20px;font-weight:900;">—</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Diff stats -->
+            <div id="diffStats" style="display:none;padding:10px 0;margin-bottom:12px;display:flex;gap:14px;flex-wrap:wrap;">
+              <span style="font-size:12px;">🟢 新增：<strong id="diffNew" style="color:#16a34a">0</strong></span>
+              <span style="font-size:12px;">🔴 消失：<strong id="diffGone" style="color:var(--red)">0</strong></span>
+              <span style="font-size:12px;">🔵 數量增加：<strong id="diffUp" style="color:#2563eb">0</strong></span>
+              <span style="font-size:12px;">🟠 數量減少：<strong id="diffDown" style="color:var(--orange)">0</strong></span>
+              <span style="font-size:12px;">⚪ 無變化：<strong id="diffSame" style="color:var(--muted)">0</strong></span>
+            </div>
+
+            <!-- Diff filter row -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--border);">
+              <select class="filter-select" id="diffFilter" onchange="renderDiff()">
+                <option value="">全部變化</option>
+                <option value="new">🟢 新增</option>
+                <option value="gone">🔴 消失</option>
+                <option value="up">🔵 數量增加</option>
+                <option value="down">🟠 數量減少</option>
+                <option value="same">⚪ 無變化</option>
+              </select>
+              <select class="filter-select" id="diffWarehouse" onchange="renderDiff()"><option value="">全部倉庫</option></select>
+              <select class="filter-select" id="diffCategory" onchange="renderDiff()"><option value="">全部類別</option></select>
+              <span class="tbl-count" id="diffCount" style="margin-left:auto;line-height:34px;">0 筆</span>
+            </div>
+
+            <!-- Diff result table -->
+            <div class="tbl-scroll" id="tbl-diff-wrap" style="max-height:520px;">
+              <div class="empty-state"><div class="icon">📊</div><p>請上傳本期期末與上期期末兩份 xlsx，再按「執行差異比較」</p></div>
+            </div>
+
+          </div>
+        </div>
+      </div><!-- /view-diff -->
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- VIEW: RENTAL                                              -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="view-panel" id="view-rental">
+        <!-- Rental Sub-Nav -->
+        <div class="rental-subnav">
+          <button class="rsn-btn active" id="rsn-calc" onclick="switchPage('calc')">📋 租金計算</button>
+          <button class="rsn-btn" id="rsn-ledger" onclick="switchPage('ledger')">📊 月結算總帳</button>
+          <button class="rsn-btn" id="rsn-profit" onclick="switchPage('profit')">💹 利潤分析</button>
+        </div>
+        <div class="rental-content">
+
+          <!-- PAGE: CALC -->
+          <div id="page_calc">
+            <div class="container">
+              <div class="header" style="display:none!important;"></div>
+              <div class="content">
+                <div class="top-panel">
+                  <div class="top-grid">
+                    <div>
+                      <div class="section-title">📤 上傳檔案</div>
+                      <div class="form-group">
+                        <label>租金表 (.xlsx)</label>
+                        <label class="file-input-label" id="label1" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file1',this)">
+                          點擊或拖拉檔案至此
+                        </label>
+                        <input type="file" id="file1" accept=".xlsx" />
+                      </div>
+                      <div class="form-group">
+                        <label>出入庫記錄表 (.xlsx)</label>
+                        <label class="file-input-label" id="label2" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file2',this)">
+                          點擊或拖拉檔案至此
+                        </label>
+                        <input type="file" id="file2" accept=".xlsx" />
+                      </div>
+                      <div class="form-group">
+                        <label>重量表 (.xlsx)</label>
+                        <label class="file-input-label" id="label3" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file3',this)">
+                          點擊或拖拉檔案至此
+                        </label>
+                        <input type="file" id="file3" accept=".xlsx" />
+                      </div>
+                    </div>
+                    <div>
+                      <div class="section-title">⚙️ 計算設定</div>
+                      <div class="form-group">
+                        <label>設定期初日期</label>
+                        <input type="text" id="startDate" placeholder="輸入 20260401" maxlength="10"
+                               oninput="autoFormatDate(this)" style="letter-spacing:0.05em;" />
+                      </div>
+                      <div class="form-group">
+                        <label>設定期末日期</label>
+                        <input type="text" id="endDate" placeholder="輸入 20260415" maxlength="10"
+                               oninput="autoFormatDate(this)" style="letter-spacing:0.05em;" />
+                      </div>
+                      <div class="form-group">
+                        <label>日租金費率 (每15天/公斤，$)</label>
+                        <input type="number" id="dailyRate" value="0.8" step="0.01" />
+                      </div>
+                      <div class="form-group">
+                        <label>出入庫酌收 (1次/公斤，$)</label>
+                        <input type="number" id="handlingFee" value="1.0" step="0.01" />
+                      </div>
+                      <div class="button-group">
+                        <button class="btn-primary" onclick="processFiles()">計算</button>
+                        <button class="btn-secondary" onclick="resetForm()">清除</button>
+                      </div>
+                      <div style="margin-top:0.8rem;">
+                        <button onclick="openSettings()" style="width:100%; background:none; border:1.5px dashed #c9a8e0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-size:0.82rem; font-weight:700; cursor:pointer;">🔧 欄位對應設定</button>
+                      </div>
+                      <div id="status"></div>
+                    </div>
+                  </div>
+                </div>
+                <div id="results">
+                  <p style="color:#999; text-align:center; padding:2rem;">上傳檔案後點擊「計算」查看結果</p>
+                </div>
+              </div>
+            </div>
+          </div><!-- end page_calc -->
+
+          <!-- PAGE: LEDGER -->
+          <div id="page_ledger" style="display:none;">
+            <div class="container">
+              <div class="header" style="display:none!important;"></div>
+              <div class="content">
+                <div class="top-panel" style="margin-bottom:1.5rem;">
+                  <div style="display:grid; grid-template-columns:2fr 1fr 1.2fr; gap:1.5rem;">
+                    <div>
+                      <div class="section-title">📅 月結算（每月執行）</div>
+                      <p style="font-size:0.8rem; color:#8a6a7a; margin-bottom:0.8rem;">上傳當月上半期 + 下半期計算結果</p>
+                      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.8rem;">
+                        <div class="form-group">
+                          <label>上半期結果 (.xlsx)</label>
+                          <div style="border:2px dashed #7ec8e3; border-radius:10px; padding:0.5rem; background:white;"
+                              ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'ledger_file_first',this)">
+                            <input type="file" id="ledger_file_first" accept=".xlsx" onchange="ledgerFileChanged('ledger_file_first')" style="width:100%; font-size:0.8rem; border:none; background:transparent;" />
+                            <div id="ledger_label_first" style="font-size:0.75rem; color:#5b9dba; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                          </div>
+                        </div>
+                        <div class="form-group">
+                          <label>下半期結果 (.xlsx)</label>
+                          <div style="border:2px dashed #7ec8e3; border-radius:10px; padding:0.5rem; background:white;"
+                              ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'ledger_file_second',this)">
+                            <input type="file" id="ledger_file_second" accept=".xlsx" onchange="ledgerFileChanged('ledger_file_second')" style="width:100%; font-size:0.8rem; border:none; background:transparent;" />
+                            <div id="ledger_label_second" style="font-size:0.75rem; color:#5b9dba; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div style="display:flex; gap:0.8rem; align-items:flex-end;">
+                        <div class="form-group" style="flex:1; margin-bottom:0;">
+                          <label>月份標籤（例：3月）</label>
+                          <input type="text" id="ledger_month_label" placeholder="例：3月" />
+                        </div>
+                        <button onclick="previewMonthly()" class="btn-primary" style="flex:none; padding:0.6rem 1.2rem; margin-bottom:0;">🔍 預覽月結算</button>
+                      </div>
+                      <div id="ledger_status_monthly" style="margin-top:0.5rem; font-size:0.82rem;"></div>
+                    </div>
+                    <div>
+                      <div class="section-title">📤 上傳總檔</div>
+                      <p style="font-size:0.8rem; color:#8a6a7a; margin-bottom:0.8rem;">直接覆蓋本地總帳資料</p>
+                      <div class="form-group">
+                        <label>本期總檔 (.xlsx)</label>
+                        <div style="border:2px dashed #c9a8e0; border-radius:10px; padding:0.5rem; background:white;"
+                            ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'ledger_file_upload',this)">
+                          <input type="file" id="ledger_file_upload" accept=".xlsx" onchange="ledgerFileChanged('ledger_file_upload')" style="width:100%; font-size:0.8rem; border:none; background:transparent;" />
+                          <div id="ledger_label_upload" style="font-size:0.75rem; color:#8a5aa0; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                        </div>
+                      </div>
+                      <button onclick="doUploadLedger()" class="btn-primary" style="width:100%; margin-top:0.3rem; background:#8a5aa0;">📤 匯入總帳</button>
+                      <div id="ledger_status_upload" style="margin-top:0.5rem; font-size:0.82rem;"></div>
+                    </div>
+                    <div>
+                      <div class="section-title">💾 總帳狀態</div>
+                      <div id="ledger_db_status" style="font-size:0.85rem; color:#8a6a7a; margin-bottom:1rem;">讀取中...</div>
+                      <button onclick="viewLedger()" class="btn-secondary" style="width:100%; margin-bottom:0.5rem;">📋 檢視目前總帳</button>
+                      <button onclick="exportLedger()" style="width:100%; background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.75rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif; margin-bottom:0.5rem;">📥 匯出總帳 Excel</button>
+                      <button onclick="syncToFirestore()" style="width:100%; background:#4285f4; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 GitHub</button>
+                      <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #4285f4; color:#4285f4; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 GitHub 載入</button>
+                      <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 復原上一步</button>
+                      <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
+                      <hr style="border:none; border-top:1px solid #f0e0f0; margin:0.8rem 0;">
+                      <button onclick="setGitHubToken()" style="width:100%; background:none; border:1.5px solid #aaa; color:#888; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">🔑 設定 GitHub Token</button>
+                      <button onclick="clearLedger()" style="width:100%; background:none; border:1.5px solid #e8836a; color:#e8836a; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem;">🗑️ 清除總帳資料</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="ledger_results" style="margin-top:1rem;"></div>
+              </div>
+            </div>
+          </div><!-- end page_ledger -->
+
+          <!-- PAGE: PROFIT -->
+          <div id="page_profit" style="display:none;">
+            <div class="container">
+              <div class="header" style="display:none!important;"></div>
+              <div class="content">
+                <div class="top-panel">
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; align-items:start;">
+                    <div>
+                      <div class="section-title">📤 1️⃣ 利潤明細表 (.xlsx)</div>
+                      <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">需包含：產品、批號、數量、專案 (若有調撥)</p>
+                      <div style="border:2px dashed #7ec8e3; border-radius:10px; padding:0.6rem; background:white; margin-bottom:0.8rem;"
+                          ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'profit_file',this)">
+                        <input type="file" id="profit_file" accept=".xlsx" onchange="profitFileChanged(this)" style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
+                        <div id="profit_file_label" style="font-size:0.7rem; color:#5b9dba; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                      </div>
+                      <div id="profit_upload_status" style="margin-top:0.3rem; font-size:0.8rem;"></div>
+                      <div id="profit_sheet_selector" style="display:none; margin-top:0.5rem;">
+                        <label style="font-size:0.75rem; color:#8a6a7a; font-weight:700;">選工作表：</label>
+                        <select id="profit_sheet_select" style="margin-left:0.3rem; font-size:0.75rem; border:1px solid #7ec8e3; border-radius:6px; padding:0.2rem 0.4rem;"></select>
+                      </div>
+                      <div class="section-title" style="margin-top:1rem;">📤 2️⃣ 租金計算結果 (上/下期)</div>
+                      <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">上傳上期或下期結果，帶出分攤單價</p>
+                      <div style="border:2px dashed #8dcc7a; border-radius:10px; padding:0.6rem; background:white; margin-bottom:0.8rem;"
+                          ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'rental_result_file',this)">
+                        <input type="file" id="rental_result_file" accept=".xlsx" onchange="rentalResultFileChanged(this)" style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
+                        <div id="rental_result_label" style="font-size:0.7rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                      </div>
+                      <div id="rental_result_status" style="font-size:0.8rem; color:#6aa85a;"></div>
+                      <div class="section-title" style="margin-top:1rem;">📤 3️⃣ 加工單 (可選)</div>
+                      <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">自動計算加工成品的租金單價</p>
+                      <div style="border:2px dashed #f7a35c; border-radius:10px; padding:0.6rem; background:white;"
+                          ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'processing_form_file',this)">
+                        <input type="file" id="processing_form_file" accept=".xlsx" onchange="processingFormFileChanged(this)" style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
+                        <div id="processing_form_label" style="font-size:0.7rem; color:#d97a3a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                      </div>
+                      <div id="processing_form_status" style="font-size:0.8rem; color:#d97a3a;"></div>
+                    </div>
+                    <div>
+                      <div class="section-title">⚙️ 欄位對應設定</div>
+                      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.8rem;">
+                        <div class="config-item"><label>產品代碼欄</label><input type="text" id="pcol_code" value="產品" /></div>
+                        <div class="config-item"><label>產品名稱欄</label><input type="text" id="pcol_name" value="產品名稱" /></div>
+                        <div class="config-item"><label>批號欄</label><input type="text" id="pcol_batch" value="批號" /></div>
+                        <div class="config-item"><label>數量欄</label><input type="text" id="pcol_qty" value="數量" /></div>
+                      </div>
+                      <div style="display:flex; gap:0.7rem;">
+                        <button onclick="calcProfit()" class="btn-primary" style="flex:2;">🔍 試算租金費用</button>
+                        <button onclick="exportProfit()" style="flex:1; background:#8dcc7a; color:white; border:none; border-radius:10px; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">📥 匯出 Excel</button>
+                      </div>
+                      <div id="profit_calc_status" style="margin-top:0.5rem; font-size:0.82rem;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div id="profit_summary" style="display:none; display:flex; gap:0.8rem; flex-wrap:wrap; margin-bottom:1rem;">
+                  <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:10px; padding:0.6rem 1rem; text-align:center; min-width:120px;">
+                    <div style="font-size:0.72rem; color:#c0507a; font-weight:700;">總筆數</div>
+                    <div style="font-size:1.2rem; font-weight:800; color:#c0507a;" id="ps_total">-</div>
+                  </div>
+                  <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.6rem 1rem; text-align:center; min-width:120px;">
+                    <div style="font-size:0.72rem; color:#4a9a37; font-weight:700;">比對到租金</div>
+                    <div style="font-size:1.2rem; font-weight:800; color:#4a9a37;" id="ps_matched">-</div>
+                  </div>
+                  <div style="background:#fff8e8; border:1.5px solid #f7d96b; border-radius:10px; padding:0.6rem 1rem; text-align:center; min-width:140px;">
+                    <div style="font-size:0.72rem; color:#b07020; font-weight:700;">租金費用合計</div>
+                    <div style="font-size:1.2rem; font-weight:800; color:#b07020;" id="ps_rent_total">-</div>
+                  </div>
+                  <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.6rem 1rem; text-align:center; min-width:120px;">
+                    <div style="font-size:0.72rem; color:#2a6a82; font-weight:700;">未比對到</div>
+                    <div style="font-size:1.2rem; font-weight:800; color:#2a6a82;" id="ps_unmatched">-</div>
+                  </div>
+                </div>
+                <div id="profit_filter_bar" style="display:none; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-bottom:0.8rem;">
+                  <input type="text" id="profit_filter" placeholder="搜尋產品名稱 / 批號..." style="width:220px; padding:0.5rem 0.7rem; font-size:0.85rem;" oninput="applyProfitFilter()" />
+                  <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.82rem; cursor:pointer;">
+                    <input type="checkbox" id="profit_show_unmatched" onchange="applyProfitFilter()"> 只顯示未比對
+                  </label>
+                  <span id="profit_filter_note" style="font-size:0.8rem; color:#999;"></span>
+                </div>
+                <div id="profit_results">
+                  <p style="color:#999; text-align:center; padding:2rem;">上傳利潤明細表後點擊「試算租金費用」</p>
+                </div>
+              </div>
+            </div>
+          </div><!-- end page_profit -->
+
+        </div><!-- /rental-content -->
+      </div><!-- /view-rental -->
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- VIEW: PRICES                                              -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="view-panel" id="view-prices">
+        <div class="section-card">
+          <div class="section-card-header">
+            <span style="font-size:18px;">💰</span>
+            <h3>單價設定</h3>
+            <span style="font-size:12px;color:var(--muted);font-weight:400;margin-left:6px;">直接在表格輸入單價與核算範圍</span>
+          </div>
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button class="btn btn-blue" onclick="document.getElementById('priceFileInput').click()">📥 匯入單價 xlsx</button>
+            <button class="btn btn-green" onclick="exportPriceExcel()">📤 匯出單價 xlsx</button>
+            <button class="btn" style="background:#4285f4;color:white;" onclick="ghBackupPrices()">☁️ 備份到 GitHub</button>
+            <button class="btn" style="background:white;color:#4285f4;border:2px solid #4285f4;" onclick="ghLoadPrices()">📥 從 GitHub 載入</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:7px 12px;" onclick="ghSetPriceConfig()" title="設定 GitHub Token / Repo">🔑 設定</button>
+            <span id="ghPriceStatus" style="font-size:12px;color:var(--muted);font-weight:700;min-width:80px;"></span>
+          </div>
+          <div class="price-tbl-wrap" id="priceGrid" style="max-height:600px;overflow-y:auto;padding:0;">
+            <div class="empty-state">
+              <div class="icon">💰</div>
+              <p>請先上傳庫存資料，產品清單將自動出現</p>
+            </div>
+          </div>
+        </div>
+      </div><!-- /view-prices -->
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- VIEW: SETTINGS                                            -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="view-panel" id="view-settings">
+        <div class="settings-grid">
+          <!-- Theme -->
+          <div class="settings-section">
+            <h3>🎨 主題色彩</h3>
+            <div class="settings-row">
+              <label>主題色 (Accent)</label>
+              <input type="color" id="setting-accent" value="#6B5B95"
+                     oninput="applyThemeColor(this.value)">
+            </div>
+            <div style="margin-top:8px;">
+              <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">預設主題：</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#6B5B95')">💜 紫色</button>
+                <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#1E6F9F')">💙 藍色</button>
+                <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#1E7B4A')">💚 綠色</button>
+                <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#9B4A1E')">🟠 橘色</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thresholds -->
+          <div class="settings-section">
+            <h3>⚠️ 警示閾值</h3>
+            <div class="settings-row">
+              <label>即將到期天數閾值</label>
+              <input type="number" id="soonDays-s" value="210" min="1" max="999"
+                     onchange="document.getElementById('soonDays').value=this.value; recompute()">
+            </div>
+            <div class="settings-row">
+              <label>長期在庫年限</label>
+              <input type="number" id="longYears-s" value="3" min="1" max="20"
+                     onchange="document.getElementById('longYears').value=this.value; recompute()">
+            </div>
+          </div>
+
+          <!-- Email Notify (hidden fields for backward compat) -->
+          <div class="settings-section" id="emailSection">
+            <h3>📧 Email 通知</h3>
+            <div class="settings-row">
+              <label>啟用 Email 通知</label>
+              <input type="checkbox" id="enableEmail" style="width:18px;height:18px;cursor:pointer;">
+            </div>
+            <div id="emailFields" style="display:none;">
+              <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                <label>收件人 Email</label>
+                <input type="email" id="recipientEmail" placeholder="you@example.com"
+                  style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;font-family:inherit;">
+              </div>
+            </div>
+          </div>
+
+          <!-- About -->
+          <div class="settings-section">
+            <h3>ℹ️ 系統資訊</h3>
+            <p style="font-size:13px;color:var(--muted);line-height:1.7;">
+              庫存暨租金管理系統<br>
+              <span style="font-size:12px;">單一 HTML 檔案，無需安裝，資料存於本機</span>
+            </p>
+          </div>
+        </div>
+      </div><!-- /view-settings -->
+
+    </div><!-- /view-area -->
+  </div><!-- /main-area -->
+</div><!-- /app-shell -->
+
+<!-- Settings sync script -->
 <script>
-function switchApp(app) {
-  document.querySelectorAll('.app-page').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.app-switch-btn').forEach(el => el.classList.remove('active'));
-  document.getElementById('app_' + app).classList.add('active');
-  document.getElementById('sw_' + app).classList.add('active');
-  window.scrollTo(0, 0);
+function applyThemeColor(hex){
+  document.documentElement.style.setProperty('--accent', hex);
+  // Derive light version
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  document.documentElement.style.setProperty('--accent-rgb', r+','+g+','+b);
+  document.documentElement.style.setProperty('--accent-light', `rgba(${r},${g},${b},0.08)`);
+  const inp = document.getElementById('setting-accent');
+  if(inp) inp.value = hex;
+  try{ localStorage.setItem('themeAccent', hex); } catch(e){}
 }
+// Load saved theme on start
+try{
+  const saved = localStorage.getItem('themeAccent');
+  if(saved) applyThemeColor(saved);
+}catch(e){}
+
+// Sync settings page sliders with inventory controls
+document.getElementById('soonDays-s').addEventListener('change', function(){
+  document.getElementById('soonDays').value = this.value;
+  recompute();
+});
+document.getElementById('longYears-s').addEventListener('change', function(){
+  document.getElementById('longYears').value = this.value;
+  recompute();
+});
+
+// rsn subnav is updated by the main switchPage function below
 </script>
 
 <!-- ══ 庫存系統 Scripts ═══════════════════════════════════════════ -->
 <script>
+// ─── NAV SWITCH ──────────────────────────────────────────────
+let currentView = 'dashboard';
+function navSwitch(view){
+  currentView = view;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.querySelector('.nav-item[data-view="'+view+'"]');
+  if(navEl) navEl.classList.add('active');
+  document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
+  const panel = document.getElementById('view-'+view);
+  if(panel) panel.classList.add('active');
+  const titles = {
+    dashboard:'總覽儀表板', inventory:'庫存管理',
+    diff:'差異比較', rental:'租金計算',
+    prices:'單價設定', settings:'系統設定'
+  };
+  const titleEl = document.getElementById('headerTitle');
+  if(titleEl) titleEl.textContent = titles[view] || view;
+  if(view==='diff') renderDiff();
+  else if(view==='prices') renderPrices();
+  else if(view==='dashboard') updateDashboard();
+}
+
+function updateDashboard(){
+  if(!allData.length){
+    ['db-total','db-expired','db-long','db-cost'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.textContent='—';
+    });
+    const tb=document.getElementById('db-flagged-tbody');
+    if(tb) tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:#aaa;padding:2rem;">尚未載入庫存資料</td></tr>';
+    return;
+  }
+  const { soonDays } = getThresholds();
+  let expiredCnt=0, longCnt=0, soonCnt=0, costTotal=0;
+  allData.forEach(r => {
+    const f=classify(r);
+    if(f.expired) expiredCnt++;
+    if(f.long)    longCnt++;
+    if(f.soon)    soonCnt++;
+    const pd=getPriceData(r);
+    costTotal += (parseFloat(r['庫存數量'])||0) * pd.price;
+  });
+  const setEl=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  setEl('db-total', fmtNum(allData.length));
+  setEl('db-expired', expiredCnt);
+  setEl('db-long', longCnt);
+  setEl('db-cost', costTotal>0?'$'+fmtNum(Math.round(costTotal)):'—');
+  const flagged = allData
+    .filter(r=>{const f=classify(r);return f.expired||f.soon;})
+    .slice(0,60)
+    .map(r=>{
+      const f=classify(r);
+      const st=f.expired?'<span style="color:#c0392b;font-weight:700;">🔴 過期</span>':'<span style="color:#e67e22;font-weight:700;">🟠 即將到期</span>';
+      const days = f.expired&&r._expDate ? '超'+Math.round((TODAY-r._expDate)/86400000)+'天'
+                 : r._expDate ? '剩'+Math.round((r._expDate-TODAY)/86400000)+'天' : '—';
+      return '<tr><td>'+escHtml(r['產品名稱']||'')+'</td><td>'+escHtml(r['批號']||'')+'</td>'
+        +'<td>'+escHtml(r['倉庫名稱']||'')+'</td>'
+        +'<td>'+(r._expDate?fmtDate(r._expDate):'—')+'</td>'
+        +'<td>'+fmtNum(r['庫存數量']||0)+'</td>'
+        +'<td>'+st+' '+days+'</td></tr>';
+    }).join('');
+  const tbody=document.getElementById('db-flagged-tbody');
+  if(tbody) tbody.innerHTML=flagged||'<tr><td colspan="6" style="text-align:center;color:#aaa;padding:1.5rem;">無過期或即將到期品項 ✅</td></tr>';
+}
+
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 document.getElementById('enableEmail').addEventListener('change',function(){
       document.getElementById('emailFields').style.display = this.checked ? 'flex' : 'none';
     });
@@ -2471,6 +2037,7 @@ function recompute(){
   ['all','expired','long','soon'].forEach(k => renderTable(k));
   renderScopeCostTable();
   updateDiffPriceStatus();
+  if(currentView==='dashboard') updateDashboard();
 }
 
 function updateDiffPriceStatus(){
@@ -2804,20 +2371,16 @@ let currentTab = 'all';
 
 function switchTab(key, btn){
   currentTab = key;
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#view-inventory .tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('tab-'+key).classList.add('active');
-  // 差異比較分頁不需要全局搜尋
-  document.getElementById('globalSearchBar').style.display = key==='diff' ? 'none' : '';
-  if(key==='diff') renderDiff();
-  else if(key==='prices') renderPrices();
-  else if(allData.length) renderTable(key);
+  if(btn) btn.classList.add('active');
+  const tc = document.getElementById('tab-'+key);
+  if(tc) tc.classList.add('active');
+  if(allData.length) renderTable(key);
 }
 
 function onGlobalSearch(){
-  if(currentTab==='prices') renderPrices();
-  else if(['all','expired','long','soon'].includes(currentTab)) renderTable(currentTab);
+  if(['all','expired','long','soon'].includes(currentTab)) renderTable(currentTab);
 }
 
 // ─── EXPORT EXCEL (ExcelJS 帶樣式版) ──────────────────────────
@@ -4133,6 +3696,11 @@ window.switchPage = function(page) {
         }
     });
     if (page === 'ledger') refreshLedgerStatus();
+    // Update rental subnav buttons
+    ['calc','ledger','profit'].forEach(p => {
+        const rsnBtn = document.getElementById('rsn-'+p);
+        if(rsnBtn) rsnBtn.classList.toggle('active', p===page);
+    });
 }
 
 // ===== Firebase 等待就緒 =====
@@ -6520,9 +6088,7 @@ window.dropFile = dropFile;
 
 // 開啟獨立仪表板
 function openDashboard(){
-  window.dashboardData = allData;
-  localStorage.setItem('inventoryData', JSON.stringify(allData));
-  window.open('dashboard.html', 'inventory_dashboard', 'width=1400,height=900,resizable=yes,scrollbars=yes');
+  navSwitch('dashboard');
 }
 
 // 匯出成本分析
