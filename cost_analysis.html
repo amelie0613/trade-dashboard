@@ -22,13 +22,12 @@
       margin: 0 auto;
       background: white;
       border-radius: 10px;
-      box-shadow: 0 6px 24px rgba(0, 82, 204, 0.12);
+      box-shadow: 0 6px 24px rgba(37,87,165,0.12);
       overflow: hidden;
     }
 
-    /* ── 頁首 ── */
     .header {
-      background: linear-gradient(135deg, #003D7A 0%, #0052CC 100%);
+      background: linear-gradient(135deg, #1B3F6E 0%, #2557A5 100%);
       color: white;
       padding: 12px 18px;
       display: flex;
@@ -63,13 +62,11 @@
       border: 1px solid rgba(255,255,255,0.5);
     }
 
-    /* ── 內容區 ── */
     .content { padding: 14px 18px 18px; }
 
-    /* ── 核算範圍卡片 ── */
     .scope-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);   /* 永遠 4 欄 */
+      grid-template-columns: repeat(4, 1fr);
       gap: 10px;
       margin-bottom: 14px;
     }
@@ -77,13 +74,13 @@
     .scope-card {
       background: #fff;
       border: 1px solid #d0d9e8;
-      border-top: 4px solid #0052CC;
+      border-top: 4px solid #2557A5;
       border-radius: 8px;
       padding: 10px 12px;
       display: flex;
       flex-direction: column;
       gap: 6px;
-      box-shadow: 0 2px 6px rgba(0,82,204,0.07);
+      box-shadow: 0 2px 6px rgba(37,87,165,0.07);
     }
 
     .scope-card-header {
@@ -97,7 +94,7 @@
     .scope-card-name {
       font-size: 13px;
       font-weight: 800;
-      color: #003D7A;
+      color: #1B3F6E;
       line-height: 1.3;
     }
 
@@ -111,7 +108,7 @@
     .scope-card-total {
       font-size: 16px;
       font-weight: 900;
-      color: #0052CC;
+      color: #2557A5;
       text-align: right;
       white-space: nowrap;
     }
@@ -139,7 +136,7 @@
 
     .scope-card-row-value {
       font-weight: 700;
-      color: #0052CC;
+      color: #2557A5;
       text-align: right;
     }
 
@@ -147,13 +144,12 @@
     .scope-card-row-value.orange { color: #EA580C; }
     .scope-card-row-value.muted  { color: #bbb; font-weight: 400; }
 
-    /* ── 表格區 ── */
     .table-section { margin-top: 0; }
 
     .table-title {
       font-size: 15px;
       font-weight: 700;
-      color: #0052CC;
+      color: #2557A5;
       padding: 8px 12px;
       background: #f0f4f9;
       border-radius: 7px;
@@ -161,7 +157,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      border-left: 4px solid #0052CC;
+      border-left: 4px solid #2557A5;
     }
 
     .table-wrapper {
@@ -177,7 +173,7 @@
     }
 
     th {
-      background: #0052CC;
+      background: #2557A5;
       color: white;
       padding: 8px 5px;
       text-align: center;
@@ -197,25 +193,24 @@
 
     tr.parent-row td { background: #f0f4f9; font-weight: 600; color: #1a1a1a; }
     tr.child-row  td { background: #fafbfc; color: #444; }
-    tr.total-row  td { background: #e0e7ff; font-weight: 700; color: #1a1a1a; }
+    tr.total-row  td { background: #dce8f5; font-weight: 700; color: #1a1a1a; }
 
-    .currency      { color: #0052CC; font-weight: 700; }
+    .currency      { color: #2557A5; font-weight: 700; }
     .expired-value { color: #DC2626 !important; font-weight: 700; }
 
     .expand-btn {
       cursor: pointer;
       user-select: none;
       font-weight: bold;
-      color: #0052CC;
+      color: #2557A5;
       margin-right: 4px;
     }
 
-    .expand-btn:before         { content: '▼ '; }
-    .expand-btn.collapsed:before { content: '▶ '; }
+    .expand-btn:before         { content: '\25BC '; }
+    .expand-btn.collapsed:before { content: '\25B6 '; }
 
     .child-row.hidden { display: none; }
 
-    /* ── 頁尾 ── */
     .footer {
       padding: 10px 18px;
       background: #f5f5f5;
@@ -224,7 +219,6 @@
       color: #999;
     }
 
-    /* ── 列印 / PDF ── */
     @page {
       size: A4 portrait;
       margin: 8mm 8mm;
@@ -236,13 +230,7 @@
         print-color-adjust: exact !important;
       }
 
-      html, body {
-        margin: 0;
-        padding: 0;
-        background: white !important;
-        width: 100%;
-      }
-
+      html, body { margin: 0; padding: 0; background: white !important; width: 100%; }
       body { padding: 0 !important; }
 
       .container {
@@ -254,22 +242,18 @@
       }
 
       .header-actions { display: none !important; }
-
-      /* 保持子列的收合狀態 */
       .child-row.hidden { display: none !important; }
 
-      /* 禁止跨頁 */
       .scope-grid { page-break-inside: avoid; break-inside: avoid; }
       .scope-card { page-break-inside: avoid; break-inside: avoid; }
       table       { page-break-inside: auto; }
       thead       { display: table-header-group; }
       tr          { page-break-inside: avoid; break-inside: avoid; }
 
-      /* 強制背景色輸出 */
-      .header          { background: linear-gradient(135deg, #003D7A 0%, #0052CC 100%) !important; }
-      th               { background: #0052CC !important; color: white !important; }
+      .header          { background: linear-gradient(135deg, #1B3F6E 0%, #2557A5 100%) !important; }
+      th               { background: #2557A5 !important; color: white !important; }
       tr.parent-row td { background: #f0f4f9 !important; }
-      tr.total-row  td { background: #e0e7ff !important; }
+      tr.total-row  td { background: #dce8f5 !important; }
       .table-title     { background: #f0f4f9 !important; }
       .footer          { background: #f5f5f5 !important; }
       .scope-card      { border: 1px solid #d0d9e8 !important; box-shadow: none !important; }
@@ -280,21 +264,19 @@
 
 <div class="container" id="reportContainer">
   <div class="header">
-    <h1>🔍 各倉庫貨幣區間成本分析</h1>
+    <h1>&#128269; 各倉庫貨幣區間成本分析</h1>
     <div class="header-actions">
-      <button class="btn btn-secondary" onclick="window.history.back()">← 返回</button>
-      <button class="btn btn-primary" onclick="exportImage()">📥 匯出 PDF</button>
+      <button class="btn btn-secondary" onclick="window.history.back()">&#8592; 返回</button>
+      <button class="btn btn-primary" onclick="exportImage()">&#128229; 匯出 PDF</button>
     </div>
   </div>
 
   <div class="content">
-    <!-- 核算範圍卡片（動態生成） -->
     <div class="scope-grid" id="scopeGrid"></div>
 
-    <!-- Table Section -->
     <div class="table-section">
       <div class="table-title">
-        📋 按倉庫分類的成本明細（可展開/收合）
+        &#128203; 按倉庫分類的成本明細（可展開/收合）
       </div>
 
       <div class="table-wrapper">
@@ -309,16 +291,14 @@
               <th style="width:14%;">即將到期</th>
             </tr>
           </thead>
-          <tbody id="tableBody">
-            <!-- 動態生成 -->
-          </tbody>
+          <tbody id="tableBody"></tbody>
         </table>
       </div>
     </div>
   </div>
 
   <div class="footer">
-    💡 說明：每個核算範圍可點擊展開查看個別倉庫的成本明細 | 🔵 藍色數字表示成本 | ⚠️ 紅色數字表示過期品
+    &#128161; 說明：每個核算範圍可點擊展開查看個別倉庫的成本明細 | &#128309; 藍色數字表示成本 | &#9888;&#65039; 紅色數字表示過期品
   </div>
 </div>
 
@@ -336,7 +316,7 @@ function renderTable() {
 
   if (!costData.length) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">
-      ⚠️ 無成本數據。請先在主程序設定單價與核算範圍，再點「📊 成本分析」。
+      &#9888; 無成本數據。請先在主程序設定單價與核算範圍，再點「&#128202; 成本分析」。
     </td></tr>`;
     return;
   }
@@ -376,7 +356,7 @@ function renderTable() {
         childRow.className = 'child-row hidden';
         const childExpClass = child.expired > 0 ? 'expired-value' : 'currency';
         childRow.innerHTML = `
-          <td style="padding-left:32px;">🏭 ${child.name}</td>
+          <td style="padding-left:32px;">&#127981; ${child.name}</td>
           <td class="currency" style="text-align:right;">${fmt(child.total)}</td>
           <td class="currency" style="text-align:right;">${fmt(child.normal)}</td>
           <td class="${childExpClass}" style="text-align:right;">${fmt(child.expired)}</td>
@@ -417,7 +397,7 @@ function renderScopeCards() {
   grid.innerHTML = '';
   if (!costData.length) return;
 
-  const borderColors = ['#0052CC','#1D6FA8','#2563EB','#1D4ED8','#4F46E5','#7C3AED'];
+  const borderColors = ['#2557A5','#1B5B9E','#2E6CB8','#3575C0','#4A6FA5','#3A5E8C'];
 
   costData.forEach((scope, i) => {
     const color = borderColors[i % borderColors.length];
@@ -465,7 +445,6 @@ function renderScopeCards() {
   });
 }
 
-// PDF 以當前展開狀態列印（收合狀態 → 1 頁）
 function exportImage() {
   window.print();
 }

@@ -279,6 +279,31 @@
   }
   .filter-select:focus { border-color: var(--violet); }
 
+  /* ── MULTI-SELECT WAREHOUSE DROPDOWN ─────── */
+  .multi-select-wrap { position: relative; }
+  .multi-select-btn {
+    cursor: pointer; text-align: left; background: white;
+    min-width: 140px; max-width: 240px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-family: inherit;
+  }
+  .multi-select-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0;
+    background: white; border: 2px solid var(--border);
+    border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 9999; min-width: 170px; max-height: 260px; overflow-y: auto;
+  }
+  .multi-select-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px; font-size: 13px; cursor: pointer;
+    transition: background 0.15s; user-select: none;
+  }
+  .multi-select-item:hover { background: var(--bg); }
+  .multi-select-item:first-child { border-bottom: 1px solid var(--border); }
+  .multi-select-item input[type=checkbox] {
+    width: 15px; height: 15px; accent-color: var(--purple); cursor: pointer; flex-shrink: 0;
+  }
+
   .tbl-count { margin-left:auto; font-size:12px; color:var(--muted); font-weight:600; }
 
   .tbl-scroll { overflow-x: auto; }
@@ -1144,9 +1169,10 @@
       <span>🔍</span>
       <input type="text" id="search-global" placeholder="搜尋產品名稱 / 批號 / 代碼…" oninput="onGlobalSearch()" style="width:210px">
     </div>
-    <select class="filter-select" id="filter-global-warehouse" onchange="onGlobalSearch()">
-      <option value="">全部倉庫</option>
-    </select>
+    <div class="multi-select-wrap" id="warehouse-multi-wrap">
+      <button class="filter-select multi-select-btn" type="button" onclick="toggleWarehouseDropdown()" id="warehouse-multi-btn">全部倉庫 &#9660;</button>
+      <div class="multi-select-dropdown" id="warehouse-multi-dropdown" style="display:none;"></div>
+    </div>
     <select class="filter-select" id="filter-global-category" onchange="onGlobalSearch()">
       <option value="">全部類別</option>
     </select>
@@ -1340,6 +1366,7 @@
       <div style="display:flex;gap:10px;align-items:center;padding:14px 18px;flex-wrap:wrap;">
         <button class="btn btn-primary" id="diffBtnRun" onclick="runDiff()" disabled>▶ 執行差異比較</button>
         <button class="btn btn-green" id="diffBtnExport" onclick="exportDiffExcel()" disabled>📤 匯出差異表</button>
+        <button class="btn btn-blue" id="diffBtnReport" onclick="exportDiffReport()" disabled style="background:#1D4ED8;color:white;">📋 明細報表</button>
         <button class="btn btn-ghost" id="diffBtnShare" onclick="exportSharePage()" disabled style="border:2px solid var(--violet);color:var(--purple);">📱 匯出手機分享頁</button>
       </div>
 
@@ -2476,9 +2503,21 @@ function buildFilters(){
   const warehouses = [...new Set(allData.map(r=>r['倉庫名稱']||'').filter(Boolean))].sort();
   const categories = [...new Set(allData.map(r=>r['產品類別']||'').filter(Boolean))].sort();
 
-  const ws = document.getElementById('filter-global-warehouse');
+  // Build checkbox dropdown for warehouses
+  const dd = document.getElementById('warehouse-multi-dropdown');
+  if(dd){
+    selectedWarehouses.clear();
+    updateWarehouseLabel();
+    dd.innerHTML = [
+      `<label class="multi-select-item"><input type="checkbox" id="wh-all" checked onchange="onWhAllChange(this)"> 全部倉庫</label>`,
+      ...warehouses.map(w => {
+        const esc = w.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+        return `<label class="multi-select-item"><input type="checkbox" class="wh-cb" value="${esc}" onchange="onWarehouseCheckbox('${esc}',this.checked)"> ${w}</label>`;
+      })
+    ].join('');
+  }
+
   const cs = document.getElementById('filter-global-category');
-  ws.innerHTML = '<option value="">全部倉庫</option>' + warehouses.map(w=>`<option>${w}</option>`).join('');
   cs.innerHTML = '<option value="">全部類別</option>' + categories.map(c=>`<option>${c}</option>`).join('');
 }
 
@@ -2502,7 +2541,6 @@ const COLS = [
 
 function filterRows(tabKey){
   const search    = (document.getElementById('search-global')?.value||'').toLowerCase();
-  const warehouse = document.getElementById('filter-global-warehouse')?.value||'';
   const category  = document.getElementById('filter-global-category')?.value||'';
   const soonSeg   = tabKey==='soon' ? (document.getElementById('filter-soon-seg')?.value||'') : '';
   const { soonDays } = getThresholds();
@@ -2513,7 +2551,7 @@ function filterRows(tabKey){
     if(tabKey==='long'    && !f.long)    return false;
     if(tabKey==='soon'    && !f.soon)    return false;
     if(tabKey==='soon' && soonSeg && f.soonSeg !== soonSeg) return false;
-    if(warehouse && r['倉庫名稱'] !== warehouse) return false;
+    if(selectedWarehouses.size > 0 && !selectedWarehouses.has(r['倉庫名稱'])) return false;
     if(category  && r['產品類別'] !== category)  return false;
     if(search){
       const hay = (String(r['產品名稱']||'')+String(r['批號']||'')+String(r['產品代碼']||'')).toLowerCase();
@@ -3385,6 +3423,7 @@ function runDiff(){
 
   document.getElementById('diffBtnExport').disabled = false;
   document.getElementById('diffBtnShare').disabled = false;
+  document.getElementById('diffBtnReport').disabled = false;
   renderDiff();
   showToast(`✅ 比較完成，共 ${diffResults.length} 筆`);
 }
@@ -6629,18 +6668,98 @@ function exportCostAnalysis(){
   window.open('cost_analysis.html', 'cost_analysis', 'width=1400,height=900,resizable=yes,scrollbars=yes');
 }
 
+// ─── MULTI-SELECT WAREHOUSE ───────────────────────────────────
+let selectedWarehouses = new Set();
+
+function toggleWarehouseDropdown(){
+  const dd = document.getElementById('warehouse-multi-dropdown');
+  if(!dd) return;
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+function onWarehouseCheckbox(wh, checked){
+  if(checked){
+    selectedWarehouses.add(wh);
+    document.getElementById('wh-all').checked = false;
+  } else {
+    selectedWarehouses.delete(wh);
+    if(selectedWarehouses.size === 0) document.getElementById('wh-all').checked = true;
+  }
+  updateWarehouseLabel();
+  onGlobalSearch();
+}
+
+function onWhAllChange(cb){
+  if(cb.checked){
+    selectedWarehouses.clear();
+    document.querySelectorAll('.wh-cb').forEach(c => { c.checked = false; });
+    updateWarehouseLabel();
+    onGlobalSearch();
+  } else {
+    cb.checked = true; // 不允許取消全選（必須至少選一個選項）
+  }
+}
+
+function updateWarehouseLabel(){
+  const btn = document.getElementById('warehouse-multi-btn');
+  if(!btn) return;
+  if(selectedWarehouses.size === 0) btn.textContent = '全部倉庫 ▾';
+  else if(selectedWarehouses.size === 1) btn.textContent = [...selectedWarehouses][0] + ' ▾';
+  else btn.textContent = '已選 ' + selectedWarehouses.size + ' 個倉庫 ▾';
+}
+
+// 點外部關閉倉庫下拉
+document.addEventListener('click', function(e){
+  if(!e.target.closest('#warehouse-multi-wrap')){
+    const dd = document.getElementById('warehouse-multi-dropdown');
+    if(dd) dd.style.display = 'none';
+  }
+});
+
+// ─── 差異比較明細報表 ──────────────────────────────────────────
+function exportDiffReport(){
+  if(!diffResults.length){ showToast('❌ 請先執行差異比較'); return; }
+
+  const filter    = document.getElementById('diffFilter')?.value    || '';
+  const warehouse = document.getElementById('diffWarehouse')?.value || '';
+  const category  = document.getElementById('diffCategory')?.value  || '';
+
+  const rows = diffResults.filter(r => {
+    if(filter    && r._changeType !== filter) return false;
+    if(warehouse && r.倉庫 !== warehouse)      return false;
+    if(category  && r.產品類別 !== category)   return false;
+    return true;
+  });
+
+  if(!rows.length){ showToast('⚠️ 無符合條件的資料'); return; }
+
+  const hasPrices = Object.keys(diffPriceMap).length > 0;
+  const chgLabel  = { new:'新增', gone:'消失', up:'增加', down:'減少', same:'不變' };
+
+  localStorage.setItem('diffReportPayload', JSON.stringify({
+    rows, hasPrices, chgLabel,
+    generatedAt: new Date().toLocaleDateString('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
+    filters: {
+      filter: filter || '全部',
+      warehouse: warehouse || '全部倉庫',
+      category:  category  || '全部類別',
+      total: rows.length
+    }
+  }));
+  window.open('diff_report.html', 'diff_report', 'width=1500,height=900,resizable=yes,scrollbars=yes');
+}
+
 // 匯出庫存明細報表
 function exportInventoryReport(){
   if(!allData || !allData.length){ showToast('❌ 請先加載庫存數據'); return; }
 
   // 讀取主頁面目前的篩選條件（與 filterRows 邏輯一致）
-  const search    = (document.getElementById('search-global')?.value    || '').toLowerCase().trim();
-  const warehouse = document.getElementById('filter-global-warehouse')?.value || '';
-  const category  = document.getElementById('filter-global-category')?.value  || '';
+  const search   = (document.getElementById('search-global')?.value || '').toLowerCase().trim();
+  const category = document.getElementById('filter-global-category')?.value || '';
 
   const sourceData = allData.filter(r => {
-    if(warehouse && r['倉庫名稱'] !== warehouse) return false;
-    if(category  && r['產品類別'] !== category)  return false;
+    if(selectedWarehouses.size > 0 && !selectedWarehouses.has(r['倉庫名稱'])) return false;
+    if(category && r['產品類別'] !== category) return false;
     if(search){
       const hay = (String(r['產品名稱']||'')+String(r['批號']||'')+String(r['產品代碼']||'')).toLowerCase();
       if(!hay.includes(search)) return false;
@@ -6699,9 +6818,9 @@ function exportInventoryReport(){
     reportRows,
     generatedAt: new Date().toLocaleDateString('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
     filters: {
-      warehouse: warehouse || '全部倉庫',
-      category:  category  || '全部類別',
-      search:    search    || '',
+      warehouse: selectedWarehouses.size > 0 ? [...selectedWarehouses].join('、') : '全部倉庫',
+      category:  category || '全部類別',
+      search:    search   || '',
       total:     sourceData.length,
     },
   }));
