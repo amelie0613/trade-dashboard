@@ -17,12 +17,11 @@
 
     .container {
       max-width: 1600px; margin: 0 auto; background: white;
-      border-radius: 10px; box-shadow: 0 6px 24px rgba(0,82,204,0.12); overflow: hidden;
+      border-radius: 10px; box-shadow: 0 6px 24px rgba(37,87,165,0.12); overflow: hidden;
     }
 
-    /* ── Header ── */
     .header {
-      background: linear-gradient(135deg, #003D7A 0%, #0052CC 100%);
+      background: linear-gradient(135deg, #1B3F6E 0%, #2557A5 100%);
       color: white; padding: 13px 20px;
       display: flex; justify-content: space-between; align-items: center;
     }
@@ -40,10 +39,8 @@
     .btn-primary   { background: #f08080; color: white; }
     .btn-secondary { background: rgba(255,255,255,0.25); color: white; border: 1px solid rgba(255,255,255,0.45); }
 
-    /* ── Content ── */
     .content { padding: 14px 18px 18px; }
 
-    /* ── Type Tabs ── */
     .type-tabs { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 
     .type-tab {
@@ -53,12 +50,12 @@
       background: white; display: flex; align-items: center; gap: 5px;
     }
     .type-tab:hover { opacity: 0.85; }
-    .type-tab[data-type="all"]     { border-color:#0052CC; color:#0052CC; }
+    .type-tab[data-type="all"]     { border-color:#2557A5; color:#2557A5; }
     .type-tab[data-type="normal"]  { border-color:#059669; color:#059669; }
     .type-tab[data-type="soon"]    { border-color:#EA580C; color:#EA580C; }
     .type-tab[data-type="expired"] { border-color:#DC2626; color:#DC2626; }
     .type-tab[data-type="long"]    { border-color:#B45309; color:#B45309; }
-    .type-tab[data-type="all"].active     { background:#0052CC; color:white; }
+    .type-tab[data-type="all"].active     { background:#2557A5; color:white; }
     .type-tab[data-type="normal"].active  { background:#059669; color:white; }
     .type-tab[data-type="soon"].active    { background:#EA580C; color:white; }
     .type-tab[data-type="expired"].active { background:#DC2626; color:white; }
@@ -66,53 +63,46 @@
     .tab-count { font-size: 10px; font-weight: 900; background: rgba(0,0,0,0.12); border-radius: 20px; padding: 1px 6px; }
     .type-tab.active .tab-count { background: rgba(255,255,255,0.28); }
 
-    /* ── View Toggle ── */
     .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .view-label { font-size: 12px; color: #666; font-weight: 600; }
     .view-btn {
-      padding: 5px 14px; border-radius: 6px; border: 1.5px solid #0052CC;
+      padding: 5px 14px; border-radius: 6px; border: 1.5px solid #2557A5;
       font-size: 12px; font-weight: 700; cursor: pointer; background: white;
-      color: #0052CC; font-family: 'Noto Sans TC', sans-serif; transition: all 0.2s;
+      color: #2557A5; font-family: 'Noto Sans TC', sans-serif; transition: all 0.2s;
     }
-    .view-btn.active { background: #0052CC; color: white; }
+    .view-btn.active { background: #2557A5; color: white; }
     .view-btn:hover  { filter: brightness(0.95); }
 
-    /* ── Summary Bar ── */
     .summary-bar { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
     .summary-card { background: #f8faff; border: 1px solid #d0d9e8; border-radius: 8px; padding: 8px 16px; min-width: 110px; }
     .summary-label { font-size: 10px; color: #888; font-weight: 600; margin-bottom: 2px; }
-    .summary-value { font-size: 18px; font-weight: 900; color: #0052CC; }
+    .summary-value { font-size: 18px; font-weight: 900; color: #2557A5; }
     .summary-value.red    { color: #DC2626; }
     .summary-value.orange { color: #EA580C; }
     .summary-value.amber  { color: #B45309; }
     .summary-value.green  { color: #059669; }
 
-    /* ── Print title ── */
-    .print-title { display: none; font-size: 14px; font-weight: 800; color: #0052CC; padding-bottom: 7px; border-bottom: 2px solid #0052CC; margin-bottom: 10px; }
+    .print-title { display: none; font-size: 14px; font-weight: 800; color: #2557A5; padding-bottom: 7px; border-bottom: 2px solid #2557A5; margin-bottom: 10px; }
 
-    /* ── Table ── */
     .table-wrapper { border-radius: 8px; border: 1px solid #d0d9e8; overflow: auto; }
 
     table { width: 100%; table-layout: fixed; border-collapse: collapse; min-width: 1100px; }
 
     th {
-      background: #0052CC; color: white; padding: 8px 4px;
+      background: #2557A5; color: white; padding: 8px 4px;
       text-align: center; font-weight: 700; font-size: 16px;
       border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;
       overflow: hidden; cursor: pointer; user-select: none;
       transition: background 0.15s;
     }
-    th:hover  { background: #003D7A; }
-    th.pivot-th { background: #1D4ED8; }
-    th.pivot-th:hover { background: #1D40AF; }
+    th:hover  { background: #1B3F6E; }
+    th.pivot-th { background: #2E6CB8; }
+    th.pivot-th:hover { background: #265a9e; }
 
     .sort-icon { font-size: 10px; margin-left: 3px; opacity: 0.4; }
     .sort-icon.active { opacity: 1; }
 
-    td {
-      padding: 6px 4px; font-size: 14px; border: 1px solid #e8edf5;
-      overflow: hidden; vertical-align: middle;
-    }
+    td { padding: 6px 4px; font-size: 14px; border: 1px solid #e8edf5; overflow: hidden; vertical-align: middle; }
 
     tr.row-normal  td { background: #ffffff; }
     tr.row-expired td { background: #fff5f5; }
@@ -120,9 +110,9 @@
     tr.row-long    td { background: #fefce8; }
     tr:not(.total-row):hover td { filter: brightness(0.97); }
 
-    tr.total-row td { background: #e0e7ff !important; font-weight: 700; color: #1a1a1a; }
+    tr.total-row td { background: #dce8f5 !important; font-weight: 700; color: #1a1a1a; }
 
-    .cost-blue   { color: #0052CC; font-weight: 700; }
+    .cost-blue   { color: #2557A5; font-weight: 700; }
     .cost-red    { color: #DC2626; font-weight: 700; }
     .cost-orange { color: #EA580C; font-weight: 700; }
     .cost-amber  { color: #B45309; font-weight: 700; }
@@ -131,11 +121,11 @@
     .days-expired { color: #DC2626; font-weight: 700; }
     .days-long    { color: #B45309; font-weight: 700; }
     .days-soon    { color: #EA580C; font-weight: 700; }
-    .days-normal  { color: #0052CC; font-weight: 700; }
+    .days-normal  { color: #2557A5; font-weight: 700; }
 
     .scope-badge {
-      display: inline-block; background: #eff6ff; color: #1D4ED8;
-      border: 1px solid #bfdbfe; border-radius: 5px;
+      display: inline-block; background: #e3eff8; color: #2E6CB8;
+      border: 1px solid #b0cde8; border-radius: 5px;
       font-size: 10px; font-weight: 700; padding: 1px 5px; white-space: nowrap;
     }
     .lots-badge {
@@ -150,10 +140,8 @@
       margin-left: 3px; vertical-align: middle;
     }
 
-    /* ── Footer ── */
     .footer { padding: 9px 18px; background: #f5f5f5; border-top: 1px solid #e0e0e0; font-size: 11px; color: #999; }
 
-    /* ── Print ── */
     @page { size: A4 landscape; margin: 7mm 7mm; }
 
     @media print {
@@ -176,10 +164,10 @@
       tr.row-expired td { background: #fff5f5 !important; }
       tr.row-soon    td { background: #fff8f0 !important; }
       tr.row-long    td { background: #fefce8 !important; }
-      tr.total-row   td { background: #e0e7ff !important; }
-      th { background: #0052CC !important; color: white !important; }
-      th.pivot-th { background: #1D4ED8 !important; }
-      .header { background: linear-gradient(135deg,#003D7A 0%,#0052CC 100%) !important; }
+      tr.total-row   td { background: #dce8f5 !important; }
+      th { background: #2557A5 !important; color: white !important; }
+      th.pivot-th { background: #2E6CB8 !important; }
+      .header { background: linear-gradient(135deg, #1B3F6E 0%, #2557A5 100%) !important; }
       .footer { background: #f5f5f5 !important; }
     }
   </style>
@@ -189,37 +177,34 @@
 <div class="container">
   <div class="header">
     <div class="header-left">
-      <h1>📋 庫存明細報表</h1>
+      <h1>&#128203; 庫存明細報表</h1>
       <div class="header-meta">
         <span>產生時間：<span id="genDate">—</span></span>
         <span id="filterChips"></span>
       </div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-secondary" onclick="window.history.back()">← 返回</button>
-      <button class="btn btn-primary" onclick="exportPDF()">📥 匯出 PDF</button>
+      <button class="btn btn-secondary" onclick="window.history.back()">&#8592; 返回</button>
+      <button class="btn btn-primary" onclick="exportPDF()">&#128229; 匯出 PDF</button>
     </div>
   </div>
 
   <div class="content">
 
-    <!-- 類型切換 -->
     <div class="type-tabs">
-      <button class="type-tab active" data-type="all"     onclick="switchType('all',this)">📋 全部 <span class="tab-count" id="cnt-all">0</span></button>
-      <button class="type-tab" data-type="normal"  onclick="switchType('normal',this)">✅ 正常品 <span class="tab-count" id="cnt-normal">0</span></button>
-      <button class="type-tab" data-type="soon"    onclick="switchType('soon',this)">⚠️ 即將到期 <span class="tab-count" id="cnt-soon">0</span></button>
-      <button class="type-tab" data-type="expired" onclick="switchType('expired',this)">❌ 過期品 <span class="tab-count" id="cnt-expired">0</span></button>
-      <button class="type-tab" data-type="long"    onclick="switchType('long',this)">⏳ 長期在庫 <span class="tab-count" id="cnt-long">0</span></button>
+      <button class="type-tab active" data-type="all"     onclick="switchType('all',this)">&#128203; 全部 <span class="tab-count" id="cnt-all">0</span></button>
+      <button class="type-tab" data-type="normal"  onclick="switchType('normal',this)">&#9989; 正常品 <span class="tab-count" id="cnt-normal">0</span></button>
+      <button class="type-tab" data-type="soon"    onclick="switchType('soon',this)">&#9888;&#65039; 即將到期 <span class="tab-count" id="cnt-soon">0</span></button>
+      <button class="type-tab" data-type="expired" onclick="switchType('expired',this)">&#10060; 過期品 <span class="tab-count" id="cnt-expired">0</span></button>
+      <button class="type-tab" data-type="long"    onclick="switchType('long',this)">&#8987; 長期在庫 <span class="tab-count" id="cnt-long">0</span></button>
     </div>
 
-    <!-- 視圖切換 -->
     <div class="toolbar">
       <span class="view-label">視圖：</span>
-      <button class="view-btn active" onclick="switchView('detail',this)">📋 明細</button>
-      <button class="view-btn"        onclick="switchView('pivot',this)">🔀 樞紐（依產品+倉庫合併）</button>
+      <button class="view-btn active" onclick="switchView('detail',this)">&#128203; 明細</button>
+      <button class="view-btn"        onclick="switchView('pivot',this)">&#128260; 樞紐（依產品+倉庫合併）</button>
     </div>
 
-    <!-- 摘要列 -->
     <div class="summary-bar">
       <div class="summary-card">
         <div class="summary-label" id="labelCount">顯示筆數</div>
@@ -239,29 +224,27 @@
       </div>
     </div>
 
-    <!-- 列印標題 -->
     <div class="print-title" id="printTitle">庫存明細報表</div>
 
-    <!-- 明細表格 -->
     <div id="detailSection">
       <div class="table-wrapper">
         <table>
           <thead>
             <tr>
-              <th style="width:6%;"  onclick="sortDetailBy('category')">類別<span class="sort-icon" id="si-d-category">⇅</span></th>
-              <th style="width:5%;"  onclick="sortDetailBy('code')">產品代碼<span class="sort-icon" id="si-d-code">⇅</span></th>
-              <th style="width:13%;" onclick="sortDetailBy('name')">產品名稱<span class="sort-icon" id="si-d-name">⇅</span></th>
-              <th style="width:7%;"  onclick="sortDetailBy('spec')">規格<span class="sort-icon" id="si-d-spec">⇅</span></th>
-              <th style="width:6%;"  onclick="sortDetailBy('qty')">庫存數量<span class="sort-icon" id="si-d-qty">⇅</span></th>
-              <th style="width:4%;"  onclick="sortDetailBy('unit')">單位<span class="sort-icon" id="si-d-unit">⇅</span></th>
-              <th style="width:7%;"  onclick="sortDetailBy('warehouse')">倉庫<span class="sort-icon" id="si-d-warehouse">⇅</span></th>
-              <th style="width:9%;"  onclick="sortDetailBy('lot')">批號<span class="sort-icon" id="si-d-lot">⇅</span></th>
-              <th style="width:7%;"  onclick="sortDetailBy('lotDate')">入庫日期<span class="sort-icon" id="si-d-lotDate">⇅</span></th>
-              <th style="width:7%;"  onclick="sortDetailBy('expDate')">有效期至<span class="sort-icon" id="si-d-expDate">⇅</span></th>
-              <th style="width:6%;"  onclick="sortDetailBy('daysNum')" id="thDays">剩餘天數<span class="sort-icon" id="si-d-daysNum">⇅</span></th>
-              <th style="width:7%;"  onclick="sortDetailBy('price')">單價<span class="sort-icon" id="si-d-price">⇅</span></th>
-              <th style="width:7%;"  onclick="sortDetailBy('scope')">核算範圍<span class="sort-icon" id="si-d-scope">⇅</span></th>
-              <th style="width:9%;"  onclick="sortDetailBy('cost')">存貨成本<span class="sort-icon" id="si-d-cost">⇅</span></th>
+              <th style="width:6%;"  onclick="sortDetailBy('category')">類別<span class="sort-icon" id="si-d-category">&#8645;</span></th>
+              <th style="width:5%;"  onclick="sortDetailBy('code')">產品代碼<span class="sort-icon" id="si-d-code">&#8645;</span></th>
+              <th style="width:13%;" onclick="sortDetailBy('name')">產品名稱<span class="sort-icon" id="si-d-name">&#8645;</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('spec')">規格<span class="sort-icon" id="si-d-spec">&#8645;</span></th>
+              <th style="width:6%;"  onclick="sortDetailBy('qty')">庫存數量<span class="sort-icon" id="si-d-qty">&#8645;</span></th>
+              <th style="width:4%;"  onclick="sortDetailBy('unit')">單位<span class="sort-icon" id="si-d-unit">&#8645;</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('warehouse')">倉庫<span class="sort-icon" id="si-d-warehouse">&#8645;</span></th>
+              <th style="width:9%;"  onclick="sortDetailBy('lot')">批號<span class="sort-icon" id="si-d-lot">&#8645;</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('lotDate')">入庫日期<span class="sort-icon" id="si-d-lotDate">&#8645;</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('expDate')">有效期至<span class="sort-icon" id="si-d-expDate">&#8645;</span></th>
+              <th style="width:6%;"  onclick="sortDetailBy('daysNum')" id="thDays">剩餘天數<span class="sort-icon" id="si-d-daysNum">&#8645;</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('price')">單價<span class="sort-icon" id="si-d-price">&#8645;</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('scope')">核算範圍<span class="sort-icon" id="si-d-scope">&#8645;</span></th>
+              <th style="width:9%;"  onclick="sortDetailBy('cost')">存貨成本<span class="sort-icon" id="si-d-cost">&#8645;</span></th>
             </tr>
           </thead>
           <tbody id="detailBody"></tbody>
@@ -269,22 +252,21 @@
       </div>
     </div>
 
-    <!-- 樞紐表格 -->
     <div id="pivotSection" style="display:none;">
       <div class="table-wrapper">
         <table>
           <thead>
             <tr>
-              <th class="pivot-th" style="width:7%;"  onclick="sortPivotBy('category')">類別<span class="sort-icon" id="si-p-category">⇅</span></th>
-              <th class="pivot-th" style="width:21%;" onclick="sortPivotBy('name')">產品名稱<span class="sort-icon" id="si-p-name">⇅</span></th>
-              <th class="pivot-th" style="width:10%;" onclick="sortPivotBy('warehouse')">倉庫<span class="sort-icon" id="si-p-warehouse">⇅</span></th>
-              <th class="pivot-th" style="width:9%;"  onclick="sortPivotBy('qty')">合計數量<span class="sort-icon" id="si-p-qty">⇅</span></th>
-              <th class="pivot-th" style="width:4%;"  onclick="sortPivotBy('unit')">單位<span class="sort-icon" id="si-p-unit">⇅</span></th>
-              <th class="pivot-th" style="width:6%;"  onclick="sortPivotBy('lots')">批數<span class="sort-icon" id="si-p-lots">⇅</span></th>
-              <th class="pivot-th" style="width:9%;"  onclick="sortPivotBy('avgPrice')">平均單價<span class="sort-icon" id="si-p-avgPrice">⇅</span></th>
-              <th class="pivot-th" style="width:9%;"  onclick="sortPivotBy('scope')">核算範圍<span class="sort-icon" id="si-p-scope">⇅</span></th>
-              <th class="pivot-th" style="width:11%;" onclick="sortPivotBy('cost')">合計存貨成本<span class="sort-icon" id="si-p-cost">⇅</span></th>
-              <th class="pivot-th" style="width:14%;" onclick="sortPivotBy('statusOrder')">狀態分布<span class="sort-icon" id="si-p-statusOrder">⇅</span></th>
+              <th class="pivot-th" style="width:7%;"  onclick="sortPivotBy('category')">類別<span class="sort-icon" id="si-p-category">&#8645;</span></th>
+              <th class="pivot-th" style="width:21%;" onclick="sortPivotBy('name')">產品名稱<span class="sort-icon" id="si-p-name">&#8645;</span></th>
+              <th class="pivot-th" style="width:10%;" onclick="sortPivotBy('warehouse')">倉庫<span class="sort-icon" id="si-p-warehouse">&#8645;</span></th>
+              <th class="pivot-th" style="width:9%;"  onclick="sortPivotBy('qty')">合計數量<span class="sort-icon" id="si-p-qty">&#8645;</span></th>
+              <th class="pivot-th" style="width:4%;"  onclick="sortPivotBy('unit')">單位<span class="sort-icon" id="si-p-unit">&#8645;</span></th>
+              <th class="pivot-th" style="width:6%;"  onclick="sortPivotBy('lots')">批數<span class="sort-icon" id="si-p-lots">&#8645;</span></th>
+              <th class="pivot-th" style="width:9%;"  onclick="sortPivotBy('avgPrice')">平均單價<span class="sort-icon" id="si-p-avgPrice">&#8645;</span></th>
+              <th class="pivot-th" style="width:9%;"  onclick="sortPivotBy('scope')">核算範圍<span class="sort-icon" id="si-p-scope">&#8645;</span></th>
+              <th class="pivot-th" style="width:11%;" onclick="sortPivotBy('cost')">合計存貨成本<span class="sort-icon" id="si-p-cost">&#8645;</span></th>
+              <th class="pivot-th" style="width:14%;" onclick="sortPivotBy('statusOrder')">狀態分布<span class="sort-icon" id="si-p-statusOrder">&#8645;</span></th>
             </tr>
           </thead>
           <tbody id="pivotBody"></tbody>
@@ -295,7 +277,7 @@
   </div>
 
   <div class="footer">
-    🔵 正常品 ｜ 🔴 過期品 ｜ 🟠 即將到期 ｜ 🟡 長期在庫 ｜ PDF 輸出 A4 橫式彩色 ｜ 點擊欄標頭可排序
+    &#128309; 正常品 &#65372; &#128308; 過期品 &#65372; &#128992; 即將到期 &#65372; &#128993; 長期在庫 &#65372; PDF 輸出 A4 橫式彩色 &#65372; 點擊欄標頭可排序
   </div>
 </div>
 
@@ -304,9 +286,8 @@ let allRows     = [];
 let currentType = 'all';
 let currentView = 'detail';
 
-// 排序狀態（明細 / 樞紐各自獨立）
-let sdCol = null, sdDir = 'asc';  // sort detail
-let spCol = 'name', spDir = 'asc'; // sort pivot default by name
+let sdCol = null, sdDir = 'asc';
+let spCol = 'name', spDir = 'asc';
 
 const DAYS_HEADER     = { all:'剩餘/在庫天數', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
 const TITLES          = { all:'全部庫存', normal:'正常品', soon:'即將到期', expired:'過期品', long:'長期在庫' };
@@ -326,7 +307,6 @@ function getFiltered() {
 
 function fmtMoney(n) { return n > 0 ? '$' + Math.round(n).toLocaleString() : '—'; }
 
-/* ── Sort Detail ── */
 function sortDetailBy(col) {
   sdDir = sdCol === col && sdDir === 'asc' ? 'desc' : 'asc';
   sdCol = col;
@@ -346,7 +326,6 @@ function applySortDetail(rows) {
   });
 }
 
-/* ── Sort Pivot ── */
 function sortPivotBy(col) {
   spDir = spCol === col && spDir === 'asc' ? 'desc' : 'asc';
   spCol = col;
@@ -365,24 +344,21 @@ function applySortPivot(groups) {
   });
 }
 
-/* ── Update Sort Icon Display ── */
 function updateSortIcons(prefix, activeCol, dir, cols) {
   cols.forEach(c => {
-    const el = document.getElementById(`si-${prefix}-${c}`);
+    const el = document.getElementById('si-' + prefix + '-' + c);
     if (!el) return;
-    const isActive = c === activeCol;
-    el.textContent  = isActive ? (dir === 'asc' ? '▲' : '▼') : '⇅';
-    el.classList.toggle('active', isActive);
+    el.textContent = activeCol === c ? (dir === 'asc' ? '▲' : '▼') : '⇅';
+    el.classList.toggle('active', c === activeCol);
   });
 }
 
-/* ── Switch ── */
 function switchType(type, btn) {
   currentType = type;
   document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   const dh = document.getElementById('thDays');
-  if (dh) dh.childNodes[0].nodeValue = DAYS_HEADER[type] + '';
+  if (dh) dh.firstChild.nodeValue = DAYS_HEADER[type];
   render();
 }
 
@@ -396,15 +372,13 @@ function switchView(view, btn) {
   render();
 }
 
-/* ── Summary ── */
 function updateSummary(rows) {
   const totalCost = rows.reduce((s,r) => s + r.cost, 0);
   const totalQty  = rows.reduce((s,r) => s + r.qty,  0);
   const pricedCnt = rows.filter(r => r.price > 0).length;
 
   if (currentView === 'pivot') {
-    const groups = buildPivotGroups(rows);
-    document.getElementById('summaryCount').textContent = groups.length.toLocaleString() + ' 組';
+    document.getElementById('summaryCount').textContent = buildPivotGroups(rows).length.toLocaleString() + ' 組';
   } else {
     document.getElementById('summaryCount').textContent = rows.length.toLocaleString() + ' 筆';
   }
@@ -419,7 +393,6 @@ function updateSummary(rows) {
   else if (currentType === 'long')    costEl.classList.add('amber');
 }
 
-/* ── Main Render ── */
 function render() {
   const rows = getFiltered();
   updateSummary(rows);
@@ -429,11 +402,10 @@ function render() {
   else                          renderPivot(applySortPivot(buildPivotGroups(rows)));
 }
 
-/* ── Detail Render ── */
 function renderDetail(rows) {
   const tbody = document.getElementById('detailBody');
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="14" style="text-align:center;padding:30px;color:#999;">⚠️ 此類別暫無資料</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:30px;color:#999;">此類別暫無資料</td></tr>';
     return;
   }
 
@@ -444,48 +416,46 @@ function renderDetail(rows) {
     grandCost += r.cost;
 
     let daysCls = 'days-normal';
-    if      (r.status === 'expired')                         daysCls = 'days-expired';
-    else if (r.status === 'soon')                            daysCls = 'days-soon';
-    else if (r.status === 'long')                            daysCls = 'days-long';
-    else if (r.daysNum !== null && r.daysNum > 210)          daysCls = 'days-green';
+    if      (r.status === 'expired')               daysCls = 'days-expired';
+    else if (r.status === 'soon')                  daysCls = 'days-soon';
+    else if (r.status === 'long')                  daysCls = 'days-long';
+    else if (r.daysNum !== null && r.daysNum > 210) daysCls = 'days-green';
 
     const priceDisp = r.price > 0 ? '$' + r.price.toLocaleString() : '<span style="color:#bbb;">未設定</span>';
-    const scopeDisp = r.scope ? `<span class="scope-badge">${r.scope}</span>` : '<span style="color:#bbb;">—</span>';
+    const scopeDisp = r.scope ? '<span class="scope-badge">' + r.scope + '</span>' : '<span style="color:#bbb;">—</span>';
 
-    html += `<tr class="${ROW_CLS[r.status]||'row-normal'}">
-      <td>${r.category || '—'}</td>
-      <td style="text-align:center;font-size:11px;">${r.code || '—'}</td>
-      <td>${r.name || '—'}</td>
-      <td style="color:#666;font-size:11px;">${r.spec || '—'}</td>
-      <td style="text-align:right;">${r.qty.toLocaleString()}</td>
-      <td style="text-align:center;">${r.unit || '—'}</td>
-      <td style="font-size:11px;">${r.warehouse || '—'}</td>
-      <td style="font-size:10.5px;">${r.lot || '—'}</td>
-      <td style="text-align:center;">${r.lotDate || '—'}</td>
-      <td style="text-align:center;">${r.expDate || '—'}</td>
-      <td style="text-align:center;" class="${daysCls}">${r.daysText || '—'}</td>
-      <td style="text-align:right;">${priceDisp}</td>
-      <td style="text-align:center;">${scopeDisp}</td>
-      <td style="text-align:right;" class="${COST_CLS[r.status]||'cost-blue'}">${r.cost > 0 ? '$' + Math.round(r.cost).toLocaleString() : '—'}</td>
-    </tr>`;
+    html += '<tr class="' + (ROW_CLS[r.status] || 'row-normal') + '">'
+      + '<td>' + (r.category || '—') + '</td>'
+      + '<td style="text-align:center;font-size:12px;">' + (r.code || '—') + '</td>'
+      + '<td>' + (r.name || '—') + '</td>'
+      + '<td style="color:#666;font-size:12px;">' + (r.spec || '—') + '</td>'
+      + '<td style="text-align:right;">' + r.qty.toLocaleString() + '</td>'
+      + '<td style="text-align:center;">' + (r.unit || '—') + '</td>'
+      + '<td style="font-size:12px;">' + (r.warehouse || '—') + '</td>'
+      + '<td style="font-size:11px;">' + (r.lot || '—') + '</td>'
+      + '<td style="text-align:center;">' + (r.lotDate || '—') + '</td>'
+      + '<td style="text-align:center;">' + (r.expDate || '—') + '</td>'
+      + '<td style="text-align:center;" class="' + daysCls + '">' + (r.daysText || '—') + '</td>'
+      + '<td style="text-align:right;">' + priceDisp + '</td>'
+      + '<td style="text-align:center;">' + scopeDisp + '</td>'
+      + '<td style="text-align:right;" class="' + (COST_CLS[r.status] || 'cost-blue') + '">' + (r.cost > 0 ? '$' + Math.round(r.cost).toLocaleString() : '—') + '</td>'
+      + '</tr>';
   });
 
-  html += `<tr class="total-row">
-    <td colspan="4" style="text-align:right;padding-right:8px;">合計</td>
-    <td style="text-align:right;">${grandQty.toLocaleString()}</td>
-    <td colspan="7"></td>
-    <td style="text-align:right;">${fmtMoney(grandCost)}</td>
-    <td></td>
-  </tr>`;
+  html += '<tr class="total-row">'
+    + '<td colspan="4" style="text-align:right;padding-right:8px;">合計</td>'
+    + '<td style="text-align:right;">' + grandQty.toLocaleString() + '</td>'
+    + '<td colspan="7"></td>'
+    + '<td style="text-align:right;">' + fmtMoney(grandCost) + '</td>'
+    + '<td></td></tr>';
 
   tbody.innerHTML = html;
 }
 
-/* ── Pivot Build ── */
 function buildPivotGroups(rows) {
   const map = {};
   rows.forEach(r => {
-    const key = `${r.name}||${r.warehouse}`;
+    const key = r.name + '||' + r.warehouse;
     if (!map[key]) {
       map[key] = {
         category: r.category, name: r.name, warehouse: r.warehouse,
@@ -506,7 +476,6 @@ function buildPivotGroups(rows) {
 
   return Object.values(map).map(g => {
     const worst = worstStatus(g.statuses);
-    // 加權平均單價（只計有設定單價的批次）
     g.avgPrice    = g.pricedQty > 0 ? g.pricedCost / g.pricedQty : 0;
     g.worstStatus = worst;
     g.statusOrder = STATUS_ORDER[worst] ?? 4;
@@ -514,18 +483,17 @@ function buildPivotGroups(rows) {
   });
 }
 
-/* ── Pivot Render ── */
 function renderPivot(groups) {
   const tbody = document.getElementById('pivotBody');
   if (!groups.length) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:30px;color:#999;">⚠️ 此類別暫無資料</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:#999;">此類別暫無資料</td></tr>';
     return;
   }
 
   let grandQty = 0, grandCost = 0, html = '';
 
   const statusLabels = { normal:'正常', expired:'過期', soon:'即將到期', long:'長期' };
-  const statusColors = { normal:'#0052CC', expired:'#DC2626', soon:'#EA580C', long:'#B45309' };
+  const statusColors = { normal:'#2557A5', expired:'#DC2626', soon:'#EA580C', long:'#B45309' };
 
   groups.forEach(g => {
     grandQty  += g.qty;
@@ -535,51 +503,47 @@ function renderPivot(groups) {
     const costCls = COST_CLS[worst] || 'cost-blue';
     const rowCls  = ROW_CLS[worst]  || 'row-normal';
 
-    // 平均單價顯示
     let priceDisp;
     if (g.avgPrice > 0) {
-      const isMulti = g.pricedQty < g.qty;  // 部分批次未設定單價
+      const isPartial = g.pricedQty < g.qty;
       priceDisp = '$' + Math.round(g.avgPrice).toLocaleString()
-        + (isMulti ? '<span class="avg-badge">部分</span>' : '<span class="avg-badge">均</span>');
+        + '<span class="avg-badge">' + (isPartial ? '部分' : '均') + '</span>';
     } else {
       priceDisp = '<span style="color:#bbb;">未設定</span>';
     }
 
-    const scopeDisp = g.scope ? `<span class="scope-badge">${g.scope}</span>` : '<span style="color:#bbb;">—</span>';
+    const scopeDisp = g.scope ? '<span class="scope-badge">' + g.scope + '</span>' : '<span style="color:#bbb;">—</span>';
 
-    // 狀態分布
     const statusDisp = STATUS_PRIORITY.filter(s => g.statusItems[s])
-      .map(s => `<span style="color:${statusColors[s]};font-weight:700;">${statusLabels[s]}×${g.statusItems[s]}</span>`)
+      .map(s => '<span style="color:' + statusColors[s] + ';font-weight:700;">' + statusLabels[s] + '\xD7' + g.statusItems[s] + '</span>')
       .join(' ');
 
-    html += `<tr class="${rowCls}">
-      <td>${g.category || '—'}</td>
-      <td><strong>${g.name || '—'}</strong></td>
-      <td style="font-size:11px;">${g.warehouse || '—'}</td>
-      <td style="text-align:right;font-weight:700;">${g.qty.toLocaleString()}</td>
-      <td style="text-align:center;">${g.unit || '—'}</td>
-      <td style="text-align:center;"><span class="lots-badge">${g.lots} 批</span></td>
-      <td style="text-align:right;">${priceDisp}</td>
-      <td style="text-align:center;">${scopeDisp}</td>
-      <td style="text-align:right;" class="${costCls}">${g.cost > 0 ? '$' + Math.round(g.cost).toLocaleString() : '—'}</td>
-      <td style="font-size:10.5px;">${statusDisp || '—'}</td>
-    </tr>`;
+    html += '<tr class="' + rowCls + '">'
+      + '<td>' + (g.category || '—') + '</td>'
+      + '<td><strong>' + (g.name || '—') + '</strong></td>'
+      + '<td style="font-size:12px;">' + (g.warehouse || '—') + '</td>'
+      + '<td style="text-align:right;font-weight:700;">' + g.qty.toLocaleString() + '</td>'
+      + '<td style="text-align:center;">' + (g.unit || '—') + '</td>'
+      + '<td style="text-align:center;"><span class="lots-badge">' + g.lots + ' 批</span></td>'
+      + '<td style="text-align:right;">' + priceDisp + '</td>'
+      + '<td style="text-align:center;">' + scopeDisp + '</td>'
+      + '<td style="text-align:right;" class="' + costCls + '">' + (g.cost > 0 ? '$' + Math.round(g.cost).toLocaleString() : '—') + '</td>'
+      + '<td style="font-size:11px;">' + (statusDisp || '—') + '</td>'
+      + '</tr>';
   });
 
-  html += `<tr class="total-row">
-    <td colspan="3" style="text-align:right;padding-right:8px;">合計 ${groups.length} 組</td>
-    <td style="text-align:right;">${grandQty.toLocaleString()}</td>
-    <td colspan="4"></td>
-    <td style="text-align:right;">${fmtMoney(grandCost)}</td>
-    <td></td>
-  </tr>`;
+  html += '<tr class="total-row">'
+    + '<td colspan="3" style="text-align:right;padding-right:8px;">合計 ' + groups.length + ' 組</td>'
+    + '<td style="text-align:right;">' + grandQty.toLocaleString() + '</td>'
+    + '<td colspan="4"></td>'
+    + '<td style="text-align:right;">' + fmtMoney(grandCost) + '</td>'
+    + '<td></td></tr>';
 
   tbody.innerHTML = html;
 }
 
 function exportPDF() { window.print(); }
 
-/* ── Init ── */
 document.addEventListener('DOMContentLoaded', () => {
   let payload = null;
   try {
@@ -589,39 +553,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (!payload || !payload.reportRows) {
     document.getElementById('detailBody').innerHTML =
-      `<tr><td colspan="14" style="text-align:center;padding:40px;color:#999;">
-        ⚠️ 無資料。請從主程式點選「📋 明細報表」匯出。
-      </td></tr>`;
+      '<tr><td colspan="14" style="text-align:center;padding:40px;color:#999;">無資料。請從主程式點選「明細報表」匯出。</td></tr>';
     return;
   }
 
   allRows = payload.reportRows;
   document.getElementById('genDate').textContent = payload.generatedAt || '—';
 
-  // 篩選條件顯示
   if (payload.filters) {
     const f = payload.filters;
     const parts = [];
-    if (f.warehouse && f.warehouse !== '全部倉庫') parts.push('🏭 ' + f.warehouse);
-    if (f.category  && f.category  !== '全部類別') parts.push('🏷 '  + f.category);
-    if (f.search)                                    parts.push('🔍 "' + f.search + '"');
+    if (f.warehouse && f.warehouse !== '全部倉庫') parts.push('&#127981; ' + f.warehouse);
+    if (f.category  && f.category  !== '全部類別') parts.push('&#127991; ' + f.category);
+    if (f.search)                                    parts.push('&#128269; "' + f.search + '"');
     const chipsEl = document.getElementById('filterChips');
     chipsEl.innerHTML = parts.length
-      ? parts.map(p => `<span class="filter-chip">${p}</span>`).join('') + `<span style="opacity:0.65;font-size:10px;">共 ${f.total} 筆</span>`
-      : `<span style="opacity:0.65;font-size:10px;">全部資料 ${f.total} 筆</span>`;
+      ? parts.map(p => '<span class="filter-chip">' + p + '</span>').join('') + '<span style="opacity:0.65;font-size:10px;">共 ' + f.total + ' 筆</span>'
+      : '<span style="opacity:0.65;font-size:10px;">全部資料 ' + f.total + ' 筆</span>';
   }
 
-  // Tab 計數
   const counts = { all: allRows.length, normal: 0, expired: 0, soon: 0, long: 0 };
   allRows.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
   Object.entries(counts).forEach(([k,v]) => {
-    const el = document.getElementById('cnt-'+k);
+    const el = document.getElementById('cnt-' + k);
     if (el) el.textContent = v;
   });
 
-  // 預設樞紐按名稱排序，更新 icon
   updateSortIcons('p', spCol, spDir, ['category','name','warehouse','qty','unit','lots','avgPrice','scope','cost','statusOrder']);
-
   render();
 });
 </script>
