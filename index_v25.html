@@ -4931,10 +4931,12 @@ function _renderTransfer() {
       + 'border-radius:7px;padding:5px 8px;font-size:12px;outline:none;font-family:inherit;">'
       + '</td>';
 
-    // ★ 審核欄：待確認顯示按鈕，已確認顯示時間
+    // ★ 審核欄：待確認顯示按鈕，已確認顯示時間 + 取消按鈕
     if (_transferFilter === 'approved') {
-      html += '<td style="font-size:11px;color:var(--muted);">'
-        + (p.approvedAt ? p.approvedAt.slice(0,10) : '已確認')
+      html += '<td style="font-size:11px;">'
+        + '<div style="color:var(--muted);margin-bottom:5px;">'+(p.approvedAt ? p.approvedAt.slice(0,10) : '已確認')+'</div>'
+        + '<button onclick="cancelTransfer(\''+p.formId+'\', '+(p.periodIdx||0)+', \''+p.periodType+'\')"'
+        + ' style="padding:4px 10px;border-radius:7px;background:#fff5f5;color:#dc2626;border:1px solid #fca5a5;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">↩ 取消確認</button>'
         + '</td>';
     } else {
       html += '<td>'
@@ -5194,6 +5196,61 @@ function approveTransfer(formId, periodIdx, periodType) {
       _buildTransferItems();
     } else {
       toast('❌ 寫入失敗，請重試', '#d97706');
+    }
+  });
+}
+
+// ── 取消確認 → 整包 periods 寫回（status 清空，回待確認）──
+function cancelTransfer(formId, periodIdx, periodType) {
+  var p = _transferItems.find(function(x) {
+    return x.formId === formId && (x.periodIdx || 0) === periodIdx;
+  });
+  var pType = (p && p.periodType) || periodType || 'purchase';
+
+  var periods = _getFirebasePeriodsRef(formId, pType);
+  if (!periods) { toast('❌ 找不到 periods 資料', '#dc2626'); return; }
+  var updated = JSON.parse(JSON.stringify(periods));
+  var target  = updated[periodIdx];
+  if (!target) { toast('❌ 找不到該期別', '#dc2626'); return; }
+
+  // ★ 清除 status / approvedAt，金額/日期等欄位不動
+  target.status     = '';
+  target.approvedAt = '';
+
+  _writePeriodsToFirebase(formId, pType, updated, function(ok) {
+    if (ok) {
+      // 同步本地 _transferItems
+      if (p) {
+        p.confirmed    = false;
+        p.periodStatus = '';
+        p.approvedAt   = '';
+      }
+      var who   = (curUser && curUser.name) || '?';
+      var pName = (p && p.periodName) || ('第'+(periodIdx+1)+'期');
+      var pCase = (p && p.caseName)   || formId;
+      addLog('取消確認', who, pCase + '【' + pName + '】', 'status → 待確認', formId);
+      // ★ 同步更新 GAS OrderImport 分頁，標記為 cancelled
+      backupActionToGAS({
+        action:      'orderImport',
+        formId:      formId,
+        caseName:    p ? p.caseName        : '',
+        staff:       p ? p.staff          : '',
+        caseType:    p ? p.caseType       : '',
+        periodType:  pType,
+        periodName:  pName,
+        periodIdx:   periodIdx,
+        cur:         p ? p.cur            : 'TWD',
+        amt:         p ? p.amt            : 0,
+        dueDate:     p ? p.dueDate        : '',
+        confirmedBy: '',
+        confirmedAt: '',
+        acctNote:    p ? (p.acctNote||'') : '',
+        periodStatus:'cancelled',
+      });
+      toast('↩ 已取消確認，回到待確認區', '#d97706');
+      _buildTransferItems();
+    } else {
+      toast('❌ 寫入失敗，請重試', '#dc2626');
     }
   });
 }
