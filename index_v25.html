@@ -2476,7 +2476,7 @@ function _renderDayDetail(){
     // ── 狀態 badge ──
     var stBg  = p.isPaid?'#dcfce7':p.isOverdue?'#fee2e2':'#f1f5f9';
     var stCol = p.isPaid?'#166534':p.isOverdue?'#dc2626':'#64748b';
-    var stText= p.isPaid?(isRecv?'✓ 已收':'✓ 已付'):p.isOverdue?'⚠ 逾期':'待付';
+    var stText= p.isPaid?(isRecv?'✓ 已收':'✓ 已付'):p.isOverdue?'⚠ 逾期':(isRecv?'待收':'待付');
     var stBadge = '<span class="dcard-st" style="background:'+stBg+';color:'+stCol+';">'+stText+'</span>';
 
     // ── 金額圓點（Firebase預估才加圓點）──
@@ -4088,7 +4088,7 @@ function parsePaymentCSV(csv) {
         note:      note,
         cur:       a.cur,
         amt:       a.amt,
-        direction: 'payable',      // CSV 全是應付
+        direction: (status === '應收') ? 'receivable' : 'payable',
         isPaid:    isPaid,
         isOverdue: isOverdue,
         isEst:     isEst,
@@ -4518,7 +4518,8 @@ function makePayRow(p, today) {
   var stBg    = colors.bg;
   var stColor = colors.color;
   var stBd    = colors.border;
-  var stText  = p.isPaid ? '已完成'  : p.isOverdue ? '逾期'   : p.isEst ? '預估'   : '應付';
+  var _isRecv = p.direction === 'receivable';
+  var stText  = p.isPaid ? '已完成'  : p.isOverdue ? '逾期'   : p.isEst ? '預估'   : (_isRecv ? '應收' : '應付');
 
   var isCSV = p._source === 'csv';
 
