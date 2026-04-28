@@ -6676,7 +6676,7 @@ function exportInventoryReport(){
     }
 
     return {
-      category:  r['類別']       || '',
+      category:  r['類別'] || r['產品類別'] || '',
       code:      r['產品代碼']   || '',
       name:      r['產品名稱']   || '',
       spec:      r['規格']       || '',
