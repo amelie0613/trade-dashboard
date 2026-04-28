@@ -12,38 +12,24 @@
     body {
       font-family: 'Noto Sans TC', sans-serif;
       background: linear-gradient(135deg, #f0f4f9 0%, #e8f4ff 100%);
-      min-height: 100vh;
-      padding: 14px;
-      color: #1a1a1a;
+      min-height: 100vh; padding: 14px; color: #1a1a1a;
     }
 
     .container {
-      max-width: 1600px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 6px 24px rgba(0,82,204,0.12);
-      overflow: hidden;
+      max-width: 1600px; margin: 0 auto; background: white;
+      border-radius: 10px; box-shadow: 0 6px 24px rgba(0,82,204,0.12); overflow: hidden;
     }
 
     /* ── Header ── */
     .header {
       background: linear-gradient(135deg, #003D7A 0%, #0052CC 100%);
-      color: white;
-      padding: 13px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      color: white; padding: 13px 20px;
+      display: flex; justify-content: space-between; align-items: center;
     }
-    .header-left h1  { font-size: 19px; font-weight: 900; letter-spacing: 0.02em; }
-    .header-meta     { font-size: 11px; color: rgba(255,255,255,0.75); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    .filter-chip {
-      background: rgba(255,255,255,0.18);
-      border-radius: 4px;
-      padding: 1px 8px;
-      font-size: 11px;
-    }
-    .header-actions  { display: flex; gap: 8px; }
+    .header-left h1 { font-size: 19px; font-weight: 900; }
+    .header-meta    { font-size: 11px; color: rgba(255,255,255,0.75); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .filter-chip    { background: rgba(255,255,255,0.18); border-radius: 4px; padding: 1px 8px; font-size: 11px; }
+    .header-actions { display: flex; gap: 8px; }
 
     .btn {
       padding: 6px 14px; border-radius: 7px; border: none;
@@ -67,32 +53,21 @@
       background: white; display: flex; align-items: center; gap: 5px;
     }
     .type-tab:hover { opacity: 0.85; }
-
     .type-tab[data-type="all"]     { border-color:#0052CC; color:#0052CC; }
     .type-tab[data-type="normal"]  { border-color:#059669; color:#059669; }
     .type-tab[data-type="soon"]    { border-color:#EA580C; color:#EA580C; }
     .type-tab[data-type="expired"] { border-color:#DC2626; color:#DC2626; }
     .type-tab[data-type="long"]    { border-color:#B45309; color:#B45309; }
-
     .type-tab[data-type="all"].active     { background:#0052CC; color:white; }
     .type-tab[data-type="normal"].active  { background:#059669; color:white; }
     .type-tab[data-type="soon"].active    { background:#EA580C; color:white; }
     .type-tab[data-type="expired"].active { background:#DC2626; color:white; }
     .type-tab[data-type="long"].active    { background:#B45309; color:white; }
-
-    .tab-count {
-      font-size: 10px; font-weight: 900;
-      background: rgba(0,0,0,0.12); border-radius: 20px; padding: 1px 6px;
-    }
+    .tab-count { font-size: 10px; font-weight: 900; background: rgba(0,0,0,0.12); border-radius: 20px; padding: 1px 6px; }
     .type-tab.active .tab-count { background: rgba(255,255,255,0.28); }
 
     /* ── View Toggle ── */
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
+    .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .view-label { font-size: 12px; color: #666; font-weight: 600; }
     .view-btn {
       padding: 5px 14px; border-radius: 6px; border: 1.5px solid #0052CC;
@@ -104,11 +79,7 @@
 
     /* ── Summary Bar ── */
     .summary-bar { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-
-    .summary-card {
-      background: #f8faff; border: 1px solid #d0d9e8;
-      border-radius: 8px; padding: 8px 16px; min-width: 110px;
-    }
+    .summary-card { background: #f8faff; border: 1px solid #d0d9e8; border-radius: 8px; padding: 8px 16px; min-width: 110px; }
     .summary-label { font-size: 10px; color: #888; font-weight: 600; margin-bottom: 2px; }
     .summary-value { font-size: 18px; font-weight: 900; color: #0052CC; }
     .summary-value.red    { color: #DC2626; }
@@ -117,10 +88,7 @@
     .summary-value.green  { color: #059669; }
 
     /* ── Print title ── */
-    .print-title {
-      display: none; font-size: 14px; font-weight: 800; color: #0052CC;
-      padding-bottom: 7px; border-bottom: 2px solid #0052CC; margin-bottom: 10px;
-    }
+    .print-title { display: none; font-size: 14px; font-weight: 800; color: #0052CC; padding-bottom: 7px; border-bottom: 2px solid #0052CC; margin-bottom: 10px; }
 
     /* ── Table ── */
     .table-wrapper { border-radius: 8px; border: 1px solid #d0d9e8; overflow: auto; }
@@ -128,33 +96,31 @@
     table { width: 100%; table-layout: fixed; border-collapse: collapse; min-width: 1100px; }
 
     th {
-      background: #0052CC; color: white; padding: 8px 4px; text-align: center;
-      font-weight: 700; font-size: 12px; border: 1px solid rgba(255,255,255,0.2);
-      white-space: nowrap; overflow: hidden;
+      background: #0052CC; color: white; padding: 8px 4px;
+      text-align: center; font-weight: 700; font-size: 16px;
+      border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;
+      overflow: hidden; cursor: pointer; user-select: none;
+      transition: background 0.15s;
     }
+    th:hover  { background: #003D7A; }
     th.pivot-th { background: #1D4ED8; }
+    th.pivot-th:hover { background: #1D40AF; }
+
+    .sort-icon { font-size: 10px; margin-left: 3px; opacity: 0.4; }
+    .sort-icon.active { opacity: 1; }
 
     td {
-      padding: 6px 4px; font-size: 11.5px; border: 1px solid #e8edf5;
+      padding: 6px 4px; font-size: 14px; border: 1px solid #e8edf5;
       overflow: hidden; vertical-align: middle;
     }
 
-    /* Row status colors */
     tr.row-normal  td { background: #ffffff; }
     tr.row-expired td { background: #fff5f5; }
     tr.row-soon    td { background: #fff8f0; }
     tr.row-long    td { background: #fefce8; }
     tr:not(.total-row):hover td { filter: brightness(0.97); }
 
-    tr.total-row td {
-      background: #e0e7ff !important; font-weight: 700; color: #1a1a1a;
-    }
-
-    /* Pivot row group header */
-    tr.pivot-group-header td {
-      background: #f0f4f9 !important; font-weight: 700;
-      border-top: 2px solid #d0d9e8;
-    }
+    tr.total-row td { background: #e0e7ff !important; font-weight: 700; color: #1a1a1a; }
 
     .cost-blue   { color: #0052CC; font-weight: 700; }
     .cost-red    { color: #DC2626; font-weight: 700; }
@@ -177,15 +143,15 @@
       border: 1px solid #e5e7eb; border-radius: 5px;
       font-size: 10px; font-weight: 700; padding: 1px 6px; white-space: nowrap;
     }
-    .status-mix {
-      font-size: 10px; color: #666; white-space: nowrap;
+    .avg-badge {
+      display: inline-block; background: #fef3c7; color: #92400E;
+      border: 1px solid #fde68a; border-radius: 5px;
+      font-size: 9px; font-weight: 700; padding: 0px 5px; white-space: nowrap;
+      margin-left: 3px; vertical-align: middle;
     }
 
     /* ── Footer ── */
-    .footer {
-      padding: 9px 18px; background: #f5f5f5;
-      border-top: 1px solid #e0e0e0; font-size: 11px; color: #999;
-    }
+    .footer { padding: 9px 18px; background: #f5f5f5; border-top: 1px solid #e0e0e0; font-size: 11px; color: #999; }
 
     /* ── Print ── */
     @page { size: A4 landscape; margin: 7mm 7mm; }
@@ -201,8 +167,8 @@
       .print-title    { display: block !important; }
       .table-wrapper  { overflow: hidden !important; border-radius: 0; }
       table { min-width: 0 !important; }
-      .summary-bar  { margin-bottom: 6px; }
-      .summary-card { padding: 5px 10px; min-width: 90px; }
+      .summary-bar   { margin-bottom: 6px; }
+      .summary-card  { padding: 5px 10px; min-width: 90px; }
       .summary-value { font-size: 14px; }
       table { page-break-inside: auto; }
       thead { display: table-header-group; }
@@ -211,7 +177,6 @@
       tr.row-soon    td { background: #fff8f0 !important; }
       tr.row-long    td { background: #fefce8 !important; }
       tr.total-row   td { background: #e0e7ff !important; }
-      tr.pivot-group-header td { background: #f0f4f9 !important; }
       th { background: #0052CC !important; color: white !important; }
       th.pivot-th { background: #1D4ED8 !important; }
       .header { background: linear-gradient(135deg,#003D7A 0%,#0052CC 100%) !important; }
@@ -239,7 +204,7 @@
   <div class="content">
 
     <!-- 類型切換 -->
-    <div class="type-tabs" id="typeTabs">
+    <div class="type-tabs">
       <button class="type-tab active" data-type="all"     onclick="switchType('all',this)">📋 全部 <span class="tab-count" id="cnt-all">0</span></button>
       <button class="type-tab" data-type="normal"  onclick="switchType('normal',this)">✅ 正常品 <span class="tab-count" id="cnt-normal">0</span></button>
       <button class="type-tab" data-type="soon"    onclick="switchType('soon',this)">⚠️ 即將到期 <span class="tab-count" id="cnt-soon">0</span></button>
@@ -250,8 +215,8 @@
     <!-- 視圖切換 -->
     <div class="toolbar">
       <span class="view-label">視圖：</span>
-      <button class="view-btn active" id="btnDetail" onclick="switchView('detail',this)">📋 明細</button>
-      <button class="view-btn"        id="btnPivot"  onclick="switchView('pivot',this)">🔀 樞紐（依產品+倉庫合併）</button>
+      <button class="view-btn active" onclick="switchView('detail',this)">📋 明細</button>
+      <button class="view-btn"        onclick="switchView('pivot',this)">🔀 樞紐（依產品+倉庫合併）</button>
     </div>
 
     <!-- 摘要列 -->
@@ -274,7 +239,7 @@
       </div>
     </div>
 
-    <!-- 列印用標題 -->
+    <!-- 列印標題 -->
     <div class="print-title" id="printTitle">庫存明細報表</div>
 
     <!-- 明細表格 -->
@@ -283,20 +248,20 @@
         <table>
           <thead>
             <tr>
-              <th style="width:6%;">類別</th>
-              <th style="width:5%;">產品代碼</th>
-              <th style="width:13%;">產品名稱</th>
-              <th style="width:7%;">規格</th>
-              <th style="width:6%;">庫存數量</th>
-              <th style="width:4%;">單位</th>
-              <th style="width:7%;">倉庫</th>
-              <th style="width:9%;">批號</th>
-              <th style="width:7%;">入庫日期</th>
-              <th style="width:7%;">有效期至</th>
-              <th style="width:6%;" id="thDays">剩餘天數</th>
-              <th style="width:7%;">單價</th>
-              <th style="width:7%;">核算範圍</th>
-              <th style="width:9%;">存貨成本</th>
+              <th style="width:6%;"  onclick="sortDetailBy('category')">類別<span class="sort-icon" id="si-d-category">⇅</span></th>
+              <th style="width:5%;"  onclick="sortDetailBy('code')">產品代碼<span class="sort-icon" id="si-d-code">⇅</span></th>
+              <th style="width:13%;" onclick="sortDetailBy('name')">產品名稱<span class="sort-icon" id="si-d-name">⇅</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('spec')">規格<span class="sort-icon" id="si-d-spec">⇅</span></th>
+              <th style="width:6%;"  onclick="sortDetailBy('qty')">庫存數量<span class="sort-icon" id="si-d-qty">⇅</span></th>
+              <th style="width:4%;"  onclick="sortDetailBy('unit')">單位<span class="sort-icon" id="si-d-unit">⇅</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('warehouse')">倉庫<span class="sort-icon" id="si-d-warehouse">⇅</span></th>
+              <th style="width:9%;"  onclick="sortDetailBy('lot')">批號<span class="sort-icon" id="si-d-lot">⇅</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('lotDate')">入庫日期<span class="sort-icon" id="si-d-lotDate">⇅</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('expDate')">有效期至<span class="sort-icon" id="si-d-expDate">⇅</span></th>
+              <th style="width:6%;"  onclick="sortDetailBy('daysNum')" id="thDays">剩餘天數<span class="sort-icon" id="si-d-daysNum">⇅</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('price')">單價<span class="sort-icon" id="si-d-price">⇅</span></th>
+              <th style="width:7%;"  onclick="sortDetailBy('scope')">核算範圍<span class="sort-icon" id="si-d-scope">⇅</span></th>
+              <th style="width:9%;"  onclick="sortDetailBy('cost')">存貨成本<span class="sort-icon" id="si-d-cost">⇅</span></th>
             </tr>
           </thead>
           <tbody id="detailBody"></tbody>
@@ -310,16 +275,16 @@
         <table>
           <thead>
             <tr>
-              <th class="pivot-th" style="width:7%;">類別</th>
-              <th class="pivot-th" style="width:21%;">產品名稱</th>
-              <th class="pivot-th" style="width:10%;">倉庫</th>
-              <th class="pivot-th" style="width:9%;">合計數量</th>
-              <th class="pivot-th" style="width:4%;">單位</th>
-              <th class="pivot-th" style="width:6%;">批數</th>
-              <th class="pivot-th" style="width:9%;">單價</th>
-              <th class="pivot-th" style="width:9%;">核算範圍</th>
-              <th class="pivot-th" style="width:11%;">合計存貨成本</th>
-              <th class="pivot-th" style="width:14%;">狀態分布</th>
+              <th class="pivot-th" style="width:7%;"  onclick="sortPivotBy('category')">類別<span class="sort-icon" id="si-p-category">⇅</span></th>
+              <th class="pivot-th" style="width:21%;" onclick="sortPivotBy('name')">產品名稱<span class="sort-icon" id="si-p-name">⇅</span></th>
+              <th class="pivot-th" style="width:10%;" onclick="sortPivotBy('warehouse')">倉庫<span class="sort-icon" id="si-p-warehouse">⇅</span></th>
+              <th class="pivot-th" style="width:9%;"  onclick="sortPivotBy('qty')">合計數量<span class="sort-icon" id="si-p-qty">⇅</span></th>
+              <th class="pivot-th" style="width:4%;"  onclick="sortPivotBy('unit')">單位<span class="sort-icon" id="si-p-unit">⇅</span></th>
+              <th class="pivot-th" style="width:6%;"  onclick="sortPivotBy('lots')">批數<span class="sort-icon" id="si-p-lots">⇅</span></th>
+              <th class="pivot-th" style="width:9%;"  onclick="sortPivotBy('avgPrice')">平均單價<span class="sort-icon" id="si-p-avgPrice">⇅</span></th>
+              <th class="pivot-th" style="width:9%;"  onclick="sortPivotBy('scope')">核算範圍<span class="sort-icon" id="si-p-scope">⇅</span></th>
+              <th class="pivot-th" style="width:11%;" onclick="sortPivotBy('cost')">合計存貨成本<span class="sort-icon" id="si-p-cost">⇅</span></th>
+              <th class="pivot-th" style="width:14%;" onclick="sortPivotBy('statusOrder')">狀態分布<span class="sort-icon" id="si-p-statusOrder">⇅</span></th>
             </tr>
           </thead>
           <tbody id="pivotBody"></tbody>
@@ -330,20 +295,25 @@
   </div>
 
   <div class="footer">
-    🔵 正常品 ｜ 🔴 過期品 ｜ 🟠 即將到期 ｜ 🟡 長期在庫 ｜ PDF 輸出 A4 橫式彩色
+    🔵 正常品 ｜ 🔴 過期品 ｜ 🟠 即將到期 ｜ 🟡 長期在庫 ｜ PDF 輸出 A4 橫式彩色 ｜ 點擊欄標頭可排序
   </div>
 </div>
 
 <script>
-let allRows    = [];
+let allRows     = [];
 let currentType = 'all';
 let currentView = 'detail';
 
-const DAYS_HEADER = { all:'剩餘/在庫天數', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
-const TITLES      = { all:'全部庫存', normal:'正常品', soon:'即將到期', expired:'過期品', long:'長期在庫' };
-const COST_CLS    = { normal:'cost-blue', expired:'cost-red', soon:'cost-orange', long:'cost-amber' };
-const ROW_CLS     = { normal:'row-normal', expired:'row-expired', soon:'row-soon', long:'row-long' };
+// 排序狀態（明細 / 樞紐各自獨立）
+let sdCol = null, sdDir = 'asc';  // sort detail
+let spCol = 'name', spDir = 'asc'; // sort pivot default by name
+
+const DAYS_HEADER     = { all:'剩餘/在庫天數', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
+const TITLES          = { all:'全部庫存', normal:'正常品', soon:'即將到期', expired:'過期品', long:'長期在庫' };
+const COST_CLS        = { normal:'cost-blue', expired:'cost-red', soon:'cost-orange', long:'cost-amber' };
+const ROW_CLS         = { normal:'row-normal', expired:'row-expired', soon:'row-soon', long:'row-long' };
 const STATUS_PRIORITY = ['expired','long','soon','normal'];
+const STATUS_ORDER    = { expired:0, long:1, soon:2, normal:3 };
 
 function worstStatus(statuses) {
   for (const s of STATUS_PRIORITY) if (statuses.has(s)) return s;
@@ -356,12 +326,63 @@ function getFiltered() {
 
 function fmtMoney(n) { return n > 0 ? '$' + Math.round(n).toLocaleString() : '—'; }
 
+/* ── Sort Detail ── */
+function sortDetailBy(col) {
+  sdDir = sdCol === col && sdDir === 'asc' ? 'desc' : 'asc';
+  sdCol = col;
+  updateSortIcons('d', col, sdDir, ['category','code','name','spec','qty','unit','warehouse','lot','lotDate','expDate','daysNum','price','scope','cost']);
+  render();
+}
+
+function applySortDetail(rows) {
+  if (!sdCol) return rows;
+  const numCols = new Set(['qty','daysNum','price','cost']);
+  const dir = sdDir === 'asc' ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    let va = a[sdCol], vb = b[sdCol];
+    if (numCols.has(sdCol)) { va = va ?? -Infinity; vb = vb ?? -Infinity; return (va - vb) * dir; }
+    va = String(va || ''); vb = String(vb || '');
+    return va.localeCompare(vb, 'zh-TW') * dir;
+  });
+}
+
+/* ── Sort Pivot ── */
+function sortPivotBy(col) {
+  spDir = spCol === col && spDir === 'asc' ? 'desc' : 'asc';
+  spCol = col;
+  updateSortIcons('p', col, spDir, ['category','name','warehouse','qty','unit','lots','avgPrice','scope','cost','statusOrder']);
+  render();
+}
+
+function applySortPivot(groups) {
+  const numCols = new Set(['qty','lots','avgPrice','cost','statusOrder']);
+  const dir = spDir === 'asc' ? 1 : -1;
+  return [...groups].sort((a, b) => {
+    let va = a[spCol], vb = b[spCol];
+    if (numCols.has(spCol)) { va = va ?? -Infinity; vb = vb ?? -Infinity; return (va - vb) * dir; }
+    va = String(va || ''); vb = String(vb || '');
+    return va.localeCompare(vb, 'zh-TW') * dir;
+  });
+}
+
+/* ── Update Sort Icon Display ── */
+function updateSortIcons(prefix, activeCol, dir, cols) {
+  cols.forEach(c => {
+    const el = document.getElementById(`si-${prefix}-${c}`);
+    if (!el) return;
+    const isActive = c === activeCol;
+    el.textContent  = isActive ? (dir === 'asc' ? '▲' : '▼') : '⇅';
+    el.classList.toggle('active', isActive);
+  });
+}
+
+/* ── Switch ── */
 function switchType(type, btn) {
   currentType = type;
   document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   const dh = document.getElementById('thDays');
-  if (dh) dh.textContent = DAYS_HEADER[type];
+  if (dh) dh.childNodes[0].nodeValue = DAYS_HEADER[type] + '';
   render();
 }
 
@@ -371,17 +392,8 @@ function switchView(view, btn) {
   btn.classList.add('active');
   document.getElementById('detailSection').style.display = view === 'detail' ? '' : 'none';
   document.getElementById('pivotSection').style.display  = view === 'pivot'  ? '' : 'none';
-  document.getElementById('labelCount').textContent = view === 'pivot' ? '品項組合數' : '顯示筆數';
+  document.getElementById('labelCount').textContent      = view === 'pivot'  ? '品項組合數' : '顯示筆數';
   render();
-}
-
-function render() {
-  const rows = getFiltered();
-  if (currentView === 'detail') renderDetail(rows);
-  else                          renderPivot(rows);
-  updateSummary(rows);
-  document.getElementById('printTitle').textContent =
-    '庫存明細報表 ― ' + TITLES[currentType] + (currentView === 'pivot' ? '（樞紐）' : '');
 }
 
 /* ── Summary ── */
@@ -392,7 +404,7 @@ function updateSummary(rows) {
 
   if (currentView === 'pivot') {
     const groups = buildPivotGroups(rows);
-    document.getElementById('summaryCount').textContent = Object.keys(groups).length.toLocaleString() + ' 組';
+    document.getElementById('summaryCount').textContent = groups.length.toLocaleString() + ' 組';
   } else {
     document.getElementById('summaryCount').textContent = rows.length.toLocaleString() + ' 筆';
   }
@@ -405,6 +417,16 @@ function updateSummary(rows) {
   if      (currentType === 'expired') costEl.classList.add('red');
   else if (currentType === 'soon')    costEl.classList.add('orange');
   else if (currentType === 'long')    costEl.classList.add('amber');
+}
+
+/* ── Main Render ── */
+function render() {
+  const rows = getFiltered();
+  updateSummary(rows);
+  document.getElementById('printTitle').textContent =
+    '庫存明細報表 ― ' + TITLES[currentType] + (currentView === 'pivot' ? '（樞紐）' : '');
+  if (currentView === 'detail') renderDetail(applySortDetail(rows));
+  else                          renderPivot(applySortPivot(buildPivotGroups(rows)));
 }
 
 /* ── Detail Render ── */
@@ -422,10 +444,10 @@ function renderDetail(rows) {
     grandCost += r.cost;
 
     let daysCls = 'days-normal';
-    if      (r.status === 'expired') daysCls = 'days-expired';
-    else if (r.status === 'soon')    daysCls = 'days-soon';
-    else if (r.status === 'long')    daysCls = 'days-long';
-    else if (r.daysNum !== null && r.daysNum > 210) daysCls = 'days-green';
+    if      (r.status === 'expired')                         daysCls = 'days-expired';
+    else if (r.status === 'soon')                            daysCls = 'days-soon';
+    else if (r.status === 'long')                            daysCls = 'days-long';
+    else if (r.daysNum !== null && r.daysNum > 210)          daysCls = 'days-green';
 
     const priceDisp = r.price > 0 ? '$' + r.price.toLocaleString() : '<span style="color:#bbb;">未設定</span>';
     const scopeDisp = r.scope ? `<span class="scope-badge">${r.scope}</span>` : '<span style="color:#bbb;">—</span>';
@@ -459,74 +481,75 @@ function renderDetail(rows) {
   tbody.innerHTML = html;
 }
 
-/* ── Pivot Group Build ── */
+/* ── Pivot Build ── */
 function buildPivotGroups(rows) {
-  const groups = {};
+  const map = {};
   rows.forEach(r => {
     const key = `${r.name}||${r.warehouse}`;
-    if (!groups[key]) {
-      groups[key] = {
+    if (!map[key]) {
+      map[key] = {
         category: r.category, name: r.name, warehouse: r.warehouse,
         unit: r.unit, scope: r.scope,
         qty: 0, cost: 0, lots: 0,
-        prices: new Set(), statuses: new Set(),
+        pricedQty: 0, pricedCost: 0,
+        statuses: new Set(), statusItems: {},
       };
     }
-    const g = groups[key];
+    const g = map[key];
     g.qty  += r.qty;
     g.cost += r.cost;
     g.lots++;
-    if (r.price > 0) g.prices.add(r.price);
+    if (r.price > 0) { g.pricedQty += r.qty; g.pricedCost += r.cost; }
     g.statuses.add(r.status);
+    g.statusItems[r.status] = (g.statusItems[r.status] || 0) + 1;
   });
-  return groups;
+
+  return Object.values(map).map(g => {
+    const worst = worstStatus(g.statuses);
+    // 加權平均單價（只計有設定單價的批次）
+    g.avgPrice    = g.pricedQty > 0 ? g.pricedCost / g.pricedQty : 0;
+    g.worstStatus = worst;
+    g.statusOrder = STATUS_ORDER[worst] ?? 4;
+    return g;
+  });
 }
 
 /* ── Pivot Render ── */
-function renderPivot(rows) {
+function renderPivot(groups) {
   const tbody = document.getElementById('pivotBody');
-  if (!rows.length) {
+  if (!groups.length) {
     tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:30px;color:#999;">⚠️ 此類別暫無資料</td></tr>`;
     return;
   }
 
-  const groups = buildPivotGroups(rows);
-
-  // Sort: by product name then warehouse
-  const sorted = Object.values(groups).sort((a, b) => {
-    if (a.name < b.name) return -1;
-    if (a.name > b.name) return  1;
-    if (a.warehouse < b.warehouse) return -1;
-    return 1;
-  });
-
   let grandQty = 0, grandCost = 0, html = '';
 
-  sorted.forEach(g => {
+  const statusLabels = { normal:'正常', expired:'過期', soon:'即將到期', long:'長期' };
+  const statusColors = { normal:'#0052CC', expired:'#DC2626', soon:'#EA580C', long:'#B45309' };
+
+  groups.forEach(g => {
     grandQty  += g.qty;
     grandCost += g.cost;
 
-    const worst = worstStatus(g.statuses);
+    const worst   = g.worstStatus;
     const costCls = COST_CLS[worst] || 'cost-blue';
     const rowCls  = ROW_CLS[worst]  || 'row-normal';
 
-    // Price display
+    // 平均單價顯示
     let priceDisp;
-    if (g.prices.size === 0)      priceDisp = '<span style="color:#bbb;">未設定</span>';
-    else if (g.prices.size === 1)  priceDisp = '$' + [...g.prices][0].toLocaleString();
-    else                           priceDisp = `<span style="color:#6B7280;font-size:10px;">${g.prices.size} 種單價</span>`;
+    if (g.avgPrice > 0) {
+      const isMulti = g.pricedQty < g.qty;  // 部分批次未設定單價
+      priceDisp = '$' + Math.round(g.avgPrice).toLocaleString()
+        + (isMulti ? '<span class="avg-badge">部分</span>' : '<span class="avg-badge">均</span>');
+    } else {
+      priceDisp = '<span style="color:#bbb;">未設定</span>';
+    }
 
-    // Scope
     const scopeDisp = g.scope ? `<span class="scope-badge">${g.scope}</span>` : '<span style="color:#bbb;">—</span>';
 
-    // Status distribution
-    const statusLabels = { normal:'正常', expired:'過期', soon:'即將到期', long:'長期' };
-    const statusColors = { normal:'#0052CC', expired:'#DC2626', soon:'#EA580C', long:'#B45309' };
-    const counts = {};
-    rows.filter(r => r.name === g.name && r.warehouse === g.warehouse)
-        .forEach(r => { counts[r.status] = (counts[r.status]||0) + 1; });
-    const statusDisp = STATUS_PRIORITY.filter(s => counts[s])
-      .map(s => `<span style="color:${statusColors[s]};font-weight:700;">${statusLabels[s]}×${counts[s]}</span>`)
+    // 狀態分布
+    const statusDisp = STATUS_PRIORITY.filter(s => g.statusItems[s])
+      .map(s => `<span style="color:${statusColors[s]};font-weight:700;">${statusLabels[s]}×${g.statusItems[s]}</span>`)
       .join(' ');
 
     html += `<tr class="${rowCls}">
@@ -544,7 +567,7 @@ function renderPivot(rows) {
   });
 
   html += `<tr class="total-row">
-    <td colspan="3" style="text-align:right;padding-right:8px;">合計 ${sorted.length} 組</td>
+    <td colspan="3" style="text-align:right;padding-right:8px;">合計 ${groups.length} 組</td>
     <td style="text-align:right;">${grandQty.toLocaleString()}</td>
     <td colspan="4"></td>
     <td style="text-align:right;">${fmtMoney(grandCost)}</td>
@@ -583,12 +606,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (f.category  && f.category  !== '全部類別') parts.push('🏷 '  + f.category);
     if (f.search)                                    parts.push('🔍 "' + f.search + '"');
     const chipsEl = document.getElementById('filterChips');
-    if (parts.length) {
-      chipsEl.innerHTML = parts.map(p => `<span class="filter-chip">${p}</span>`).join('') +
-        `<span style="opacity:0.7;font-size:10px;">共 ${f.total} 筆</span>`;
-    } else {
-      chipsEl.innerHTML = `<span style="opacity:0.65;font-size:10px;">全部資料 ${f.total} 筆</span>`;
-    }
+    chipsEl.innerHTML = parts.length
+      ? parts.map(p => `<span class="filter-chip">${p}</span>`).join('') + `<span style="opacity:0.65;font-size:10px;">共 ${f.total} 筆</span>`
+      : `<span style="opacity:0.65;font-size:10px;">全部資料 ${f.total} 筆</span>`;
   }
 
   // Tab 計數
@@ -598,6 +618,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('cnt-'+k);
     if (el) el.textContent = v;
   });
+
+  // 預設樞紐按名稱排序，更新 icon
+  updateSortIcons('p', spCol, spDir, ['category','name','warehouse','qty','unit','lots','avgPrice','scope','cost','statusOrder']);
 
   render();
 });
