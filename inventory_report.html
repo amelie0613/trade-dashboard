@@ -264,7 +264,10 @@
   <div class="header">
     <div class="header-left">
       <h1>📋 庫存明細報表</h1>
-      <div class="header-meta">產生時間：<span id="genDate">—</span></div>
+      <div class="header-meta">
+        產生時間：<span id="genDate">—</span>
+        <span id="filterInfo" style="margin-left:14px;"></span>
+      </div>
     </div>
     <div class="header-actions">
       <button class="btn btn-secondary" onclick="window.history.back()">← 返回</button>
@@ -483,6 +486,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   allRows = payload.reportRows;
   document.getElementById('genDate').textContent = payload.generatedAt || '—';
+
+  // 顯示篩選條件
+  if (payload.filters) {
+    const f = payload.filters;
+    const parts = [];
+    if (f.warehouse && f.warehouse !== '全部倉庫') parts.push('🏭 ' + f.warehouse);
+    if (f.category  && f.category  !== '全部類別') parts.push('🏷 ' + f.category);
+    if (f.search)                                    parts.push('🔍 "' + f.search + '"');
+    const filterEl = document.getElementById('filterInfo');
+    if (parts.length) {
+      filterEl.innerHTML = parts.map(p =>
+        `<span style="background:rgba(255,255,255,0.2);border-radius:4px;padding:1px 8px;margin-right:4px;">${p}</span>`
+      ).join('') + `<span style="opacity:0.7;">共 ${f.total} 筆</span>`;
+    } else {
+      filterEl.innerHTML = `<span style="opacity:0.7;">全部資料，共 ${f.total} 筆</span>`;
+    }
+  }
 
   const counts = { all: allRows.length, normal: 0, expired: 0, soon: 0, long: 0 };
   allRows.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });

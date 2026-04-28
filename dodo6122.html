@@ -6633,9 +6633,26 @@ function exportCostAnalysis(){
 function exportInventoryReport(){
   if(!allData || !allData.length){ showToast('❌ 請先加載庫存數據'); return; }
 
+  // 讀取主頁面目前的篩選條件（與 filterRows 邏輯一致）
+  const search    = (document.getElementById('search-global')?.value    || '').toLowerCase().trim();
+  const warehouse = document.getElementById('filter-global-warehouse')?.value || '';
+  const category  = document.getElementById('filter-global-category')?.value  || '';
+
+  const sourceData = allData.filter(r => {
+    if(warehouse && r['倉庫名稱'] !== warehouse) return false;
+    if(category  && r['產品類別'] !== category)  return false;
+    if(search){
+      const hay = (String(r['產品名稱']||'')+String(r['批號']||'')+String(r['產品代碼']||'')).toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  if(!sourceData.length){ showToast('⚠️ 目前篩選條件下無資料可匯出'); return; }
+
   const fd = d => d ? `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}` : '—';
 
-  const reportRows = allData.map(r => {
+  const reportRows = sourceData.map(r => {
     const pd  = getPriceData(r);
     const f   = classify(r);
     const qty = parseFloat(r['庫存數量']) || 0;
@@ -6681,6 +6698,12 @@ function exportInventoryReport(){
   localStorage.setItem('inventoryReportPayload', JSON.stringify({
     reportRows,
     generatedAt: new Date().toLocaleDateString('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
+    filters: {
+      warehouse: warehouse || '全部倉庫',
+      category:  category  || '全部類別',
+      search:    search    || '',
+      total:     sourceData.length,
+    },
   }));
   window.open('inventory_report.html', 'inventory_report', 'width=1500,height=900,resizable=yes,scrollbars=yes');
 }
