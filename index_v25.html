@@ -252,11 +252,11 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .sec-lbl{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
 /* CALENDAR v4 - colour system */
 /* 應收 */
-.p-in{background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.p-in{background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:12px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 應付 */
-.p-out{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.p-out{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:12px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 預估（黃底黑字）*/
-.p-forecast{background:#fef9c3;color:#111827;border:1px solid #fde68a;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.p-forecast{background:#fef9c3;color:#111827;border:1px solid #fde68a;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:12px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 外部 CSV（灰）*/
 .cal-csv{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 圓點 */
@@ -291,6 +291,25 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .dcard-amt{font-size:15px;font-weight:700;font-family:'DM Mono',monospace;white-space:nowrap;text-align:right;}
 .dcard-st{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:8px;white-space:nowrap;}
 .dtag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;}
+
+/* ── 列印樣式 ── */
+@media print{
+  /* 隱藏所有非日曆內容 */
+  body > *:not(#print-cal-wrap){ display:none !important; }
+  #print-cal-wrap{ display:block !important; }
+  /* 列印區基本設定 */
+  #print-cal-wrap{ width:100%; font-family:'Noto Sans TC',sans-serif; }
+  #print-cal-title{ font-size:18px; font-weight:700; text-align:center; margin-bottom:12px; }
+  #print-cal-legend{ display:flex; gap:10px; justify-content:center; margin-bottom:10px; font-size:11px; font-weight:700; }
+  #print-cal-table{ width:100%; border-collapse:collapse; }
+  #print-cal-table th{ background:#0b1d35 !important; color:#fff !important; padding:7px; font-size:12px; text-align:center; border:1px solid #ccc; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  #print-cal-table td{ border:1px solid #ccc; vertical-align:top; height:90px; padding:5px; font-size:11px; }
+  .p-in, .p-out, .p-forecast{ font-size:10px !important; white-space:nowrap; overflow:hidden; }
+  .p-in{ background:#dbeafe !important; color:#1e3a8a !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .p-out{ background:#fee2e2 !important; color:#dc2626 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .p-forecast{ background:#fef9c3 !important; color:#111827 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  @page{ size:A4 landscape; margin:10mm; }
+}
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -419,9 +438,12 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
       <button id="cf-trade" class="cal-filter-btn on" onclick="setCalFilter('trade',this)">貿易</button>
       <button id="cf-forecast" class="cal-filter-btn on" onclick="setCalFilter('forecast',this)">預估</button>
       </div>
-      <button id="cal-refresh-btn" onclick="forceRefreshCSV()" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;font-size:11px;font-weight:700;cursor:pointer;">
-        <span id="cal-refresh-ico" style="display:inline-block;">↻</span> 刷新
-      </button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button id="cal-refresh-btn" onclick="forceRefreshCSV()" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;font-size:11px;font-weight:700;cursor:pointer;">
+          <span id="cal-refresh-ico" style="display:inline-block;">↻</span> 刷新
+        </button>
+        <button onclick="printCalendar()" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;background:#f0fdf4;border:1px solid #86efac;color:#16a34a;font-size:11px;font-weight:700;cursor:pointer;">🖨 列印</button>
+      </div>
     </div>
   <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px;">
       <div id="cal-body" style="width:100%;min-width:100%;"></div>
@@ -1879,6 +1901,36 @@ function changeMonth(delta){
   renderDaily();
 }
 
+// ── 列印當月日曆 ─────────────────────────────────────
+function printCalendar(){
+  // 取得目前日曆 table HTML
+  var calBody = document.getElementById('cal-body');
+  if(!calBody){ alert('日曆尚未載入'); return; }
+
+  // 月份標題
+  var monthTitle = document.getElementById('daily-month').textContent || (viewYear+'年'+(viewMonth+1)+'月');
+
+  // 建立或重用列印容器
+  var wrap = document.getElementById('print-cal-wrap');
+  if(!wrap){
+    wrap = document.createElement('div');
+    wrap.id = 'print-cal-wrap';
+    wrap.style.display = 'none';
+    document.body.appendChild(wrap);
+  }
+
+  wrap.innerHTML =
+    '<div id="print-cal-title">貿易大漁｜'+monthTitle+' 應收／應付日曆</div>'
+    +'<div id="print-cal-legend">'
+    +'<span style="background:#dbeafe;color:#1e3a8a;padding:2px 8px;border-radius:4px;">↑ 應收</span>'
+    +'<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:4px;">↓ 應付</span>'
+    +'<span style="background:#fef9c3;color:#92400e;padding:2px 8px;border-radius:4px;">◇ 預估</span>'
+    +'</div>'
+    + calBody.innerHTML;
+
+  window.print();
+}
+
 // ══════════════════════════════════════════════════════
 // 當月統計卡片（5張）
 // CSV → 真實帳款（貿易/船務 應付/應收）
@@ -2149,7 +2201,7 @@ function renderDaily(){
     for(var dw=0;dw<7;dw++){
       var cellDay = w*7+dw-firstDay+1;
       if(cellDay<1||cellDay>daysInMonth){
-        cal += '<td style="background:#fafafa;border:0.5px solid var(--border);height:92px;"></td>';
+        cal += '<td style="background:#fafafa;border:0.5px solid var(--border);height:110px;"></td>';
       } else {
         var isToday = cellDay===todayDate&&yr===today.getFullYear()&&mo===today.getMonth();
         var bg = isToday?'#eff6ff':'#fff';
@@ -2158,7 +2210,7 @@ function renderDaily(){
         var fullDate = yr+'-'+(mo+1<10?'0'+(mo+1):String(mo+1))+'-'+(cellDay<10?'0'+cellDay:String(cellDay));
         var items = dayMap[cellDay]||[];
         var hasData = items.length>0;
-        var tdStyle = 'background:'+bg+';border:'+border+';height:92px;padding:5px;vertical-align:top;box-sizing:border-box;'+(hasData?'cursor:pointer;':'');
+        var tdStyle = 'background:'+bg+';border:'+border+';height:110px;padding:5px;vertical-align:top;box-sizing:border-box;'+(hasData?'cursor:pointer;':'');
         cal += '<td style="'+tdStyle+'"'+(hasData?' data-date="'+fullDate+'"':'')+' >';
         cal += '<div style="font-size:14px;font-weight:700;color:'+dayColor+';margin-bottom:3px;">'+cellDay+(isToday?'<span style="font-size:9px;font-weight:400;color:#0369a1;margin-left:3px;">今</span>':'')+'</div>';
 
