@@ -157,11 +157,9 @@ thead th {
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  border-right: 1px solid rgba(255,255,255,0.15);
   position: sticky;
   top: 0;
 }
-thead th:last-child { border-right: none; }
 thead th:hover { background: var(--primary-dark); }
 thead th .sort-icon { margin-left: 4px; opacity: 0.6; font-style: normal; font-size: 13px; }
 
@@ -169,16 +167,9 @@ tbody tr:nth-child(even) { background: var(--accent); }
 tbody tr:hover { background: var(--primary-light); }
 td {
   padding: 7px 10px;
-  border-bottom: 1px solid var(--border);
   font-size: 14px;
   vertical-align: middle;
 }
-
-/* row color classes */
-tr.row-new td { border-left: 3px solid #1a7a3c; }
-tr.row-gone td { border-left: 3px solid #b02020; }
-tr.row-up td { border-left: 3px solid #1a4fa0; }
-tr.row-down td { border-left: 3px solid #b05000; }
 
 /* ── BADGES ── */
 .badge {

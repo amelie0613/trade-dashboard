@@ -1286,21 +1286,6 @@
           <span id="ghPriceStatus" style="font-size:12px;color:var(--muted);font-weight:700;min-width:80px;"></span>
         </div>
       </div>
-      <!-- 單價拖曳上傳區 -->
-      <div id="priceDrop"
-           style="margin:12px 16px;border:3px dashed var(--border);border-radius:14px;padding:18px 20px;
-                  display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .2s;background:white;"
-           onclick="document.getElementById('priceFileInput').click()"
-           ondragover="event.preventDefault();this.style.borderColor='var(--violet)';this.style.background='rgba(107,91,149,.04)'"
-           ondragleave="this.style.borderColor='var(--border)';this.style.background='white'"
-           ondrop="handlePriceDrop(event)">
-        <span style="font-size:28px;">📥</span>
-        <div>
-          <div style="font-size:13px;font-weight:700;color:var(--text);">拖曳或點擊上傳單價表 xlsx</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">欄位需包含：產品名稱、批號、期末單位成本、期初單位成本、存貨核算範圍名稱</div>
-        </div>
-        <span id="priceDropStatus" style="margin-left:auto;font-size:12px;color:var(--green);font-weight:700;"></span>
-      </div>
       <!-- 單價表格 -->
       <div class="price-tbl-wrap" id="priceGrid" style="max-height:520px;overflow-y:auto;">
         <div class="empty-state">
@@ -1316,7 +1301,7 @@
   <div class="tab-content" id="tab-diff">
     <div class="table-wrap">
       <!-- 上傳區 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;padding:18px 18px 0;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:18px 18px 0;">
         <!-- 本期期末 -->
         <div id="diffCardA" onclick="document.getElementById('diffFileA').click()"
              ondragover="event.preventDefault();this.style.borderColor='var(--pink)'"
@@ -1343,23 +1328,12 @@
           <div style="font-size:12px;color:var(--muted);margin-top:3px;">讀取「本期結存」欄</div>
           <div id="diffLabelB" style="font-size:12px;font-weight:700;color:var(--muted);margin-top:8px;">等待上傳…</div>
         </div>
-        <!-- 單價表 -->
-        <div id="diffCardP"
-             ondragover="event.preventDefault();this.style.borderColor='var(--green)'"
-             ondragleave="this.style.borderColor=''"
-             ondrop="diffHandleDrop(event,'P')"
-             style="border:2px dashed var(--border);border-radius:14px;padding:16px;transition:.2s;background:var(--card);">
-          <input type="file" id="diffFileP" accept=".xlsx,.xls" style="display:none" onchange="loadDiffFile('P',this)">
-          <div style="font-size:26px;margin-bottom:8px;">💰</div>
-          <div style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin-bottom:4px;">單價設定（選填）</div>
-          <div style="font-size:14px;font-weight:700;margin-bottom:8px;">單價表</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px;" onclick="document.getElementById('diffFileP').click()">📂 上傳 xlsx</button>
-            <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px;" onclick="diffLoadPriceFromGithub()">☁️ 從 GitHub 載入</button>
-          </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px;">使用單價設定頁籤的 GitHub 設定</div>
-          <div id="diffLabelP" style="font-size:12px;font-weight:700;color:var(--muted);margin-top:8px;">可不上傳</div>
-        </div>
+      </div>
+      <!-- 單價狀態列 -->
+      <div style="margin:10px 18px 0;padding:10px 14px;background:#f5f0fd;border-radius:10px;border-left:3px solid var(--violet);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:13px;color:var(--purple);">💰 單價資料</span>
+        <span id="diffPriceStatusLabel" style="font-size:12px;font-weight:700;color:var(--muted);">尚未設定單價</span>
+        <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;margin-left:auto;" onclick="switchTab('prices',document.querySelector('.tab-btn:nth-child(5)'))">前往單價設定 →</button>
       </div>
 
       <!-- 執行列 -->
@@ -2496,6 +2470,20 @@ function recompute(){
 
   ['all','expired','long','soon'].forEach(k => renderTable(k));
   renderScopeCostTable();
+  updateDiffPriceStatus();
+}
+
+function updateDiffPriceStatus(){
+  const el = document.getElementById('diffPriceStatusLabel');
+  if(!el) return;
+  const count = Object.values(prices).filter(p => p.price > 0).length;
+  if(count > 0){
+    el.textContent = `✅ 已設定 ${count} 筆單價，差異比較將自動套用`;
+    el.style.color = 'var(--green)';
+  } else {
+    el.textContent = '尚未設定單價（比較結果將不含成本欄）';
+    el.style.color = 'var(--muted)';
+  }
 }
 
 // ─── BUILD FILTERS ────────────────────────────────────────────
@@ -3237,64 +3225,7 @@ async function loadPricesFromGithub(){
 // ─── DIFF COMPARE ────────────────────────────────────────────
 let diffDataA = null; // 本期期末
 let diffDataB = null; // 上期期末
-let diffPriceMap = {}; // 差異比較用單價 key=產品名稱__批號
 let diffResults = [];
-
-// ── 差異比較：從 GitHub 載入單價（複用單價設定頁籤的設定）──
-async function diffLoadPriceFromGithub(){
-  const token = localStorage.getItem('github_token');
-  const owner = localStorage.getItem('gh_price_owner') || 'amelie0613';
-  const repo  = localStorage.getItem('gh_price_repo')  || 'trade-dashboard';
-  const path  = localStorage.getItem('gh_price_path')  || 'prices.json';
-
-  if(!token){
-    showToast('⚠️ 請先到「單價設定」頁籤完成 GitHub 設定', 3500);
-    return;
-  }
-
-  document.getElementById('diffLabelP').textContent = '⏳ 從 GitHub 載入中…';
-  try{
-    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-    const resp = await fetch(apiUrl, {
-      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
-    });
-    if(!resp.ok) throw new Error('HTTP ' + resp.status + '（找不到備份檔）');
-    const data = await resp.json();
-    const rows = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
-
-    let count = 0;
-    diffPriceMap = {};
-    if(Array.isArray(rows)){
-      // xlsx 匯出格式：array of rows
-      rows.forEach(r => {
-        const name = String(r['產品名稱']||'').trim();
-        const lot  = String(r['批號']||'').trim();
-        if(!name||!lot) return;
-        const endCost   = parseFloat(r['期末單位成本']);
-        const startCost = parseFloat(r['期初單位成本']);
-        const price = (!isNaN(endCost)&&endCost>0) ? endCost : (!isNaN(startCost)&&startCost>0) ? startCost : parseFloat(r['單價'])||0;
-        const scope = String(r['存貨核算範圍名稱']||r['核算範圍']||'').trim();
-        diffPriceMap[`${name}__${lot}`] = { price, scope };
-        count++;
-      });
-    } else {
-      // JSON 備份格式：{ "名稱__批號": { price, scope, ... } }
-      Object.entries(rows).forEach(([k, v]) => {
-        const price = typeof v === 'object' ? (v.price||0) : (parseFloat(v)||0);
-        const scope = typeof v === 'object' ? (v.scope||'') : '';
-        diffPriceMap[k] = { price, scope };
-        count++;
-      });
-    }
-
-    document.getElementById('diffLabelP').textContent = `✅ GitHub 載入 ${count} 筆單價`;
-    document.getElementById('diffCardP').style.borderColor = 'var(--green)';
-    showToast(`✅ 從 GitHub 載入 ${count} 筆單價`);
-  } catch(err){
-    document.getElementById('diffLabelP').textContent = '❌ 載入失敗';
-    showToast('❌ ' + err.message, 4000);
-  }
-}
 
 function diffHandleDrop(e, slot){
   e.preventDefault();
@@ -3316,29 +3247,9 @@ function processFile_diff(slot, file){
       const ws  = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
 
-      if(slot === 'P'){
-        // 單價表
-        let count = 0;
-        diffPriceMap = {};
-        raw.forEach(r => {
-          const name = String(r['產品名稱']||'').trim();
-          const lot  = String(r['批號']||'').trim();
-          const endCost   = parseFloat(r['期末單位成本']);
-          const startCost = parseFloat(r['期初單位成本']);
-          const price = (!isNaN(endCost) && endCost > 0)    ? endCost
-                      : (!isNaN(startCost) && startCost > 0) ? startCost
-                      : parseFloat(r['單價']) || 0;
-          const scope = String(r['存貨核算範圍名稱']||r['核算範圍']||'').trim();
-          if(name && lot){ diffPriceMap[`${name}__${lot}`] = { price, scope }; count++; }
-        });
-        document.getElementById('diffLabelP').textContent = `✅ 已載入 ${count} 筆單價`;
-        document.getElementById('diffCardP').style.borderColor = 'var(--green)';
-        showToast(`✅ 單價表載入 ${count} 筆`);
-      } else {
-        if(slot==='A'){ diffDataA = raw; document.getElementById('diffLabelA').textContent = `✅ ${file.name}（${raw.length}筆）`; document.getElementById('diffCardA').style.borderColor='var(--purple)'; }
-        else          { diffDataB = raw; document.getElementById('diffLabelB').textContent = `✅ ${file.name}（${raw.length}筆）`; document.getElementById('diffCardB').style.borderColor='var(--blue)'; }
-        showToast(`✅ 已載入 ${slot==='A'?'本期期末':'上期期末'} 資料（${raw.length}筆）`);
-      }
+      if(slot==='A'){ diffDataA = raw; document.getElementById('diffLabelA').textContent = `✅ ${file.name}（${raw.length}筆）`; document.getElementById('diffCardA').style.borderColor='var(--purple)'; }
+      else          { diffDataB = raw; document.getElementById('diffLabelB').textContent = `✅ ${file.name}（${raw.length}筆）`; document.getElementById('diffCardB').style.borderColor='var(--blue)'; }
+      showToast(`✅ 已載入 ${slot==='A'?'本期期末':'上期期末'} 資料（${raw.length}筆）`);
       if(diffDataA && diffDataB) document.getElementById('diffBtnRun').disabled = false;
     }catch(err){ showToast('❌ 讀取失敗：'+err.message,4000); }
   };
@@ -3371,12 +3282,12 @@ function runDiff(){
     else if(diff > 0) changeType = 'up';
     else if(diff < 0) changeType = 'down';
 
-    // 單價 & 成本
+    // 單價 & 成本（使用「單價設定」頁籤的共用資料）
     const pName = String(base['產品名稱']||'').trim();
     const pLot  = String(base['批號']||'').trim();
-    const pInfo = diffPriceMap[`${pName}__${pLot}`] || null;
-    const unitPrice = pInfo ? pInfo.price : null;
-    const scope     = pInfo ? pInfo.scope : '';
+    const pInfo = prices[`${pName}__${pLot}`] || null;
+    const unitPrice = (pInfo && pInfo.price > 0) ? pInfo.price : null;
+    const scope     = pInfo ? (pInfo.scope || '') : '';
     const costA    = unitPrice !== null ? qtyA * unitPrice : null;
     const costB    = unitPrice !== null ? qtyB * unitPrice : null;
     const costDiff = (costA !== null && costB !== null) ? costA - costB : null;
@@ -3409,7 +3320,7 @@ function runDiff(){
   document.getElementById('diffStats').style.display = 'flex';
 
   // 成本摘要
-  if(Object.keys(diffPriceMap).length > 0){
+  if(Object.values(prices).some(p => p.price > 0)){
     let totalA = 0, totalB = 0;
     diffResults.forEach(r => { if(r._costA!==null) totalA+=r._costA; if(r._costB!==null) totalB+=r._costB; });
     const totalDiff = totalA - totalB;
@@ -3448,7 +3359,7 @@ function renderDiff(){
 
   document.getElementById('diffCount').textContent = `${rows.length} 筆`;
 
-  const hasPrices = Object.keys(diffPriceMap).length > 0;
+  const hasPrices = Object.values(prices).some(p => p.price > 0);
   const chgLabel = { new:'🟢 新增', gone:'🔴 消失', up:'🔵 增加', down:'🟠 減少', same:'⚪ 不變' };
   const badgeCls = { new:'badge-pink', gone:'badge-red', up:'badge-blue', down:'badge-orange', same:'badge-gray' };
   const rowCls   = { new:'diff-new', gone:'diff-gone', up:'diff-up', down:'diff-down', same:'' };
@@ -3514,7 +3425,7 @@ function renderDiff(){
 
 function exportDiffExcel(){
   if(!diffResults.length){ showToast('❌ 請先執行差異比較'); return; }
-  const hasPrices = Object.keys(diffPriceMap).length > 0;
+  const hasPrices = Object.values(prices).some(p => p.price > 0);
   const rows = diffResults.map(r => {
     const chgLabel = {new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'};
     const obj = {
@@ -3549,7 +3460,7 @@ function exportDiffExcel(){
 function exportSharePage(){
   if(!diffResults.length){ showToast('❌ 請先執行差異比較'); return; }
 
-  const hasCost = Object.keys(diffPriceMap).length > 0;
+  const hasCost = Object.values(prices).some(p => p.price > 0);
   const chgLabel = { new:'新增', gone:'消失', up:'數量增加', down:'數量減少', same:'無變化' };
   const now = new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'});
 
@@ -6733,7 +6644,7 @@ function exportDiffReport(){
 
   if(!rows.length){ showToast('⚠️ 無符合條件的資料'); return; }
 
-  const hasPrices = Object.keys(diffPriceMap).length > 0;
+  const hasPrices = Object.values(prices).some(p => p.price > 0);
   const chgLabel  = { new:'新增', gone:'消失', up:'增加', down:'減少', same:'不變' };
 
   localStorage.setItem('diffReportPayload', JSON.stringify({
