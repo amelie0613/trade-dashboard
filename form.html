@@ -529,9 +529,9 @@ function ensureAuth(){
 }
 
 // ══════════════════════════════════════════════════════
-// ★ 案件編號產生（TYYYYMMDDA01 格式）
+// ★ 案件編號產生（T{YYYYMMDD}{003} 格式，3碼補零）
 // 使用 Firestore transaction 原子遞增 counters/daily
-// 刪除案件不影響序號，完全禁止遞補
+// 刪除案件不影響序號，嚴格只增不補
 // ══════════════════════════════════════════════════════
 async function generateFormId(){
   var now   = new Date();
@@ -539,6 +539,9 @@ async function generateFormId(){
     + ('0'+(now.getMonth()+1)).slice(-2)
     + ('0'+now.getDate()).slice(-2);
   var prefix = 'T' + ymd; // e.g. T20260424
+
+  // 序號補零為 3 碼
+  function pad3(n){ return ('00' + n).slice(-3); }
 
   try {
     await ensureAuth();
@@ -559,19 +562,19 @@ async function generateFormId(){
       return next;
     });
 
-    var seqStr = ('0' + newSeq).slice(-2);
-    var formId = prefix + 'A' + seqStr;
+    var formId = prefix + pad3(newSeq); // e.g. T20260424001
 
-    // 安全驗證（transaction 已保證唯一，此處為最終防線）
+    // 最終防重（transaction 已保證唯一，此處為最終防線）
     var checkDoc = await db.collection('cases').doc(formId).get();
     if(checkDoc.exists){
       newSeq++;
-      formId = prefix + 'A' + ('0' + newSeq).slice(-2);
+      formId = prefix + pad3(newSeq);
     }
     return formId;
   } catch(e){
     console.warn('generateFormId 失敗，使用備援：', e);
-    return prefix + 'A' + String(Date.now()).slice(-4);
+    // 備援：timestamp 末 3 碼補零（不可重新計算流水）
+    return prefix + pad3(parseInt(String(Date.now()).slice(-3)));
   }
 }
 
