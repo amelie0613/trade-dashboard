@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>庫存明細報表</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background: linear-gradient(135deg, #f0f4f9 0%, #e8f4ff 100%);
+      min-height: 100vh;
+      padding: 14px;
+      color: #1a1a1a;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(0,82,204,0.12);
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #003D7A 0%, #0052CC 100%);
+      color: white;
+      padding: 13px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header-left h1  { font-size: 19px; font-weight: 900; letter-spacing: 0.02em; }
+    .header-meta     { font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+    .header-actions  { display: flex; gap: 8px; }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: 7px;
+      border: none;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-primary   { background: #f08080; color: white; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.25);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.45);
+    }
+
+    /* ── Content ── */
+    .content { padding: 14px 18px 18px; }
+
+    /* ── Type Tabs ── */
+    .type-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .type-tab {
+      padding: 7px 16px;
+      border-radius: 8px;
+      border: 2px solid;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: 'Noto Sans TC', sans-serif;
+      transition: all 0.2s;
+      background: white;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .type-tab:hover { opacity: 0.85; }
+
+    .type-tab[data-type="all"]     { border-color: #0052CC; color: #0052CC; }
+    .type-tab[data-type="normal"]  { border-color: #059669; color: #059669; }
+    .type-tab[data-type="soon"]    { border-color: #EA580C; color: #EA580C; }
+    .type-tab[data-type="expired"] { border-color: #DC2626; color: #DC2626; }
+    .type-tab[data-type="long"]    { border-color: #B45309; color: #B45309; }
+
+    .type-tab[data-type="all"].active     { background: #0052CC; color: white; }
+    .type-tab[data-type="normal"].active  { background: #059669; color: white; }
+    .type-tab[data-type="soon"].active    { background: #EA580C; color: white; }
+    .type-tab[data-type="expired"].active { background: #DC2626; color: white; }
+    .type-tab[data-type="long"].active    { background: #B45309; color: white; }
+
+    .tab-count {
+      font-size: 11px;
+      font-weight: 900;
+      background: rgba(0,0,0,0.12);
+      border-radius: 20px;
+      padding: 1px 7px;
+    }
+    .type-tab.active .tab-count { background: rgba(255,255,255,0.28); }
+
+    /* ── Summary Bar ── */
+    .summary-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .summary-card {
+      background: #f8faff;
+      border: 1px solid #d0d9e8;
+      border-radius: 8px;
+      padding: 8px 16px;
+      min-width: 120px;
+    }
+    .summary-label { font-size: 10px; color: #888; font-weight: 600; margin-bottom: 2px; }
+    .summary-value { font-size: 18px; font-weight: 900; color: #0052CC; }
+    .summary-value.red    { color: #DC2626; }
+    .summary-value.orange { color: #EA580C; }
+    .summary-value.amber  { color: #B45309; }
+    .summary-value.green  { color: #059669; }
+
+    /* ── Print title (screen: hidden) ── */
+    .print-title {
+      display: none;
+      font-size: 15px;
+      font-weight: 800;
+      color: #0052CC;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #0052CC;
+      margin-bottom: 10px;
+    }
+
+    /* ── Table ── */
+    .table-wrapper {
+      border-radius: 8px;
+      border: 1px solid #d0d9e8;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+      min-width: 1100px;
+    }
+
+    th {
+      background: #0052CC;
+      color: white;
+      padding: 8px 4px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 12px;
+      border: 1px solid rgba(255,255,255,0.2);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    td {
+      padding: 6px 4px;
+      font-size: 11.5px;
+      border: 1px solid #e8edf5;
+      overflow: hidden;
+      vertical-align: middle;
+    }
+
+    /* Row colors by status */
+    tr.row-normal  td { background: #ffffff; }
+    tr.row-expired td { background: #fff5f5; }
+    tr.row-soon    td { background: #fff8f0; }
+    tr.row-long    td { background: #fefce8; }
+
+    tr:hover td { filter: brightness(0.97); }
+
+    tr.total-row td {
+      background: #e0e7ff !important;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+
+    .cost-blue   { color: #0052CC; font-weight: 700; }
+    .cost-red    { color: #DC2626; font-weight: 700; }
+    .cost-orange { color: #EA580C; font-weight: 700; }
+    .cost-amber  { color: #B45309; font-weight: 700; }
+
+    .days-normal  { color: #0052CC; font-weight: 700; }
+    .days-green   { color: #059669; font-weight: 700; }
+    .days-expired { color: #DC2626; font-weight: 700; }
+    .days-long    { color: #B45309; font-weight: 700; }
+    .days-soon    { color: #EA580C; font-weight: 700; }
+
+    .scope-badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: #1D4ED8;
+      border: 1px solid #bfdbfe;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      white-space: nowrap;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 9px 18px;
+      background: #f5f5f5;
+      border-top: 1px solid #e0e0e0;
+      font-size: 11px;
+      color: #999;
+    }
+
+    /* ── Print ── */
+    @page { size: A4 landscape; margin: 7mm 7mm; }
+
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      html, body { margin: 0; padding: 0; background: white !important; }
+      body { padding: 0 !important; }
+
+      .container {
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+      }
+      .header-actions { display: none !important; }
+      .type-tabs      { display: none !important; }
+      .print-title    { display: block !important; }
+
+      .table-wrapper  { overflow: hidden !important; border-radius: 0; }
+      table { min-width: 0 !important; }
+
+      .summary-bar   { margin-bottom: 6px; }
+      .summary-card  { padding: 5px 10px; min-width: 90px; }
+      .summary-value { font-size: 14px; }
+
+      table { page-break-inside: auto; }
+      thead { display: table-header-group; }
+      tr    { page-break-inside: avoid; break-inside: avoid; }
+
+      tr.row-expired td { background: #fff5f5 !important; }
+      tr.row-soon    td { background: #fff8f0 !important; }
+      tr.row-long    td { background: #fefce8 !important; }
+      tr.total-row   td { background: #e0e7ff !important; }
+      th { background: #0052CC !important; color: white !important; }
+      .header { background: linear-gradient(135deg,#003D7A 0%,#0052CC 100%) !important; }
+      .footer { background: #f5f5f5 !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="header-left">
+      <h1>📋 庫存明細報表</h1>
+      <div class="header-meta">產生時間：<span id="genDate">—</span></div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="window.history.back()">← 返回</button>
+      <button class="btn btn-primary" onclick="exportPDF()">📥 匯出 PDF</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- 報表類型切換 -->
+    <div class="type-tabs" id="typeTabs">
+      <button class="type-tab active" data-type="all"     onclick="switchType('all',this)">
+        📋 全部庫存 <span class="tab-count" id="cnt-all">0</span>
+      </button>
+      <button class="type-tab" data-type="normal"  onclick="switchType('normal',this)">
+        ✅ 正常品 <span class="tab-count" id="cnt-normal">0</span>
+      </button>
+      <button class="type-tab" data-type="soon"    onclick="switchType('soon',this)">
+        ⚠️ 即將到期 <span class="tab-count" id="cnt-soon">0</span>
+      </button>
+      <button class="type-tab" data-type="expired" onclick="switchType('expired',this)">
+        ❌ 過期品 <span class="tab-count" id="cnt-expired">0</span>
+      </button>
+      <button class="type-tab" data-type="long"    onclick="switchType('long',this)">
+        ⏳ 長期在庫 <span class="tab-count" id="cnt-long">0</span>
+      </button>
+    </div>
+
+    <!-- 摘要列 -->
+    <div class="summary-bar">
+      <div class="summary-card">
+        <div class="summary-label">顯示筆數</div>
+        <div class="summary-value" id="summaryCount">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">總庫存數量</div>
+        <div class="summary-value" id="summaryQty">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">總存貨成本</div>
+        <div class="summary-value" id="summaryCost">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">已設定單價</div>
+        <div class="summary-value green" id="summaryPriced">—</div>
+      </div>
+    </div>
+
+    <!-- 列印用標題 (PDF 才顯示) -->
+    <div class="print-title" id="printTitle">庫存明細報表</div>
+
+    <!-- 主表格 -->
+    <div class="table-wrapper">
+      <table id="reportTable">
+        <thead>
+          <tr>
+            <th style="width:6%;">類別</th>
+            <th style="width:5%;">產品代碼</th>
+            <th style="width:13%;">產品名稱</th>
+            <th style="width:7%;">規格</th>
+            <th style="width:6%;">庫存數量</th>
+            <th style="width:4%;">單位</th>
+            <th style="width:7%;">倉庫</th>
+            <th style="width:9%;">批號</th>
+            <th style="width:7%;">入庫日期</th>
+            <th style="width:7%;">有效期至</th>
+            <th style="width:6%;" id="thDays">剩餘天數</th>
+            <th style="width:7%;">單價</th>
+            <th style="width:7%;">核算範圍</th>
+            <th style="width:9%;">存貨成本</th>
+          </tr>
+        </thead>
+        <tbody id="reportBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">
+    🔵 正常品成本 ｜ 🔴 過期品 ｜ 🟠 即將到期 ｜ 🟡 長期在庫 ｜ PDF 預設輸出 A4 橫式
+  </div>
+</div>
+
+<script>
+let allRows = [];
+let currentType = 'all';
+
+const DAYS_HEADER = {
+  all:     '剩餘/在庫天數',
+  normal:  '剩餘天數',
+  expired: '超期天數',
+  long:    '在庫天數',
+  soon:    '剩餘天數',
+};
+
+const TITLES = {
+  all: '全部庫存', normal: '正常品', soon: '即將到期', expired: '過期品', long: '長期在庫'
+};
+
+function switchType(type, btn) {
+  currentType = type;
+  document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('thDays').textContent = DAYS_HEADER[type];
+  renderReport();
+}
+
+function getFiltered() {
+  return currentType === 'all' ? allRows : allRows.filter(r => r.status === currentType);
+}
+
+function fmtMoney(n) {
+  return n > 0 ? '$' + Math.round(n).toLocaleString() : '—';
+}
+
+function renderReport() {
+  const rows = getFiltered();
+  const totalCost  = rows.reduce((s, r) => s + r.cost, 0);
+  const totalQty   = rows.reduce((s, r) => s + r.qty,  0);
+  const pricedCnt  = rows.filter(r => r.price > 0).length;
+
+  document.getElementById('summaryCount').textContent  = rows.length.toLocaleString() + ' 筆';
+  document.getElementById('summaryQty').textContent    = totalQty.toLocaleString();
+  document.getElementById('summaryCost').textContent   = fmtMoney(totalCost);
+  document.getElementById('summaryPriced').textContent = pricedCnt + ' / ' + rows.length + ' 筆';
+
+  const costEl = document.getElementById('summaryCost');
+  costEl.className = 'summary-value';
+  if      (currentType === 'expired') costEl.classList.add('red');
+  else if (currentType === 'soon')    costEl.classList.add('orange');
+  else if (currentType === 'long')    costEl.classList.add('amber');
+
+  document.getElementById('printTitle').textContent = '庫存明細報表 ― ' + TITLES[currentType];
+
+  const tbody = document.getElementById('reportBody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="14" style="text-align:center;padding:30px;color:#999;">
+      ⚠️ 此類別暫無資料
+    </td></tr>`;
+    return;
+  }
+
+  let grandQty = 0, grandCost = 0;
+  let html = '';
+
+  rows.forEach(r => {
+    grandQty  += r.qty;
+    grandCost += r.cost;
+
+    // Row class
+    const rowCls = { normal:'row-normal', expired:'row-expired', soon:'row-soon', long:'row-long' }[r.status] || 'row-normal';
+
+    // Days cell
+    let daysCls = 'days-normal', daysText = r.daysText || '—';
+    if      (r.status === 'expired') daysCls = 'days-expired';
+    else if (r.status === 'soon')    daysCls = 'days-soon';
+    else if (r.status === 'long')    daysCls = 'days-long';
+    else if (r.daysNum !== null && r.daysNum > 210) daysCls = 'days-green';
+
+    // Cost cell
+    const costCls = { normal:'cost-blue', expired:'cost-red', soon:'cost-orange', long:'cost-amber' }[r.status] || 'cost-blue';
+
+    // Price display
+    const priceDisp = r.price > 0 ? '$' + r.price.toLocaleString() : '<span style="color:#bbb;">未設定</span>';
+
+    // Scope badge
+    const scopeDisp = r.scope
+      ? `<span class="scope-badge">${r.scope}</span>`
+      : '<span style="color:#bbb;">—</span>';
+
+    html += `<tr class="${rowCls}">
+      <td>${r.category || '—'}</td>
+      <td style="text-align:center;font-size:11px;">${r.code || '—'}</td>
+      <td>${r.name || '—'}</td>
+      <td style="color:#666;font-size:11px;">${r.spec || '—'}</td>
+      <td style="text-align:right;">${r.qty.toLocaleString()}</td>
+      <td style="text-align:center;">${r.unit || '—'}</td>
+      <td style="font-size:11px;">${r.warehouse || '—'}</td>
+      <td style="font-size:10.5px;">${r.lot || '—'}</td>
+      <td style="text-align:center;">${r.lotDate || '—'}</td>
+      <td style="text-align:center;">${r.expDate || '—'}</td>
+      <td style="text-align:center;" class="${daysCls}">${daysText}</td>
+      <td style="text-align:right;">${priceDisp}</td>
+      <td style="text-align:center;">${scopeDisp}</td>
+      <td style="text-align:right;" class="${costCls}">${r.cost > 0 ? '$' + Math.round(r.cost).toLocaleString() : '—'}</td>
+    </tr>`;
+  });
+
+  // 合計列
+  html += `<tr class="total-row">
+    <td colspan="4" style="text-align:right;padding-right:8px;">合計</td>
+    <td style="text-align:right;">${grandQty.toLocaleString()}</td>
+    <td colspan="7"></td>
+    <td style="text-align:right;">${fmtMoney(grandCost)}</td>
+    <td></td>
+  </tr>`;
+
+  tbody.innerHTML = html;
+}
+
+function exportPDF() { window.print(); }
+
+document.addEventListener('DOMContentLoaded', () => {
+  let payload = null;
+  try {
+    const raw = localStorage.getItem('inventoryReportPayload');
+    if (raw) payload = JSON.parse(raw);
+  } catch(e) { console.warn(e); }
+
+  if (!payload || !payload.reportRows) {
+    document.getElementById('reportBody').innerHTML =
+      `<tr><td colspan="14" style="text-align:center;padding:40px;color:#999;">
+        ⚠️ 無資料。請從主程式點選「📋 明細報表」匯出。
+      </td></tr>`;
+    return;
+  }
+
+  allRows = payload.reportRows;
+  document.getElementById('genDate').textContent = payload.generatedAt || '—';
+
+  const counts = { all: allRows.length, normal: 0, expired: 0, soon: 0, long: 0 };
+  allRows.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++; });
+  Object.entries(counts).forEach(([k, v]) => {
+    const el = document.getElementById('cnt-' + k);
+    if (el) el.textContent = v;
+  });
+
+  renderReport();
+});
+</script>
+
+</body>
+</html>

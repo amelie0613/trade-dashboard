@@ -1130,6 +1130,7 @@
     <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn btn-green" onclick="exportExcel()">📤 匯出 Excel</button>
       <button class="btn btn-blue" onclick="exportCostAnalysis()" style="background:#0052CC;color:white;">📊 成本分析</button>
+      <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;color:white;">📋 明細報表</button>
       <button class="btn btn-primary" onclick="openSheetsPanel()">☁️ 寫入 Google Sheets</button>
     </div>
   </div>
@@ -6626,6 +6627,62 @@ function exportCostAnalysis(){
 
   localStorage.setItem('costAnalysisPayload', JSON.stringify({ costData, kpiData }));
   window.open('cost_analysis.html', 'cost_analysis', 'width=1400,height=900,resizable=yes,scrollbars=yes');
+}
+
+// 匯出庫存明細報表
+function exportInventoryReport(){
+  if(!allData || !allData.length){ showToast('❌ 請先加載庫存數據'); return; }
+
+  const fd = d => d ? `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}` : '—';
+
+  const reportRows = allData.map(r => {
+    const pd  = getPriceData(r);
+    const f   = classify(r);
+    const qty = parseFloat(r['庫存數量']) || 0;
+    const cost = qty * pd.price;
+    const status = f.expired ? 'expired' : f.soon ? 'soon' : f.long ? 'long' : 'normal';
+
+    // 剩餘/在庫/超期天數
+    let daysNum = null, daysText = '—';
+    if (f.expired && r._expDate) {
+      daysNum  = Math.round((TODAY - r._expDate) / 86400000);
+      daysText = '超' + daysNum + '天';
+    } else if (f.long && r._lotDate) {
+      daysNum  = Math.round((TODAY - r._lotDate) / 86400000);
+      daysText = daysNum + '天';
+    } else if (f.soon && r._expDate) {
+      daysNum  = Math.round((r._expDate - TODAY) / 86400000);
+      daysText = '剩' + daysNum + '天';
+    } else if (r._expDate) {
+      daysNum  = Math.round((r._expDate - TODAY) / 86400000);
+      daysText = daysNum >= 0 ? '剩' + daysNum + '天' : '超' + Math.abs(daysNum) + '天';
+    }
+
+    return {
+      category:  r['類別']       || '',
+      code:      r['產品代碼']   || '',
+      name:      r['產品名稱']   || '',
+      spec:      r['規格']       || '',
+      qty,
+      unit:      r['單位']       || '',
+      warehouse: r['倉庫名稱']   || '',
+      lot:       r['批號']       || '',
+      lotDate:   fd(r._lotDate)  || (r['入庫日期'] || '—'),
+      expDate:   fd(r._expDate)  || (r['有效期至'] || '—'),
+      daysNum,
+      daysText,
+      price:     pd.price,
+      scope:     pd.scope        || '',
+      cost:      Math.round(cost),
+      status,
+    };
+  });
+
+  localStorage.setItem('inventoryReportPayload', JSON.stringify({
+    reportRows,
+    generatedAt: new Date().toLocaleDateString('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
+  }));
+  window.open('inventory_report.html', 'inventory_report', 'width=1500,height=900,resizable=yes,scrollbars=yes');
 }
 
 </script>
