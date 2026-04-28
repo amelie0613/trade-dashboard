@@ -252,11 +252,11 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .sec-lbl{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
 /* CALENDAR v4 - colour system */
 /* 應收 */
-.p-in{background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:12px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.p-in{background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:11px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 應付 */
-.p-out{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:12px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.p-out{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:11px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 預估（黃底黑字）*/
-.p-forecast{background:#fef9c3;color:#111827;border:1px solid #fde68a;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:12px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.p-forecast{background:#fef9c3;color:#111827;border:1px solid #fde68a;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:11px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 外部 CSV（灰）*/
 .cal-csv{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 圓點 */
@@ -294,21 +294,82 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 
 /* ── 列印樣式 ── */
 @media print{
+  @page{ size:A4 landscape; margin:7mm 8mm; }
+
   /* 隱藏所有非日曆內容 */
-  body > *:not(#print-cal-wrap){ display:none !important; }
-  #print-cal-wrap{ display:block !important; }
-  /* 列印區基本設定 */
-  #print-cal-wrap{ width:100%; font-family:'Noto Sans TC',sans-serif; }
-  #print-cal-title{ font-size:18px; font-weight:700; text-align:center; margin-bottom:12px; }
-  #print-cal-legend{ display:flex; gap:10px; justify-content:center; margin-bottom:10px; font-size:11px; font-weight:700; }
-  #print-cal-table{ width:100%; border-collapse:collapse; }
-  #print-cal-table th{ background:#0b1d35 !important; color:#fff !important; padding:7px; font-size:12px; text-align:center; border:1px solid #ccc; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  #print-cal-table td{ border:1px solid #ccc; vertical-align:top; height:90px; padding:5px; font-size:11px; }
-  .p-in, .p-out, .p-forecast{ font-size:10px !important; white-space:nowrap; overflow:hidden; }
-  .p-in{ background:#dbeafe !important; color:#1e3a8a !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  .p-out{ background:#fee2e2 !important; color:#dc2626 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  .p-forecast{ background:#fef9c3 !important; color:#111827 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  @page{ size:A4 landscape; margin:10mm; }
+  body > *{ display:none !important; }
+  #print-cal-wrap{ display:block !important; width:100%; font-family:'Noto Sans TC',sans-serif; color:#0b1d35; }
+
+  /* ── 頂部 Header ── */
+  #print-cal-header{
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom:2.5px solid #0b1d35; padding-bottom:5px; margin-bottom:6px;
+  }
+  #print-cal-logo{
+    display:flex; align-items:center; gap:5px;
+    font-size:13px; font-weight:900; color:#0b1d35; letter-spacing:.04em;
+  }
+  #print-cal-logo span{ font-size:16px; }
+  #print-cal-title{
+    font-size:17px; font-weight:900; color:#0b1d35; letter-spacing:.06em;
+  }
+  #print-cal-meta{
+    display:flex; flex-direction:column; align-items:flex-end; gap:3px;
+  }
+  #print-cal-legend{
+    display:flex; gap:5px; align-items:center; font-size:9px; font-weight:700;
+  }
+  #print-cal-legend .lg-badge{
+    padding:1px 7px; border-radius:3px;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  #print-cal-date{ font-size:9px; color:#64748b; }
+
+  /* ── 日曆表格 ── */
+  #print-cal-wrap table{
+    width:100%; border-collapse:collapse; table-layout:fixed;
+  }
+  #print-cal-wrap thead th{
+    background:#0b1d35 !important; color:#fff !important;
+    padding:5px 3px; font-size:11px; font-weight:700; text-align:center;
+    border:1px solid #555;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  /* 日/六 欄色 */
+  #print-cal-wrap thead th:first-child{ background:#7f1d1d !important; }
+  #print-cal-wrap thead th:last-child{  background:#1e3a8a !important; }
+
+  #print-cal-wrap tbody td{
+    border:1px solid #d1d5db; vertical-align:top;
+    height:22mm; padding:4px 5px; background:#fff !important;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  /* 今天格 */
+  #print-cal-wrap tbody td.today-cell{
+    background:#eff6ff !important; border:1.5px solid #0369a1 !important;
+  }
+  /* 空格 */
+  #print-cal-wrap tbody td.empty-cell{ background:#f8fafc !important; }
+
+  /* 日期數字 */
+  #print-cal-wrap .cell-day{
+    font-size:13px; font-weight:700; margin-bottom:2px;
+  }
+
+  /* pills */
+  .p-in, .p-out, .p-forecast{
+    font-size:9px !important; padding:1px 4px !important; margin-bottom:1px !important;
+    border-radius:3px !important; display:block !important;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  .p-in      { background:#dbeafe !important; color:#1e3a8a !important; border:none !important; }
+  .p-out     { background:#fee2e2 !important; color:#dc2626 !important; border:none !important; }
+  .p-forecast{ background:#fef9c3 !important; color:#92400e !important; border:none !important; }
+  .cal-csv   { display:none !important; }
+
+  /* 隱藏「+N 筆」more 標籤 */
+  .cal-more  { font-size:9px !important; color:#94a3b8 !important; }
 }
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -1903,14 +1964,38 @@ function changeMonth(delta){
 
 // ── 列印當月日曆 ─────────────────────────────────────
 function printCalendar(){
-  // 取得目前日曆 table HTML
   var calBody = document.getElementById('cal-body');
   if(!calBody){ alert('日曆尚未載入'); return; }
 
-  // 月份標題
-  var monthTitle = document.getElementById('daily-month').textContent || (viewYear+'年'+(viewMonth+1)+'月');
+  var monthTitle = document.getElementById('daily-month').textContent
+    || (viewYear+'年'+(viewMonth+1)+'月');
+  var printDate  = new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit'});
 
-  // 建立或重用列印容器
+  // ── 從現有 table 複製結構並套用 print class ──
+  // 為 td 補上 today / empty class 供 CSS 精確選色
+  var origTable = calBody.querySelector('table');
+  var printTableHtml = '';
+  if(origTable){
+    var tbl = origTable.cloneNode(true);
+    // 標記今天格 & 空格（依 background inline style 判斷）
+    tbl.querySelectorAll('tbody td').forEach(function(td){
+      var s = td.getAttribute('style') || '';
+      if(s.indexOf('#eff6ff')>=0)      td.classList.add('today-cell');
+      else if(s.indexOf('#fafafa')>=0) td.classList.add('empty-cell');
+      // 把日期數字 div 補 class
+      var firstDiv = td.querySelector('div');
+      if(firstDiv && !firstDiv.classList.length) firstDiv.classList.add('cell-day');
+    });
+    printTableHtml = tbl.outerHTML;
+  } else {
+    printTableHtml = calBody.innerHTML;
+  }
+
+  // ── 徽章 helper ──
+  function badge(bg, border, color, text){
+    return '<span class="lg-badge" style="background:'+bg+';color:'+color+';border:1px solid '+border+';">'+text+'</span>';
+  }
+
   var wrap = document.getElementById('print-cal-wrap');
   if(!wrap){
     wrap = document.createElement('div');
@@ -1920,13 +2005,21 @@ function printCalendar(){
   }
 
   wrap.innerHTML =
-    '<div id="print-cal-title">貿易大漁｜'+monthTitle+' 應收／應付日曆</div>'
-    +'<div id="print-cal-legend">'
-    +'<span style="background:#dbeafe;color:#1e3a8a;padding:2px 8px;border-radius:4px;">↑ 應收</span>'
-    +'<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:4px;">↓ 應付</span>'
-    +'<span style="background:#fef9c3;color:#92400e;padding:2px 8px;border-radius:4px;">◇ 預估</span>'
+    // ── Header ──
+    '<div id="print-cal-header">'
+      +'<div id="print-cal-logo"><span>🐟</span> 貿易大漁 管理系統</div>'
+      +'<div id="print-cal-title">'+monthTitle+'　應收／應付月曆</div>'
+      +'<div id="print-cal-meta">'
+        +'<div id="print-cal-legend">'
+          +badge('#dbeafe','#93c5fd','#1e3a8a','↑ 應收')
+          +badge('#fee2e2','#fca5a5','#dc2626','↓ 應付')
+          +badge('#fef9c3','#fde68a','#92400e','◇ 預估')
+        +'</div>'
+        +'<div id="print-cal-date">列印日期：'+printDate+'</div>'
+      +'</div>'
     +'</div>'
-    + calBody.innerHTML;
+    // ── 日曆本體 ──
+    + printTableHtml;
 
   window.print();
 }
@@ -2191,7 +2284,8 @@ function renderDaily(){
   var cal = '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">';
   cal += '<thead><tr>';
   ['日','一','二','三','四','五','六'].forEach(function(dn){
-    cal += '<th style="padding:7px 3px;font-size:11px;font-weight:500;color:var(--muted);text-align:center;border-bottom:1px solid var(--border);">'+dn+'</th>';
+    var thColor = dn==='日'?'#dc2626':dn==='六'?'#0369a1':'var(--ink)';
+    cal += '<th style="padding:7px 3px;font-size:12px;font-weight:700;color:'+thColor+';text-align:center;border-bottom:1.5px solid var(--border);">'+dn+'</th>';
   });
   cal += '</tr></thead><tbody>';
 
@@ -2201,7 +2295,7 @@ function renderDaily(){
     for(var dw=0;dw<7;dw++){
       var cellDay = w*7+dw-firstDay+1;
       if(cellDay<1||cellDay>daysInMonth){
-        cal += '<td style="background:#fafafa;border:0.5px solid var(--border);height:110px;"></td>';
+        cal += '<td style="background:#fafafa;border:0.5px solid var(--border);height:100px;"></td>';
       } else {
         var isToday = cellDay===todayDate&&yr===today.getFullYear()&&mo===today.getMonth();
         var bg = isToday?'#eff6ff':'#fff';
@@ -2210,7 +2304,7 @@ function renderDaily(){
         var fullDate = yr+'-'+(mo+1<10?'0'+(mo+1):String(mo+1))+'-'+(cellDay<10?'0'+cellDay:String(cellDay));
         var items = dayMap[cellDay]||[];
         var hasData = items.length>0;
-        var tdStyle = 'background:'+bg+';border:'+border+';height:110px;padding:5px;vertical-align:top;box-sizing:border-box;'+(hasData?'cursor:pointer;':'');
+        var tdStyle = 'background:'+bg+';border:'+border+';height:100px;padding:5px;vertical-align:top;box-sizing:border-box;'+(hasData?'cursor:pointer;':'');
         cal += '<td style="'+tdStyle+'"'+(hasData?' data-date="'+fullDate+'"':'')+' >';
         cal += '<div style="font-size:14px;font-weight:700;color:'+dayColor+';margin-bottom:3px;">'+cellDay+(isToday?'<span style="font-size:9px;font-weight:400;color:#0369a1;margin-left:3px;">今</span>':'')+'</div>';
 
