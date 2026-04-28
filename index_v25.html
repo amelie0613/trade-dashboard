@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v25</title>
+<title>貿易大漁｜管理系統 v20</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -831,6 +831,20 @@ function jsonpGet(url, cb){
 
 // ★ 匯率換算：預設值，啟動後自動從免費 API 更新
 var RATE={TWD:1,USD:30.5,JPY:0.205,EUR:33.5};
+
+// ★ 幣別顯示排序規範：NTD(TWD) > USD > JPY > EUR > ZAR > 其他
+var CUR_ORDER = ['TWD','NTD','USD','JPY','EUR','ZAR'];
+function sortedCurKeys(map){
+  var keys = Object.keys(map);
+  keys.sort(function(a,b){
+    var ia = CUR_ORDER.indexOf((a||'').toUpperCase());
+    var ib = CUR_ORDER.indexOf((b||'').toUpperCase());
+    if(ia < 0) ia = 999;
+    if(ib < 0) ib = 999;
+    return ia - ib;
+  });
+  return keys;
+}
 
 function fetchRates(){
   var el=document.getElementById('rate-info');
@@ -1915,7 +1929,7 @@ function renderMonthlySummary(calItems, yr, mo) {
 
   // ── 格式化：幣別 map → 每行一個幣別（帶圓點）──
   function fmtRows(map, isAp) {
-    var keys = Object.keys(map);
+    var keys = sortedCurKeys(map);
     if (!keys.length) return '<div style="color:#94a3b8;font-size:13px;">—</div>';
     return keys.map(function(c) {
       var color = isAp ? '#16a34a' : '#0369a1';
@@ -2448,7 +2462,7 @@ function _renderDayDetail(){
     thtml += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應付</div>';
     thtml += '<div style="flex:1;">';
     if(Object.keys(payT).length){
-      Object.keys(payT).forEach(function(c){
+      sortedCurKeys(payT).forEach(function(c){
         thtml += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
           + '<span style="width:6px;height:6px;border-radius:50%;background:#16a34a;"></span>'
           + '<span style="font-size:14px;font-weight:700;color:#16a34a;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,payT[c])+'</span>'
@@ -2464,7 +2478,7 @@ function _renderDayDetail(){
     thtml += '<div style="font-size:16px;color:#0369a1;font-weight:700;margin-bottom:8px;">應收</div>';
     thtml += '<div style="flex:1;">';
     if(Object.keys(rcvT).length){
-      Object.keys(rcvT).forEach(function(c){
+      sortedCurKeys(rcvT).forEach(function(c){
         thtml += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
           + '<span style="width:6px;height:6px;border-radius:50%;background:#0369a1;"></span>'
           + '<span style="font-size:14px;font-weight:700;color:#0369a1;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,rcvT[c])+'</span>'
@@ -2699,7 +2713,24 @@ function showD(rowNum){
       +'<div style="margin-bottom:8px;font-size:11px;font-weight:700;color:var(--sea);text-transform:uppercase;letter-spacing:.06em;padding-bottom:4px;border-bottom:1px solid #bae6fd;">主要資訊</div>'
       +'<div class="ef-grid">'
       +ef2('e-staff-'+rowNum,'業務名稱',g(r,'staff'))
-      +efSel('e-type-'+rowNum,'案件屬性',g(r,'type'),['採購','銷售','採購+銷售'])
+      +(function(){
+        var ct = (g(r,'type')||'').trim();
+        var isTriangle = ct==='採購+銷售' || ct.indexOf('三角貿易')>=0;
+        if(isTriangle){
+          // 已是三角貿易 → 鎖定顯示，不可改
+          return '<div><label class="ef-lbl">案件屬性</label>'
+            +'<div class="ef-i" style="background:#f1f5f9;color:#64748b;padding:10px 12px;border-radius:9px;font-size:14px;border:1.5px solid #e2e8f0;">'+ct+'（不可改）</div>'
+            +'<input type="hidden" id="e-type-'+rowNum+'" value="'+ct+'"></div>';
+        }
+        // 採購 → [採購, 採購+銷售]；銷售 → [銷售, 採購+銷售]；其他 → 鎖定
+        var opts = ct==='採購' ? ['採購','採購+銷售']
+                 : ct==='銷售' ? ['銷售','採購+銷售']
+                 : [ct||'採購'];
+        var ops = opts.map(function(o){
+          return '<option value="'+o+'"'+(o===ct?' selected':'')+'>'+o+'</option>';
+        }).join('');
+        return '<div><label class="ef-lbl">案件屬性</label><select id="e-type-'+rowNum+'" class="ef-i">'+ops+'</select></div>';
+      })()
       +ef2('e-name-'+rowNum,'案件名稱',g(r,'name'))
       +ef2('e-asst-'+rowNum,'承辦業助',g(r,'asst'))
       +'</div>'
@@ -4292,7 +4323,7 @@ function renderPayStats(items) {
     cards += '<div style="flex:1;background:#eff6ff;border:0.5px solid #bae6fd;border-radius:8px;padding:12px;min-height:120px;display:flex;flex-direction:column;">'
       + '<div style="font-size:16px;color:#0369a1;font-weight:700;margin-bottom:8px;">應付</div>'
       + '<div style="flex:1;">';
-    Object.keys(byDept[dept].apCur).forEach(function(c){
+    sortedCurKeys(byDept[dept].apCur).forEach(function(c){
       cards += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
         + '<span style="width:6px;height:6px;border-radius:50%;background:#0369a1;"></span>'
         + '<span style="font-size:14px;font-weight:700;color:#0369a1;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,byDept[dept].apCur[c])+'</span>'
@@ -4305,7 +4336,7 @@ function renderPayStats(items) {
     cards += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:120px;display:flex;flex-direction:column;">'
       + '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應收</div>'
       + '<div style="flex:1;">';
-    Object.keys(byDept[dept].rcvCur).forEach(function(c){
+    sortedCurKeys(byDept[dept].rcvCur).forEach(function(c){
       cards += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
         + '<span style="width:6px;height:6px;border-radius:50%;background:#16a34a;"></span>'
         + '<span style="font-size:14px;font-weight:700;color:#16a34a;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,byDept[dept].rcvCur[c])+'</span>'
@@ -4319,13 +4350,13 @@ function renderPayStats(items) {
     cards += '<div style="flex:1;background:#fff5f5;border:0.5px solid #fca5a5;border-radius:8px;padding:12px;min-height:120px;display:flex;flex-direction:column;">'
       + '<div style="font-size:16px;color:#dc2626;font-weight:700;margin-bottom:8px;">⚠ 逾期</div>'
       + '<div style="flex:1;">';
-    Object.keys(byDept[dept].apCurOverdue).forEach(function(c){
+    sortedCurKeys(byDept[dept].apCurOverdue).forEach(function(c){
       cards += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
         + '<span style="width:6px;height:6px;border-radius:50%;background:#dc2626;"></span>'
         + '<span style="font-size:14px;font-weight:700;color:#dc2626;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,byDept[dept].apCurOverdue[c])+'</span>'
         + '</div>';
     });
-    Object.keys(byDept[dept].rcvCurOverdue).forEach(function(c){
+    sortedCurKeys(byDept[dept].rcvCurOverdue).forEach(function(c){
       cards += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
         + '<span style="width:6px;height:6px;border-radius:50%;background:#dc2626;"></span>'
         + '<span style="font-size:14px;font-weight:700;color:#dc2626;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,byDept[dept].rcvCurOverdue[c])+'</span>'
