@@ -1968,7 +1968,7 @@ function submitSellPart(){
     })
     .catch(function(e){
       console.error('Firebase 補填失敗：', e);
-      backupToGAS(payload);
+      backupToGAS(Object.assign({}, payload, { action: 'newCase' }));
       try{
         var nowStr2=new Date().toLocaleString('zh-TW',{hour12:false});
         localStorage.setItem('fill_submitted_'+FILL_FORMID, JSON.stringify({submitted:true, time:nowStr2}));

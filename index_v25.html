@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -4743,6 +4743,15 @@ function markPaymentPaid(rowId, paid) {
       var who = (curUser&&curUser.name)||'?';
       addLog(paid?'標記已付':'取消已付', who, p.note||'款項', paid?'實際日期：'+(actualDate||''):'取消標記', '');
       toast(paid?'✅ 已標記完成':'↩ 已取消', paid?'#16a34a':'#64748b');
+      backupActionToGAS({
+        action:     'updatePaymentStatus',
+        formId:     p.formId||'',
+        row:        String(rowId),
+        paid:       paid,
+        actualDate: actualDate||'',
+        actualAmt:  actualAmt||'',
+        updatedBy:  who,
+      });
     })
     .catch(function(e) {
       console.error('payments_status 寫入失敗：', e);
