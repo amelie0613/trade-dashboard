@@ -5333,23 +5333,12 @@ function cancelTransfer(formId, periodIdx, periodType) {
       var pName = (p && p.periodName) || ('第'+(periodIdx+1)+'期');
       var pCase = (p && p.caseName)   || formId;
       addLog('取消確認', who, pCase + '【' + pName + '】', 'status → 待確認', formId);
-      // ★ 同步更新 GAS OrderImport 分頁，標記為 cancelled
+      // ★ 同步刪除 GAS OrderImport 備份行列
       backupActionToGAS({
-        action:      'orderImport',
+        action:      'orderImportDelete',
         formId:      formId,
-        caseName:    p ? p.caseName        : '',
-        staff:       p ? p.staff          : '',
-        caseType:    p ? p.caseType       : '',
         periodType:  pType,
-        periodName:  pName,
-        periodIdx:   periodIdx,
-        cur:         p ? p.cur            : 'TWD',
-        amt:         p ? p.amt            : 0,
-        dueDate:     p ? p.dueDate        : '',
-        confirmedBy: '',
-        confirmedAt: '',
-        acctNote:    p ? (p.acctNote||'') : '',
-        periodStatus:'cancelled',
+        periodIdx:   periodIdx
       });
       toast('↩ 已取消確認，回到待確認區', '#d97706');
       _buildTransferItems();
