@@ -817,6 +817,31 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
   </div>
 </div>
 
+<!-- 寫入 SHEETS 選擇彈窗（全域，任何頁面皆可用） -->
+<div id="writeSheetsMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:28px 32px;min-width:340px;max-width:95vw;box-shadow:0 8px 40px rgba(30,42,80,0.22);">
+    <h3 style="font-size:15px;font-weight:900;color:var(--text);margin-bottom:6px;">☁️ 寫入 Google Sheets</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:20px;">請選擇要寫入的資料來源：</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button id="writeSheetsMenuInvBtn" onclick="closeWriteSheetsMenu();openSheetsPanel();"
+        style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
+        onmouseover="this.style.background='var(--accent-light)';this.style.borderColor='var(--accent)'"
+        onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
+        📋 寫入庫存總覽資料
+        <div style="font-size:11px;font-weight:400;margin-top:2px;" id="writeSheetsMenuInvHint">全部庫存、過期品、長期在庫、即將到期</div>
+      </button>
+      <button id="writeSheetsMenuDiffBtn" onclick="closeWriteSheetsMenu();writeDiffToSheets();"
+        style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
+        onmouseover="this.style.background='var(--accent-light)';this.style.borderColor='var(--accent)'"
+        onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
+        🔄 寫入差異比對資料
+        <div style="font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;" id="writeSheetsMenuDiffHint">請先執行差異比較</div>
+      </button>
+    </div>
+    <button onclick="closeWriteSheetsMenu()" style="margin-top:16px;width:100%;padding:8px;border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">取消</button>
+  </div>
+</div>
+
 <!-- GOOGLE SHEETS PANEL -->
 <div id="sheetsPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(26,37,64,.5);backdrop-filter:blur(4px);" onclick="if(event.target===this)closeSheetsPanel()">
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;padding:28px 32px;width:min(560px,95vw);box-shadow:0 20px 60px rgba(104,120,192,.3);">
@@ -1065,30 +1090,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           <button class="btn btn-primary" onclick="openWriteSheetsMenu()" title="寫入 Google Sheets">☁️ 寫入 Sheets</button>
         </div>
 
-        <!-- 寫入 Sheets 選擇彈窗 -->
-        <div id="writeSheetsMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;align-items:center;justify-content:center;">
-          <div style="background:#fff;border-radius:16px;padding:28px 32px;min-width:320px;box-shadow:0 8px 40px rgba(30,42,80,0.18);">
-            <h3 style="font-size:15px;font-weight:900;color:var(--text);margin-bottom:6px;">☁️ 寫入 Google Sheets</h3>
-            <p style="font-size:12px;color:var(--muted);margin-bottom:20px;">請選擇要寫入的資料來源：</p>
-            <div style="display:flex;flex-direction:column;gap:10px;">
-              <button id="writeSheetsMenuInvBtn" onclick="closeWriteSheetsMenu();openSheetsPanel();"
-                style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
-                onmouseover="this.style.background='var(--accent-light)';this.style.borderColor='var(--accent)'"
-                onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
-                📋 寫入庫存總覽資料
-                <div style="font-size:11px;font-weight:400;margin-top:2px;" id="writeSheetsMenuInvHint">全部庫存、過期品、長期在庫、即將到期</div>
-              </button>
-              <button id="writeSheetsMenuDiffBtn" onclick="closeWriteSheetsMenu();writeDiffToSheets();"
-                style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
-                onmouseover="this.style.background='var(--accent-light)';this.style.borderColor='var(--accent)'"
-                onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
-                🔄 寫入差異比對資料
-                <div style="font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;" id="writeSheetsMenuDiffHint">請先執行差異比較</div>
-              </button>
-            </div>
-            <button onclick="closeWriteSheetsMenu()" style="margin-top:16px;width:100%;padding:8px;border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">取消</button>
-          </div>
-        </div>
 
         <!-- Main content card -->
         <div class="inv-card">
