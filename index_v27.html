@@ -948,10 +948,29 @@ function getFirebaseDb(){
 }
 
 // ── Firebase 操作封裝 ──────────────────────────────────
-function readAllFirebase(cb){
+function readAllFirebase(cb, forceRefresh){
+  // ★ 防重複請求：如果已有進行中的請求，加入隊列
+  if(REQUESTS_IN_FLIGHT['cases']){
+    REQUESTS_IN_FLIGHT['cases'].push(cb);
+    return;
+  }
+
+  // ★ 嘗試從快取讀取（非強制刷新）
+  if(!forceRefresh){
+    var cached = getCache('cases');
+    if(cached){
+      console.log('📦 cases 從 localStorage 讀取（節省 1 次 read）');
+      cb(cached, null);
+      return;
+    }
+  }
+
   var db = getFirebaseDb();
   if(!db){ cb(null, 'Firestore 未初始化'); return; }
-  // ★ 加 limit(200) + orderBy 避免全量無限讀取
+
+  // 初始化隊列
+  REQUESTS_IN_FLIGHT['cases'] = [cb];
+
   db.collection('cases')
     .orderBy('meta.createdAt', 'desc')
     .limit(200)
@@ -961,24 +980,44 @@ function readAllFirebase(cb){
       snap.forEach(function(doc){
         var val = doc.data();
         if(val) result.push(Object.assign({ _firebaseKey: doc.id }, val));
-      });      cb(result, null);
+      });
+
+      // ★ 保存快取
+      setCache('cases', result);
+      console.log('✓ cases 已從 Firebase 讀取並快取（共 '+result.length+' 筆）');
+
+      // ★ 執行所有待執行的 callback
+      var cbs = REQUESTS_IN_FLIGHT['cases'];
+      delete REQUESTS_IN_FLIGHT['cases'];
+      cbs.forEach(function(c){ c(result, null); });
     })
-    .catch(function(e){ cb(null, e.toString()); });
+    .catch(function(e){
+      console.error('❌ Firebase cases 讀取失敗：', e.toString());
+      var cbs = REQUESTS_IN_FLIGHT['cases'];
+      delete REQUESTS_IN_FLIGHT['cases'];
+      cbs.forEach(function(c){ c(null, e.toString()); });
+    });
 }
 
 function updateFirebase(formId, fields, cb){
   var db = getFirebaseDb();
   if(!db){ if(cb) cb(false); return; }
 
-  // ★ 修正：使用 update() + dot notation，只更新傳入的欄位
-  // 不影響 Firebase 文件內其他未被修改的欄位（如 sales、purchase 等）
   db.collection('cases').doc(formId).update(fields)
-    .then(function(){ if(cb) cb(true); })
+    .then(function(){
+      // ★ 清除快取，下次 refresh 會重新讀取
+      invalidateCache('cases');
+      console.log('✓ cases 快取已清除（資料已更新）');
+      if(cb) cb(true);
+    })
     .catch(function(e){
       console.error('Firestore update 失敗：', e);
       // 降級：用 set + merge:true（保留其他欄位）
       db.collection('cases').doc(formId).set(fields, {merge:true})
-        .then(function(){ if(cb) cb(true); })
+        .then(function(){
+          invalidateCache('cases');
+          if(cb) cb(true);
+        })
         .catch(function(e2){ console.error('Firestore set merge 也失敗：', e2); if(cb) cb(false); });
     });
 }
@@ -987,8 +1026,15 @@ function deleteFirebase(formId, cb){
   var db = getFirebaseDb();
   if(!db){ if(cb) cb(false); return; }
   db.collection('cases').doc(formId).delete()
-    .then(function(){ if(cb) cb(true); })
-    .catch(function(e){ console.error('Firestore delete 失敗：', e); if(cb) cb(false); });
+    .then(function(){
+      invalidateCache('cases');
+      console.log('✓ cases 快取已清除（文件已刪除）');
+      if(cb) cb(true);
+    })
+    .catch(function(e){
+      console.error('Firestore delete 失敗：', e);
+      if(cb) cb(false);
+    });
 }
 
 // ── Firebase 帳號管理 ──────────────────────────────────
@@ -1025,7 +1071,13 @@ function fetchAccountsFirebase(callback){
   readAccountsFirebase(function(fbAccs, err){
     if(fbAccs && fbAccs.length > 0){
       CLOUD_ACCOUNTS = fbAccs;
-      try{ localStorage.setItem('cloudAccounts', JSON.stringify(CLOUD_ACCOUNTS)); }catch(e){}
+      // ★ 安全修復：不儲存密碼到 localStorage，只儲存無敏感資訊的版本
+      var safeCopy = CLOUD_ACCOUNTS.map(function(acc){
+        var safe = Object.assign({}, acc);
+        delete safe.pwd; // 移除密碼
+        return safe;
+      });
+      try{ localStorage.setItem('cloudAccounts', JSON.stringify(safeCopy)); }catch(e){}
       if(callback) callback();
     } else {
       // Firebase 無資料，退回 Sheets JSONP
@@ -1151,6 +1203,8 @@ var CLOUD_ACCOUNTS = null;
 // 執行登入後初始化
 function doLogin(u){
   curUser = u;
+  // ★ 建立安全會話（只儲存 token，不儲存密碼）
+  createSession(u);
   addLog('登入', u.name, '', '');
   document.getElementById('L').style.display = 'none';
   document.getElementById('A').style.display = 'block';
@@ -1190,7 +1244,13 @@ function fetchAccounts(callback){
   jsonpGet(SCRIPT+'?action=getAccounts', function(d, err){
     if(d && d.status==='ok' && d.accounts && d.accounts.length>0){
       CLOUD_ACCOUNTS = d.accounts;
-      try{localStorage.setItem('cloudAccounts', JSON.stringify(CLOUD_ACCOUNTS));}catch(e){}
+      // ★ 安全修復：不儲存密碼到 localStorage
+      var safeCopy = CLOUD_ACCOUNTS.map(function(acc){
+        var safe = Object.assign({}, acc);
+        delete safe.pwd;
+        return safe;
+      });
+      try{localStorage.setItem('cloudAccounts', JSON.stringify(safeCopy));}catch(e){}
     } else {
       // 失敗：從本地快取讀
       try{
@@ -1266,6 +1326,94 @@ function calcTotalNTD01(r, type) {
   return periods.reduce(function(sum,p){
     return sum + calcNTD(p.amt, p.cur||'TWD');
   }, 0);
+}
+
+// ★ 會話管理系統（1HR 持久化 + 安全性）
+var SESSION_TOKEN_KEY = 'app_session_token';
+var SESSION_EXPIRY_KEY = 'app_session_expiry';
+var SESSION_TIMEOUT = 3600000; // 1 小時（毫秒）
+var SESSION_STORAGE = {}; // 記憶體存儲（不寫 localStorage）
+
+// 生成安全 token
+function generateSessionToken() {
+  return 'tok_' + Math.random().toString(36).substr(2, 32) + '_' + Date.now();
+}
+
+// 建立會話
+function createSession(userObj) {
+  var token = generateSessionToken();
+  var expiry = Date.now() + SESSION_TIMEOUT;
+
+  // 只儲存 token + expiry 在 localStorage（不儲存密碼/ID）
+  localStorage.setItem(SESSION_TOKEN_KEY, token);
+  localStorage.setItem(SESSION_EXPIRY_KEY, expiry.toString());
+
+  // 完整用戶信息存在記憶體（瀏覽器關閉就清除）
+  SESSION_STORAGE[token] = {
+    user: userObj,
+    createdAt: Date.now(),
+    expiresAt: expiry
+  };
+
+  console.log('✓ 會話建立，有效期 1 小時');
+  return token;
+}
+
+// 取得當前會話
+function getSession() {
+  var token = localStorage.getItem(SESSION_TOKEN_KEY);
+  var expiry = parseInt(localStorage.getItem(SESSION_EXPIRY_KEY) || '0');
+
+  if (!token || Date.now() > expiry) {
+    clearSession();
+    return null;
+  }
+
+  var session = SESSION_STORAGE[token];
+  if (!session) return null;
+
+  // 檢查記憶體中的會話是否過期
+  if (Date.now() > session.expiresAt) {
+    clearSession();
+    return null;
+  }
+
+  return session.user;
+}
+
+// 延長會話（每次操作時調用）
+function extendSession() {
+  var token = localStorage.getItem(SESSION_TOKEN_KEY);
+  if (!token || !SESSION_STORAGE[token]) return false;
+
+  var newExpiry = Date.now() + SESSION_TIMEOUT;
+  localStorage.setItem(SESSION_EXPIRY_KEY, newExpiry.toString());
+  SESSION_STORAGE[token].expiresAt = newExpiry;
+
+  return true;
+}
+
+// 清除會話
+function clearSession() {
+  var token = localStorage.getItem(SESSION_TOKEN_KEY);
+  if (token && SESSION_STORAGE[token]) {
+    delete SESSION_STORAGE[token];
+  }
+  localStorage.removeItem(SESSION_TOKEN_KEY);
+  localStorage.removeItem(SESSION_EXPIRY_KEY);
+  console.log('✓ 會話已清除');
+}
+
+// 頁面載入時檢查會話
+function restoreSessionIfValid() {
+  var user = getSession();
+  if (user) {
+    console.log('✓ 恢復會話，用戶：' + user.name);
+    curUser = user;
+    doLogin(user);
+    return true;
+  }
+  return false;
 }
 
 var CU=loadU(),curUser=null,rows=[],filtered=[],logs=[],fillPend=false;
@@ -1440,6 +1588,8 @@ function logout(){
     window._calClickHandler = null;
   }
   try{ firebase.auth().signOut(); }catch(e){}
+  // ★ 清除安全會話
+  clearSession();
   document.getElementById('L').style.display='flex';
   document.getElementById('A').style.display='none';
   curUser=null;
@@ -1482,16 +1632,59 @@ function getPageData(data, page){
 }
 
 // ★ 手動刷新（重新讀取 Firebase 一次）
-function doRefresh(){
+function doRefresh(forceRefresh){
   var btn=document.getElementById('ref-btn');
   if(btn) btn.classList.add('spinning');
   window._refreshDone=function(){
     if(btn){ btn.classList.remove('spinning'); }
   };
-  load();
+  load(forceRefresh);
 }
 
-// ★ localStorage 快取（節省 reads）
+// ★ 智能快取系統 v2（增量同步 + 防重複請求）
+var CACHE_TTL = {
+  cases: 1800000,           // cases 30 分鐘
+  accounts: 3600000,        // accounts 60 分鐘（變動少）
+  payments_status: 900000,  // payments_status 15 分鐘（變動頻繁）
+  logs: 600000              // logs 10 分鐘（只寫入，不修改）
+};
+
+var REQUESTS_IN_FLIGHT = {}; // 記錄進行中的 Firebase 請求
+
+// 取得快取（帶 TTL 檢查）
+function getCache(key) {
+  try {
+    var cacheKey = 'smcache_'+key;
+    var timeKey = 'smcache_'+key+'_t';
+    var t = parseInt(localStorage.getItem(timeKey)||'0');
+    var ttl = CACHE_TTL[key] || 1800000;
+
+    if(Date.now()-t > ttl) {
+      localStorage.removeItem(cacheKey);
+      return null;
+    }
+    var c = localStorage.getItem(cacheKey);
+    return c ? JSON.parse(c) : null;
+  }catch(e){ return null; }
+}
+
+// 保存快取+時間戳
+function setCache(key, data) {
+  try {
+    localStorage.setItem('smcache_'+key, JSON.stringify(data));
+    localStorage.setItem('smcache_'+key+'_t', Date.now().toString());
+  }catch(e){}
+}
+
+// 清除特定快取（寫入操作後調用）
+function invalidateCache(key) {
+  try {
+    localStorage.removeItem('smcache_'+key);
+    localStorage.removeItem('smcache_'+key+'_t');
+  }catch(e){}
+}
+
+// 舊版兼容
 function saveCacheToStorage(data){
   try{
     localStorage.setItem('cases_cache', JSON.stringify(data));
@@ -1501,19 +1694,19 @@ function saveCacheToStorage(data){
 function loadCacheFromStorage(){
   try{
     var t = parseInt(localStorage.getItem('cases_cache_time')||'0');
-    // ★ 快取有效期：30 分鐘（1800000 ms）
     if(Date.now()-t > 1800000) return null;
     var c = localStorage.getItem('cases_cache');
     return c ? JSON.parse(c) : null;
   }catch(e){ return null; }
 }
-function load(){
+function load(forceRefresh){
   document.getElementById('dc').innerHTML='<div class="loading"><div class="spin"></div>從 Firebase 讀取...</div>';
 
   // ★ 讀取 Firebase（只讀一次，存入 allData）
   // ❌ 禁止 onSnapshot，避免爆 reads
   readAllFirebase(function(fbRows, fbErr){
-    if(fbRows && fbRows.length > 0){      var normalized = [];
+    if(fbRows && fbRows.length > 0){
+      var normalized = [];
       for(var _i=0; _i<fbRows.length; _i++){
         var _r = fbRows[_i];
         var _staff = (_r.meta && _r.meta.staff) || _r['staff'] || _r['業務名稱'] || '';
@@ -1533,7 +1726,7 @@ function load(){
         loadViaJSONP();
       }
     }
-  });
+  }, forceRefresh);
 }
 
 // Firestore row 欄位正規化（把巢狀結構展平成中文欄位，向下相容）
@@ -3205,8 +3398,25 @@ document.addEventListener('DOMContentLoaded', function(){
   var daym = document.getElementById('DayM');
   var delm = document.getElementById('DelM');
   // 背景點擊不關閉 Modal（防止誤觸）
-  
+
+  // ★ 頁面載入時：嘗試恢復會話（1HR 持久化）
+  setTimeout(function() {
+    if (!curUser && !restoreSessionIfValid()) {
+      // 無有效會話，顯示登入頁
+      document.getElementById('L').style.display = 'flex';
+      document.getElementById('A').style.display = 'none';
+    }
+  }, 100);
 });
+
+// ★ 每次用戶互動時延長會話 TTL
+document.addEventListener('click', function() {
+  if (curUser) extendSession();
+}, { passive: true });
+
+document.addEventListener('keydown', function() {
+  if (curUser) extendSession();
+}, { passive: true });
 
 // 簽核
 function doApp(rowNum,status){
@@ -5224,6 +5434,7 @@ function markPaymentPaid(rowId, paid) {
   };
   db.collection('payments_status').doc(docId).set(data, {merge:true})
     .then(function() {
+      invalidateCache('payments_status');
       _fbPayStatus[String(rowId)] = data;
       var who = (curUser&&curUser.name)||'?';
       addLog(paid?'標記已付':'取消已付', who, p.note||'款項', paid?'實際日期：'+(actualDate||''):'取消標記', '');
@@ -6168,7 +6379,10 @@ function saveManualPayment(data, cb) {
     delete payload._id;
     payload.updatedAt = now;
     db.collection('manual_payments').doc(id).set(payload, { merge: true })
-      .then(function() { if (cb) cb(true, id); })
+      .then(function() {
+        invalidateCache('manual_payments');
+        if (cb) cb(true, id);
+      })
       .catch(function(e) { console.error('manual_payments 更新失敗：', e); if (cb) cb(false); });
   } else {
     // 新增：add，自動產生 doc id
@@ -6177,7 +6391,10 @@ function saveManualPayment(data, cb) {
     newPayload.createdAt = now;
     newPayload.updatedAt = now;
     db.collection('manual_payments').add(newPayload)
-      .then(function(ref) { if (cb) cb(true, ref.id); })
+      .then(function(ref) {
+        invalidateCache('manual_payments');
+        if (cb) cb(true, ref.id);
+      })
       .catch(function(e) { console.error('manual_payments 新增失敗：', e); if (cb) cb(false); });
   }
 }
@@ -6187,7 +6404,10 @@ function deleteManualPayment(id, cb) {
   var db = getFirebaseDb();
   if (!db) { if (cb) cb(false); return; }
   db.collection('manual_payments').doc(id).delete()
-    .then(function() { if (cb) cb(true); })
+    .then(function() {
+      invalidateCache('manual_payments');
+      if (cb) cb(true);
+    })
     .catch(function(e) { console.error('manual_payments 刪除失敗：', e); if (cb) cb(false); });
 }
 
