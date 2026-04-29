@@ -1053,10 +1053,12 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         </div>
 
         <!-- Quick Actions (output reports only) -->
-        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
-          <button class="btn btn-ghost" onclick="exportCostAnalysis()" title="各倉庫存貨成本分析報表">📊 倉庫成本分析</button>
-          <button class="btn btn-ghost" onclick="exportInventoryReport()" title="各倉庫庫存狀況詳細報表">📋 庫存狀況明細表</button>
-          <button class="btn btn-ghost" onclick="exportExcel()" title="匯出庫存 Excel">📤 匯出 Excel</button>
+        <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-blue" onclick="exportCostAnalysis()" title="各倉庫存貨成本分析報表">📊 倉庫成本分析</button>
+          <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;" title="各倉庫庫存狀況詳細報表">📋 庫存狀況明細表</button>
+          <button id="dashDiffReportBtn" class="btn btn-blue" onclick="exportDiffReport()" style="display:none;background:#2563EB;" title="差異比較明細報表">📋 差異明細報表</button>
+          <button class="btn btn-green" onclick="exportExcel()" title="匯出庫存 Excel">📤 匯出 Excel</button>
+          <button class="btn btn-primary" onclick="openWriteSheetsMenu()" title="寫入 Google Sheets">☁️ 寫入 Sheets</button>
         </div>
 
         <!-- Scope Cost Table (moved from inventory) -->
@@ -1104,15 +1106,9 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         <input type="hidden" id="soonDays" value="210">
         <input type="hidden" id="longYears" value="3">
 
-        <!-- Control Bar (output / sheets) -->
-        <div class="control-bar" style="justify-content:flex-end;flex-wrap:wrap;gap:8px;">
+        <!-- Control Bar (庫存管理：只留匯出 Excel) -->
+        <div class="control-bar" style="justify-content:flex-end;">
           <button class="btn btn-green" onclick="exportExcel()" title="匯出庫存 Excel">📤 匯出 Excel</button>
-          <button class="btn btn-blue" onclick="exportCostAnalysis()" title="各倉庫存貨成本分析報表">📊 倉庫成本分析</button>
-          <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;" title="各倉庫庫存狀況詳細報表">📋 庫存狀況明細表</button>
-          <!-- 差異明細報表：有差異資料時顯示 -->
-          <button id="dashDiffReportBtn" class="btn btn-blue" onclick="exportDiffReport()" style="display:none;background:#2563EB;" title="差異比較明細報表">📋 差異明細報表</button>
-          <!-- 合併寫入 Sheets -->
-          <button class="btn btn-primary" onclick="openWriteSheetsMenu()" title="寫入 Google Sheets">☁️ 寫入 Sheets</button>
         </div>
 
 
