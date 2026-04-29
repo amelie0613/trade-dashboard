@@ -273,7 +273,8 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .day-item{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;border-radius:8px;margin-bottom:6px;}
 .day-item-label{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-bottom:4px;}
 /* ── 月份統計卡片 ── */
-.msum-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.msum-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.msum-summary{grid-column:1/-1;}
 @media(max-width:767px){.msum-grid{grid-template-columns:1fr;}}
 .msum-card{border-radius:14px;padding:14px 16px;position:relative;overflow:hidden;}
 .msum-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;}
@@ -1361,7 +1362,7 @@ function load(){
       // ★ 存入 allData，所有 render/篩選/分頁/搜尋皆用 allData（不再 fetch）
       allData = normalized;
       saveCacheToStorage(allData);   // ★ 同步快取到 localStorage
-      window.rows = allData;      onLoad();
+      window.rows = allData; window._fbLoadedAt = Date.now(); onLoad();
     } else {
       console.warn('⚠️ Firebase 無資料（'+fbErr+'），嘗試 localStorage 快取');
       var cached = loadCacheFromStorage();
@@ -1540,7 +1541,7 @@ function loadViaJSONP(){
     delete window[cbName];
     if(script.parentNode) script.parentNode.removeChild(script);
     if(d && d.status==='ok' && d.rows && d.rows.length>0){
-      window.rows = d.rows.filter(function(r){return g(r,'staff')!=='';});      onLoad();
+      window.rows = d.rows.filter(function(r){return g(r,'staff')!==''}); window._fbLoadedAt = Date.now(); onLoad();
     } else if(d && d.status==='ok' && d.rows && d.rows.length===0){
       console.warn('⚠️ FormResponses01 無資料');
       showErr('FormResponses01 尚無資料，請確認試算表已有案件記錄');
@@ -2153,7 +2154,108 @@ function renderMonthlySummary(calItems, yr, mo) {
       + '<div style="display:flex;gap:10px;">'+col1+col2+col3+'</div></div>';
   }
 
-  el.innerHTML = makeDeptCard('貿易','trade') + makeDeptCard('船務','ship');
+  el.innerHTML = makeGlobalCard() + makeDeptCard('貿易','trade') + makeDeptCard('船務','ship');
+
+  // ── 全局彙總卡（貿易+船務+Firebase 案件預估）────────────
+  function makeGlobalCard() {
+    // 合計五個幣別 bucket（應付/應收 分開，含預估）
+    var totAp  = {}, totRcv = {}, totEAp = {}, totERcv = {}, totFAp = {}, totFRcv = {};
+    ['trade','ship'].forEach(function(dk){
+      var b = sum[dk];
+      ['NTD','USD','JPY','EUR','ZAR'].forEach(function(c){
+        if(b.apCur[c])   totAp[c]   = (totAp[c]  ||0) + b.apCur[c];
+        if(b.rcvCur[c])  totRcv[c]  = (totRcv[c] ||0) + b.rcvCur[c];
+        if(b.eApCur[c])  totEAp[c]  = (totEAp[c] ||0) + b.eApCur[c];
+        if(b.eRcvCur[c]) totERcv[c] = (totERcv[c]||0) + b.eRcvCur[c];
+      });
+    });
+    ['NTD','USD','JPY','EUR','ZAR'].forEach(function(c){
+      if(sum.fcst.apCur[c])  totFAp[c]  = (totFAp[c] ||0) + sum.fcst.apCur[c];
+      if(sum.fcst.rcvCur[c]) totFRcv[c] = (totFRcv[c]||0) + sum.fcst.rcvCur[c];
+    });
+
+    // NTD 折合計算
+    function toNTD(map) {
+      var total = 0;
+      Object.keys(map).forEach(function(c){
+        var r = c==='NTD'||c==='TWD' ? 1 : (RATE[c]||0);
+        total += (map[c]||0) * r;
+      });
+      return total;
+    }
+    var ntdAp  = toNTD(totAp)  + toNTD(totEAp)  + toNTD(totFAp);
+    var ntdRcv = toNTD(totRcv) + toNTD(totERcv) + toNTD(totFRcv);
+
+    // 時間戳
+    function fmtTime(ts) {
+      if (!ts) return '—';
+      var d = new Date(ts);
+      return (d.getMonth()+1)+'/'+(d.getDate())+' '
+        + (d.getHours()<10?'0':'')+d.getHours()+':'
+        + (d.getMinutes()<10?'0':'')+d.getMinutes();
+    }
+    var csvTs = parseInt(localStorage.getItem(CONFIG.CSV_CACHE_TIME_KEY)||'0');
+    var csvTime = fmtTime(csvTs || 0);
+    var fbTime  = fmtTime(window._fbLoadedAt || 0);
+
+    // 金額區段渲染
+    function globalBucket(label, labelColor, bgColor, borderColor, realMap, estMap, fcstMap, fcstLabel) {
+      var allCurs = {};
+      [realMap, estMap, fcstMap].forEach(function(m){ Object.keys(m).forEach(function(c){ allCurs[c]=1; }); });
+      var keys = sortedCurKeys(allCurs);
+      if (!keys.length) return '<div style="font-size:12px;color:#94a3b8;">—</div>';
+      return keys.map(function(c){
+        var real  = realMap[c]  || 0;
+        var est   = estMap[c]   || 0;
+        var fcst  = fcstMap[c]  || 0;
+        var total = real + est + fcst;
+        var sym   = {NTD:'NT$',USD:'US$',JPY:'¥',EUR:'€',ZAR:'ZAR'}[c] || c;
+        var hasFcst = est > 0 || fcst > 0;
+        return '<div style="padding:3px 0;border-bottom:0.5px solid rgba(0,0,0,0.05);">'
+          + '<div style="display:flex;justify-content:space-between;align-items:baseline;">'
+          + '<span style="font-size:11px;color:#64748b;min-width:30px;">'+sym+'</span>'
+          + '<span style="font-size:13px;font-weight:700;color:'+labelColor+';font-family:\'DM Mono\',monospace;">'
+          + Math.round(total).toLocaleString('zh-TW')+'</span></div>'
+          + (hasFcst
+            ? '<div style="display:flex;justify-content:flex-end;">'
+              + '<span style="font-size:10px;color:#92400e;background:#fef9c3;border:0.5px solid #fde68a;border-radius:4px;padding:1px 5px;font-family:\'DM Mono\',monospace;">'
+              + '含預估 +'+ Math.round(est+fcst).toLocaleString('zh-TW')+'</span></div>'
+            : '')
+          + '</div>';
+      }).join('');
+    }
+
+    var colAp = '<div style="flex:1;min-width:0;background:#f8fafc;border:0.5px solid #e2e8f0;border-radius:8px;padding:10px 12px;">'
+      + '<div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:6px;padding-bottom:5px;border-bottom:0.5px solid #e2e8f0;">應付合計</div>'
+      + globalBucket('應付','#0369a1','','',totAp,totEAp,totFAp,'')
+      + '<div style="margin-top:8px;padding-top:6px;border-top:0.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:baseline;">'
+      + '<span style="font-size:10px;color:#94a3b8;">折合 NT$</span>'
+      + '<span style="font-size:11px;font-weight:700;color:#0369a1;font-family:\'DM Mono\',monospace;">≈ '+Math.round(ntdAp).toLocaleString('zh-TW')+'</span>'
+      + '</div></div>';
+
+    var colRcv = '<div style="flex:1;min-width:0;background:#f8fafc;border:0.5px solid #e2e8f0;border-radius:8px;padding:10px 12px;">'
+      + '<div style="font-size:11px;font-weight:700;color:#475569;margin-bottom:6px;padding-bottom:5px;border-bottom:0.5px solid #e2e8f0;">應收合計</div>'
+      + globalBucket('應收','#16a34a','','',totRcv,totERcv,totFRcv,'')
+      + '<div style="margin-top:8px;padding-top:6px;border-top:0.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:baseline;">'
+      + '<span style="font-size:10px;color:#94a3b8;">折合 NT$</span>'
+      + '<span style="font-size:11px;font-weight:700;color:#16a34a;font-family:\'DM Mono\',monospace;">≈ '+Math.round(ntdRcv).toLocaleString('zh-TW')+'</span>'
+      + '</div></div>';
+
+    var tsRow = '<div style="margin-top:10px;padding-top:8px;border-top:0.5px solid #e2e8f0;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;">'
+      + '<span style="font-size:10px;color:#94a3b8;">📄 CSV 更新：<b style="color:#64748b;">'+csvTime+'</b></span>'
+      + '<span style="font-size:10px;color:#94a3b8;">🔥 Firebase：<b style="color:#64748b;">'+fbTime+'</b></span>'
+      + '<span style="font-size:10px;color:#92400e;background:#fef9c3;border-radius:4px;padding:1px 6px;">含預估 Forecast Incl.</span>'
+      + '</div>';
+
+    return '<div class="msum-summary" style="background:var(--card);border:1.5px solid #378ADD;border-radius:12px;padding:14px 16px;">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'
+      + '<span style="font-size:15px;font-weight:700;color:var(--ink);">📊 全局彙總</span>'
+      + '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#dbeafe;color:#1e3a8a;">貿易 + 船務 + 案件預估</span>'
+      + '</div>'
+      + '<div style="display:flex;gap:10px;">' + colAp + colRcv + '</div>'
+      + tsRow
+      + '</div>';
+  }
 }
 
 // ── 日曆篩選狀態（支援多選）────────────────────────────
