@@ -18,26 +18,26 @@
   --yellow: #F7D96B;
   --green:  #22c55e;
   --blue:   #3b82f6;
-  --purple: #6B5B95;
+  --purple: #6878C0;
   --coral:  #E8836A;
-  --violet: #C9A8E0;
+  --violet: #A0C8D8;
   --white:  #FFFFFF;
-  /* Layout semantics (new) */
-  --bg:     #F0F4F8;
+  /* Layout semantics */
+  --bg:     #EFF4F8;
   --card:   #FFFFFF;
   --text:   #1a2540;
   --muted:  #64748b;
-  --border: #e2e8f0;
-  --shadow: 0 1px 4px rgba(30,42,74,0.08), 0 4px 16px rgba(30,42,74,0.06);
+  --border: #dde6ef;
+  --shadow: 0 1px 4px rgba(30,50,100,0.08), 0 4px 16px rgba(30,50,100,0.06);
   --r:      12px;
   /* Sidebar */
-  --sidebar-bg:    #1E2A4A;
+  --sidebar-bg:    #1E2A50;
   --sidebar-w:     240px;
   --header-h:      60px;
-  /* Theme accent (overridable) */
-  --accent:        #6B5B95;
-  --accent-rgb:    107,91,149;
-  --accent-light:  #f3f0fb;
+  /* Theme accent — cornflower blue palette */
+  --accent:        #6878C0;
+  --accent-rgb:    104,120,192;
+  --accent-light:  #EEF3FD;
 }
 
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -384,7 +384,7 @@ table.data-tbl th{
   cursor:pointer;
   user-select:none;
 }
-table.data-tbl th:hover{background:#7b6ba0;}
+table.data-tbl th:hover{background:#5868A8;}
 table.data-tbl td{
   padding:7px 10px;
   white-space:nowrap;
@@ -767,7 +767,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
 <!-- GITHUB PANEL -->
 <div id="githubPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(26,37,64,.5);backdrop-filter:blur(4px);" onclick="if(event.target===this)closeGithubPanel()">
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;padding:28px 32px;width:min(540px,95vw);box-shadow:0 20px 60px rgba(107,91,149,.3);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;padding:28px 32px;width:min(540px,95vw);box-shadow:0 20px 60px rgba(104,120,192,.3);">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
       <span style="font-size:28px;">🐙</span>
       <div>
@@ -804,7 +804,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           style="width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;font-family:inherit;outline:none;"
           onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
       </div>
-      <div style="background:#f5f0ff;border-radius:10px;padding:12px;font-size:11px;color:var(--muted);line-height:1.7;">
+      <div style="background:#EEF3FD;border-radius:10px;padding:12px;font-size:11px;color:var(--muted);line-height:1.7;">
         💡 <b>下次載入單價</b>：在單價設定頁填入 GitHub Raw 網址，點「從 GitHub 載入」即可還原所有單價與核算範圍。<br>
         Raw 網址格式：<code style="background:#EEE;padding:1px 4px;border-radius:4px;">https://raw.githubusercontent.com/[使用者]/[Repo]/main/prices.json</code>
       </div>
@@ -819,7 +819,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
 <!-- GOOGLE SHEETS PANEL -->
 <div id="sheetsPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(26,37,64,.5);backdrop-filter:blur(4px);" onclick="if(event.target===this)closeSheetsPanel()">
-  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;padding:28px 32px;width:min(560px,95vw);box-shadow:0 20px 60px rgba(107,91,149,.3);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:20px;padding:28px 32px;width:min(560px,95vw);box-shadow:0 20px 60px rgba(104,120,192,.3);">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
       <span style="font-size:28px;">☁️</span>
       <div>
@@ -828,7 +828,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
       </div>
       <button onclick="closeSheetsPanel()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">✕</button>
     </div>
-    <div id="sheetsSetupGuide" style="background:#f5f0ff;border-radius:14px;padding:16px;margin-bottom:16px;font-size:12px;line-height:1.8;color:#3D2C4E;">
+    <div id="sheetsSetupGuide" style="background:#EEF3FD;border-radius:14px;padding:16px;margin-bottom:16px;font-size:12px;line-height:1.8;color:#2A3870;">
       <strong style="font-size:13px;color:var(--accent);">📋 第一次使用？三步驟設定：</strong><br>
       <b>Step 1.</b> 開啟你要寫入的 Google Sheet → 上方選單點「<b>擴充功能</b>」→「<b>Apps Script</b>」<br>
       <b>Step 2.</b> 把下方程式碼貼入，按「<b>部署 → 新增部署</b>」→ 類型選「<b>網頁應用程式</b>」→ 存取權設「<b>任何人</b>」→ 複製網址<br>
@@ -954,6 +954,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
     <header class="app-header">
       <div class="header-title" id="headerTitle">總覽儀表板</div>
       <div class="header-right">
+        <button onclick="ghLoadPrices()" title="從 GitHub 載入單價" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 GitHub 載入</button>
         <div class="header-date" id="headerDate"></div>
         <div class="header-avatar">D</div>
       </div>
@@ -1534,9 +1535,8 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <button class="btn btn-blue" onclick="document.getElementById('priceFileInput').click()">📥 匯入單價 xlsx</button>
             <button class="btn btn-green" onclick="exportPriceExcel()">📤 匯出單價 xlsx</button>
             <button class="btn" style="background:#4285f4;color:white;" onclick="ghBackupPrices()">☁️ 備份到 GitHub</button>
-            <button class="btn" style="background:white;color:#4285f4;border:2px solid #4285f4;" onclick="ghLoadPrices()">📥 從 GitHub 載入</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:7px 12px;" onclick="ghSetPriceConfig()" title="設定 GitHub Token / Repo">🔑 設定</button>
             <span id="ghPriceStatus" style="font-size:12px;color:var(--muted);font-weight:700;min-width:80px;"></span>
+            <button class="btn btn-ghost" style="font-size:12px;margin-left:auto;" onclick="navSwitch('settings')" title="前往系統設定管理 GitHub / Sheets 設定">⚙️ 雲端設定</button>
           </div>
           <div class="price-tbl-wrap" id="priceGrid" style="max-height:600px;overflow-y:auto;padding:0;">
             <div class="empty-state">
@@ -1557,16 +1557,16 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <h3>🎨 主題色彩</h3>
             <div class="settings-row">
               <label>主題色 (Accent)</label>
-              <input type="color" id="setting-accent" value="#6B5B95"
+              <input type="color" id="setting-accent" value="#6878C0"
                      oninput="applyThemeColor(this.value)">
             </div>
             <div style="margin-top:8px;">
               <p style="font-size:12px;color:var(--muted);margin-bottom:8px;">預設主題：</p>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#6B5B95')">💜 紫色</button>
-                <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#1E6F9F')">💙 藍色</button>
+                <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#6878C0')">💙 矢車菊藍</button>
+                <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#6878C0')">💜 紫色</button>
+                <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#1E6F9F')">🔵 深藍</button>
                 <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#1E7B4A')">💚 綠色</button>
-                <button class="btn btn-ghost" style="font-size:12px;" onclick="applyThemeColor('#9B4A1E')">🟠 橘色</button>
               </div>
             </div>
           </div>
@@ -1599,6 +1599,56 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <input type="email" id="recipientEmail" placeholder="you@example.com"
                   style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;font-family:inherit;">
               </div>
+            </div>
+          </div>
+
+          <!-- Google Sheets Integration -->
+          <div class="settings-section">
+            <h3>☁️ Google Sheets 整合</h3>
+            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+              <label style="font-size:12px;font-weight:700;color:var(--muted);">Apps Script 網址</label>
+              <input type="text" id="settings-sheets-url" placeholder="https://script.google.com/macros/s/..."
+                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;outline:none;"
+                onchange="localStorage.setItem('sheetsScriptUrl',this.value);document.getElementById('sheetsUrl').value=this.value;">
+            </div>
+            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:6px;margin-top:8px;">
+              <label style="font-size:12px;font-weight:700;color:var(--muted);">Google Sheet ID</label>
+              <input type="text" id="settings-sheet-id" value="1vAjncE2dWp95g0tCzOcprCgu3caWPPr6qw42Hb4xyMI" readonly
+                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;background:#f8f9fb;outline:none;">
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+              <button class="btn btn-primary" style="font-size:12px;" onclick="openSheetsPanel()">☁️ 寫入 Sheets</button>
+              <button class="btn btn-ghost" style="font-size:11px;" onclick="copyAppsScript()">📋 複製 Apps Script 程式碼</button>
+            </div>
+          </div>
+
+          <!-- GitHub Integration -->
+          <div class="settings-section">
+            <h3>🐙 GitHub 備份設定</h3>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                <label style="font-size:12px;font-weight:700;color:var(--muted);">Personal Access Token</label>
+                <input type="password" id="settings-gh-token" placeholder="ghp_xxxxxxxxxxxx"
+                  style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;outline:none;"
+                  onchange="localStorage.setItem('gh_price_token',this.value);">
+              </div>
+              <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                <label style="font-size:12px;font-weight:700;color:var(--muted);">GitHub Owner</label>
+                <input type="text" id="settings-gh-owner" placeholder="your-username"
+                  style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;outline:none;"
+                  onchange="localStorage.setItem('gh_price_owner',this.value);">
+              </div>
+              <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                <label style="font-size:12px;font-weight:700;color:var(--muted);">Repository</label>
+                <input type="text" id="settings-gh-repo" placeholder="trade-dashboard"
+                  style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;outline:none;"
+                  onchange="localStorage.setItem('gh_price_repo',this.value);">
+              </div>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="btn btn-primary" style="font-size:12px;" onclick="ghBackupPrices()">☁️ 備份到 GitHub</button>
+              <button class="btn btn-ghost" style="font-size:12px;" onclick="ghLoadPrices()">📥 從 GitHub 載入</button>
+              <span id="ghPriceStatus-settings" style="font-size:12px;color:var(--muted);font-weight:700;"></span>
             </div>
           </div>
 
@@ -1635,6 +1685,26 @@ try{
   if(saved) applyThemeColor(saved);
 }catch(e){}
 
+// Populate settings fields from localStorage
+function initSettingsFields(){
+  try{
+    const url = localStorage.getItem('sheetsScriptUrl')||'';
+    const el = document.getElementById('settings-sheets-url');
+    if(el && url) el.value = url;
+    // sync into sheetsPanel input if exists
+    const sp = document.getElementById('sheetsUrl');
+    if(sp && url) sp.value = url;
+
+    const ghToken = localStorage.getItem('gh_price_token')||'';
+    const ghOwner = localStorage.getItem('gh_price_owner')||'';
+    const ghRepo  = localStorage.getItem('gh_price_repo') ||'';
+    const t=document.getElementById('settings-gh-token');  if(t) t.value=ghToken;
+    const o=document.getElementById('settings-gh-owner');  if(o) o.value=ghOwner;
+    const r=document.getElementById('settings-gh-repo');   if(r) r.value=ghRepo;
+  }catch(e){}
+}
+document.addEventListener('DOMContentLoaded', initSettingsFields);
+
 // Sync settings page sliders with inventory controls
 document.getElementById('soonDays-s').addEventListener('change', function(){
   document.getElementById('soonDays').value = this.value;
@@ -1670,6 +1740,7 @@ function navSwitch(view){
   if(view==='diff') renderDiff();
   else if(view==='prices') renderPrices();
   else if(view==='dashboard') updateDashboard();
+  else if(view==='settings') initSettingsFields();
 }
 
 function updateDashboard(){
@@ -2220,7 +2291,7 @@ function renderTable(tabKey){
 }
 
 function colHeader(k){
-  return k==='expired'?'#E07070':k==='long'?'#E0904A':k==='soon'?'#D0736A':'#7B6BAA';
+  return k==='expired'?'#C05050':k==='long'?'#C07830':k==='soon'?'#B06030':'#6878C0';
 }
 
 // ─── SORT ─────────────────────────────────────────────────────
@@ -2936,7 +3007,7 @@ function renderDiff(){
   const chgLabel = { new:'🟢 新增', gone:'🔴 消失', up:'🔵 增加', down:'🟠 減少', same:'⚪ 不變' };
   const badgeCls = { new:'badge-pink', gone:'badge-red', up:'badge-blue', down:'badge-orange', same:'badge-gray' };
   const rowCls   = { new:'diff-new', gone:'diff-gone', up:'diff-up', down:'diff-down', same:'' };
-  const hdrColor = '#6B5B95';
+  const hdrColor = '#6878C0';
 
   let html = `<table><thead><tr>
     <th style="background:${hdrColor}">變化</th>
@@ -3075,38 +3146,38 @@ body{font-family:'Noto Sans TC',system-ui,sans-serif;background:#f4f0fa;min-heig
 /* SUMMARY BAR */
 .summary{display:flex;gap:10px;padding:14px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .summary::-webkit-scrollbar{display:none}
-.chip{flex-shrink:0;background:#fff;border-radius:20px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;box-shadow:0 2px 8px rgba(107,91,149,.1)}
+.chip{flex-shrink:0;background:#fff;border-radius:20px;padding:8px 14px;display:flex;flex-direction:column;align-items:center;box-shadow:0 2px 8px rgba(104,120,192,.1)}
 .chip .cv{font-size:22px;font-weight:900;line-height:1}
-.chip .cl{font-size:10px;font-weight:700;color:#9B8EAB;margin-top:2px}
+.chip .cl{font-size:10px;font-weight:700;color:#8090B8;margin-top:2px}
 .chip.new .cv{color:#5EBD7E}.chip.gone .cv{color:#E05555}
 .chip.up .cv{color:#4DA6D8}.chip.down .cv{color:#F7A35C}
-.chip.cost .cv{font-size:14px;color:#6B5B95}
+.chip.cost .cv{font-size:14px;color:#6878C0}
 /* SEARCH */
 .search-wrap{padding:12px 16px 8px}
-.search-box{display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 2px 8px rgba(107,91,149,.08)}
+.search-box{display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:10px 14px;box-shadow:0 2px 8px rgba(104,120,192,.08)}
 .search-box input{flex:1;border:none;outline:none;font-size:14px;font-family:inherit;color:#2d2040;background:transparent}
 /* CARDS */
 .list{padding:0 16px;display:flex;flex-direction:column;gap:10px}
-.card{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 2px 10px rgba(107,91,149,.08);border-left:4px solid #ddd;animation:fadeUp .2s ease both}
+.card{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 2px 10px rgba(104,120,192,.08);border-left:4px solid #ddd;animation:fadeUp .2s ease both}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .card.new{border-color:#5EBD7E}.card.gone{border-color:#E05555}
 .card.up{border-color:#4DA6D8}.card.down{border-color:#F7A35C}.card.same{border-color:#C9A8E0}
 .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
 .card-name{font-size:15px;font-weight:800;color:#2d2040;line-height:1.3}
-.card-lot{font-size:11px;color:#9B8EAB;margin-top:2px}
+.card-lot{font-size:11px;color:#8090B8;margin-top:2px}
 .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:800;flex-shrink:0}
 .badge.new{background:#d4f5e3;color:#217a4a}.badge.gone{background:#fde0e0;color:#a02020}
 .badge.up{background:#daedf7;color:#1a6090}.badge.down{background:#fdecd8;color:#9a4a10}.badge.same{background:#ede8f5;color:#7060a0}
 .card-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
 .stat{display:flex;flex-direction:column;align-items:center;background:#f7f3fb;border-radius:8px;padding:6px 10px;min-width:60px}
 .stat .sv{font-size:15px;font-weight:900;color:#2d2040}
-.stat .sl{font-size:10px;color:#9B8EAB;font-weight:700;margin-top:1px}
+.stat .sl{font-size:10px;color:#8090B8;font-weight:700;margin-top:1px}
 .stat.diff-pos .sv{color:#0f7a38}.stat.diff-neg .sv{color:#b02020}
 .stat.cost-diff .sv{font-size:13px}
-.warehouse{font-size:11px;color:#9B8EAB;margin-top:6px}
-.empty{text-align:center;padding:60px 20px;color:#9B8EAB}
+.warehouse{font-size:11px;color:#8090B8;margin-top:6px}
+.empty{text-align:center;padding:60px 20px;color:#8090B8}
 .empty .ei{font-size:40px;margin-bottom:10px}
-.count-bar{text-align:right;padding:6px 16px 4px;font-size:12px;color:#9B8EAB;font-weight:700}
+.count-bar{text-align:right;padding:6px 16px 4px;font-size:12px;color:#8090B8;font-weight:700}
 </style>
 </head>
 <body>
@@ -3279,50 +3350,50 @@ function ghSetPriceConfig(){
 
   const overlay = document.createElement('div');
   overlay.id = 'ghPriceConfigOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(61,44,78,.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(30,42,80,.5);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;';
   overlay.innerHTML = `
-    <div style="background:white;border-radius:20px;padding:28px 32px;width:min(480px,95vw);box-shadow:0 20px 60px rgba(107,91,149,.3);">
+    <div style="background:white;border-radius:20px;padding:28px 32px;width:min(480px,95vw);box-shadow:0 20px 60px rgba(104,120,192,.3);">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
         <span style="font-size:26px;">🔑</span>
         <div>
-          <h3 style="font-size:15px;font-weight:900;color:#6B5B95;margin:0;">GitHub 備份設定</h3>
-          <p style="font-size:11px;color:#9B8EAB;margin:0;">設定一次後，直接按「備份」即可上傳</p>
+          <h3 style="font-size:15px;font-weight:900;color:#6878C0;margin:0;">GitHub 備份設定</h3>
+          <p style="font-size:11px;color:#8090B8;margin:0;">設定一次後，直接按「備份」即可上傳</p>
         </div>
         <button onclick="document.getElementById('ghPriceConfigOverlay').remove()"
-          style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:#9B8EAB;">✕</button>
+          style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:#8090B8;">✕</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <div>
-          <label style="font-size:11px;font-weight:700;color:#9B8EAB;display:block;margin-bottom:3px;">GitHub Token <span style="color:#F08080">*</span></label>
+          <label style="font-size:11px;font-weight:700;color:#8090B8;display:block;margin-bottom:3px;">GitHub Token <span style="color:#F08080">*</span></label>
           <input id="ghpc_token" type="password" value="${cur.token}" placeholder="ghp_xxxxxxxxxxxx"
-            style="width:100%;border:2px solid #EDD8F0;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">
+            style="width:100%;border:2px solid #DCE6F8;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <div>
-            <label style="font-size:11px;font-weight:700;color:#9B8EAB;display:block;margin-bottom:3px;">使用者名稱</label>
+            <label style="font-size:11px;font-weight:700;color:#8090B8;display:block;margin-bottom:3px;">使用者名稱</label>
             <input id="ghpc_owner" type="text" value="${cur.owner}" placeholder="your-username"
-              style="width:100%;border:2px solid #EDD8F0;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">
+              style="width:100%;border:2px solid #DCE6F8;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">
           </div>
           <div>
-            <label style="font-size:11px;font-weight:700;color:#9B8EAB;display:block;margin-bottom:3px;">Repository</label>
+            <label style="font-size:11px;font-weight:700;color:#8090B8;display:block;margin-bottom:3px;">Repository</label>
             <input id="ghpc_repo" type="text" value="${cur.repo}" placeholder="my-repo"
-              style="width:100%;border:2px solid #EDD8F0;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">
+              style="width:100%;border:2px solid #DCE6F8;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">
           </div>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:700;color:#9B8EAB;display:block;margin-bottom:3px;">檔案路徑（含檔名）</label>
+          <label style="font-size:11px;font-weight:700;color:#8090B8;display:block;margin-bottom:3px;">檔案路徑（含檔名）</label>
           <input id="ghpc_path" type="text" value="${cur.path}" placeholder="prices.json"
-            style="width:100%;border:2px solid #EDD8F0;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">
+            style="width:100%;border:2px solid #DCE6F8;border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">
         </div>
-        <div style="background:#F5F0FF;border-radius:10px;padding:10px 12px;font-size:11px;color:#6B5B95;line-height:1.7;">
+        <div style="background:#F5F0FF;border-radius:10px;padding:10px 12px;font-size:11px;color:#6878C0;line-height:1.7;">
           💡 Token 需要 <b>repo</b> 權限。設定完成後按「備份」按鈕即可直接上傳，無需再填表單。
         </div>
       </div>
       <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
         <button onclick="document.getElementById('ghPriceConfigOverlay').remove()"
-          style="padding:9px 18px;border-radius:12px;border:2px solid #EDD8F0;background:#EDD8F0;color:#3D2C4E;font-weight:700;cursor:pointer;font-family:inherit;">取消</button>
+          style="padding:9px 18px;border-radius:12px;border:2px solid #DCE6F8;background:#DCE6F8;color:#2A3870;font-weight:700;cursor:pointer;font-family:inherit;">取消</button>
         <button onclick="ghSavePriceConfig()"
-          style="padding:9px 18px;border-radius:12px;border:none;background:#6B5B95;color:white;font-weight:700;cursor:pointer;font-family:inherit;">✅ 儲存設定</button>
+          style="padding:9px 18px;border-radius:12px;border:none;background:#6878C0;color:white;font-weight:700;cursor:pointer;font-family:inherit;">✅ 儲存設定</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -3553,7 +3624,7 @@ const APPS_SCRIPT_CODE = [
   '    if (allRows.length > 0) {',
   '      sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);',
   '    }',
-  '    var headerColor = data.headerColor || "#6B5B95";',
+  '    var headerColor = data.headerColor || "#6878C0";',
   '    var headerRange = sheet.getRange(1, 1, 1, data.headers.length);',
   '    headerRange.setBackground(headerColor);',
   '    headerRange.setFontColor("#FFFFFF");',
@@ -4282,7 +4353,7 @@ async function previewMonthly() {
             </div>
             <div class="overflow-auto"><table id="previewTable" style="font-size:0.78rem;">
                 <thead>
-                <tr style="background:#f5f0ff; font-weight:800; font-size:0.75rem; color:#764ba2;">`;
+                <tr style="background:#EEF3FD; font-weight:800; font-size:0.75rem; color:#764ba2;">`;
 
         // 合計列
         const numericSumCols = {

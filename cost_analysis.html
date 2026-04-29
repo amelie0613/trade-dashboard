@@ -27,7 +27,7 @@
     }
 
     .header {
-      background: linear-gradient(135deg, #1B3F6E 0%, #2557A5 100%);
+      background: linear-gradient(135deg, #1E2A50 0%, #6878C0 100%);
       color: white;
       padding: 12px 18px;
       display: flex;
@@ -74,7 +74,7 @@
     .scope-card {
       background: #fff;
       border: 1px solid #d0d9e8;
-      border-top: 4px solid #2557A5;
+      border-top: 4px solid #6878C0;
       border-radius: 8px;
       padding: 10px 12px;
       display: flex;
@@ -108,7 +108,7 @@
     .scope-card-total {
       font-size: 16px;
       font-weight: 900;
-      color: #2557A5;
+      color: #6878C0;
       text-align: right;
       white-space: nowrap;
     }
@@ -136,7 +136,7 @@
 
     .scope-card-row-value {
       font-weight: 700;
-      color: #2557A5;
+      color: #6878C0;
       text-align: right;
     }
 
@@ -149,7 +149,7 @@
     .table-title {
       font-size: 15px;
       font-weight: 700;
-      color: #2557A5;
+      color: #6878C0;
       padding: 8px 12px;
       background: #f0f4f9;
       border-radius: 7px;
@@ -157,7 +157,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      border-left: 4px solid #2557A5;
+      border-left: 4px solid #6878C0;
     }
 
     .table-wrapper {
@@ -173,7 +173,7 @@
     }
 
     th {
-      background: #2557A5;
+      background: #6878C0;
       color: white;
       padding: 8px 5px;
       text-align: center;
@@ -195,14 +195,14 @@
     tr.child-row  td { background: #fafbfc; color: #444; }
     tr.total-row  td { background: #dce8f5; font-weight: 700; color: #1a1a1a; }
 
-    .currency      { color: #2557A5; font-weight: 700; }
+    .currency      { color: #6878C0; font-weight: 700; }
     .expired-value { color: #DC2626 !important; font-weight: 700; }
 
     .expand-btn {
       cursor: pointer;
       user-select: none;
       font-weight: bold;
-      color: #2557A5;
+      color: #6878C0;
       margin-right: 4px;
     }
 
@@ -250,8 +250,8 @@
       thead       { display: table-header-group; }
       tr          { page-break-inside: avoid; break-inside: avoid; }
 
-      .header          { background: linear-gradient(135deg, #1B3F6E 0%, #2557A5 100%) !important; }
-      th               { background: #2557A5 !important; color: white !important; }
+      .header          { background: linear-gradient(135deg, #1B3F6E 0%, #6878C0 100%) !important; }
+      th               { background: #6878C0 !important; color: white !important; }
       tr.parent-row td { background: #f0f4f9 !important; }
       tr.total-row  td { background: #dce8f5 !important; }
       .table-title     { background: #f0f4f9 !important; }
@@ -286,9 +286,9 @@
               <th style="width:28%;">核算範圍 / 倉庫</th>
               <th style="width:15%;">全部成本</th>
               <th style="width:14%;">正常</th>
-              <th style="width:14%; color:#ffcccc;">過期品</th>
-              <th style="width:15%;">長期在庫</th>
-              <th style="width:14%;">即將到期</th>
+              <th style="width:14%; background:#8B2020; color:#FFD0D0;">⚠ 過期品</th>
+              <th style="width:15%; background:#7A4A0A; color:#FFDCA0;">⏳ 長期在庫</th>
+              <th style="width:14%; background:#7A5500; color:#FFE899;">🔔 即將到期</th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>
@@ -397,7 +397,7 @@ function renderScopeCards() {
   grid.innerHTML = '';
   if (!costData.length) return;
 
-  const borderColors = ['#2557A5','#1B5B9E','#2E6CB8','#3575C0','#4A6FA5','#3A5E8C'];
+  const borderColors = ['#6878C0','#1B5B9E','#2E6CB8','#3575C0','#4A6FA5','#3A5E8C'];
 
   costData.forEach((scope, i) => {
     const color = borderColors[i % borderColors.length];
