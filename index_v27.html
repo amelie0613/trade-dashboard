@@ -113,6 +113,10 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .cc.p{border-left:3px solid var(--gold);}
 .cc.a{border-left:3px solid var(--jade);}
 .cc.r{border-left:3px solid var(--coral);}
+.cc.v{border-left:3px solid #94a3b8;opacity:.6;}
+.cc.v .cc-name{text-decoration:line-through;color:var(--muted);}
+.cc.v .cn-val{color:#94a3b8 !important;text-decoration:line-through;}
+.bv{background:#f1f5f9;color:#64748b;border:0.5px solid #cbd5e1;}
 .cc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
 .cc-id{font-size:11px;color:var(--muted);letter-spacing:.04em;margin-bottom:3px;}
 .cc-name{font-size:15px;font-weight:700;color:var(--ink);line-height:1.3;}
@@ -2029,8 +2033,9 @@ function updateAlert(){
 // 總覽 Dashboard（含案件列表）
 function renderDash(){
   var tB=0,tS=0,tP=0;
-  // ★ 預估金額只納入老闆已審核同意的案件
+  // ★ 預估金額只納入老闆已審核同意且未作廢的案件
   rows.forEach(function(r){
+    if(r.voided) return;
     var status = (r[F.status]||r['老闆已同意']||'').toString();
     var approved = status==='是' || status.indexOf('同意')>=0;
     if(!approved) return;
@@ -2078,9 +2083,10 @@ function renderDash(){
 function makeCard(r,showApprove){
   var fillWait=(r[F.fillStatus]||'')==='待補填';
   var pend=isPend(r),appr=isAppr(r);
-  var sc2=fillWait?'p':pend?'p':appr?'a':'r';
-  var bc=fillWait?'bp':pend?'bp':appr?'ba':'br';
-  var sl=fillWait?'待補填':pend?'待審核':appr?'已同意':'退回';
+  var isVoided=!!(r.voided);
+  var sc2=isVoided?'v':fillWait?'p':pend?'p':appr?'a':'r';
+  var bc=isVoided?'bv':fillWait?'bp':pend?'bp':appr?'ba':'br';
+  var sl=isVoided?'已作廢':fillWait?'待補填':pend?'待審核':appr?'已同意':'退回';
   var m=calcMargin(r);
   var mgStr=m.isPurchOnly?'—':(m.margin!=='—'?m.margin+'%':'—');
   var rowNum=r._row;
@@ -2572,6 +2578,7 @@ function renderDaily(){
 
   // 1. Firebase 預估期別
   (rows||[]).forEach(function(r){
+    if(r.voided) return;
     var status = (r[F.status]||r['老闆已同意']||'').toString();
     var approved = status==='是'||status.indexOf('同意')>=0;
     if(!approved) return;
@@ -2823,6 +2830,7 @@ function _renderDayDetail(){
 
   // Firebase 期別
   (rows||[]).forEach(function(r){
+    if(r.voided) return;
     var status = (r[F.status]||r['老闆已同意']||'').toString();
     var approved = status==='是'||status.indexOf('同意')>=0;
     if(!approved) return;
@@ -3042,6 +3050,7 @@ function showD(rowNum){
 
   var m=calcMargin(r);
   var h='';
+  var isVoided=!!(r.voided);
   var caseType3   = (r[F.type]||'').toString().trim();
   var isPurchOnly3 = caseType3==='採購';
   var isSellOnly3  = caseType3==='銷售';
@@ -3379,7 +3388,11 @@ function showD(rowNum){
       +'</div>'
 
       +'<button class="btn-edit-save" id="ebtn-'+rowNum+'" onclick="doEdit('+rq+')" style="margin-top:10px;">💾 儲存修改</button>'
-      +'<button onclick="confirmDel('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">🗑️ 刪除此案件</button>'
+      +(isVoided
+        ? '<button onclick="doUnvoid('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#f0fdf4;color:#16a34a;border:0.5px solid #86efac;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">↩ 恢復此案件</button>'
+        : '<button onclick="confirmVoid('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#fef9c3;color:#92400e;border:0.5px solid #fde68a;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">🚫 作廢此案件</button>'
+      )
+      +'<button onclick="confirmDel('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">🗑️ 刪除此案件</button>'
       +'</div>';
   }
 
@@ -4252,6 +4265,47 @@ function doEdit(rowNum){
     onEditDone();
   }
 }
+// 作廢
+function confirmVoid(rowNum){
+  var r=rows.find(function(x){return x._row===rowNum;});
+  var name=r?g(r,'name'):'Row'+rowNum;
+  if(!confirm('確定要作廢「'+name+'」嗎？\n\n作廢後：\n・案件記錄保留，不會刪除\n・相關應收／應付款項將從帳務中移除\n\n若要還原，可再次開啟案件點「恢復」。')){return;}
+  doVoid(rowNum, name, true);
+}
+
+function doVoid(rowNum, name, shouldClose){
+  var r=rows.find(function(x){return x._row===rowNum;});
+  var formId=r?(r[F.formId]||r['表單編號']||r._firebaseKey||''):'';
+  if(!formId){toast('❌ 找不到案件 ID','#dc2626');return;}
+
+  updateFirebase(formId, {voided:true, voidedAt:new Date().toISOString(), voidedBy:(curUser&&curUser.name)||''}, function(ok){
+    if(!ok){toast('❌ 作廢失敗','#dc2626');return;}
+    // 更新記憶體內資料
+    if(r) r.voided=true;
+    addLog('作廢案件', curUser.name, name, '', formId);
+    if(shouldClose) closeD();
+    onLoad();
+    toast('🚫 案件已作廢，款項已移除','#92400e');
+  });
+}
+
+function doUnvoid(rowNum){
+  var r=rows.find(function(x){return x._row===rowNum;});
+  var name=r?g(r,'name'):'Row'+rowNum;
+  var formId=r?(r[F.formId]||r['表單編號']||r._firebaseKey||''):'';
+  if(!formId){toast('❌ 找不到案件 ID','#dc2626');return;}
+  if(!confirm('確定要恢復「'+name+'」嗎？\n恢復後款項將重新出現在帳務中。')){return;}
+
+  updateFirebase(formId, {voided:false, voidedAt:'', voidedBy:''}, function(ok){
+    if(!ok){toast('❌ 恢復失敗','#dc2626');return;}
+    if(r) r.voided=false;
+    addLog('恢復案件', curUser.name, name, '', formId);
+    closeD();
+    onLoad();
+    toast('✅ 案件已恢復','#16a34a');
+  });
+}
+
 // 刪除
 function confirmDel(rowNum){
   var r=rows.find(function(x){return x._row===rowNum;});
@@ -4901,6 +4955,7 @@ function buildCombinedPayments() {
   var today = new Date(); today.setHours(0,0,0,0);
   var fbItems = [];
   (rows || []).forEach(function(r) {
+    if(r.voided) return;
     var bossStatus  = (r[F.status]||'').toString();
     var bossOk = bossStatus==='是'||bossStatus.indexOf('同意')>=0;
     if (!bossOk) return;
@@ -5482,6 +5537,7 @@ function _buildTransferItems() {
   _transferItems = [];
 
   rows.forEach(function(r) {
+    if(r.voided) return;
     // 老闆已審核同意
     var bossStatus = (r[F.status] || '').toString();
     var bossApproved = bossStatus === '是' || bossStatus.indexOf('同意') >= 0;
