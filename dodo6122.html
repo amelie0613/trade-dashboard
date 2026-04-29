@@ -1092,14 +1092,30 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <span class="tbl-count" id="count-all">0 筆</span>
               </div>
               <div class="tbl-scroll" id="tbl-all-wrap">
-                <div class="upload-zone" id="uploadZone"
-                     onclick="document.getElementById('fileInput').click()"
-                     ondragover="event.preventDefault();this.classList.add('drag')"
-                     ondragleave="this.classList.remove('drag')"
-                     ondrop="handleDrop(event)">
-                  <div class="icon">📂</div>
-                  <h3>拖曳或點擊上傳庫存 xlsx</h3>
-                  <p>支援 ERP 匯出的標準庫存格式</p>
+                <div id="uploadZone" style="display:flex;align-items:stretch;gap:0;margin:20px;border:2px dashed var(--border);border-radius:12px;overflow:hidden;transition:.2s;"
+                     ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='var(--accent-light)'"
+                     ondragleave="this.style.borderColor='';this.style.background=''"
+                     ondrop="this.style.borderColor='';this.style.background='';handleDrop(event)">
+                  <!-- Option A: Upload xlsx -->
+                  <div onclick="document.getElementById('fileInput').click()"
+                       style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 20px;cursor:pointer;transition:.2s;"
+                       onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
+                    <div style="font-size:34px;">📂</div>
+                    <h3 style="font-size:14px;font-weight:700;color:var(--text);">拖曳或點擊上傳庫存 xlsx</h3>
+                    <p style="font-size:12px;color:var(--muted);">支援 ERP 匯出的標準庫存格式</p>
+                  </div>
+                  <!-- Divider -->
+                  <div style="width:1px;background:var(--border);flex-shrink:0;"></div>
+                  <div style="display:flex;align-items:center;padding:0 14px;color:var(--muted);font-size:13px;font-weight:700;flex-shrink:0;">或</div>
+                  <div style="width:1px;background:var(--border);flex-shrink:0;"></div>
+                  <!-- Option B: Load from Sheets -->
+                  <div onclick="loadFromSheets()"
+                       style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:48px 20px;cursor:pointer;transition:.2s;"
+                       onmouseover="this.style.background='var(--accent-light)'" onmouseout="this.style.background=''">
+                    <div style="font-size:34px;">📊</div>
+                    <h3 style="font-size:14px;font-weight:700;color:var(--text);">從 Google Sheets 讀取</h3>
+                    <p style="font-size:12px;color:var(--muted);">使用已上傳的試算表資料</p>
+                  </div>
                 </div>
               </div>
               <div class="tbl-footer" id="footer-all" style="display:none">
@@ -3614,9 +3630,47 @@ async function writeToSheets(){
 }
 
 const APPS_SCRIPT_CODE = [
-  'function doGet(e) { return handleRequest(e); }',
+  'function doGet(e) {',
+  '  if (e.parameter && e.parameter.action === "read") { return readSheetData(e); }',
+  '  return handleRequest(e);',
+  '}',
   'function doPost(e) { return handleRequest(e); }',
   '',
+  '// ─── READ: 回傳全部庫存工作表資料 ───────────────────────────────',
+  'function readSheetData(e) {',
+  '  try {',
+  '    var sheetId   = (e.parameter && e.parameter.sheetId)   || "";',
+  '    var sheetName = (e.parameter && e.parameter.sheetName) || "全部庫存";',
+  '    var ss = sheetId ? SpreadsheetApp.openById(sheetId) : SpreadsheetApp.getActiveSpreadsheet();',
+  '    var sheet = ss.getSheetByName(sheetName);',
+  '    if (!sheet) {',
+  '      return ContentService.createTextOutput(JSON.stringify({error:"找不到工作表: " + sheetName}))',
+  '        .setMimeType(ContentService.MimeType.JSON);',
+  '    }',
+  '    var data = sheet.getDataRange().getValues();',
+  '    if (data.length < 2) {',
+  '      return ContentService.createTextOutput(JSON.stringify({success:true, rows:[]}))',
+  '        .setMimeType(ContentService.MimeType.JSON);',
+  '    }',
+  '    var headers = data[0].map(String);',
+  '    var rows = [];',
+  '    for (var i = 1; i < data.length; i++) {',
+  '      var row = data[i];',
+  '      var empty = row.every(function(c){ return c === "" || c === null || c === undefined; });',
+  '      if (empty) continue;',
+  '      var obj = {};',
+  '      headers.forEach(function(h, j){ obj[h] = row[j] === null ? "" : String(row[j]); });',
+  '      rows.push(obj);',
+  '    }',
+  '    return ContentService.createTextOutput(JSON.stringify({success:true, rows:rows}))',
+  '      .setMimeType(ContentService.MimeType.JSON);',
+  '  } catch(err) {',
+  '    return ContentService.createTextOutput(JSON.stringify({error: err.message}))',
+  '      .setMimeType(ContentService.MimeType.JSON);',
+  '  }',
+  '}',
+  '',
+  '// ─── WRITE ──────────────────────────────────────────────────────',
   'function handleRequest(e) {',
   '  try {',
   '    var raw = "";',
@@ -3659,6 +3713,90 @@ const APPS_SCRIPT_CODE = [
   '  }',
   '}'
 ].join('\n')
+
+// ─── LOAD FROM GOOGLE SHEETS ────────────────────────────────────
+function parseCSV(text){
+  const rows = [];
+  const lines = text.split(/\r?\n/);
+  for(const line of lines){
+    if(!line.trim()) continue;
+    const row = [];
+    let inQ = false, cell = '';
+    for(let i = 0; i < line.length; i++){
+      const ch = line[i];
+      if(ch==='"'){ if(inQ && line[i+1]==='"'){cell+='"';i++;} else inQ=!inQ; }
+      else if(ch===',' && !inQ){ row.push(cell); cell=''; }
+      else cell+=ch;
+    }
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows;
+}
+
+async function loadFromSheets(){
+  const url = (localStorage.getItem('sheetsScriptUrl')||'').trim();
+  if(!url){
+    showToast('❌ 請先在系統設定填入 Apps Script 網址');
+    navSwitch('settings');
+    return;
+  }
+  showLoader(true);
+  showToast('⏳ 正在從 Google Sheets 讀取資料…', 4000);
+  try{
+    const readUrl = url + '?action=read&sheetId=' + encodeURIComponent(SHEET_ID) + '&sheetName=' + encodeURIComponent('全部庫存');
+    const resp = await fetch(readUrl, { redirect:'follow' });
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+
+    // Apps Script sometimes wraps JSON in /*O_o*/ ... parse carefully
+    const jsonStart = text.indexOf('{'), jsonEnd = text.lastIndexOf('}');
+    const jsonStr = jsonStart>=0 ? text.slice(jsonStart, jsonEnd+1) : text;
+    const result = JSON.parse(jsonStr);
+
+    if(result.error) throw new Error(result.error);
+    if(!result.success || !result.rows?.length){
+      showToast('⚠️ Google Sheets 的「全部庫存」工作表目前沒有資料');
+      return;
+    }
+
+    // ── Column mapping: Sheets header → internal field name ──────
+    const COL = {
+      '核算組織':'核算組織名稱', '產品類別':'產品類別',
+      '產品代碼':'產品代碼',     '產品名稱':'產品名稱',
+      '產品規格':'產品規格',     '庫存數量':'庫存數量',
+      '單位':'基本單位名稱',     '倉庫名稱':'倉庫名稱',
+      '批號':'批號',             '有效期至':'有效期至',
+    };
+
+    const raw = result.rows.map(r => {
+      const mapped = {};
+      Object.entries(COL).forEach(([sh, internal]) => {
+        mapped[internal] = String(r[sh]||'').trim();
+      });
+      // Numeric fields
+      mapped['庫存數量'] = parseFloat(String(r['庫存數量']||'').replace(/,/g,''))||0;
+      // Restore price & scope into prices object
+      const scope = String(r['存貨核算範圍名稱']||'').trim();
+      const price = parseFloat(String(r['單價']||'').replace(/[$,]/g,''))||0;
+      if(scope || price){
+        const k = `${mapped['產品名稱']}__${mapped['批號']}`;
+        if(k !== '__') prices[k] = { price, priceSource:'Sheets', scope };
+      }
+      return mapped;
+    });
+
+    processData(raw);
+    showToast(`✅ 從 Google Sheets 載入 ${raw.length} 筆資料`);
+
+  }catch(err){
+    console.error(err);
+    const hint = err.message.includes('fetch') ? '請確認 Apps Script 已更新並重新部署' : err.message;
+    showToast('❌ 讀取失敗：' + hint, 5000);
+  }finally{
+    showLoader(false);
+  }
+}
 
 function copyAppsScript(){
   navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(()=>{
