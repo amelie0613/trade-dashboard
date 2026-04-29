@@ -1699,7 +1699,7 @@ try{
 // Populate settings fields from localStorage
 function initSettingsFields(){
   try{
-    const url = localStorage.getItem('sheetsScriptUrl')||'';
+    const url = localStorage.getItem('sheetsScriptUrl')||DEFAULT_SHEETS_SCRIPT_URL;
     const el = document.getElementById('settings-sheets-url');
     if(el && url) el.value = url;
     // sync into sheetsPanel input if exists
@@ -1800,6 +1800,7 @@ document.getElementById('enableEmail').addEventListener('change',function(){
 
 // ─── CONFIG ──────────────────────────────────────────────────────
 const SHEET_ID = '1vAjncE2dWp95g0tCzOcprCgu3caWPPr6qw42Hb4xyMI';
+const DEFAULT_SHEETS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcHHwc6iAxtDrq2f3ahNDzN2RPm_mtCD1bCLgVXFlGJIoxcqdb3sQSAXV_foUssiTZ/exec';
 
 // ─── STATE ────────────────────────────────────────────────────
 let allData = [];       // 原始資料
@@ -3532,7 +3533,7 @@ async function ghLoadPrices(){
 // ─── GOOGLE SHEETS ────────────────────────────────────────────
 function openSheetsPanel(){
   if(!allData.length){ showToast('❌ 請先載入庫存資料'); return; }
-  const saved = localStorage.getItem('sheetsScriptUrl')||'';
+  const saved = localStorage.getItem('sheetsScriptUrl')||DEFAULT_SHEETS_SCRIPT_URL;
   const urlEl = document.getElementById('sheetsUrl');
   if(urlEl && saved) urlEl.value = saved;
   document.getElementById('sheetsPanel').style.display = 'block';
@@ -3569,10 +3570,10 @@ function buildExportRows(scope){
 
 async function writeToSheets(){
   const urlEl = document.getElementById('sheetsUrl');
-  const url   = (urlEl?.value || '').trim() || (localStorage.getItem('sheetsScriptUrl')||'').trim();
+  const url   = (urlEl?.value || '').trim() || (localStorage.getItem('sheetsScriptUrl')||DEFAULT_SHEETS_SCRIPT_URL).trim();
   const statusEl = document.getElementById('sheetsStatus');
   const btn      = document.getElementById('sheetsSaveBtn');
-  if(!url){ statusEl.textContent = '❌ 請填入 Apps Script 網址'; statusEl.style.color='var(--red)'; return; }
+  if(!url){ statusEl.textContent = '❌ Apps Script 網址未設定'; statusEl.style.color='var(--red)'; return; }
 
   const sheetId   = document.getElementById('sheetId')?.value?.trim() || '';
   const sendEmail = document.getElementById('enableEmail')?.checked || false;
@@ -3745,9 +3746,9 @@ function parseCSV(text){
 }
 
 async function loadFromSheets(){
-  const url = (localStorage.getItem('sheetsScriptUrl')||'').trim();
+  const url = (localStorage.getItem('sheetsScriptUrl')||DEFAULT_SHEETS_SCRIPT_URL).trim();
   if(!url){
-    showToast('❌ 請先在系統設定填入 Apps Script 網址');
+    showToast('❌ Apps Script 網址未設定');
     navSwitch('settings');
     return;
   }
