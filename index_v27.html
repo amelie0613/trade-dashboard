@@ -4819,8 +4819,9 @@ function forceRefreshCSV() {
       } else {
         toast('✅ 資料已更新', '#16a34a');
       }
-    });
-  });
+      }); // loadPaymentStatusFromFirebase
+    }); // loadPaymentsFromSheet
+  }); // loadManualPaymentsFromFirebase
 }
 
 // ══════════════════════════════════════════════════════
