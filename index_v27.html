@@ -749,8 +749,8 @@ var CONFIG = {
   SCRIPT:           'https://script.google.com/macros/s/AKfycbyXxIvnOZM4Oeq_TkIB8RI-G3hYJAULShVyvezOACjcTw1XcK8kAMUrx0R8Te-q7HrdRw/exec',
   CSV:              'https://docs.google.com/spreadsheets/d/e/2PACX-1vTJ6nBKr5P1RFidrD6V_7MRLRraKBrrf3CmT8StmKm4uPYL19HCE0zYHjJmY1E0TI-NYWR7AvJFu8RQ/pub?gid=357150087&single=true&output=csv',
   PAYMENTS_CSV:     'https://docs.google.com/spreadsheets/d/1OVHBX3ufjBIGBhdkRWHixysyvvlIviM1-YigrMVtbE4/export?format=csv',
-  CSV_CACHE_KEY:     'csv_payments_cache',
-  CSV_CACHE_TIME_KEY:'csv_payments_cache_time',
+  CSV_CACHE_KEY:     'csv_payments_cache_v2',  // ★ v27：bump forces ISO date re-parse
+  CSV_CACHE_TIME_KEY:'csv_payments_cache_time_v2',
   CSV_CACHE_TTL:     5 * 60 * 1000,   // 5 分鐘（ms）
   PAY_PAGE_SIZE:     10,
   CASES_CACHE_TTL:   30 * 60 * 1000,  // 30 分鐘（ms）
@@ -4530,6 +4530,14 @@ function parsePaymentCSV(csv) {
     var isEst     = (classify==='預估應付'||classify==='預估應收'||status==='預估');
     // ★ v27：direction 以「分類」欄為主要判斷依據，狀態=應收為次要
     var direction = (classify.indexOf('應收')>=0 || status==='應收') ? 'receivable' : 'payable';
+    // ★ v27 fix：統一轉為 ISO YYYY-MM-DD（補零），避免 GSheets "2026/4/7" → "2026-4-7" 與 "2026-04-07" 不匹配
+    var dueDateISO = '';
+    if (dueDate && !isNaN(dueDate.getTime())) {
+      var _dy = dueDate.getFullYear();
+      var _dm = dueDate.getMonth() + 1;
+      var _dd = dueDate.getDate();
+      dueDateISO = _dy + '-' + (_dm<10?'0':'')+_dm + '-' + (_dd<10?'0':'')+_dd;
+    }
     var amtList = [];
     if (ntd) amtList.push({cur:'NTD',amt:ntd});
     if (usd) amtList.push({cur:'USD',amt:usd});
@@ -4544,7 +4552,7 @@ function parsePaymentCSV(csv) {
         dept:      dept,
         status:    status,
         classify:  classify,       // ★ v27：新增分類欄
-        dueDate:   dateStr ? dateStr.replace(/\//g,'-') : dateStr,
+        dueDate:   dueDateISO,
         category:  cat,
         note:      note,
         cur:       a.cur,
