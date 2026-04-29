@@ -956,7 +956,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
       <div class="header-right">
         <button onclick="ghLoadPrices()" title="從 GitHub 載入單價" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 GitHub 載入</button>
         <button onclick="loadFromSheets()" title="從 Google Sheets 讀取資料" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📊 從 Sheets 讀取</button>
-        <button onclick="openSheetsPanel()" title="寫入 Google Sheets" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">☁️ 寫入 Sheets</button>
+        <button onclick="openWriteSheetsMenu()" title="寫入 Google Sheets" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">☁️ 寫入 Sheets</button>
         <div class="header-date" id="headerDate"></div>
         <div class="header-avatar">D</div>
       </div>
@@ -1004,9 +1004,9 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
         <!-- Quick Actions (output reports only) -->
         <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
-          <button class="btn btn-ghost" onclick="exportCostAnalysis()">📊 成本分析報表</button>
-          <button class="btn btn-ghost" onclick="exportInventoryReport()">📋 明細報表</button>
-          <button class="btn btn-ghost" onclick="exportExcel()">📤 匯出 Excel</button>
+          <button class="btn btn-ghost" onclick="exportCostAnalysis()" title="各倉庫存貨成本分析報表">📊 倉庫成本分析</button>
+          <button class="btn btn-ghost" onclick="exportInventoryReport()" title="各倉庫庫存狀況詳細報表">📋 倉庫狀況分析報表</button>
+          <button class="btn btn-ghost" onclick="exportExcel()" title="匯出庫存 Excel">📤 匯出 Excel</button>
         </div>
 
         <!-- Scope Cost Table (moved from inventory) -->
@@ -1054,18 +1054,39 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         <input type="hidden" id="soonDays" value="210">
         <input type="hidden" id="longYears" value="3">
 
-        <!-- Control Bar (export buttons only) -->
+        <!-- Control Bar (output / sheets) -->
         <div class="control-bar" style="justify-content:flex-end;flex-wrap:wrap;gap:8px;">
-          <!-- 庫存操作 -->
-          <button class="btn btn-green" onclick="exportExcel()">📤 匯出 Excel</button>
-          <button class="btn btn-blue" onclick="exportCostAnalysis()">📊 成本分析</button>
-          <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;">📋 明細報表</button>
-          <button class="btn btn-primary" onclick="openSheetsPanel()">☁️ 寫入 Sheets</button>
-          <!-- 差異比較操作（有差異資料時顯示） -->
-          <div id="dashDiffBtns" style="display:none;border-left:2px solid var(--border);padding-left:10px;display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-green" onclick="exportDiffExcel()">📤 匯出差異表</button>
-            <button class="btn btn-blue" onclick="exportDiffReport()" style="background:#1D4ED8;">📋 差異明細報表</button>
-            <button class="btn btn-primary" onclick="writeDiffToSheets()">☁️ 差異寫入 Sheets</button>
+          <button class="btn btn-green" onclick="exportExcel()" title="匯出庫存 Excel">📤 匯出 Excel</button>
+          <button class="btn btn-blue" onclick="exportCostAnalysis()" title="各倉庫存貨成本分析報表">📊 倉庫成本分析</button>
+          <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;" title="各倉庫庫存狀況詳細報表">📋 倉庫狀況分析報表</button>
+          <!-- 差異明細報表：有差異資料時顯示 -->
+          <button id="dashDiffReportBtn" class="btn btn-blue" onclick="exportDiffReport()" style="display:none;background:#2563EB;" title="差異比較明細報表">📋 差異明細報表</button>
+          <!-- 合併寫入 Sheets -->
+          <button class="btn btn-primary" onclick="openWriteSheetsMenu()" title="寫入 Google Sheets">☁️ 寫入 Sheets</button>
+        </div>
+
+        <!-- 寫入 Sheets 選擇彈窗 -->
+        <div id="writeSheetsMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;align-items:center;justify-content:center;">
+          <div style="background:#fff;border-radius:16px;padding:28px 32px;min-width:320px;box-shadow:0 8px 40px rgba(30,42,80,0.18);">
+            <h3 style="font-size:15px;font-weight:900;color:var(--text);margin-bottom:6px;">☁️ 寫入 Google Sheets</h3>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:20px;">請選擇要寫入的資料來源：</p>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button onclick="closeWriteSheetsMenu();openSheetsPanel();"
+                style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
+                onmouseover="this.style.background='var(--accent-light)';this.style.borderColor='var(--accent)'"
+                onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
+                📋 寫入庫存總覽資料
+                <div style="font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;">全部庫存、過期品、長期在庫、即將到期</div>
+              </button>
+              <button id="writeSheetsMenuDiffBtn" onclick="closeWriteSheetsMenu();writeDiffToSheets();"
+                style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
+                onmouseover="this.style.background='var(--accent-light)';this.style.borderColor='var(--accent)'"
+                onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
+                🔄 寫入差異比對資料
+                <div style="font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;" id="writeSheetsMenuDiffHint">請先執行差異比較</div>
+              </button>
+            </div>
+            <button onclick="closeWriteSheetsMenu()" style="margin-top:16px;width:100%;padding:8px;border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">取消</button>
           </div>
         </div>
 
@@ -1242,7 +1263,8 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <!-- Run buttons -->
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
               <button class="btn btn-primary" id="diffBtnRun" onclick="runDiff()" disabled>▶ 執行差異比較</button>
-              <span id="diffRunHint" style="font-size:12px;color:var(--muted);">比較完成後可至儀表板匯出</span>
+              <button class="btn btn-green" id="diffBtnExport" onclick="exportDiffExcel()" disabled title="匯出差異比較 Excel">📤 匯出差異表</button>
+              <span id="diffRunHint" style="font-size:12px;color:var(--muted);">比較完成後可至儀表板產出報表</span>
             </div>
 
             <!-- Cost summary -->
@@ -3013,12 +3035,12 @@ function runDiff(){
     document.getElementById('diffCostSummary').style.display = 'block';
   }
 
-  // 提示訊息
+  // 提示訊息 & 按鈕狀態
   const hint = document.getElementById('diffRunHint');
-  if(hint) hint.textContent = `✅ 比較完成 ${diffResults.length} 筆，可至儀表板匯出`;
+  if(hint) hint.textContent = `✅ 比較完成 ${diffResults.length} 筆，可至儀表板產出報表`;
   updateDashboardDiffButtons();
   renderDiff();
-  showToast(`✅ 比較完成，共 ${diffResults.length} 筆，請至儀表板匯出`);
+  showToast(`✅ 比較完成，共 ${diffResults.length} 筆`);
 }
 
 function renderDiff(){
@@ -6520,10 +6542,48 @@ document.addEventListener('click', function(e){
 
 // ─── 儀表板差異按鈕顯示控制 ──────────────────────────────────
 function updateDashboardDiffButtons(){
-  const el = document.getElementById('dashDiffBtns');
-  if(!el) return;
-  el.style.display = diffResults.length > 0 ? 'flex' : 'none';
+  const btn = document.getElementById('dashDiffReportBtn');
+  if(btn) btn.style.display = diffResults.length > 0 ? '' : 'none';
+  // 同步更新差異匯出按鈕狀態
+  const expBtn = document.getElementById('diffBtnExport');
+  if(expBtn) expBtn.disabled = diffResults.length === 0;
 }
+
+// ─── 合併寫入 Sheets 選單 ─────────────────────────────────────
+function openWriteSheetsMenu(){
+  const menu = document.getElementById('writeSheetsMenu');
+  if(!menu) return;
+  // 更新差異按鈕狀態
+  const diffBtn  = document.getElementById('writeSheetsMenuDiffBtn');
+  const diffHint = document.getElementById('writeSheetsMenuDiffHint');
+  if(diffBtn && diffHint){
+    if(diffResults.length > 0){
+      diffBtn.style.opacity  = '1';
+      diffBtn.style.cursor   = 'pointer';
+      diffBtn.disabled       = false;
+      diffHint.textContent   = `${diffResults.length} 筆差異資料已就緒`;
+      diffHint.style.color   = 'var(--green)';
+    } else {
+      diffBtn.style.opacity  = '0.45';
+      diffBtn.style.cursor   = 'not-allowed';
+      diffBtn.disabled       = true;
+      diffHint.textContent   = '請先執行差異比較';
+      diffHint.style.color   = 'var(--muted)';
+    }
+  }
+  menu.style.display = 'flex';
+}
+
+function closeWriteSheetsMenu(){
+  const menu = document.getElementById('writeSheetsMenu');
+  if(menu) menu.style.display = 'none';
+}
+
+// 點選彈窗背景關閉
+document.addEventListener('click', function(e){
+  const menu = document.getElementById('writeSheetsMenu');
+  if(menu && e.target === menu) closeWriteSheetsMenu();
+});
 
 // ─── 差異資料寫入 Google Sheets ───────────────────────────────
 async function writeDiffToSheets(){
