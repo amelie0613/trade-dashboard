@@ -6290,7 +6290,7 @@ function renderKeyin() {
     var paidBtn = m.isPaid
       ? '<button onclick="keyinMarkPaid(\''+escId+'\',false)" style="padding:5px 10px;border-radius:6px;background:#f1f5f9;color:var(--muted);font-size:11px;font-weight:700;border:1px solid var(--border);cursor:pointer;margin-right:4px;">↩ 取消</button>'
       : '<button onclick="keyinMarkPaid(\''+escId+'\',true)"  style="padding:5px 10px;border-radius:6px;background:#dcfce7;color:#15803d;font-size:11px;font-weight:700;border:0.5px solid #86efac;cursor:pointer;margin-right:4px;">✅ 完成</button>';
-    var editBtn = '<button onclick="openKeyinForm(\''+escId+'\')" style="padding:5px 10px;border-radius:6px;background:#eff6ff;color:var(--sea);font-size:11px;font-weight:700;border:0.5px solid #bae6fd;cursor:pointer;">✏</button>';
+    var editBtn = '<button onclick="openKeyinForm(\''+escId+'\')" style="padding:5px 10px;border-radius:6px;background:#eff6ff;color:var(--sea);font-size:11px;font-weight:700;border:0.5px solid #bae6fd;cursor:pointer;">編輯</button>';
     var rowBg = isOverdue ? 'background:#fef2f2;' : m.isPaid ? 'background:#f0fdf4;opacity:.8;' : '';
     html += '<tr style="'+rowBg+'">'
       + '<td>'+srcBadge+'</td>'
