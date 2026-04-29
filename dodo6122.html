@@ -1846,11 +1846,25 @@ function loadFile(input){
   const reader = new FileReader();
   reader.onload = e => {
     try{
-      const wb  = XLSX.read(e.target.result, {type:'binary', cellDates:true});
-      const ws  = wb.Sheets[wb.SheetNames[0]];
-      const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
-      processData(raw);
-      showToast(`✅ 成功載入 ${raw.length} 筆資料`);
+      const wb = XLSX.read(e.target.result, {type:'binary', cellDates:true});
+
+      // 【新】讀取所有工作表
+      const excelSheets = {};
+      wb.SheetNames.forEach(sheetName => {
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        excelSheets[sheetName] = rows;
+      });
+
+      // 【新】自動寫入 Google Sheets
+      saveToGoogleSheets(excelSheets);
+
+      // 【舊】本地顯示（用第一個工作表的資料）
+      const firstSheetName = wb.SheetNames[0];
+      const firstSheetJson = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], {defval:''});
+      processData(firstSheetJson);
+
+      showToast(`✅ 成功載入 ${firstSheetJson.length} 筆資料，已同步到 Google Sheets`);
     }catch(err){
       showToast('❌ 讀取失敗：'+err.message, 4000);
     }
@@ -1858,6 +1872,27 @@ function loadFile(input){
     input.value = '';
   };
   reader.readAsBinaryString(file);
+}
+
+// 【新】自動寫入 Google Sheets
+async function saveToGoogleSheets(excelSheets){
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcHHwc6iAxtDrq2f3ahNDzN2RPm_mtCD1bCLgVXFlGJIoxcqdb3sQSAXV_foUssiTZ/exec';
+
+  try{
+    const payload = { excelSheets };
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if(result.success){
+      console.log('✅ Google Sheets 更新成功:', result.message);
+    } else {
+      console.error('❌ Sheets 更新失敗:', result.error);
+    }
+  }catch(err){
+    console.error('❌ 無法連接 Google Sheets:', err);
+  }
 }
 
 function handleDrop(e){
