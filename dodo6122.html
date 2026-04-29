@@ -1055,11 +1055,18 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         <input type="hidden" id="longYears" value="3">
 
         <!-- Control Bar (export buttons only) -->
-        <div class="control-bar" style="justify-content:flex-end;">
+        <div class="control-bar" style="justify-content:flex-end;flex-wrap:wrap;gap:8px;">
+          <!-- 庫存操作 -->
           <button class="btn btn-green" onclick="exportExcel()">📤 匯出 Excel</button>
           <button class="btn btn-blue" onclick="exportCostAnalysis()">📊 成本分析</button>
           <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;">📋 明細報表</button>
           <button class="btn btn-primary" onclick="openSheetsPanel()">☁️ 寫入 Sheets</button>
+          <!-- 差異比較操作（有差異資料時顯示） -->
+          <div id="dashDiffBtns" style="display:none;border-left:2px solid var(--border);padding-left:10px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-green" onclick="exportDiffExcel()">📤 匯出差異表</button>
+            <button class="btn btn-blue" onclick="exportDiffReport()" style="background:#1D4ED8;">📋 差異明細報表</button>
+            <button class="btn btn-primary" onclick="writeDiffToSheets()">☁️ 差異寫入 Sheets</button>
+          </div>
         </div>
 
         <!-- Main content card -->
@@ -1235,9 +1242,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <!-- Run buttons -->
             <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
               <button class="btn btn-primary" id="diffBtnRun" onclick="runDiff()" disabled>▶ 執行差異比較</button>
-              <button class="btn btn-green" id="diffBtnExport" onclick="exportDiffExcel()" disabled>📤 匯出差異表</button>
-              <button class="btn btn-blue" id="diffBtnReport" onclick="exportDiffReport()" disabled style="background:#1D4ED8;">📋 明細報表</button>
-              <button class="btn btn-ghost" id="diffBtnShare" onclick="exportSharePage()" disabled style="border-color:var(--violet);color:var(--accent);">📱 匯出手機分享頁</button>
+              <span id="diffRunHint" style="font-size:12px;color:var(--muted);">比較完成後可至儀表板匯出</span>
             </div>
 
             <!-- Cost summary -->
@@ -1269,7 +1274,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             </div>
 
             <!-- Diff filter row -->
-            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--border);">
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--border);align-items:center;">
               <select class="filter-select" id="diffFilter" onchange="renderDiff()">
                 <option value="">全部變化</option>
                 <option value="new">🟢 新增</option>
@@ -1278,7 +1283,10 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <option value="down">🟠 數量減少</option>
                 <option value="same">⚪ 無變化</option>
               </select>
-              <select class="filter-select" id="diffWarehouse" onchange="renderDiff()"><option value="">全部倉庫</option></select>
+              <div class="multi-select-wrap" id="diff-warehouse-multi-wrap">
+                <button class="multi-select-btn filter-select" type="button" onclick="toggleDiffWarehouseDropdown()" id="diff-warehouse-multi-btn">全部倉庫 ▾</button>
+                <div class="multi-select-dropdown" id="diff-warehouse-multi-dropdown" style="display:none;"></div>
+              </div>
               <select class="filter-select" id="diffCategory" onchange="renderDiff()"><option value="">全部類別</option></select>
               <span class="tbl-count" id="diffCount" style="margin-left:auto;line-height:34px;">0 筆</span>
             </div>
@@ -1790,6 +1798,7 @@ function updateDashboard(){
   setEl('db-long', longCnt);
   setEl('db-cost', costTotal>0?'$'+fmtNum(Math.round(costTotal)):'—');
   renderScopeCostTable();
+  updateDashboardDiffButtons();
 }
 
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -2977,7 +2986,8 @@ function runDiff(){
   // 篩選器
   const whs = [...new Set(diffResults.map(r=>r.倉庫).filter(Boolean))].sort();
   const cats = [...new Set(diffResults.map(r=>r.產品類別).filter(Boolean))].sort();
-  document.getElementById('diffWarehouse').innerHTML = '<option value="">全部倉庫</option>' + whs.map(w=>`<option>${w}</option>`).join('');
+  // 建立倉庫多選下拉
+  buildDiffWarehouseDropdown(whs);
   document.getElementById('diffCategory').innerHTML  = '<option value="">全部類別</option>' + cats.map(x=>`<option>${x}</option>`).join('');
 
   // 統計
@@ -3003,17 +3013,17 @@ function runDiff(){
     document.getElementById('diffCostSummary').style.display = 'block';
   }
 
-  document.getElementById('diffBtnExport').disabled = false;
-  document.getElementById('diffBtnShare').disabled = false;
-  document.getElementById('diffBtnReport').disabled = false;
+  // 提示訊息
+  const hint = document.getElementById('diffRunHint');
+  if(hint) hint.textContent = `✅ 比較完成 ${diffResults.length} 筆，可至儀表板匯出`;
+  updateDashboardDiffButtons();
   renderDiff();
-  showToast(`✅ 比較完成，共 ${diffResults.length} 筆`);
+  showToast(`✅ 比較完成，共 ${diffResults.length} 筆，請至儀表板匯出`);
 }
 
 function renderDiff(){
-  const filter    = document.getElementById('diffFilter')?.value||'';
-  const warehouse = document.getElementById('diffWarehouse')?.value||'';
-  const category  = document.getElementById('diffCategory')?.value||'';
+  const filter   = document.getElementById('diffFilter')?.value||'';
+  const category = document.getElementById('diffCategory')?.value||'';
   const wrap = document.getElementById('tbl-diff-wrap');
 
   if(!diffResults.length){
@@ -3022,9 +3032,9 @@ function renderDiff(){
   }
 
   let rows = diffResults.filter(r => {
-    if(filter    && r._changeType !== filter) return false;
-    if(warehouse && r.倉庫 !== warehouse)      return false;
-    if(category  && r.產品類別 !== category)   return false;
+    if(filter && r._changeType !== filter) return false;
+    if(selectedDiffWarehouses.size > 0 && !selectedDiffWarehouses.has(r.倉庫)) return false;
+    if(category && r.產品類別 !== category) return false;
     return true;
   });
 
@@ -3036,44 +3046,51 @@ function renderDiff(){
   const rowCls   = { new:'diff-new', gone:'diff-gone', up:'diff-up', down:'diff-down', same:'' };
   const hdrColor = '#6878C0';
 
-  let html = `<table><thead><tr>
-    <th style="background:${hdrColor}">變化</th>
-    <th style="background:${hdrColor}">類別</th>
-    <th style="background:${hdrColor}">產品代碼</th>
-    <th style="background:${hdrColor}">產品名稱</th>
-    <th style="background:${hdrColor}">規格</th>
-    <th style="background:${hdrColor}">倉庫</th>
-    <th style="background:${hdrColor}">批號</th>
-    <th style="background:${hdrColor}">單位</th>
-    <th style="background:${hdrColor}">本期結存(A)</th>
-    <th style="background:${hdrColor}">上期結存(B)</th>
-    <th style="background:${hdrColor}">差異(A−B)</th>`;
+  // 欄寬配置（有單價時16欄，無單價時11欄）
+  const colWidthsWithPrice  = ['5%','5%','8%','16%','8%','7%','8%','4%','6%','6%','5%','5%','6%','6%','6%','5%'];
+  const colWidthsNoPrice    = ['6%','6%','9%','22%','10%','9%','10%','5%','8%','8%','7%'];
+  const colWidths = hasPrices ? colWidthsWithPrice : colWidthsNoPrice;
+  const colgroup  = colWidths.map(w=>`<col style="width:${w}">`).join('');
+
+  let html = `<table style="table-layout:fixed;width:100%"><colgroup>${colgroup}</colgroup><thead><tr>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">變化</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">類別</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">產品代碼</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">產品名稱</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">規格</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">倉庫</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">批號</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">單位</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;">本期(A)</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;">上期(B)</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;">差異</th>`;
   if(hasPrices){
-    html += `<th style="background:${hdrColor}">單價</th>
-    <th style="background:${hdrColor}">本期成本</th>
-    <th style="background:${hdrColor}">上期成本</th>
-    <th style="background:${hdrColor}">成本差異</th>
-    <th style="background:${hdrColor}">核算範圍</th>`;
+    html += `<th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;">單價</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;">本期成本</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;">上期成本</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;">成本差異</th>
+    <th style="background:${hdrColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">核算範圍</th>`;
   }
   html += `</tr></thead><tbody>`;
 
+  const td = (content, extra='') => `<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${extra}" title="${String(content).replace(/"/g,'&quot;')}">${content}</td>`;
   rows.forEach(r => {
     const diffVal   = r._diff > 0 ? `+${fmtNum(r._diff)}` : fmtNum(r._diff);
     const diffStyle = r._diff > 0 ? 'color:#2A7A10;font-weight:700' : r._diff < 0 ? 'color:#C03030;font-weight:700' : 'color:var(--muted)';
-    const qtyATxt   = r._changeType==='gone' ? '<span style="color:var(--muted)">—</span>' : fmtNum(r._qtyA);
-    const qtyBTxt   = r._changeType==='new'  ? '<span style="color:var(--muted)">—</span>' : fmtNum(r._qtyB);
+    const qtyATxt   = r._changeType==='gone' ? '—' : fmtNum(r._qtyA);
+    const qtyBTxt   = r._changeType==='new'  ? '—' : fmtNum(r._qtyB);
     html += `<tr class="${rowCls[r._changeType]||''}">
-      <td><span class="badge ${badgeCls[r._changeType]}">${chgLabel[r._changeType]}</span></td>
-      <td><span class="badge badge-gray">${r.產品類別||'—'}</span></td>
-      <td style="font-weight:700;color:var(--purple)">${r.產品代碼||'—'}</td>
-      <td>${r.產品名稱||'—'}</td>
-      <td style="color:var(--muted);font-size:11px">${r.產品規格||'—'}</td>
-      <td>${r.倉庫||'—'}</td>
-      <td style="font-size:11px;color:var(--muted)">${r.批號||'—'}</td>
-      <td style="color:var(--muted)">${r.基本單位||'—'}</td>
-      <td style="text-align:right">${qtyATxt}</td>
-      <td style="text-align:right">${qtyBTxt}</td>
-      <td style="text-align:right;${diffStyle}">${diffVal}</td>`;
+      <td style="overflow:hidden;white-space:nowrap;"><span class="badge ${badgeCls[r._changeType]}">${chgLabel[r._changeType]}</span></td>
+      ${td(`<span class="badge badge-gray">${r.產品類別||'—'}</span>`)}
+      ${td(r.產品代碼||'—','font-weight:700;color:var(--purple);')}
+      ${td(r.產品名稱||'—')}
+      ${td(r.產品規格||'—','color:var(--muted);font-size:11px;')}
+      ${td(r.倉庫||'—')}
+      ${td(r.批號||'—','font-size:11px;color:var(--muted);')}
+      ${td(r.基本單位||'—','color:var(--muted);')}
+      ${td(qtyATxt,'text-align:right;')}
+      ${td(qtyBTxt,'text-align:right;')}
+      ${td(diffVal,'text-align:right;'+diffStyle)}`;
     if(hasPrices){
       const costDiffTxt = r._costDiff !== null
         ? (r._costDiff > 0 ? `+$${Math.round(r._costDiff).toLocaleString('zh-TW')}` : `$${Math.round(r._costDiff).toLocaleString('zh-TW')}`)
@@ -3082,11 +3099,11 @@ function renderDiff(){
                     : r._costDiff < 0 ? 'color:#b02020;font-weight:800'
                     : 'color:var(--muted)';
       html += `
-      <td style="text-align:right">${r._unitPrice !== null ? fmtNum(r._unitPrice) : '—'}</td>
-      <td style="text-align:right">${r._costA !== null ? '$'+Math.round(r._costA).toLocaleString('zh-TW') : '—'}</td>
-      <td style="text-align:right">${r._costB !== null ? '$'+Math.round(r._costB).toLocaleString('zh-TW') : '—'}</td>
-      <td style="text-align:right;${cdStyle}">${costDiffTxt}</td>
-      <td style="font-size:11px;color:var(--muted)">${r._scope||'—'}</td>`;
+      ${td(r._unitPrice !== null ? fmtNum(r._unitPrice) : '—','text-align:right;')}
+      ${td(r._costA !== null ? '$'+Math.round(r._costA).toLocaleString('zh-TW') : '—','text-align:right;')}
+      ${td(r._costB !== null ? '$'+Math.round(r._costB).toLocaleString('zh-TW') : '—','text-align:right;')}
+      ${td(costDiffTxt,'text-align:right;'+cdStyle)}
+      ${td(r._scope||'—','font-size:11px;color:var(--muted);')}`;
     }
     html += `</tr>`;
   });
@@ -6387,7 +6404,7 @@ function exportCostAnalysis(){
   window.open('cost_analysis.html', 'cost_analysis', 'width=1400,height=900,resizable=yes,scrollbars=yes');
 }
 
-// ─── MULTI-SELECT WAREHOUSE ───────────────────────────────────
+// ─── MULTI-SELECT WAREHOUSE (庫存) ────────────────────────────
 let selectedWarehouses = new Set();
 
 function toggleWarehouseDropdown(){
@@ -6427,7 +6444,7 @@ function updateWarehouseLabel(){
   else btn.textContent = '已選 ' + selectedWarehouses.size + ' 個倉庫 ▾';
 }
 
-// 點外部關閉倉庫下拉
+// 點外部關閉倉庫下拉（庫存）
 document.addEventListener('click', function(e){
   if(!e.target.closest('#warehouse-multi-wrap')){
     const dd = document.getElementById('warehouse-multi-dropdown');
@@ -6435,18 +6452,145 @@ document.addEventListener('click', function(e){
   }
 });
 
+// ─── MULTI-SELECT WAREHOUSE (差異比較) ────────────────────────
+let selectedDiffWarehouses = new Set();
+
+function buildDiffWarehouseDropdown(whs){
+  selectedDiffWarehouses.clear();
+  updateDiffWarehouseLabel();
+  const dd = document.getElementById('diff-warehouse-multi-dropdown');
+  if(!dd) return;
+  dd.innerHTML = [
+    `<label class="multi-select-item"><input type="checkbox" id="diff-wh-all" checked onchange="onDiffWhAllChange(this)"> 全部倉庫</label>`,
+    ...whs.map(w => {
+      const esc = w.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      return `<label class="multi-select-item"><input type="checkbox" class="diff-wh-cb" value="${esc}" onchange="onDiffWarehouseCheckbox('${esc}',this.checked)"> ${w}</label>`;
+    })
+  ].join('');
+}
+
+function toggleDiffWarehouseDropdown(){
+  const dd = document.getElementById('diff-warehouse-multi-dropdown');
+  if(!dd) return;
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+function onDiffWarehouseCheckbox(wh, checked){
+  if(checked){
+    selectedDiffWarehouses.add(wh);
+    const allCb = document.getElementById('diff-wh-all');
+    if(allCb) allCb.checked = false;
+  } else {
+    selectedDiffWarehouses.delete(wh);
+    if(selectedDiffWarehouses.size === 0){
+      const allCb = document.getElementById('diff-wh-all');
+      if(allCb) allCb.checked = true;
+    }
+  }
+  updateDiffWarehouseLabel();
+  renderDiff();
+}
+
+function onDiffWhAllChange(cb){
+  if(cb.checked){
+    selectedDiffWarehouses.clear();
+    document.querySelectorAll('.diff-wh-cb').forEach(c => { c.checked = false; });
+    updateDiffWarehouseLabel();
+    renderDiff();
+  } else {
+    cb.checked = true;
+  }
+}
+
+function updateDiffWarehouseLabel(){
+  const btn = document.getElementById('diff-warehouse-multi-btn');
+  if(!btn) return;
+  if(selectedDiffWarehouses.size === 0) btn.textContent = '全部倉庫 ▾';
+  else if(selectedDiffWarehouses.size === 1) btn.textContent = [...selectedDiffWarehouses][0] + ' ▾';
+  else btn.textContent = '已選 ' + selectedDiffWarehouses.size + ' 個倉庫 ▾';
+}
+
+// 點外部關閉差異倉庫下拉
+document.addEventListener('click', function(e){
+  if(!e.target.closest('#diff-warehouse-multi-wrap')){
+    const dd = document.getElementById('diff-warehouse-multi-dropdown');
+    if(dd) dd.style.display = 'none';
+  }
+});
+
+// ─── 儀表板差異按鈕顯示控制 ──────────────────────────────────
+function updateDashboardDiffButtons(){
+  const el = document.getElementById('dashDiffBtns');
+  if(!el) return;
+  el.style.display = diffResults.length > 0 ? 'flex' : 'none';
+}
+
+// ─── 差異資料寫入 Google Sheets ───────────────────────────────
+async function writeDiffToSheets(){
+  if(!diffResults.length){ showToast('❌ 請先執行差異比較'); return; }
+  const url = (localStorage.getItem('sheetsScriptUrl')||DEFAULT_SHEETS_SCRIPT_URL).trim();
+  if(!url){ showToast('❌ Apps Script 網址未設定'); return; }
+
+  const hasPrices = Object.values(prices).some(p => p.price > 0);
+  const chgLabel  = {new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'};
+
+  const headers = ['變化狀態','產品類別','產品代碼','產品名稱','產品規格','倉庫','批號','基本單位','本期結存(A)','上期結存(B)','差異(A-B)'];
+  if(hasPrices) headers.push('單價','本期成本','上期成本','成本差異','核算範圍');
+
+  const rows = diffResults.map(r => {
+    const row = [
+      chgLabel[r._changeType]||'',
+      r.產品類別||'', r.產品代碼||'', r.產品名稱||'', r.產品規格||'',
+      r.倉庫||'', r.批號||'', r.基本單位||'',
+      r._changeType==='gone' ? '' : (r._qtyA??''),
+      r._changeType==='new'  ? '' : (r._qtyB??''),
+      r._diff??''
+    ];
+    if(hasPrices){
+      row.push(
+        r._unitPrice??'',
+        r._costA!==null ? Math.round(r._costA) : '',
+        r._costB!==null ? Math.round(r._costB) : '',
+        r._costDiff!==null ? Math.round(r._costDiff) : '',
+        r._scope||''
+      );
+    }
+    return row;
+  });
+
+  const sheetId = document.getElementById('settings-sheet-id')?.value?.trim() || SHEET_ID;
+  const payload = {
+    sheetId, sheetName:'庫存差異比較',
+    headers, rows,
+    headerColor:'#6878C0'
+  };
+
+  showToast('⏳ 正在寫入差異資料…', 3000);
+  try{
+    const resp = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify(payload)
+    });
+    const text = await resp.text();
+    if(text.trim()==='success') showToast('✅ 差異資料已寫入「庫存差異比較」分頁');
+    else showToast('⚠️ 寫入異常：' + text, 4000);
+  }catch(err){
+    showToast('❌ 寫入失敗：' + err.message, 4000);
+  }
+}
+
 // ─── 差異比較明細報表 ──────────────────────────────────────────
 function exportDiffReport(){
   if(!diffResults.length){ showToast('❌ 請先執行差異比較'); return; }
 
-  const filter    = document.getElementById('diffFilter')?.value    || '';
-  const warehouse = document.getElementById('diffWarehouse')?.value || '';
-  const category  = document.getElementById('diffCategory')?.value  || '';
+  const filter   = document.getElementById('diffFilter')?.value   || '';
+  const category = document.getElementById('diffCategory')?.value || '';
 
   const rows = diffResults.filter(r => {
-    if(filter    && r._changeType !== filter) return false;
-    if(warehouse && r.倉庫 !== warehouse)      return false;
-    if(category  && r.產品類別 !== category)   return false;
+    if(filter && r._changeType !== filter) return false;
+    if(selectedDiffWarehouses.size > 0 && !selectedDiffWarehouses.has(r.倉庫)) return false;
+    if(category && r.產品類別 !== category) return false;
     return true;
   });
 
@@ -6460,7 +6604,7 @@ function exportDiffReport(){
     generatedAt: new Date().toLocaleDateString('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
     filters: {
       filter: filter || '全部',
-      warehouse: warehouse || '全部倉庫',
+      warehouse: selectedDiffWarehouses.size > 0 ? [...selectedDiffWarehouses].join('、') : '全部倉庫',
       category:  category  || '全部類別',
       total: rows.length
     }
