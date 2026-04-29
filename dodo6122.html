@@ -6609,19 +6609,36 @@ document.addEventListener('click', function(e){
 
 // ─── 差異資料寫入 Google Sheets ───────────────────────────────
 async function writeDiffToSheets(){
-  if(!diffResults.length){ showToast('❌ 請先執行差異比較'); return; }
+  console.log('[writeDiffToSheets] 開始執行');
+
+  if(!diffResults.length){
+    console.log('[writeDiffToSheets] ❌ diffResults 為空');
+    showToast('❌ 請先執行差異比較');
+    return;
+  }
+  console.log('[writeDiffToSheets] ✅ diffResults 有', diffResults.length, '筆');
 
   // 優先用 localStorage，否則用預設 URL
-  const url = (localStorage.getItem('sheetsScriptUrl') || DEFAULT_SHEETS_SCRIPT_URL).trim();
-  if(!url){ showToast('❌ 請先在系統設定填入 Apps Script 網址'); return; }
+  const savedUrl = localStorage.getItem('sheetsScriptUrl');
+  const url = (savedUrl || DEFAULT_SHEETS_SCRIPT_URL).trim();
+  console.log('[writeDiffToSheets] URL 來源:', savedUrl ? 'localStorage' : 'DEFAULT');
+  console.log('[writeDiffToSheets] URL:', url);
+
+  if(!url){
+    console.log('[writeDiffToSheets] ❌ URL 為空');
+    showToast('❌ 請先在系統設定填入 Apps Script 網址');
+    return;
+  }
 
   const hasPrices = Object.values(prices).some(p => p.price > 0);
+  console.log('[writeDiffToSheets] 有單價:', hasPrices);
   const chgLabel  = {new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'};
 
   const headers = ['變化狀態','產品類別','產品代碼','產品名稱','產品規格','倉庫','批號','基本單位','本期結存(A)','上期結存(B)','差異(A-B)'];
   if(hasPrices) headers.push('單價','本期成本','上期成本','成本差異','核算範圍');
 
-  const rows = diffResults.map(r => {
+  // 構造資料列
+  const rows = diffResults.map((r, idx) => {
     const row = [
       chgLabel[r._changeType]||'',
       r.產品類別||'', r.產品代碼||'', r.產品名稱||'', r.產品規格||'',
@@ -6639,8 +6656,13 @@ async function writeDiffToSheets(){
         r._scope||''
       );
     }
+    if(idx === 0){
+      console.log('[writeDiffToSheets] 第一筆資料 row 長度:', row.length, '，headers 長度:', headers.length);
+    }
     return row;
   });
+
+  console.log('[writeDiffToSheets] headers 長度:', headers.length, '，rows 筆數:', rows.length);
 
   const payload = {
     sheetId: SHEET_ID,
@@ -6649,23 +6671,42 @@ async function writeDiffToSheets(){
     headerColor: '#6878C0'
   };
 
+  // 驗證 JSON 可序列化性
+  let jsonStr = '';
+  try{
+    jsonStr = JSON.stringify(payload);
+    console.log('[writeDiffToSheets] ✅ JSON 序列化成功，大小:', jsonStr.length, 'bytes');
+  }catch(e){
+    console.error('[writeDiffToSheets] ❌ JSON 序列化失敗:', e.message);
+    showToast('❌ 資料格式錯誤（無法序列化）：' + e.message, 5000);
+    return;
+  }
+
   showToast('⏳ 正在寫入差異資料…', 4000);
   try{
+    console.log('[writeDiffToSheets] 發起 fetch 請求…');
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload),
+      body: jsonStr,
       redirect: 'follow'
     });
+
+    console.log('[writeDiffToSheets] 收到回應，status:', resp.status, resp.statusText);
+
     const text = (await resp.text()).trim();
+    console.log('[writeDiffToSheets] 回應內容:', JSON.stringify(text), '（長度:', text.length, '）');
+
     if(text === 'success'){
+      console.log('[writeDiffToSheets] ✅ 寫入成功');
       showToast(`✅ 已寫入「庫存差異比較」分頁，共 ${rows.length} 筆`);
     } else {
-      console.error('[writeDiffToSheets] 回應：', text);
-      showToast('⚠️ 寫入異常（詳見 console）：' + text.slice(0,80), 6000);
+      console.error('[writeDiffToSheets] ⚠️ 回應不是 success：', text);
+      showToast('⚠️ 寫入異常（詳見 console）：' + text.slice(0,100), 6000);
     }
   }catch(err){
-    console.error('[writeDiffToSheets] 錯誤：', err);
+    console.error('[writeDiffToSheets] ❌ 發生錯誤：', err.name, err.message);
+    console.error('[writeDiffToSheets] 完整錯誤:', err);
     showToast('❌ 寫入失敗：' + err.message, 5000);
   }
 }
