@@ -858,6 +858,36 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
   </div>
 </div>
 
+<!-- ★ 取消確認警告 Modal：提醒先刪除收單記錄 -->
+<div class="modal-bg" id="CancelTransferM">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="mhd" style="background:#92400e;">
+      <div style="font-size:15px;font-weight:700;color:#fff;">⚠️ 取消確認前請注意</div>
+      <span class="mcl" onclick="document.getElementById('CancelTransferM').classList.remove('open')">✕</span>
+    </div>
+    <div style="padding:20px;">
+      <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:6px;">📋 此筆已對應一筆收單記錄</div>
+        <div style="font-size:12px;color:#78350f;line-height:1.7;" id="ctm-keyin-info">—</div>
+      </div>
+      <p style="font-size:13px;color:var(--ink);line-height:1.7;margin-bottom:6px;">
+        取消確認後，訂單轉入狀態會回到「待確認」，但<strong>收單記錄不會自動刪除</strong>，會造成帳務重複。
+      </p>
+      <p style="font-size:13px;font-weight:700;color:var(--coral);margin-bottom:18px;">
+        請先刪除對應的收單記錄，再執行取消確認。
+      </p>
+      <div style="display:flex;gap:10px;flex-direction:column;">
+        <button id="ctm-delete-and-cancel" style="padding:12px;border-radius:9px;background:var(--coral);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;">
+          🗑 刪除收單記錄 並 取消確認
+        </button>
+        <button onclick="document.getElementById('CancelTransferM').classList.remove('open')" style="padding:11px;border-radius:9px;background:#f1f5f9;color:var(--muted);border:0.5px solid var(--border);font-size:13px;font-weight:700;cursor:pointer;">
+          返回（暫不取消）
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <div id="success-popup">
   <div class="sp-ico" id="sp-ico">✅</div>
@@ -5859,6 +5889,65 @@ function cancelTransfer(formId, periodIdx, periodType) {
   });
   var pType = (p && p.periodType) || periodType || 'purchase';
 
+  // ★ 檢查是否有對應的收單記錄（fromTransfer + 同 formId + 同 periodIdx + 同 periodType）
+  var linkedKeyin = (allKeyinItems || []).find(function(m) {
+    return m.fromTransfer
+      && m.formId    === formId
+      && (m.periodIdx || 0) === periodIdx
+      && m.periodType === pType;
+  });
+
+  if (linkedKeyin) {
+    // ── 有收單記錄：跳出警告 Modal，讓使用者確認後一併刪除 ──
+    var sym = {TWD:'NT$', USD:'US$', JPY:'¥', EUR:'€'}[(linkedKeyin.currency||'TWD').toUpperCase()] || '';
+    var dirLabel = linkedKeyin.direction === 'receivable' ? '應收' : '應付';
+    var infoHtml =
+      '案號：' + htmlEsc(formId) + '<br>' +
+      '期別：' + htmlEsc(linkedKeyin.periodName || ('第'+(periodIdx+1)+'期')) + '<br>' +
+      '方向：' + dirLabel + '<br>' +
+      '幣別 / 金額：' + (linkedKeyin.currency||'TWD').toUpperCase() + ' ' + sym + fmtN(parseFloat(linkedKeyin.amount)||0) + '<br>' +
+      '建立時間：' + (linkedKeyin.createdAt ? linkedKeyin.createdAt.slice(0,10) : '—');
+    document.getElementById('ctm-keyin-info').innerHTML = infoHtml;
+
+    // 綁定「刪除收單記錄 並 取消確認」按鈕
+    var btn = document.getElementById('ctm-delete-and-cancel');
+    // 移除舊 listener 避免重複綁定
+    var newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    newBtn.addEventListener('click', function() {
+      newBtn.disabled = true;
+      newBtn.textContent = '⏳ 處理中...';
+      // Step1：刪除收單記錄
+      deleteManualPayment(linkedKeyin._id, function(delOk) {
+        if (!delOk) {
+          toast('❌ 收單記錄刪除失敗，請重試', '#dc2626');
+          newBtn.disabled = false;
+          newBtn.textContent = '🗑 刪除收單記錄 並 取消確認';
+          return;
+        }
+        // 更新本地快取
+        allKeyinItems = allKeyinItems.filter(function(x) { return x._id !== linkedKeyin._id; });
+        _syncManualToPayments();
+        addLog('刪除帳款（取消確認聯動）', (curUser&&curUser.name)||'—', linkedKeyin.counterparty || formId, '');
+        // Step2：執行取消確認
+        _doActualCancelTransfer(formId, periodIdx, pType, p, function() {
+          document.getElementById('CancelTransferM').classList.remove('open');
+        });
+      });
+    });
+
+    document.getElementById('CancelTransferM').classList.add('open');
+    return;
+  }
+
+  // ── 沒有收單記錄：直接取消確認（加一般 confirm 防誤觸）──
+  var pName2 = (p && p.periodName) || ('第'+(periodIdx+1)+'期');
+  if (!confirm('確定要取消確認「' + (p ? p.caseName : formId) + '【' + pName2 + '】」嗎？\n（無對應收單記錄，可直接取消）')) return;
+  _doActualCancelTransfer(formId, periodIdx, pType, p, null);
+}
+
+// ── 實際執行取消確認（寫回 Firebase）────────────────────
+function _doActualCancelTransfer(formId, periodIdx, pType, p, onDone) {
   var periods = _getFirebasePeriodsRef(formId, pType);
   if (!periods) { toast('❌ 找不到 periods 資料', '#dc2626'); return; }
   var updated = JSON.parse(JSON.stringify(periods));
@@ -5901,6 +5990,7 @@ function cancelTransfer(formId, periodIdx, periodType) {
       });
       toast('↩ 已取消確認，回到待確認區', '#d97706');
       _buildTransferItems();
+      if (onDone) onDone();
     } else {
       toast('❌ 寫入失敗，請重試', '#dc2626');
     }
