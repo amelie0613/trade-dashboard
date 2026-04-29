@@ -3602,12 +3602,10 @@ async function writeToSheets(){
     try{
       const payload = { sheetName, sheetId, headers, rows: dataRows, headerColor: color,
         sendEmail: sendEmail && i===sheets.length-1, emailTo, emailSubject: emailSubj };
-      // 用 URLSearchParams，Apps Script 用 e.parameter.data 讀取
-      const params = new URLSearchParams();
-      params.append('data', JSON.stringify(payload));
       const resp = await fetch(url, {
         method: 'POST',
-        body: params,
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload),
       });
       const result = await resp.text();
       if(result.includes('success')){ totalRows += dataRows.length; }
@@ -3674,10 +3672,20 @@ const APPS_SCRIPT_CODE = [
   'function handleRequest(e) {',
   '  try {',
   '    var raw = "";',
-  '    if (e.parameter && e.parameter.payload) {',
-  '      raw = e.parameter.payload;',
-  '    } else if (e.postData && e.postData.contents) {',
-  '      raw = e.postData.contents;',
+  '    // Priority 1: raw JSON body (Content-Type: text/plain)',
+  '    if (e.postData && e.postData.contents) {',
+  '      var body = e.postData.contents.trim();',
+  '      if (body.charAt(0) === "{") {',
+  '        raw = body;',
+  '      } else {',
+  '        // URL-encoded fallback: payload=... or data=...',
+  '        var match = body.match(/(?:payload|data)=(.+)/);',
+  '        if (match) raw = decodeURIComponent(match[1].replace(/\\+/g, " "));',
+  '      }',
+  '    }',
+  '    // Priority 2: query / form parameter',
+  '    if (!raw && e.parameter) {',
+  '      raw = e.parameter.payload || e.parameter.data || "";',
   '    }',
   '    if (!raw) return ContentService.createTextOutput("error: no data");',
   '    var data = JSON.parse(raw);',
