@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v26.1</title>
+<title>貿易大漁｜管理系統 v20</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -424,7 +424,16 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 <!-- ★ 應收收款日追蹤提醒橫幅（帳務專用，不影響案件流程） -->
 <div id="undated-alert-bar" style="display:none;background:#fef3c7;border-bottom:2px solid #fcd34d;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;color:#d97706;">
   <span id="undated-atxt"></span>
-  <span onclick="(function(){goTab('dash');setTimeout(function(){var el=document.getElementById('records-cards');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},350);})();" style="cursor:pointer;text-decoration:underline;white-space:nowrap;margin-left:16px;">查看案件 ↓</span>
+  <span onclick="showUndatedPicker(this)" style="cursor:pointer;text-decoration:underline;white-space:nowrap;margin-left:16px;position:relative;">查看案件 ↓</span>
+</div>
+
+<!-- ★ 未設收款日案件選單（下拉 Picker） -->
+<div id="undated-picker" style="display:none;position:fixed;z-index:610;background:#fff;border:1.5px solid #fcd34d;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);min-width:280px;max-width:420px;overflow:hidden;">
+  <div style="background:#fef3c7;padding:10px 14px;font-size:11px;font-weight:700;color:#d97706;letter-spacing:.04em;display:flex;align-items:center;justify-content:space-between;">
+    <span>📅 選擇要開啟的案件</span>
+    <span onclick="document.getElementById('undated-picker').style.display='none'" style="cursor:pointer;font-size:14px;color:#92400e;padding:2px 6px;border-radius:4px;">✕</span>
+  </div>
+  <div id="undated-picker-list" style="max-height:320px;overflow-y:auto;padding:6px;"></div>
 </div>
 <div class="nav-tabs" id="ntabs"></div>
 
@@ -3283,6 +3292,63 @@ function updateUndatedAlert(){
   if(cardEl){
     renderUndatedTrackCard(cardEl, undated);
   }
+}
+
+// ── 點「查看案件↓」時顯示選案下拉選單 ────────────────────
+function showUndatedPicker(triggerEl){
+  var undated = getUndatedSellCases();
+  var picker  = document.getElementById('undated-picker');
+  var list    = document.getElementById('undated-picker-list');
+  if(!picker || !list) return;
+
+  // 如果只有 1 筆，直接開 Modal，不顯示選單
+  if(undated.length === 1){
+    showD(undated[0]._row);
+    return;
+  }
+
+  // 多筆：建立選單項目
+  list.innerHTML = undated.map(function(r){
+    var formId   = g(r,'formId');
+    var caseName = g(r,'name');
+    var sp       = getPeriods01(r,'sell');
+    var missing  = [];
+    sp.forEach(function(p,i){
+      if(p.amt > 0 && !(p.date && p.date.toString().trim())){
+        missing.push('第'+(i+1)+'期');
+      }
+    });
+    var rowNum = r._row;
+    return '<div onclick="document.getElementById(\'undated-picker\').style.display=\'none\';showD(\''+rowNum+'\')" '
+      +'style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:8px;cursor:pointer;gap:10px;" '
+      +'onmouseover="this.style.background=\'#fef9c3\'" onmouseout="this.style.background=\'\'">'
+      +'<div>'
+      +'<div style="font-size:12px;font-weight:700;color:#0369a1;font-family:monospace;">'+formId+'</div>'
+      +'<div style="font-size:12px;color:#374151;margin-top:2px;">'+caseName+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:3px;flex-shrink:0;">'
+      + missing.map(function(m){ return '<span style="background:#d97706;color:#fff;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;">'+m+'</span>'; }).join('')
+      +'</div>'
+      +'</div>';
+  }).join('<div style="height:1px;background:#fde68a;margin:0 8px;"></div>');
+
+  // 定位選單：對齊觸發按鈕正下方
+  var rect = triggerEl.getBoundingClientRect();
+  picker.style.top  = (rect.bottom + 6) + 'px';
+  picker.style.right = '20px';
+  picker.style.left  = 'auto';
+  picker.style.display = 'block';
+
+  // 點選單外側自動關閉
+  setTimeout(function(){
+    function outsideClick(e){
+      if(!picker.contains(e.target) && e.target !== triggerEl){
+        picker.style.display = 'none';
+        document.removeEventListener('click', outsideClick, true);
+      }
+    }
+    document.addEventListener('click', outsideClick, true);
+  }, 10);
 }
 
 // ════════════════════════════════════════════════════════════════
