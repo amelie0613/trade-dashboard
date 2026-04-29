@@ -1004,6 +1004,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
     <header class="app-header">
       <div class="header-title" id="headerTitle">總覽儀表板</div>
       <div class="header-right">
+        <button onclick="loadAll()" title="一次帶入所有資料（GitHub 單價 + Sheets 庫存 + Sheets 差異）" style="display:flex;align-items:center;gap:5px;padding:6px 14px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">⬇️ 全部帶入</button>
         <button onclick="ghLoadPrices()" title="從 GitHub 載入單價" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 GitHub 載入</button>
         <button onclick="openReadSheetsMenu()" title="從 Google Sheets 讀取資料" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📊 從 Sheets 讀取</button>
         <button onclick="openWriteSheetsMenu()" title="寫入 Google Sheets" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">☁️ 寫入 Sheets</button>
@@ -1385,6 +1386,11 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                           點擊或拖拉檔案至此
                         </label>
                         <input type="file" id="file3" accept=".xlsx" />
+                        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center;">
+                          <button type="button" onclick="ghBackupWeightTable()" style="padding:4px 10px;font-size:11px;font-weight:700;border:1.5px solid #c9a8e0;border-radius:7px;background:#fff;color:#8a5aa0;cursor:pointer;font-family:inherit;">☁️ 備份重量表</button>
+                          <button type="button" onclick="ghLoadWeightTable()" style="padding:4px 10px;font-size:11px;font-weight:700;border:1.5px solid #c9a8e0;border-radius:7px;background:#fff;color:#8a5aa0;cursor:pointer;font-family:inherit;">📥 從 GitHub 載入</button>
+                          <span id="ghWeightStatus" style="font-size:11px;color:var(--muted);font-weight:700;"></span>
+                        </div>
                       </div>
                     </div>
                     <div>
@@ -3420,6 +3426,16 @@ const GH_PRICE_LS = {
   path:   'gh_price_path',
 };
 
+const GH_WEIGHT_LS = {
+  token: 'github_token',    // 共用同一組 token/owner/repo
+  owner: 'gh_price_owner',
+  repo:  'gh_price_repo',
+  path:  'gh_weight_path',
+};
+function ghWeightGetOwner(){ return localStorage.getItem(GH_WEIGHT_LS.owner) || 'amelie0613'; }
+function ghWeightGetRepo(){  return localStorage.getItem(GH_WEIGHT_LS.repo)  || 'trade-dashboard'; }
+function ghWeightGetPath(){  return localStorage.getItem(GH_WEIGHT_LS.path)  || 'weight_table.json'; }
+
 // 若尚未設定 owner/repo，預填租金工具的預設值
 function ghPriceGetOwner(){ return localStorage.getItem(GH_PRICE_LS.owner) || 'amelie0613'; }
 function ghPriceGetRepo(){  return localStorage.getItem(GH_PRICE_LS.repo)  || 'trade-dashboard'; }
@@ -3590,6 +3606,93 @@ async function ghLoadPrices(){
     ghPriceStatus('❌ 載入失敗', 'var(--red)');
     showToast('❌ '+err.message, 4000);
   }
+}
+
+// ─── GITHUB 重量表備份 ─────────────────────────────────────────
+let cachedWeightData = null; // 儲存最後一次從 Excel 或 GitHub 載入的重量表資料
+
+function ghWeightStatus(msg, color='var(--muted)'){
+  ['ghWeightStatus','ghWeightStatus2'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el){ el.textContent = msg; el.style.color = color; }
+  });
+}
+
+async function ghBackupWeightTable(){
+  if(!cachedWeightData || !cachedWeightData.length){ showToast('❌ 尚無重量表資料，請先上傳並計算一次'); return; }
+  const token = localStorage.getItem(GH_WEIGHT_LS.token);
+  const owner = ghWeightGetOwner();
+  const repo  = ghWeightGetRepo();
+  const path  = ghWeightGetPath();
+  if(!token || !owner || !repo){
+    ghSetPriceConfig();
+    showToast('⚙️ 請先完成 GitHub 設定後再備份', 3000);
+    return;
+  }
+  ghWeightStatus('⏳ 上傳中…');
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(cachedWeightData, null, 2))));
+  const apiUrl  = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+  const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' };
+  let sha = null;
+  try{ const r = await fetch(apiUrl, { headers }); if(r.ok){ sha = (await r.json()).sha; } }catch(e){}
+  try{
+    const body = { message: `備份重量表 ${new Date().toLocaleString('zh-TW')}`, content, ...(sha && { sha }) };
+    const resp = await fetch(apiUrl, { method:'PUT', headers, body: JSON.stringify(body) });
+    if(resp.ok){
+      ghWeightStatus('✅ 已備份', 'var(--green)');
+      showToast('✅ 重量表已備份到 GitHub');
+      setTimeout(()=>ghWeightStatus(''), 4000);
+    } else {
+      const err = await resp.json();
+      ghWeightStatus('❌ 失敗', 'var(--red)');
+      showToast('❌ '+(err.message||'備份失敗'), 4000);
+    }
+  }catch(err){
+    ghWeightStatus('❌ 連線錯誤', 'var(--red)');
+    showToast('❌ '+err.message, 4000);
+  }
+}
+
+async function ghLoadWeightTable(){
+  const token = localStorage.getItem(GH_WEIGHT_LS.token);
+  const owner = ghWeightGetOwner();
+  const repo  = ghWeightGetRepo();
+  const path  = ghWeightGetPath();
+  if(!token || !owner || !repo){
+    ghSetPriceConfig();
+    showToast('⚙️ 請先完成 GitHub 設定後再載入', 3000);
+    return;
+  }
+  ghWeightStatus('⏳ 載入中…');
+  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+  try{
+    const resp = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' } });
+    if(!resp.ok){ ghWeightStatus('⚠️ 無備份檔', 'var(--orange)'); showToast('⚠️ GitHub 上找不到重量表備份', 3000); return; }
+    const data = await resp.json();
+    const rows = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
+    cachedWeightData = rows;
+    // 建立一個假的 file3 物件讓 processFiles 可用（以 Blob 存 JSON 再轉 xlsx 較複雜，改用 cachedWeightData 旁路）
+    files.file3 = '__gh_weight__'; // 哨兵值，processFiles 會偵測
+    // 更新 UI 標示
+    const lbl = document.getElementById('label3');
+    if(lbl){ lbl.textContent = `✅ 已從 GitHub 載入（${rows.length} 筆）`; lbl.style.borderColor='var(--green)'; }
+    ghWeightStatus(`✅ 已載入 ${rows.length} 筆`, 'var(--green)');
+    showToast(`✅ 從 GitHub 載入重量表 ${rows.length} 筆`);
+    setTimeout(()=>ghWeightStatus(''), 4000);
+  }catch(err){
+    ghWeightStatus('❌ 載入失敗', 'var(--red)');
+    showToast('❌ '+err.message, 4000);
+  }
+}
+
+// ─── 全部帶入 ─────────────────────────────────────────────────
+async function loadAll(){
+  showToast('⏳ 全部帶入中，請稍候…', 8000);
+  const results = [];
+  try{ await ghLoadPrices();      results.push('✅ 單價'); }catch(e){ results.push('⚠️ 單價失敗'); }
+  try{ await loadFromSheets();    results.push('✅ 庫存'); }catch(e){ results.push('⚠️ 庫存失敗'); }
+  try{ await loadDiffFromSheets();results.push('✅ 差異'); }catch(e){ results.push('⚠️ 差異失敗'); }
+  showToast('全部帶入完成：' + results.join('、'), 5000);
 }
 
 // ─── GOOGLE SHEETS ────────────────────────────────────────────
@@ -5268,12 +5371,15 @@ function showStatus(msg, type = 'info') {
 
 function resetForm() {
     files = { file1: null, file2: null, file3: null };
+    cachedWeightData = null;
     ['file1', 'file2', 'file3'].forEach(id => {
         document.getElementById(id).value = '';
     });
     ['label1', 'label2', 'label3'].forEach(id => {
-        document.getElementById(id).textContent = '點擊選擇檔案';
-        document.getElementById(id).classList.remove('has-file');
+        const el = document.getElementById(id);
+        el.textContent = '點擊選擇檔案';
+        el.classList.remove('has-file');
+        el.style.borderColor = '';
     });
     showStatus('');
     document.getElementById('results').innerHTML = '<p style="color: #999; text-align: center; padding: 2rem;">上傳檔案後點擊「計算」查看結果</p>';
@@ -5287,15 +5393,21 @@ async function processFiles() {
 
     try {
         showStatus('⏳ 處理中...', 'info');
-        
+
         const data1 = await readExcel(files.file1, false);  // 租金表
         const data2 = await readExcel(files.file2, true);   // 出入庫表（可能無標題）
-        const data3 = await readExcel(files.file3, false);  // 重量表
+        // 若重量表是從 GitHub 載入的哨兵值，直接用 cachedWeightData
+        const data3 = files.file3 === '__gh_weight__'
+            ? (cachedWeightData || [])
+            : await readExcel(files.file3, false);         // 重量表
+
+        // 每次計算都更新 cachedWeightData，以便日後備份
+        if(files.file3 !== '__gh_weight__') cachedWeightData = data3;
 
         rentalTableData = data1;
         const result = calculateRental(data1, data2, data3);
         calculatedData = result;
-        
+
         displayResults(result);
         showStatus('✅ 計算完成！', 'success');
     } catch (err) {
