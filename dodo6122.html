@@ -1000,12 +1000,11 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           </div>
         </div>
 
-        <!-- Quick Actions -->
+        <!-- Quick Actions (output reports only) -->
         <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📂 匯入庫存 xlsx</button>
-          <button class="btn btn-blue" onclick="navSwitch('inventory')">📋 庫存管理</button>
-          <button class="btn btn-ghost" onclick="navSwitch('diff')">🔄 差異比較</button>
           <button class="btn btn-ghost" onclick="exportCostAnalysis()">📊 成本分析報表</button>
+          <button class="btn btn-ghost" onclick="exportInventoryReport()">📋 明細報表</button>
+          <button class="btn btn-ghost" onclick="exportExcel()">📤 匯出 Excel</button>
         </div>
 
         <!-- Scope Cost Table (moved from inventory) -->
@@ -1049,22 +1048,16 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           </div>
         </div>
 
-        <!-- Control Bar -->
-        <div class="control-bar">
-          <div class="ctrl-group">
-            <label>⚠️ 即將到期天數閾值</label>
-            <input type="number" id="soonDays" value="210" min="1" max="999" style="width:90px" onchange="recompute()">
-          </div>
-          <div class="ctrl-group">
-            <label>⏳ 長期在庫年限</label>
-            <input type="number" id="longYears" value="3" min="1" max="20" style="width:70px" onchange="recompute()">
-          </div>
-          <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-green" onclick="exportExcel()">📤 匯出 Excel</button>
-            <button class="btn btn-blue" onclick="exportCostAnalysis()">📊 成本分析</button>
-            <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;">📋 明細報表</button>
-            <button class="btn btn-primary" onclick="openSheetsPanel()">☁️ 寫入 Sheets</button>
-          </div>
+        <!-- Hidden threshold inputs (values driven from system settings) -->
+        <input type="hidden" id="soonDays" value="210">
+        <input type="hidden" id="longYears" value="3">
+
+        <!-- Control Bar (export buttons only) -->
+        <div class="control-bar" style="justify-content:flex-end;">
+          <button class="btn btn-green" onclick="exportExcel()">📤 匯出 Excel</button>
+          <button class="btn btn-blue" onclick="exportCostAnalysis()">📊 成本分析</button>
+          <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;">📋 明細報表</button>
+          <button class="btn btn-primary" onclick="openSheetsPanel()">☁️ 寫入 Sheets</button>
         </div>
 
         <!-- Main content card -->
@@ -1701,6 +1694,19 @@ function initSettingsFields(){
     const t=document.getElementById('settings-gh-token');  if(t) t.value=ghToken;
     const o=document.getElementById('settings-gh-owner');  if(o) o.value=ghOwner;
     const r=document.getElementById('settings-gh-repo');   if(r) r.value=ghRepo;
+
+    // Restore thresholds
+    const sd = localStorage.getItem('soonDays');
+    const ly = localStorage.getItem('longYears');
+    if(sd){
+      const sdEl=document.getElementById('soonDays'); if(sdEl) sdEl.value=sd;
+      const sdS=document.getElementById('soonDays-s'); if(sdS) sdS.value=sd;
+      const sdSub=document.getElementById('kpi-soon-sub'); if(sdSub) sdSub.textContent='效期未滿'+sd+'天';
+    }
+    if(ly){
+      const lyEl=document.getElementById('longYears'); if(lyEl) lyEl.value=ly;
+      const lyS=document.getElementById('longYears-s'); if(lyS) lyS.value=ly;
+    }
   }catch(e){}
 }
 document.addEventListener('DOMContentLoaded', initSettingsFields);
@@ -1708,10 +1714,12 @@ document.addEventListener('DOMContentLoaded', initSettingsFields);
 // Sync settings page sliders with inventory controls
 document.getElementById('soonDays-s').addEventListener('change', function(){
   document.getElementById('soonDays').value = this.value;
+  try{ localStorage.setItem('soonDays', this.value); }catch(e){}
   recompute();
 });
 document.getElementById('longYears-s').addEventListener('change', function(){
   document.getElementById('longYears').value = this.value;
+  try{ localStorage.setItem('longYears', this.value); }catch(e){}
   recompute();
 });
 
@@ -1780,7 +1788,7 @@ let allData = [];       // 原始資料
 let prices  = {};      // { 產品代碼: 單價 }
 let sortState = {};    // { tabKey: { col, dir } }
 
-const TODAY = new Date(2026, 3, 20);  // 2026-04-20
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 document.getElementById('headerDate').innerHTML =
   `基準日期<br>${TODAY.getFullYear()}/${String(TODAY.getMonth()+1).padStart(2,'0')}/${String(TODAY.getDate()).padStart(2,'0')}`;
 
@@ -3506,6 +3514,9 @@ async function ghLoadPrices(){
 // ─── GOOGLE SHEETS ────────────────────────────────────────────
 function openSheetsPanel(){
   if(!allData.length){ showToast('❌ 請先載入庫存資料'); return; }
+  const saved = localStorage.getItem('sheetsScriptUrl')||'';
+  const urlEl = document.getElementById('sheetsUrl');
+  if(urlEl && saved) urlEl.value = saved;
   document.getElementById('sheetsPanel').style.display = 'block';
 }
 function closeSheetsPanel(){
@@ -3539,9 +3550,10 @@ function buildExportRows(scope){
 }
 
 async function writeToSheets(){
-  const url      = document.getElementById('appsScriptUrl').value.trim();
+  const urlEl = document.getElementById('sheetsUrl');
+  const url   = (urlEl?.value || '').trim() || (localStorage.getItem('sheetsScriptUrl')||'').trim();
   const statusEl = document.getElementById('sheetsStatus');
-  const btn      = document.getElementById('writeSheetsBtn');
+  const btn      = document.getElementById('sheetsSaveBtn');
   if(!url){ statusEl.textContent = '❌ 請填入 Apps Script 網址'; statusEl.style.color='var(--red)'; return; }
 
   const sheetId   = document.getElementById('sheetId')?.value?.trim() || '';
@@ -3590,7 +3602,7 @@ async function writeToSheets(){
   }
 
   btn.disabled = false;
-  btn.textContent = '☁️ 開始寫入';
+  btn.textContent = '☁️ 寫入';
   if(errors.length === 0){
     statusEl.style.color = 'var(--green)';
     statusEl.textContent = `✅ 4個分頁全部寫入完成，共 ${totalRows} 筆`;
