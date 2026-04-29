@@ -5217,14 +5217,19 @@ function markPaymentPaid(rowId, paid) {
 // 訂單轉入管理（Transfer）
 // 顯示：已簽核 Firebase 案件，拆成期別明細列
 // ══════════════════════════════════════════════════════
-var _transferPage   = 1;
+var _transferPage      = 1;
 var TRANSFER_PAGE_SIZE = 10;
-var _transferItems  = [];
-var _transferFilter = 'pending'; // 'pending' | 'approved'
+var _transferItems     = [];
+var _transferFilter    = 'pending'; // 'pending' | 'approved'
+var _transferSearch    = '';        // 搜尋關鍵字
+var _transferSort      = { col: 'dueDate', dir: 'asc' }; // 排序狀態
 
 function loadTransfer() {
   var el = document.getElementById('transfer-pending');
   if (!el) return;
+  _transferSearch = '';
+  _transferSort   = { col: 'dueDate', dir: 'asc' };
+  _transferPage   = 1;
   el.innerHTML = '<div class="loading"><div class="spin"></div>載入中…</div>';
   _buildTransferItems();
 }
@@ -5389,26 +5394,70 @@ function _renderTransfer() {
   var el = document.getElementById('transfer-pending');
   if (!el) return;
 
-  // ★ 依篩選條件決定顯示哪些
+  // ── 1. 待確認 / 已確認 篩選 ──
   var displayItems = _transferItems.filter(function(p) {
     if (_transferFilter === 'approved') return p.periodStatus === 'approved';
-    return p.periodStatus !== 'approved'; // 預設：待確認
+    return p.periodStatus !== 'approved';
   });
 
-  // ── 篩選按鈕列 ──
+  // ── 2. 關鍵字搜尋（案號 / 業務 / 案件名稱 / 幣別）──
+  var kw = (_transferSearch || '').trim().toLowerCase();
+  if (kw) {
+    displayItems = displayItems.filter(function(p) {
+      var hay = ((p.formId||'') + (p.staff||'') + (p.caseName||'') + (p.cur||'') + (p.caseType||'')).toLowerCase();
+      return hay.indexOf(kw) >= 0;
+    });
+  }
+
+  // ── 3. 排序 ──
+  var sc = _transferSort.col, sd = _transferSort.dir;
+  displayItems = displayItems.slice().sort(function(a, b) {
+    var av, bv;
+    if (sc === 'amt') {
+      av = parseFloat(a.amt) || 0;
+      bv = parseFloat(b.amt) || 0;
+    } else if (sc === 'dueDate') {
+      av = (a.dueDate || '9999').replace(/\//g,'-');
+      bv = (b.dueDate || '9999').replace(/\//g,'-');
+    } else if (sc === 'staff') {
+      av = a.staff || ''; bv = b.staff || '';
+    } else if (sc === 'caseName') {
+      av = a.caseName || ''; bv = b.caseName || '';
+    } else if (sc === 'formId') {
+      av = a.formId || ''; bv = b.formId || '';
+    } else if (sc === 'cur') {
+      av = a.cur || ''; bv = b.cur || '';
+    } else {
+      av = ''; bv = '';
+    }
+    if (av < bv) return sd === 'asc' ? -1 :  1;
+    if (av > bv) return sd === 'asc' ?  1 : -1;
+    return 0;
+  });
+
+  // ── 篩選按鈕列 + 搜尋列 ──
   var isPending  = _transferFilter === 'pending';
   var isApproved = _transferFilter === 'approved';
   var filterHtml =
-    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">' +
-    '<button onclick="_setTransferFilter(&quot;pending&quot;)" ' +
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">' +
+    '<button onclick="_setTransferFilter(\'pending\')" ' +
       'style="padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ' +
       (isPending ? 'var(--sea);background:var(--sea);color:#fff;' : 'var(--border);background:var(--card);color:var(--muted);') + '">' +
       '⏳ 待確認</button>' +
-    '<button onclick="_setTransferFilter(&quot;approved&quot;)" ' +
+    '<button onclick="_setTransferFilter(\'approved\')" ' +
       'style="padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid ' +
       (isApproved ? 'var(--jade);background:var(--jade);color:#fff;' : 'var(--border);background:var(--card);color:var(--muted);') + '">' +
       '✅ 已確認</button>' +
     '<span style="font-size:12px;color:var(--muted);margin-left:4px;">' + displayItems.length + ' 筆</span>' +
+    '</div>' +
+    // 搜尋列
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">' +
+    '<input type="text" id="transfer-search-input" value="' + (kw ? kw : '') + '"' +
+      ' placeholder="🔍 搜尋案號 / 業務 / 案件名稱 / 幣別..."' +
+      ' oninput="_transferSearch=this.value;_transferPage=1;_renderTransfer();"' +
+      ' style="flex:1;background:#f8fafc;border:1.5px solid var(--border);border-radius:9px;padding:9px 14px;font-size:13px;outline:none;font-family:inherit;">' +
+    '<button onclick="_transferSearch=\'\';_transferPage=1;var i=document.getElementById(\'transfer-search-input\');if(i)i.value=\'\';_renderTransfer();"' +
+      ' style="padding:9px 14px;border-radius:9px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">清除</button>' +
     '</div>';
 
   if (!displayItems.length) {
@@ -5417,7 +5466,7 @@ function _renderTransfer() {
       '<div style="font-size:32px;margin-bottom:12px;">' +
       (_transferFilter==='approved' ? '📋' : '✅') + '</div>' +
       '<div style="font-size:15px;font-weight:700;">' +
-      (_transferFilter==='approved' ? '尚無已確認的資料' : '所有已簽核案件均已確認') +
+      (kw ? '查無符合「' + kw + '」的資料' : (_transferFilter==='approved' ? '尚無已確認的資料' : '所有已簽核案件均已確認')) +
       '</div></div>';
     document.getElementById('transfer-pagination').innerHTML = '';
     return;
@@ -5429,10 +5478,30 @@ function _renderTransfer() {
   var start    = (_transferPage - 1) * TRANSFER_PAGE_SIZE;
   var pageData = displayItems.slice(start, start + TRANSFER_PAGE_SIZE);
 
+  // ── 可排序表頭輔助函數 ──
+  function thSort(col, label) {
+    var isActive = _transferSort.col === col;
+    var icon = isActive ? (_transferSort.dir === 'asc' ? ' ▲' : ' ▼') : ' ⇅';
+    var color = isActive ? 'color:var(--sea);' : 'color:var(--muted);';
+    return '<th onclick="_transferSortBy(\''+col+'\')" style="cursor:pointer;white-space:nowrap;user-select:none;'+color+'">'
+      + label + '<span style="font-size:10px;opacity:.7;">'+icon+'</span></th>';
+  }
+
   var html = filterHtml;
   html += '<div class="twrap"><table class="tbl">';
   var isApprView = _transferFilter === 'approved';
-  html += '<thead><tr><th>案號</th><th>業務</th><th>業務屬性</th><th>案件名稱</th><th>期數</th><th>幣別</th><th>金額</th><th>預計付款日</th><th style="min-width:160px;">帳務備註</th><th>' + (isApprView ? '確認時間' : '審核') + '</th></tr></thead><tbody>';
+  html += '<thead><tr>'
+    + thSort('formId',   '案號')
+    + thSort('staff',    '業務')
+    + '<th>業務屬性</th>'
+    + thSort('caseName', '案件名稱')
+    + '<th>期數</th>'
+    + thSort('cur',      '幣別')
+    + thSort('amt',      '金額')
+    + thSort('dueDate',  '預計付款日')
+    + '<th style="min-width:160px;">帳務備註</th>'
+    + '<th>' + (isApprView ? '確認時間' : '審核') + '</th>'
+    + '</tr></thead><tbody>';
 
   pageData.forEach(function(p) {
     var isPayable = p.direction === 'payable';
@@ -5449,11 +5518,10 @@ function _renderTransfer() {
     html += '<td><span style="font-family:\'DM Mono\',monospace;font-size:12px;background:'+(isPayable?'#fef2f2':'#f0fdf4')+';padding:2px 8px;border-radius:6px;color:'+(isPayable?'#dc2626':'#16a34a')+';font-weight:700;">'+cur+'</span></td>';
     html += '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(isPayable?'var(--coral)':'var(--jade)')+';">'+sym+fmtN(p.amt)+'</td>';
 
-    // ★ 預計付款日：可編輯 input[type=date]
+    // 預計付款日：可編輯 input
     var dateVal   = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
     var existNote = p.acctNote || '';
-    // safe IDs（用 formId + periodIdx，唯一且不含特殊字元）
-    var safeId    = p.formId.replace(/[^a-zA-Z0-9]/g,'_') + '_' + (p.periodIdx !== undefined ? p.periodIdx : escId.replace(/[^a-zA-Z0-9]/g,'_'));
+    var safeId    = p.formId.replace(/[^a-zA-Z0-9]/g,'_') + '_' + (p.periodType === 'purchase' ? 'buy' : 'sell') + '_' + (p.periodIdx !== undefined ? p.periodIdx : escId.replace(/[^a-zA-Z0-9]/g,'_'));
     var textId    = 'note-text-'  + safeId;
     var inputId   = 'note-input-' + safeId;
 
@@ -5466,9 +5534,8 @@ function _renderTransfer() {
       + 'cursor:pointer;width:130px;">'
       + '</td>';
 
-    // ★ 帳務備註：inline-edit（預設文字，點擊變 input）
+    // 帳務備註：inline-edit
     html += '<td style="min-width:160px;">'
-      // 顯示文字
       + '<div id="'+textId+'"'
       + ' onclick="editNote(\''+safeId+'\')"'
       + ' style="cursor:pointer;font-size:12px;color:'+(existNote?'var(--ink)':'#94a3b8')+';'
@@ -5477,18 +5544,17 @@ function _renderTransfer() {
       + ' title="點擊編輯備註">'
       + (existNote || '（點擊輸入備註）')
       + '</div>'
-      // 編輯 input（預設隱藏）
       + '<input id="'+inputId+'"'
       + ' type="text"'
       + ' value="'+existNote.replace(/"/g,'&quot;')+'"'
       + ' placeholder="帳務備註"'
-      + ' onblur="saveNote(\''+safeId+'\', \''+p.formId+'\', '+(p.periodIdx||0)+')"'
+      + ' onblur="saveNote(\''+safeId+'\', \''+p.formId+'\', '+(p.periodIdx||0)+', \''+p.periodType+'\')"'
       + ' onkeydown="if(event.key===\'Enter\'){ this._saving=false; this.blur(); }"'
       + ' style="display:none;width:100%;background:#fff;border:1.5px solid var(--sea);'
       + 'border-radius:7px;padding:5px 8px;font-size:12px;outline:none;font-family:inherit;">'
       + '</td>';
 
-    // ★ 審核欄：待確認顯示按鈕，已確認顯示時間 + 取消按鈕
+    // 審核欄
     if (_transferFilter === 'approved') {
       html += '<td style="font-size:11px;">'
         + '<div style="color:var(--muted);margin-bottom:5px;">'+(p.approvedAt ? p.approvedAt.slice(0,10) : '已確認')+'</div>'
@@ -5637,7 +5703,7 @@ function editNote(safeId) {
 }
 
 // ── inline-edit：失焦或 Enter → 整包 periods 寫回 ────
-function saveNote(safeId, formId, periodIdx) {
+function saveNote(safeId, formId, periodIdx, periodType) {
   var textEl  = document.getElementById('note-text-'  + safeId);
   var inputEl = document.getElementById('note-input-' + safeId);
   if (!textEl || !inputEl) return;
@@ -5652,8 +5718,10 @@ function saveNote(safeId, formId, periodIdx) {
   textEl.innerText = val || '（點擊輸入備註）';
   textEl.style.color = val ? 'var(--ink)' : '#94a3b8';
 
-  // 找對應 item，得到 periodType
+  // 找對應 item，得到 periodType（★ 須同時比對 periodType，避免同案件採購/銷售期 idx 衝突）
   var p = _transferItems.find(function(x) {
+    return x.formId === formId && (x.periodIdx || 0) === periodIdx && x.periodType === periodType;
+  }) || _transferItems.find(function(x) {
     return x.formId === formId && (x.periodIdx || 0) === periodIdx;
   });
 
@@ -5702,10 +5770,23 @@ function _setTransferFilter(f) {
   _renderTransfer();
 }
 
+function _transferSortBy(col) {
+  if (_transferSort.col === col) {
+    _transferSort.dir = _transferSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _transferSort.col = col;
+    _transferSort.dir = col === 'dueDate' ? 'asc' : 'asc';
+  }
+  _transferPage = 1;
+  _renderTransfer();
+}
+
 // ── 確認審核 → 整包 periods 寫回（status = approved）──
 function approveTransfer(formId, periodIdx, periodType) {
-  // 找 item（確保 periodType 正確）
+  // 找 item（★ 優先用 periodType 精確比對，避免同案件採購/銷售期 idx 衝突）
   var p = _transferItems.find(function(x) {
+    return x.formId === formId && (x.periodIdx || 0) === periodIdx && x.periodType === periodType;
+  }) || _transferItems.find(function(x) {
     return x.formId === formId && (x.periodIdx || 0) === periodIdx;
   });
   var pType = (p && p.periodType) || periodType || 'purchase';
@@ -5770,7 +5851,10 @@ function approveTransfer(formId, periodIdx, periodType) {
 
 // ── 取消確認 → 整包 periods 寫回（status 清空，回待確認）──
 function cancelTransfer(formId, periodIdx, periodType) {
+  // ★ 優先用 periodType 精確比對，避免同案件採購/銷售期 idx 衝突
   var p = _transferItems.find(function(x) {
+    return x.formId === formId && (x.periodIdx || 0) === periodIdx && x.periodType === periodType;
+  }) || _transferItems.find(function(x) {
     return x.formId === formId && (x.periodIdx || 0) === periodIdx;
   });
   var pType = (p && p.periodType) || periodType || 'purchase';
