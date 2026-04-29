@@ -1381,15 +1381,10 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                         <input type="file" id="file2" accept=".xlsx" />
                       </div>
                       <div class="form-group">
-                        <label>重量表 (.xlsx)</label>
-                        <label class="file-input-label" id="label3" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file3',this)">
-                          點擊或拖拉檔案至此
-                        </label>
-                        <input type="file" id="file3" accept=".xlsx" />
-                        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center;">
-                          <button type="button" onclick="ghBackupWeightTable()" style="padding:4px 10px;font-size:11px;font-weight:700;border:1.5px solid #c9a8e0;border-radius:7px;background:#fff;color:#8a5aa0;cursor:pointer;font-family:inherit;">☁️ 備份重量表</button>
-                          <button type="button" onclick="ghLoadWeightTable()" style="padding:4px 10px;font-size:11px;font-weight:700;border:1.5px solid #c9a8e0;border-radius:7px;background:#fff;color:#8a5aa0;cursor:pointer;font-family:inherit;">📥 從 GitHub 載入</button>
-                          <span id="ghWeightStatus" style="font-size:11px;color:var(--muted);font-weight:700;"></span>
+                        <label>⚖️ 重量表</label>
+                        <div style="padding:8px 10px;border:1.5px solid #c9a8e0;border-radius:8px;background:#faf8ff;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                          <span id="ghWeightStatus" style="font-size:12px;color:var(--muted);font-weight:700;">尚未載入</span>
+                          <button type="button" onclick="ghLoadWeightTable()" style="padding:4px 12px;font-size:11px;font-weight:700;border:1.5px solid #c9a8e0;border-radius:7px;background:#fff;color:#8a5aa0;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 GitHub 載入</button>
                         </div>
                       </div>
                     </div>
@@ -1714,10 +1709,29 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                   onchange="localStorage.setItem('gh_price_repo',this.value);">
               </div>
             </div>
-            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button class="btn btn-primary" style="font-size:12px;" onclick="ghBackupPrices()">☁️ 備份到 GitHub</button>
-              <button class="btn btn-ghost" style="font-size:12px;" onclick="ghLoadPrices()">📥 從 GitHub 載入</button>
-              <span id="ghPriceStatus-settings" style="font-size:12px;color:var(--muted);font-weight:700;"></span>
+            <!-- 單價表 -->
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;">💰 單價表</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button class="btn btn-primary" style="font-size:12px;" onclick="ghBackupPrices()">☁️ 備份單價表</button>
+                <button class="btn btn-ghost" style="font-size:12px;" onclick="ghLoadPrices()">📥 從 GitHub 載入</button>
+                <span id="ghPriceStatus-settings" style="font-size:12px;color:var(--muted);font-weight:700;"></span>
+              </div>
+            </div>
+            <!-- 重量表 -->
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;">⚖️ 重量表</div>
+              <div style="flex-direction:column;align-items:flex-start;gap:4px;margin-bottom:8px;">
+                <label style="font-size:11px;color:var(--muted);">檔名（預設 weight_table.json）</label>
+                <input type="text" id="settings-gh-weight-path" placeholder="weight_table.json"
+                  style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;outline:none;margin-top:4px;"
+                  onchange="localStorage.setItem('gh_weight_path',this.value);">
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button class="btn btn-primary" style="font-size:12px;" onclick="ghBackupWeightTable()">☁️ 備份重量表</button>
+                <button class="btn btn-ghost" style="font-size:12px;" onclick="ghLoadWeightTable()">📥 從 GitHub 載入</button>
+                <span id="ghWeightStatus2" style="font-size:12px;color:var(--muted);font-weight:700;"></span>
+              </div>
             </div>
           </div>
 
@@ -1770,6 +1784,7 @@ function initSettingsFields(){
     const t=document.getElementById('settings-gh-token');  if(t) t.value=ghToken;
     const o=document.getElementById('settings-gh-owner');  if(o) o.value=ghOwner;
     const r=document.getElementById('settings-gh-repo');   if(r) r.value=ghRepo;
+    const wp=document.getElementById('settings-gh-weight-path'); if(wp) wp.value=localStorage.getItem('gh_weight_path')||'weight_table.json';
 
     // Restore thresholds
     const sd = localStorage.getItem('soonDays');
@@ -3671,11 +3686,6 @@ async function ghLoadWeightTable(){
     const data = await resp.json();
     const rows = JSON.parse(decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))));
     cachedWeightData = rows;
-    // 建立一個假的 file3 物件讓 processFiles 可用（以 Blob 存 JSON 再轉 xlsx 較複雜，改用 cachedWeightData 旁路）
-    files.file3 = '__gh_weight__'; // 哨兵值，processFiles 會偵測
-    // 更新 UI 標示
-    const lbl = document.getElementById('label3');
-    if(lbl){ lbl.textContent = `✅ 已從 GitHub 載入（${rows.length} 筆）`; lbl.style.borderColor='var(--green)'; }
     ghWeightStatus(`✅ 已載入 ${rows.length} 筆`, 'var(--green)');
     showToast(`✅ 從 GitHub 載入重量表 ${rows.length} 筆`);
     setTimeout(()=>ghWeightStatus(''), 4000);
@@ -3999,18 +4009,19 @@ let files = { file1: null, file2: null, file3: null };
 let rentalTableData = null;
 let calculatedData = null;
 
-['file1', 'file2', 'file3'].forEach((id, idx) => {
+['file1', 'file2'].forEach((id, idx) => {
     const fileInput = document.getElementById(id);
     const label = document.getElementById('label' + (idx + 1));
-    
+
     fileInput.addEventListener('change', (e) => {
-        if (e.target.files[0]) {
-            files[id] = e.target.files[0];
-            label.textContent = e.target.files[0].name;
+        const file = e.target.files[0];
+        if (file) {
+            files[id] = file;
+            label.textContent = file.name;
             label.classList.add('has-file');
         }
     });
-    
+
     label.addEventListener('click', () => fileInput.click());
 });
 
@@ -5370,12 +5381,11 @@ function showStatus(msg, type = 'info') {
 }
 
 function resetForm() {
-    files = { file1: null, file2: null, file3: null };
-    cachedWeightData = null;
-    ['file1', 'file2', 'file3'].forEach(id => {
+    files = { file1: null, file2: null };
+    ['file1', 'file2'].forEach(id => {
         document.getElementById(id).value = '';
     });
-    ['label1', 'label2', 'label3'].forEach(id => {
+    ['label1', 'label2'].forEach(id => {
         const el = document.getElementById(id);
         el.textContent = '點擊選擇檔案';
         el.classList.remove('has-file');
@@ -5386,8 +5396,12 @@ function resetForm() {
 }
 
 async function processFiles() {
-    if (!files.file1 || !files.file2 || !files.file3) {
-        showStatus('❌ 請上傳全部三個檔案', 'error');
+    if (!files.file1 || !files.file2) {
+        showStatus('❌ 請上傳租金表與出入庫記錄表', 'error');
+        return;
+    }
+    if (!cachedWeightData || !cachedWeightData.length) {
+        showStatus('❌ 重量表尚未載入，請至設定頁從 GitHub 載入', 'error');
         return;
     }
 
@@ -5395,14 +5409,8 @@ async function processFiles() {
         showStatus('⏳ 處理中...', 'info');
 
         const data1 = await readExcel(files.file1, false);  // 租金表
-        const data2 = await readExcel(files.file2, true);   // 出入庫表（可能無標題）
-        // 若重量表是從 GitHub 載入的哨兵值，直接用 cachedWeightData
-        const data3 = files.file3 === '__gh_weight__'
-            ? (cachedWeightData || [])
-            : await readExcel(files.file3, false);         // 重量表
-
-        // 每次計算都更新 cachedWeightData，以便日後備份
-        if(files.file3 !== '__gh_weight__') cachedWeightData = data3;
+        const data2 = await readExcel(files.file2, true);   // 出入庫表
+        const data3 = cachedWeightData;                     // 重量表（來自 GitHub）
 
         rentalTableData = data1;
         const result = calculateRental(data1, data2, data3);
