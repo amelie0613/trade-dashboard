@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-:root{--ink:#0b1d35;--sea:#0369a1;--wave:#0ea5e9;--gold:#d97706;--gold2:#fbbf24;--jade:#16a34a;--coral:#dc2626;--paper:#f0f6fc;--card:#fff;--muted:#64748b;--border:#e2e8f0;}
+:root{--ink:#0b1d35;--sea:#0369a1;--wave:#0ea5e9;--gold:#d97706;--gold2:#fbbf24;--jade:#16a34a;--coral:#dc2626;--pay:#ea580c;--pay-bg:#fff7ed;--pay-border:#fed7aa;--paper:#f0f6fc;--card:#fff;--muted:#64748b;--border:#e2e8f0;}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--ink);min-height:100vh;}
 /* LOGIN */
@@ -124,7 +124,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .cc-nums{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;border-top:0.5px solid var(--border);padding-top:10px;}
 .cn-lbl{font-size:11px;color:var(--muted);margin-bottom:2px;}
 .cn-val{font-size:14px;font-weight:700;}
-.cv-g{color:var(--jade);}.cv-r{color:var(--coral);}
+.cv-g{color:var(--jade);}.cv-r{color:var(--coral);}.cv-pay{color:var(--pay);}
 .cc-btn{width:100%;margin-top:10px;padding:11px;border-radius:8px;background:#f1f5f9;color:var(--sea);font-size:13px;font-weight:700;border:0.5px solid var(--border);cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:center;}
 .cc-btn:hover{background:#e0f2fe;}
 /* SEARCH */
@@ -175,7 +175,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 .mbody{padding:20px;}
 .dsec{margin-bottom:16px;}
 .dsec-t{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
-.tb{color:#dc2626;}.tb::before{content:'';width:2px;height:11px;background:#dc2626;border-radius:1px;display:inline-block;}
+.tb{color:var(--pay);}.tb::before{content:'';width:2px;height:11px;background:var(--pay);border-radius:1px;display:inline-block;}
 .ts{color:#16a34a;}.ts::before{content:'';width:2px;height:11px;background:#16a34a;border-radius:1px;display:inline-block;}
 .tsh{color:#0369a1;}.tsh::before{content:'';width:2px;height:11px;background:#0369a1;border-radius:1px;display:inline-block;}
 .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -260,7 +260,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 /* 應收 */
 .p-in{background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:11px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 應付 */
-.p-out{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:11px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.p-out{background:var(--pay-bg);color:var(--pay);border:1px solid var(--pay-border);border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:11px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 預估（黃底黑字）*/
 .p-forecast{background:#fef9c3;color:#111827;border:1px solid #fde68a;border-radius:4px;padding:2px 5px;margin-bottom:2px;font-size:11px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 /* 外部 CSV（灰）*/
@@ -268,9 +268,10 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 /* 圓點 */
 .dot-green{display:inline-block;width:6px;height:6px;border-radius:50%;background:#16a34a;margin-right:4px;vertical-align:middle;}
 .dot-red{display:inline-block;width:6px;height:6px;border-radius:50%;background:#dc2626;margin-right:4px;vertical-align:middle;}
+.dot-orange{display:inline-block;width:6px;height:6px;border-radius:50%;background:#ea580c;margin-right:4px;vertical-align:middle;}
 /* 向下相容舊 class（重導向新色）*/
 .cal-in{background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
-.cal-out{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
+.cal-out{background:var(--pay-bg);color:var(--pay);border:1px solid var(--pay-border);border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 .cal-forecast{background:#fef9c3;color:#111827;border:1px solid #fde68a;border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:700;line-height:1.5;overflow:hidden;white-space:nowrap;}
 .cal-filter-btn{padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--card);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
 .cal-filter-btn.on{border-color:var(--sea);background:var(--sea);color:#fff;}
@@ -283,7 +284,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 @media(max-width:767px){.msum-grid{grid-template-columns:1fr;}}
 .msum-card{border-radius:14px;padding:14px 16px;position:relative;overflow:hidden;}
 .msum-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;}
-.msum-ap{background:#fff5f5;border:1px solid #fecaca;}.msum-ap::before{background:linear-gradient(90deg,#dc2626,#f87171);}
+.msum-ap{background:#fff7ed;border:1px solid #fed7aa;}.msum-ap::before{background:linear-gradient(90deg,var(--pay),#fb923c);}
 .msum-rcv{background:#eff6ff;border:1px solid #bfdbfe;}.msum-rcv::before{background:linear-gradient(90deg,#1d4ed8,#60a5fa);}
 .msum-dept{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px;display:flex;align-items:center;gap:5px;}
 .msum-type{font-size:10px;font-weight:700;margin-bottom:6px;}
@@ -370,7 +371,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
     -webkit-print-color-adjust:exact; print-color-adjust:exact;
   }
   .p-in      { background:#dbeafe !important; color:#1e3a8a !important; border:none !important; }
-  .p-out     { background:#fee2e2 !important; color:#dc2626 !important; border:none !important; }
+  .p-out     { background:#fff7ed !important; color:#ea580c !important; border:none !important; }
   .p-forecast{ background:#fef9c3 !important; color:#92400e !important; border:none !important; }
   .cal-csv   { display:none !important; }
 
@@ -505,7 +506,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:10px;background:#dbeafe;color:#1e3a8a;padding:2px 8px;border-radius:20px;font-weight:700;">↑ 應收</span>
-        <span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:20px;font-weight:700;">↓ 應付</span>
+        <span style="font-size:10px;background:var(--pay-bg);color:var(--pay);padding:2px 8px;border-radius:20px;font-weight:700;">↓ 應付</span>
         <span style="font-size:10px;background:#fef9c3;color:#92400e;padding:2px 8px;border-radius:20px;font-weight:700;">◇ 預估</span>
         <span style="font-size:10px;background:#f1f5f9;color:#64748b;padding:2px 8px;border-radius:20px;font-weight:700;">📄 外部</span>
       </div>
@@ -618,7 +619,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
     <!-- 行1：快速篩選 -->
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
       <button class="pay-filter-btn on" data-f="all"        onclick="filterPayments('all',this)">全部</button>
-      <button class="pay-filter-btn"    data-f="payable"    onclick="filterPayments('payable',this)" style="color:var(--coral);">↓ 應付</button>
+      <button class="pay-filter-btn"    data-f="payable"    onclick="filterPayments('payable',this)" style="color:var(--pay);">↓ 應付</button>
       <button class="pay-filter-btn"    data-f="receivable" onclick="filterPayments('receivable',this)" style="color:var(--jade);">↑ 應收</button>
       <button class="pay-filter-btn"    data-f="unpaid"     onclick="filterPayments('unpaid',this)">未付款</button>
       <button class="pay-filter-btn"    data-f="overdue"    onclick="filterPayments('overdue',this)" style="color:var(--coral);">逾期</button>
@@ -686,7 +687,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;" id="keyin-filter-btns">
       <button class="keyin-fbtn on" onclick="keyinFilter('all',this)">全部</button>
       <button class="keyin-fbtn"   onclick="keyinFilter('receivable',this)" style="color:var(--jade);">↑ 應收</button>
-      <button class="keyin-fbtn"   onclick="keyinFilter('payable',this)"    style="color:var(--coral);">↓ 應付</button>
+      <button class="keyin-fbtn"   onclick="keyinFilter('payable',this)"    style="color:var(--pay);">↓ 應付</button>
       <button class="keyin-fbtn"   onclick="keyinFilter('unpaid',this)">待收付</button>
       <button class="keyin-fbtn"   onclick="keyinFilter('overdue',this)"    style="color:var(--coral);">逾期</button>
       <button class="keyin-fbtn"   onclick="keyinFilter('done',this)">已完成</button>
@@ -1926,7 +1927,7 @@ function makeCard(r,showApprove){
       }
       return '<div class="cc-nums">'
         +'<div><div class="cn-lbl">應收</div><div class="cn-val cv-g">'+sellDisplayStr+'</div></div>'
-        +'<div><div class="cn-lbl">應付</div><div class="cn-val cv-r">'+buyDisplayStr+'</div></div>'
+        +'<div><div class="cn-lbl">應付</div><div class="cn-val cv-pay">'+buyDisplayStr+'</div></div>'
         +'<div><div class="cn-lbl">毛利率</div><div class="cn-val '+(parseFloat(m.margin)>=0?'cv-g':'cv-r')+'">'+mgStr+'</div></div>'
         +'</div>';
     })()
@@ -2199,7 +2200,7 @@ function printCalendar(){
       +'<div id="print-cal-meta">'
         +'<div id="print-cal-legend">'
           +badge('#dbeafe','#93c5fd','#1e3a8a','↑ 應收')
-          +badge('#fee2e2','#fca5a5','#dc2626','↓ 應付')
+          +badge('#fff7ed','#fed7aa','#ea580c','↓ 應付')
           +badge('#fef9c3','#fde68a','#92400e','◇ 預估')
         +'</div>'
         +'<div id="print-cal-date">列印日期：'+printDate+'</div>'
@@ -2264,7 +2265,7 @@ function renderMonthlySummary(calItems, yr, mo) {
     var keys = sortedCurKeys(map);
     if (!keys.length) return '<div style="color:#94a3b8;font-size:13px;">—</div>';
     return keys.map(function(c) {
-      var color = isAp ? '#16a34a' : '#0369a1';
+      var color = isAp ? '#ea580c' : '#16a34a';
       return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
         + '<span style="width:6px;height:6px;border-radius:50%;background:'+color+';"></span>'
         + '<span style="font-size:14px;font-weight:700;color:'+color+';font-family:\'DM Mono\',monospace;">'+formatCurrency(c, map[c])+'</span>'
@@ -2284,16 +2285,16 @@ function renderMonthlySummary(calItems, yr, mo) {
     // ★ 左右二欄等寬佈局
     html += '<div style="display:flex;gap:12px;">';
     
-    // 左欄：應付（淡綠）
-    html += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    html += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應付</div>';
+    // 左欄：應付（淡橘）
+    html += '<div style="flex:1;background:#fff7ed;border:0.5px solid #fed7aa;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    html += '<div style="font-size:16px;color:#ea580c;font-weight:700;margin-bottom:8px;">應付</div>';
     html += '<div style="flex:1;">'+apRows+'</div>';
     html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum[deptKey].apCur).length + '幣)</div>';
     html += '</div>';
     
-    // 右欄：應收（淡藍）
-    html += '<div style="flex:1;background:#eff6ff;border:0.5px solid #bae6fd;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    html += '<div style="font-size:16px;color:#0369a1;font-weight:700;margin-bottom:8px;">應收</div>';
+    // 右欄：應收（淡綠）
+    html += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    html += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應收</div>';
     html += '<div style="flex:1;">'+rcvRows+'</div>';
     html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum[deptKey].rcvCur).length + '幣)</div>';
     html += '</div>';
@@ -2313,16 +2314,16 @@ function renderMonthlySummary(calItems, yr, mo) {
     // ★ 左右二欄等寬佈局
     html += '<div style="display:flex;gap:12px;">';
     
-    // 左欄：應付預估（淡綠）
-    html += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    html += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應付預估</div>';
+    // 左欄：應付預估（淡橘）
+    html += '<div style="flex:1;background:#fff7ed;border:0.5px solid #fed7aa;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    html += '<div style="font-size:16px;color:#ea580c;font-weight:700;margin-bottom:8px;">應付預估</div>';
     html += '<div style="flex:1;">'+apRows+'</div>';
     html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum.fcst.apCur).length + '幣)</div>';
     html += '</div>';
     
-    // 右欄：應收預估（淡藍）
-    html += '<div style="flex:1;background:#eff6ff;border:0.5px solid #bae6fd;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    html += '<div style="font-size:16px;color:#0369a1;font-weight:700;margin-bottom:8px;">應收預估</div>';
+    // 右欄：應收預估（淡綠）
+    html += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    html += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應收預估</div>';
     html += '<div style="flex:1;">'+rcvRows+'</div>';
     html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum.fcst.rcvCur).length + '幣)</div>';
     html += '</div>';
@@ -2517,10 +2518,10 @@ function renderDaily(){
         });
 
         var shown = 0;
-        // 1️⃣ Firebase 預估付款（黃底 + 紅點）
+        // 1️⃣ Firebase 預估付款（黃底 + 橘點）
         Object.keys(fcApSum).forEach(function(c){
           if(shown>=3) return;
-          cal += '<div class="p-forecast"><span class="dot-red"></span>↓'+c+' '+fmtN(fcApSum[c])+'</div>';
+          cal += '<div class="p-forecast"><span class="dot-orange"></span>↓'+c+' '+fmtN(fcApSum[c])+'</div>';
           shown++;
         });
         // 2️⃣ Firebase 預估收款（黃底 + 綠點）
@@ -2731,8 +2732,8 @@ function _renderDayDetail(){
     var isRecv = p.direction === 'receivable';
 
     // ── 左側色條 ──
-    // Firebase 預估 → 橘; CSV應收 → 藍; CSV應付 → 紅
-    var barColor = isFb ? '#d97706' : isRecv ? '#1d4ed8' : '#dc2626';
+    // Firebase 預估 → 橘; CSV應收 → 藍; CSV應付 → 橘
+    var barColor = isFb ? '#d97706' : isRecv ? '#1d4ed8' : '#ea580c';
 
     // ── 部門 tag ──
     var deptBg  = p.dept==='船務' ? '#e0f2fe' : '#f0fdf4';
@@ -2750,7 +2751,7 @@ function _renderDayDetail(){
     } else if (isRecv) {
       typeBg = '#dbeafe'; typeCol = '#1e3a8a'; typeText = '↑ 應收';
     } else {
-      typeBg = '#fee2e2'; typeCol = '#991b1b'; typeText = '↓ 應付';
+      typeBg = '#fff7ed'; typeCol = '#ea580c'; typeText = '↓ 應付';
     }
     var typeTag = '<span class="dtag" style="background:'+typeBg+';color:'+typeCol+';">'+typeText+'</span>';
 
@@ -2762,10 +2763,10 @@ function _renderDayDetail(){
 
     // ── 金額圓點（Firebase預估才加圓點）──
     var dot = isFb
-      ? (isRecv ? '<span class="dot-green"></span>' : '<span class="dot-red"></span>')
+      ? (isRecv ? '<span class="dot-green"></span>' : '<span class="dot-orange"></span>')
       : '';
-    // Firebase → 黃底黑字; CSV應收 → 深藍; CSV應付 → 紅
-    var amtColor = isFb ? '#111827' : isRecv ? '#1d4ed8' : '#dc2626';
+    // Firebase → 黃底黑字; CSV應收 → 綠; CSV應付 → 橘
+    var amtColor = isFb ? '#111827' : isRecv ? '#16a34a' : '#ea580c';
     var amtStr   = dot + formatCurrency(p.cur, p.amt);
 
     html += '<div class="dcard" style="border-left:3px solid '+barColor+';">';
@@ -2790,15 +2791,15 @@ function _renderDayDetail(){
     });
     var thtml = '<div style="display:flex;gap:12px;">';
     
-    // 應付區塊（淡綠）
-    thtml += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    thtml += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應付</div>';
+    // 應付區塊（淡橘）
+    thtml += '<div style="flex:1;background:#fff7ed;border:0.5px solid #fed7aa;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    thtml += '<div style="font-size:16px;color:#ea580c;font-weight:700;margin-bottom:8px;">應付</div>';
     thtml += '<div style="flex:1;">';
     if(Object.keys(payT).length){
       sortedCurKeys(payT).forEach(function(c){
         thtml += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
-          + '<span style="width:6px;height:6px;border-radius:50%;background:#16a34a;"></span>'
-          + '<span style="font-size:14px;font-weight:700;color:#16a34a;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,payT[c])+'</span>'
+          + '<span style="width:6px;height:6px;border-radius:50%;background:#ea580c;"></span>'
+          + '<span style="font-size:14px;font-weight:700;color:#ea580c;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,payT[c])+'</span>'
           + '</div>';
       });
     } else {
@@ -2806,15 +2807,15 @@ function _renderDayDetail(){
     }
     thtml += '</div><div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(payT).length + '幣)</div></div>';
     
-    // 應收區塊（淡藍）
-    thtml += '<div style="flex:1;background:#eff6ff;border:0.5px solid #bae6fd;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    thtml += '<div style="font-size:16px;color:#0369a1;font-weight:700;margin-bottom:8px;">應收</div>';
+    // 應收區塊（淡綠）
+    thtml += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
+    thtml += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應收</div>';
     thtml += '<div style="flex:1;">';
     if(Object.keys(rcvT).length){
       sortedCurKeys(rcvT).forEach(function(c){
         thtml += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
-          + '<span style="width:6px;height:6px;border-radius:50%;background:#0369a1;"></span>'
-          + '<span style="font-size:14px;font-weight:700;color:#0369a1;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,rcvT[c])+'</span>'
+          + '<span style="width:6px;height:6px;border-radius:50%;background:#16a34a;"></span>'
+          + '<span style="font-size:14px;font-weight:700;color:#16a34a;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,rcvT[c])+'</span>'
           + '</div>';
       });
     } else {
@@ -4941,14 +4942,14 @@ function renderPayStats(items) {
       + '<div style="font-size:20px;color:var(--ink);font-weight:700;margin-bottom:12px;">'+icon+' '+dept+'</div>'
       + '<div style="display:flex;gap:12px;">';
     
-    // 應付區塊（淡藍）
-    cards += '<div style="flex:1;background:#eff6ff;border:0.5px solid #bae6fd;border-radius:8px;padding:12px;min-height:120px;display:flex;flex-direction:column;">'
-      + '<div style="font-size:16px;color:#0369a1;font-weight:700;margin-bottom:8px;">應付</div>'
+    // 應付區塊（淡橘）
+    cards += '<div style="flex:1;background:#fff7ed;border:0.5px solid #fed7aa;border-radius:8px;padding:12px;min-height:120px;display:flex;flex-direction:column;">'
+      + '<div style="font-size:16px;color:#ea580c;font-weight:700;margin-bottom:8px;">應付</div>'
       + '<div style="flex:1;">';
     sortedCurKeys(byDept[dept].apCur).forEach(function(c){
       cards += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
-        + '<span style="width:6px;height:6px;border-radius:50%;background:#0369a1;"></span>'
-        + '<span style="font-size:14px;font-weight:700;color:#0369a1;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,byDept[dept].apCur[c])+'</span>'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:#ea580c;"></span>'
+        + '<span style="font-size:14px;font-weight:700;color:#ea580c;font-family:\'DM Mono\',monospace;">'+formatCurrency(c,byDept[dept].apCur[c])+'</span>'
         + '</div>';
     });
     if(Object.keys(byDept[dept].apCur).length===0) cards += '<div style="color:#94a3b8;font-size:13px;">—</div>';
@@ -5116,7 +5117,7 @@ function makePayRow(p, today) {
 
   var dirTag = p.direction === 'receivable'
     ? '<span style="color:var(--jade);font-size:11px;font-weight:700;">↑ 應收</span>'
-    : '<span style="color:var(--coral);font-size:11px;font-weight:700;">↓ 應付</span>';
+    : '<span style="color:var(--pay);font-size:11px;font-weight:700;">↓ 應付</span>';
 
   // ★ v20：金額正常顯示（不加負號），顏色根據方向區分
   var amtDisplay = formatCurrency(cur, p.amt);
@@ -5155,7 +5156,7 @@ function showPayInfo(rowId) {
   html += dr('付款日', p.dueDate || '—');
   html += '</div></div>';
 
-  var dirColor = p.direction === 'receivable' ? 'var(--jade)' : 'var(--coral)';
+  var dirColor = p.direction === 'receivable' ? 'var(--jade)' : 'var(--pay)';
   var dirLabel = p.direction === 'receivable' ? '應收金額' : '應付金額';
   html += '<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:14px 16px;margin-bottom:12px;">';
   html += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">'+dirLabel+'</div>';
@@ -5550,8 +5551,8 @@ function _renderTransfer() {
     html += '<td><span style="font-size:11px;padding:2px 8px;border-radius:20px;background:#eff6ff;color:#1d4ed8;font-weight:700;">'+(p.caseType||'—')+'</span></td>';
     html += '<td class="tdb">'+p.caseName+'</td>';
     html += '<td class="tdg">'+p.periodName+'</td>';
-    html += '<td><span style="font-family:\'DM Mono\',monospace;font-size:12px;background:'+(isPayable?'#fef2f2':'#f0fdf4')+';padding:2px 8px;border-radius:6px;color:'+(isPayable?'#dc2626':'#16a34a')+';font-weight:700;">'+cur+'</span></td>';
-    html += '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(isPayable?'var(--coral)':'var(--jade)')+';">'+sym+fmtN(p.amt)+'</td>';
+    html += '<td><span style="font-family:\'DM Mono\',monospace;font-size:12px;background:'+(isPayable?'var(--pay-bg)':'#f0fdf4')+';padding:2px 8px;border-radius:6px;color:'+(isPayable?'var(--pay)':'#16a34a')+';font-weight:700;">'+cur+'</span></td>';
+    html += '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(isPayable?'var(--pay)':'var(--jade)')+';">'+sym+fmtN(p.amt)+'</td>';
 
     // 預計付款日：可編輯 input
     var dateVal   = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
@@ -6280,7 +6281,7 @@ function renderKeyin() {
       : '<span style="display:inline-block;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;background:#f0f9ff;color:#0369a1;border:0.5px solid #bae6fd;">✏️ 手動</span>';
     var dirBadge = m.direction === 'receivable'
       ? '<span style="color:var(--jade);font-size:11px;font-weight:700;">↑ 應收</span>'
-      : '<span style="color:var(--coral);font-size:11px;font-weight:700;">↓ 應付</span>';
+      : '<span style="color:var(--pay);font-size:11px;font-weight:700;">↓ 應付</span>';
     var stColor = m.isPaid ? '#16a34a' : isOverdue ? '#dc2626' : '#0369a1';
     var stText  = m.isPaid ? '✅ 已完成' : isOverdue ? '⚠️ 逾期' : '⏳ 待'+( m.direction==='receivable'?'收':'付');
     var stBadge = '<span style="font-size:11px;font-weight:700;color:'+stColor+';">'+stText+'</span>';
@@ -6335,7 +6336,7 @@ function renderKeyinStats(items, today) {
   }
   var cards = [
     { label:'待收', color:'var(--jade)',  icon:'↑', data: recv },
-    { label:'待付', color:'var(--coral)', icon:'↓', data: pay  },
+    { label:'待付', color:'var(--pay)',   icon:'↓', data: pay  },
     { label:'逾期', color:'#dc2626',      icon:'⚠️', data: over },
     { label:'已完成', color:'var(--muted)', icon:'✅', data: done }
   ];
