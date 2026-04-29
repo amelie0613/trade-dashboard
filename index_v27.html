@@ -5252,13 +5252,13 @@ var TRANSFER_PAGE_SIZE = 10;
 var _transferItems     = [];
 var _transferFilter    = 'pending'; // 'pending' | 'approved'
 var _transferSearch    = '';        // 搜尋關鍵字
-var _transferSort      = { col: 'dueDate', dir: 'asc' }; // 排序狀態
+var _transferSort      = { col: 'formId', dir: 'asc' }; // 排序狀態（預設：案件號碼 舊→新）
 
 function loadTransfer() {
   var el = document.getElementById('transfer-pending');
   if (!el) return;
   _transferSearch = '';
-  _transferSort   = { col: 'dueDate', dir: 'asc' };
+  _transferSort   = { col: 'formId', dir: 'asc' };
   _transferPage   = 1;
   el.innerHTML = '<div class="loading"><div class="spin"></div>載入中…</div>';
   _buildTransferItems();
