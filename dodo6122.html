@@ -817,6 +817,31 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
   </div>
 </div>
 
+<!-- 從 SHEETS 讀取 選擇彈窗（全域，任何頁面皆可用） -->
+<div id="readSheetsMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:28px 32px;min-width:340px;max-width:95vw;box-shadow:0 8px 40px rgba(30,42,80,0.22);">
+    <h3 style="font-size:15px;font-weight:900;color:var(--text);margin-bottom:6px;">📊 從 Google Sheets 讀取</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:20px;">請選擇要讀取的資料來源：</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button id="readSheetsMenuInvBtn" onclick="closeReadSheetsMenu();loadFromSheets();"
+        style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
+        onmouseover="this.style.background='var(--accent-light)';this.style.borderColor='var(--accent)'"
+        onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
+        📋 讀取庫存總覽資料
+        <div style="font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;">從「全部庫存」分頁載入庫存資料</div>
+      </button>
+      <button id="readSheetsMenuDiffBtn" onclick="closeReadSheetsMenu();loadDiffFromSheets();"
+        style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
+        onmouseover="this.style.background='var(--accent-light)';this.style.borderColor='var(--accent)'"
+        onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
+        🔄 讀取差異比對資料
+        <div style="font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;">從「庫存差異比較」分頁還原差異結果</div>
+      </button>
+    </div>
+    <button onclick="closeReadSheetsMenu()" style="margin-top:16px;width:100%;padding:8px;border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">取消</button>
+  </div>
+</div>
+
 <!-- 寫入 SHEETS 選擇彈窗（全域，任何頁面皆可用） -->
 <div id="writeSheetsMenu" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:10000;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:28px 32px;min-width:340px;max-width:95vw;box-shadow:0 8px 40px rgba(30,42,80,0.22);">
@@ -980,7 +1005,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
       <div class="header-title" id="headerTitle">總覽儀表板</div>
       <div class="header-right">
         <button onclick="ghLoadPrices()" title="從 GitHub 載入單價" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 GitHub 載入</button>
-        <button onclick="loadFromSheets()" title="從 Google Sheets 讀取資料" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📊 從 Sheets 讀取</button>
+        <button onclick="openReadSheetsMenu()" title="從 Google Sheets 讀取資料" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📊 從 Sheets 讀取</button>
         <button onclick="openWriteSheetsMenu()" title="寫入 Google Sheets" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">☁️ 寫入 Sheets</button>
         <div class="header-date" id="headerDate"></div>
         <div class="header-avatar">D</div>
@@ -6549,6 +6574,134 @@ function updateDashboardDiffButtons(){
   // 同步更新差異匯出按鈕狀態
   const expBtn = document.getElementById('diffBtnExport');
   if(expBtn) expBtn.disabled = diffResults.length === 0;
+}
+
+// ─── 從 Sheets 讀取選單 ───────────────────────────────────────
+function openReadSheetsMenu(){
+  const menu = document.getElementById('readSheetsMenu');
+  if(!menu) return;
+  menu.style.display = 'flex';
+}
+function closeReadSheetsMenu(){
+  const menu = document.getElementById('readSheetsMenu');
+  if(menu) menu.style.display = 'none';
+}
+document.addEventListener('click', function(e){
+  const menu = document.getElementById('readSheetsMenu');
+  if(menu && e.target === menu) closeReadSheetsMenu();
+});
+
+// ─── 從 Sheets 讀取差異比對資料 ───────────────────────────────
+async function loadDiffFromSheets(){
+  const url = (localStorage.getItem('sheetsScriptUrl')||DEFAULT_SHEETS_SCRIPT_URL).trim();
+  if(!url){ showToast('❌ Apps Script 網址未設定'); return; }
+
+  showLoader(true);
+  showToast('⏳ 正在從 Google Sheets 讀取差異資料…', 4000);
+  try{
+    const readUrl = url
+      + '?action=read'
+      + '&sheetId='   + encodeURIComponent(SHEET_ID)
+      + '&sheetName=' + encodeURIComponent('庫存差異比較');
+    const resp = await fetch(readUrl, { redirect:'follow' });
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+
+    const jsonStart = text.indexOf('{'), jsonEnd = text.lastIndexOf('}');
+    const jsonStr = jsonStart >= 0 ? text.slice(jsonStart, jsonEnd+1) : text;
+    const result = JSON.parse(jsonStr);
+
+    if(result.error) throw new Error(result.error);
+    if(!result.success || !result.rows?.length){
+      showToast('⚠️ Google Sheets 的「庫存差異比較」工作表目前沒有資料');
+      return;
+    }
+
+    // 變化狀態文字 → _changeType 代碼
+    const typeMap = {'新增':'new','消失':'gone','數量增加':'up','數量減少':'down','無變化':'same'};
+
+    diffResults = result.rows.map(r => {
+      const ct = typeMap[r['變化狀態']||''] || 'same';
+      const qtyA = r['本期結存(A)']!=='' ? parseFloat(r['本期結存(A)'])||0 : null;
+      const qtyB = r['上期結存(B)']!=='' ? parseFloat(r['上期結存(B)'])||0 : null;
+      const diff = parseFloat(r['差異(A-B)'])||0;
+
+      // 成本欄（可能不存在）
+      const unitPrice  = r['單價']   ? parseFloat(String(r['單價']).replace(/[$,]/g,''))||null : null;
+      const costA      = r['本期成本']? parseFloat(String(r['本期成本']).replace(/[$,]/g,''))||null : null;
+      const costB      = r['上期成本']? parseFloat(String(r['上期成本']).replace(/[$,]/g,''))||null : null;
+      const costDiff   = r['成本差異']? parseFloat(String(r['成本差異']).replace(/[$,+]/g,''))||null : null;
+
+      return {
+        // 原始欄位
+        產品類別: r['產品類別']||'',
+        產品代碼: r['產品代碼']||'',
+        產品名稱: r['產品名稱']||'',
+        產品規格: r['產品規格']||'',
+        倉庫:     r['倉庫']||'',
+        批號:     r['批號']||'',
+        基本單位: r['基本單位']||'',
+        // 計算欄位
+        _changeType: ct,
+        _qtyA:       ct==='gone' ? 0   : (qtyA??0),
+        _qtyB:       ct==='new'  ? 0   : (qtyB??0),
+        _diff:       diff,
+        _unitPrice:  unitPrice,
+        _costA:      costA,
+        _costB:      costB,
+        _costDiff:   costDiff,
+        _scope:      r['核算範圍']||''
+      };
+    });
+
+    // 重建篩選器
+    const whs  = [...new Set(diffResults.map(r=>r.倉庫).filter(Boolean))].sort();
+    const cats = [...new Set(diffResults.map(r=>r.產品類別).filter(Boolean))].sort();
+    buildDiffWarehouseDropdown(whs);
+    document.getElementById('diffCategory').innerHTML =
+      '<option value="">全部類別</option>' + cats.map(x=>`<option>${x}</option>`).join('');
+
+    // 重建統計
+    const stats = {new:0,gone:0,up:0,down:0,same:0};
+    diffResults.forEach(r => stats[r._changeType]++);
+    document.getElementById('diffNew').textContent  = stats.new;
+    document.getElementById('diffGone').textContent = stats.gone;
+    document.getElementById('diffUp').textContent   = stats.up;
+    document.getElementById('diffDown').textContent = stats.down;
+    document.getElementById('diffSame').textContent = stats.same;
+    document.getElementById('diffStats').style.display = 'flex';
+
+    // 重建成本摘要
+    const hasCost = diffResults.some(r => r._costA !== null || r._costB !== null);
+    if(hasCost){
+      let totalA=0, totalB=0;
+      diffResults.forEach(r => { if(r._costA!==null) totalA+=r._costA; if(r._costB!==null) totalB+=r._costB; });
+      const totalDiff = totalA - totalB;
+      document.getElementById('diffCostA').textContent = '$' + Math.round(totalA).toLocaleString('zh-TW');
+      document.getElementById('diffCostB').textContent = '$' + Math.round(totalB).toLocaleString('zh-TW');
+      const diffEl = document.getElementById('diffCostDiff');
+      diffEl.textContent = (totalDiff>=0?'+':'') + Math.round(totalDiff).toLocaleString('zh-TW') + ' 元';
+      diffEl.style.color = totalDiff>0?'var(--green)':totalDiff<0?'var(--red)':'var(--muted)';
+      document.getElementById('diffCostSummary').style.display = 'block';
+    }
+
+    // 啟用按鈕、更新儀表板
+    document.getElementById('diffBtnExport').disabled = false;
+    const hint = document.getElementById('diffRunHint');
+    if(hint) hint.textContent = `✅ 已從 Sheets 載入 ${diffResults.length} 筆，可至儀表板產出報表`;
+    updateDashboardDiffButtons();
+    renderDiff();
+
+    // 切換到差異比較頁
+    navSwitch('diff');
+    showToast(`✅ 從 Google Sheets 載入差異資料 ${diffResults.length} 筆`);
+
+  }catch(err){
+    console.error(err);
+    showToast('❌ 讀取失敗：' + err.message, 5000);
+  }finally{
+    showLoader(false);
+  }
 }
 
 // ─── 合併寫入 Sheets 選單 ─────────────────────────────────────
