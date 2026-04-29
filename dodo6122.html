@@ -1005,7 +1005,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         <!-- Quick Actions (output reports only) -->
         <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
           <button class="btn btn-ghost" onclick="exportCostAnalysis()" title="各倉庫存貨成本分析報表">📊 倉庫成本分析</button>
-          <button class="btn btn-ghost" onclick="exportInventoryReport()" title="各倉庫庫存狀況詳細報表">📋 倉庫狀況分析報表</button>
+          <button class="btn btn-ghost" onclick="exportInventoryReport()" title="各倉庫庫存狀況詳細報表">📋 庫存狀況明細表</button>
           <button class="btn btn-ghost" onclick="exportExcel()" title="匯出庫存 Excel">📤 匯出 Excel</button>
         </div>
 
@@ -1058,7 +1058,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         <div class="control-bar" style="justify-content:flex-end;flex-wrap:wrap;gap:8px;">
           <button class="btn btn-green" onclick="exportExcel()" title="匯出庫存 Excel">📤 匯出 Excel</button>
           <button class="btn btn-blue" onclick="exportCostAnalysis()" title="各倉庫存貨成本分析報表">📊 倉庫成本分析</button>
-          <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;" title="各倉庫庫存狀況詳細報表">📋 倉庫狀況分析報表</button>
+          <button class="btn btn-blue" onclick="exportInventoryReport()" style="background:#1D4ED8;" title="各倉庫庫存狀況詳細報表">📋 庫存狀況明細表</button>
           <!-- 差異明細報表：有差異資料時顯示 -->
           <button id="dashDiffReportBtn" class="btn btn-blue" onclick="exportDiffReport()" style="display:none;background:#2563EB;" title="差異比較明細報表">📋 差異明細報表</button>
           <!-- 合併寫入 Sheets -->
@@ -1071,12 +1071,12 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <h3 style="font-size:15px;font-weight:900;color:var(--text);margin-bottom:6px;">☁️ 寫入 Google Sheets</h3>
             <p style="font-size:12px;color:var(--muted);margin-bottom:20px;">請選擇要寫入的資料來源：</p>
             <div style="display:flex;flex-direction:column;gap:10px;">
-              <button onclick="closeWriteSheetsMenu();openSheetsPanel();"
+              <button id="writeSheetsMenuInvBtn" onclick="closeWriteSheetsMenu();openSheetsPanel();"
                 style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
                 onmouseover="this.style.background='var(--accent-light)';this.style.borderColor='var(--accent)'"
                 onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
                 📋 寫入庫存總覽資料
-                <div style="font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;">全部庫存、過期品、長期在庫、即將到期</div>
+                <div style="font-size:11px;font-weight:400;margin-top:2px;" id="writeSheetsMenuInvHint">全部庫存、過期品、長期在庫、即將到期</div>
               </button>
               <button id="writeSheetsMenuDiffBtn" onclick="closeWriteSheetsMenu();writeDiffToSheets();"
                 style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
@@ -1800,6 +1800,8 @@ function navSwitch(view){
 }
 
 function updateDashboard(){
+  // 差異比較按鈕不依賴庫存資料，永遠更新
+  updateDashboardDiffButtons();
   if(!allData.length){
     ['db-total','db-expired','db-long','db-cost'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.textContent='—';
@@ -1820,7 +1822,6 @@ function updateDashboard(){
   setEl('db-long', longCnt);
   setEl('db-cost', costTotal>0?'$'+fmtNum(Math.round(costTotal)):'—');
   renderScopeCostTable();
-  updateDashboardDiffButtons();
 }
 
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -6553,7 +6554,27 @@ function updateDashboardDiffButtons(){
 function openWriteSheetsMenu(){
   const menu = document.getElementById('writeSheetsMenu');
   if(!menu) return;
-  // 更新差異按鈕狀態
+
+  // 庫存按鈕狀態
+  const invBtn  = document.getElementById('writeSheetsMenuInvBtn');
+  const invHint = document.getElementById('writeSheetsMenuInvHint');
+  if(invBtn && invHint){
+    if(allData.length > 0){
+      invBtn.style.opacity = '1';
+      invBtn.style.cursor  = 'pointer';
+      invBtn.disabled      = false;
+      invHint.textContent  = `${allData.length} 筆庫存資料已就緒`;
+      invHint.style.color  = 'var(--green)';
+    } else {
+      invBtn.style.opacity = '0.45';
+      invBtn.style.cursor  = 'not-allowed';
+      invBtn.disabled      = true;
+      invHint.textContent  = '請先載入庫存資料';
+      invHint.style.color  = 'var(--muted)';
+    }
+  }
+
+  // 差異按鈕狀態
   const diffBtn  = document.getElementById('writeSheetsMenuDiffBtn');
   const diffHint = document.getElementById('writeSheetsMenuDiffHint');
   if(diffBtn && diffHint){
@@ -6588,8 +6609,10 @@ document.addEventListener('click', function(e){
 // ─── 差異資料寫入 Google Sheets ───────────────────────────────
 async function writeDiffToSheets(){
   if(!diffResults.length){ showToast('❌ 請先執行差異比較'); return; }
-  const url = (localStorage.getItem('sheetsScriptUrl')||DEFAULT_SHEETS_SCRIPT_URL).trim();
-  if(!url){ showToast('❌ Apps Script 網址未設定'); return; }
+
+  // 優先用 localStorage，否則用預設 URL
+  const url = (localStorage.getItem('sheetsScriptUrl') || DEFAULT_SHEETS_SCRIPT_URL).trim();
+  if(!url){ showToast('❌ 請先在系統設定填入 Apps Script 網址'); return; }
 
   const hasPrices = Object.values(prices).some(p => p.price > 0);
   const chgLabel  = {new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'};
@@ -6618,25 +6641,31 @@ async function writeDiffToSheets(){
     return row;
   });
 
-  const sheetId = document.getElementById('settings-sheet-id')?.value?.trim() || SHEET_ID;
   const payload = {
-    sheetId, sheetName:'庫存差異比較',
+    sheetId: SHEET_ID,
+    sheetName: '庫存差異比較',
     headers, rows,
-    headerColor:'#6878C0'
+    headerColor: '#6878C0'
   };
 
-  showToast('⏳ 正在寫入差異資料…', 3000);
+  showToast('⏳ 正在寫入差異資料…', 4000);
   try{
     const resp = await fetch(url, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify(payload)
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+      redirect: 'follow'
     });
-    const text = await resp.text();
-    if(text.trim()==='success') showToast('✅ 差異資料已寫入「庫存差異比較」分頁');
-    else showToast('⚠️ 寫入異常：' + text, 4000);
+    const text = (await resp.text()).trim();
+    if(text === 'success'){
+      showToast(`✅ 已寫入「庫存差異比較」分頁，共 ${rows.length} 筆`);
+    } else {
+      console.error('[writeDiffToSheets] 回應：', text);
+      showToast('⚠️ 寫入異常（詳見 console）：' + text.slice(0,80), 6000);
+    }
   }catch(err){
-    showToast('❌ 寫入失敗：' + err.message, 4000);
+    console.error('[writeDiffToSheets] 錯誤：', err);
+    showToast('❌ 寫入失敗：' + err.message, 5000);
   }
 }
 
