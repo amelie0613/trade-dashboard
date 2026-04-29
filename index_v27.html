@@ -5454,7 +5454,8 @@ function _renderTransfer() {
     } else if (sc === 'caseName') {
       av = a.caseName || ''; bv = b.caseName || '';
     } else if (sc === 'formId') {
-      av = a.formId || ''; bv = b.formId || '';
+      av = (a.formId || '').toUpperCase();
+      bv = (b.formId || '').toUpperCase();
     } else if (sc === 'cur') {
       av = a.cur || ''; bv = b.cur || '';
     } else {
@@ -5462,7 +5463,11 @@ function _renderTransfer() {
     }
     if (av < bv) return sd === 'asc' ? -1 :  1;
     if (av > bv) return sd === 'asc' ?  1 : -1;
-    return 0;
+    // ── 次要排序：同 formId 時，依 periodType（purchase 先）再依 periodIdx 升序 ──
+    var aType = a.periodType === 'purchase' ? 0 : 1;
+    var bType = b.periodType === 'purchase' ? 0 : 1;
+    if (aType !== bType) return aType - bType;
+    return (a.periodIdx || 0) - (b.periodIdx || 0);
   });
 
   // ── 篩選按鈕列 + 搜尋列 ──
