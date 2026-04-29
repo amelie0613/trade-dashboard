@@ -1911,7 +1911,7 @@ function makeCard(r,showApprove){
           var total = sellPeriods.reduce(function(s,p){ return s+p.amt; },0);
           sellDisplayStr = fmtAmt(total, firstCur);
         } else {
-          sellDisplayStr = 'NT$'+fmtN(m.sellNTD);
+          sellDisplayStr = 'TWD '+fmtN(m.sellNTD);
         }
       }
       var buyDisplayStr = '—';
@@ -1922,7 +1922,7 @@ function makeCard(r,showApprove){
           var bTotal = buyPeriods.reduce(function(s,p){ return s+p.amt; },0);
           buyDisplayStr = fmtAmt(bTotal, bFirstCur);
         } else {
-          buyDisplayStr = 'NT$'+fmtN(m.buyNTD);
+          buyDisplayStr = 'TWD '+fmtN(m.buyNTD);
         }
       }
       return '<div class="cc-nums">'
@@ -2901,8 +2901,8 @@ function showD(rowNum){
     h+='<div class="dsec"><div class="dsec-t tb">　採購（賣方）</div><div class="dgrid">'
       +dr('供應商',      r[F.supp]||'—')
       +dr('採購幣別',    buyPeriods3.length?(buyPeriods3[0].cur||'TWD'):'TWD')
-      +dr('應付總金額',  (function(){var bp=buyPeriods3;if(bp.length){var cur=bp[0].cur||'TWD';var allSame=bp.every(function(p){return (p.cur||'TWD')===cur;});if(allSame){var tot=bp.reduce(function(s,p){return s+p.amt;},0);return cur+' '+fmtN(tot)+(cur==='TWD'?'':' <span style="color:#64748b;font-size:11px;">(≈NT$'+fmtN(m.buyNTD)+')</span>');}}return 'NT$'+fmtN(m.buyNTD);}()))
-      +dr('折合NTD',    'NT$'+fmtN(m.buyNTD))
+      +dr('應付總金額',  (function(){var bp=buyPeriods3;if(bp.length){var cur=bp[0].cur||'TWD';var allSame=bp.every(function(p){return (p.cur||'TWD')===cur;});if(allSame){var tot=bp.reduce(function(s,p){return s+p.amt;},0);return cur+' '+fmtN(tot)+(cur==='TWD'?'':' <span style="color:#64748b;font-size:11px;">(≈TWD '+fmtN(m.buyNTD)+')</span>');}}return 'TWD '+fmtN(m.buyNTD);}()))
+      +dr('折合TWD',    'TWD '+fmtN(m.buyNTD))
       +dr('付款條件',    r[F.buyPay]||'—')
       +dr('賣方合約',    r[F.buyCon]||'未選')
       +(r[F.buyRem]?'<div class="drow drow-f"><div class="drow-l">採購備註</div><div class="drow-v" style="color:var(--ink);font-weight:500;">'+r[F.buyRem]+'</div></div>':'')
@@ -2917,8 +2917,8 @@ function showD(rowNum){
     h+='<div class="dsec"><div class="dsec-t ts">　銷售（買方）</div><div class="dgrid">'
       +dr('客戶名稱',    r[F.buyer]||'—')
       +dr('銷售幣別',    sellPeriods3.length?(sellPeriods3[0].cur||'TWD'):'TWD')
-      +dr('應收總金額',  (function(){var sp=sellPeriods3;if(sp.length){var cur=sp[0].cur||'TWD';var allSame=sp.every(function(p){return (p.cur||'TWD')===cur;});if(allSame){var tot=sp.reduce(function(s,p){return s+p.amt;},0);return cur+' '+fmtN(tot)+(cur==='TWD'?'':' <span style="color:#64748b;font-size:11px;">(≈NT$'+fmtN(m.sellNTD)+')</span>');}}return 'NT$'+fmtN(m.sellNTD);}()))
-      +dr('折合NTD',    'NT$'+fmtN(m.sellNTD))
+      +dr('應收總金額',  (function(){var sp=sellPeriods3;if(sp.length){var cur=sp[0].cur||'TWD';var allSame=sp.every(function(p){return (p.cur||'TWD')===cur;});if(allSame){var tot=sp.reduce(function(s,p){return s+p.amt;},0);return cur+' '+fmtN(tot)+(cur==='TWD'?'':' <span style="color:#64748b;font-size:11px;">(≈TWD '+fmtN(m.sellNTD)+')</span>');}}return 'TWD '+fmtN(m.sellNTD);}()))
+      +dr('折合TWD',    'TWD '+fmtN(m.sellNTD))
       +dr('收款條件',    r[F.sellPay]||'—')
       +dr('買方合約',    r[F.sellCon]||'未選')
       +(isSellOnly3 && m.buyNTD>0 ? dr('銷售成本', (r[F.sellCostCur]||'TWD')+' '+fmtN(r[F.sellCostAmt])) : '')
@@ -2936,10 +2936,10 @@ function showD(rowNum){
       if(!feeVal.amt || feeVal.amt === 0) return '—';
       var ntd = Math.round(calcNTD(feeVal.amt, feeVal.cur||'TWD'));
       var orig = (feeVal.cur||'TWD') + ' ' + fmtN(feeVal.amt);
-      return feeVal.cur === 'TWD' ? 'NT$'+fmtN(feeVal.amt) : orig + ' <span style="color:var(--muted);font-size:11px;">(≈NT$'+fmtN(ntd)+')</span>';
+      return feeVal.cur === 'TWD' ? 'TWD '+fmtN(feeVal.amt) : orig + ' <span style="color:var(--muted);font-size:11px;">(≈TWD '+fmtN(ntd)+')</span>';
     }
     var n = parseFloat(feeVal)||0;
-    return n ? 'NT$'+fmtN(n) : '—';
+    return n ? 'TWD '+fmtN(n) : '—';
   }
   h+='<div class="dsec"><div class="dsec-t">　物流 / 貿易</div><div class="dgrid">'
     +dr('案件屬性', r[F.type])
@@ -2970,11 +2970,11 @@ function showD(rowNum){
   }
   if(isPurchOnly3){
     h+='<span style="font-size:12px;color:var(--muted);font-weight:700;">預估毛利潤（純採購案件）</span>'
-      +'<div style="text-align:right;"><span style="font-size:18px;font-weight:700;color:var(--muted);font-family:monospace;">NT$0</span></div>';
+      +'<div style="text-align:right;"><span style="font-size:18px;font-weight:700;color:var(--muted);font-family:monospace;">TWD 0</span></div>';
   } else {
-    h+='<span style="font-size:12px;color:'+pColor3+';font-weight:700;">預估毛利潤（NTD）</span>'
+    h+='<span style="font-size:12px;color:'+pColor3+';font-weight:700;">預估毛利潤（TWD）</span>'
       +'<div style="text-align:right;">'
-      +'<span style="font-size:20px;font-weight:700;color:'+pColor3+';font-family:monospace;">NT$'+fmtN(m.profitNTD)+'</span>'
+      +'<span style="font-size:20px;font-weight:700;color:'+pColor3+';font-family:monospace;">TWD '+fmtN(m.profitNTD)+'</span>'
       +'<span style="font-size:12px;color:var(--muted);margin-left:8px;background:#fff;padding:2px 6px;border-radius:4px;">'+m.margin+'%</span>'
       +'</div>';
   }
@@ -4523,9 +4523,10 @@ var PAYMENTS_CACHE    = [];   // = allPaymentItems（向下相容）
 // 統一幣別格式化（規則四）
 // ══════════════════════════════════════════════════════
 function formatCurrency(currency, amount) {
-  var map = { TWD:'NT$', NTD:'NT$', USD:'US$', JPY:'¥', EUR:'€', ZAR:'R' };
-  var sym = map[(currency||'NTD').toUpperCase()] || (currency||'');
-  return sym + ' ' + Math.round(amount||0).toLocaleString('zh-TW');
+  // 統一顯示純幣別縮寫（TWD / USD / JPY / EUR 等）
+  var cur = (currency||'TWD').toUpperCase();
+  if (cur === 'NTD') cur = 'TWD'; // 舊格式相容
+  return cur + ' ' + Math.round(amount||0).toLocaleString('zh-TW');
 }
 
 // ★ Google Sheet 公開 CSV 網址（參考 CONFIG.PAYMENTS_CSV）
@@ -5542,7 +5543,7 @@ function _renderTransfer() {
   pageData.forEach(function(p) {
     var isPayable = p.direction === 'payable';
     var cur = (p.cur || 'TWD').toUpperCase();
-    var sym = {TWD:'NT$',USD:'US$',JPY:'¥',EUR:'€'}[cur]||cur;
+    var sym = '';  // 不使用符號，直接用幣別縮寫顯示
     var escId = String(p._row).replace(/'/g, "\\'");
 
     html += '<tr style="'+(p.isOverdue?'background:#fff5f5;':'')+'">';
@@ -5552,7 +5553,7 @@ function _renderTransfer() {
     html += '<td class="tdb">'+p.caseName+'</td>';
     html += '<td class="tdg">'+p.periodName+'</td>';
     html += '<td><span style="font-family:\'DM Mono\',monospace;font-size:12px;background:'+(isPayable?'var(--pay-bg)':'#f0fdf4')+';padding:2px 8px;border-radius:6px;color:'+(isPayable?'var(--pay)':'#16a34a')+';font-weight:700;">'+cur+'</span></td>';
-    html += '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(isPayable?'var(--pay)':'var(--jade)')+';">'+sym+fmtN(p.amt)+'</td>';
+    html += '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(isPayable?'var(--pay)':'var(--jade)')+';">'+cur+' '+fmtN(p.amt)+'</td>';
 
     // 預計付款日：可編輯 input
     var dateVal   = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
@@ -5905,13 +5906,13 @@ function cancelTransfer(formId, periodIdx, periodType) {
 
   if (linkedKeyin) {
     // ── 有收單記錄：跳出警告 Modal，讓使用者確認後一併刪除 ──
-    var sym = {TWD:'NT$', USD:'US$', JPY:'¥', EUR:'€'}[(linkedKeyin.currency||'TWD').toUpperCase()] || '';
+    var sym = '';  // 不使用符號前綴，直接顯示幣別縮寫
     var dirLabel = linkedKeyin.direction === 'receivable' ? '應收' : '應付';
     var infoHtml =
       '案號：' + htmlEsc(formId) + '<br>' +
       '期別：' + htmlEsc(linkedKeyin.periodName || ('第'+(periodIdx+1)+'期')) + '<br>' +
       '方向：' + dirLabel + '<br>' +
-      '幣別 / 金額：' + (linkedKeyin.currency||'TWD').toUpperCase() + ' ' + sym + fmtN(parseFloat(linkedKeyin.amount)||0) + '<br>' +
+      '幣別 / 金額：' + (linkedKeyin.currency||'TWD').toUpperCase() + ' ' + fmtN(parseFloat(linkedKeyin.amount)||0) + '<br>' +
       '建立時間：' + (linkedKeyin.createdAt ? linkedKeyin.createdAt.slice(0,10) : '—');
     document.getElementById('ctm-keyin-info').innerHTML = infoHtml;
 
@@ -6089,14 +6090,14 @@ function goTab(id) {
 // 工具函式
 // ══════════════════════════════════════════════════════
 function fmtN(n) { return Math.round(n||0).toLocaleString('zh-TW'); }
-var CUR_SYMBOL = {'TWD':'NT$','USD':'US$','JPY':'¥','EUR':'€'};
+var CUR_SYMBOL = {'TWD':'TWD','USD':'USD','JPY':'JPY','EUR':'EUR','CNY':'CNY','NTD':'TWD'};
 function fmtAmt(amt, cur, direction) {
-  var n = Math.round(parseFloat(amt)||0);
-  var sym = CUR_SYMBOL[(cur||'TWD').toUpperCase()] || (cur||'');
-  // ★ v20：direction==='out' 或金額為負數時，強制顯示減號
+  var n   = Math.round(parseFloat(amt)||0);
+  var c   = (cur||'TWD').toUpperCase();
+  if (c === 'NTD') c = 'TWD';
   var isNeg = (direction === 'out') || n < 0;
   var absN  = Math.abs(n);
-  return (isNeg ? '-' : '') + sym + absN.toLocaleString('zh-TW');
+  return (isNeg ? '-' : '') + c + ' ' + absN.toLocaleString('zh-TW');
 }
 function fmtM(n) { var v=Math.round(n||0); return Math.abs(v)>=10000?(v/10000).toFixed(1)+'萬':v.toLocaleString('zh-TW'); }
 function now() { return new Date().toLocaleString('zh-TW',{hour12:false}); }
@@ -6297,7 +6298,7 @@ function renderKeyin() {
       + '<td>'+dirBadge+'</td>'
       + '<td class="tdb" style="max-width:160px;word-break:break-all;">'+htmlEsc(m.counterparty||'—')+(m.caseName?'<div style="font-size:10px;color:var(--muted);">'+htmlEsc(m.caseName)+'</div>':'')+'</td>'
       + '<td class="tdg">'+(m.category||'—')+'</td>'
-      + '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+stColor+';">'+formatCurrency(m.currency||'TWD', m.amount)+'</td>'
+      + '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(isOverdue?'var(--coral)':(m.direction==='receivable'?'var(--jade)':'var(--pay)'))+';">'+formatCurrency(m.currency||'TWD', m.amount)+'</td>'
       + '<td class="tdg" style="'+(isOverdue?'color:var(--coral);font-weight:700;':'')+';">'+(m.dueDate||'—')+'</td>'
       + '<td>'+stBadge+'</td>'
       + '<td style="white-space:nowrap;">'+paidBtn+editBtn+'</td>'
