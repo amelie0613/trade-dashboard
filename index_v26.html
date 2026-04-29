@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>貿易大漁｜管理系統 v20</title>
+<title>貿易大漁｜管理系統 v26.1</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
@@ -424,7 +424,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
 <!-- ★ 應收收款日追蹤提醒橫幅（帳務專用，不影響案件流程） -->
 <div id="undated-alert-bar" style="display:none;background:#fef3c7;border-bottom:2px solid #fcd34d;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;color:#d97706;">
   <span id="undated-atxt"></span>
-  <span onclick="goTab('payments');setTimeout(function(){var el=document.getElementById('undated-track-card');if(el)el.scrollIntoView({behavior:'smooth'});},300);" style="cursor:pointer;text-decoration:underline;white-space:nowrap;margin-left:16px;">查看明細 ↓</span>
+  <span onclick="(function(){goTab('dash');setTimeout(function(){var el=document.getElementById('records-cards');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},350);})();" style="cursor:pointer;text-decoration:underline;white-space:nowrap;margin-left:16px;">查看案件 ↓</span>
 </div>
 <div class="nav-tabs" id="ntabs"></div>
 
@@ -2708,7 +2708,7 @@ function showD(rowNum){
           ? '<span style="color:var(--ink);">'+p.date+'</span>'
           : '<span style="color:#d97706;font-weight:700;font-size:11px;">⚠ 未設定</span>';
         opCell = hasDate
-          ? '<span style="text-align:center;"><button onclick="event.stopPropagation();doDeletePeriodDate('+rowNum+','+idx+')" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 刪日期</button></span>'
+          ? '<span style="text-align:center;"><button onclick="event.stopPropagation();doDeletePeriodDate(\''+rowNum+'\','+idx+')" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 刪日期</button></span>'
           : '<span></span>';
       } else {
         dateDisplay = '<span style="color:var(--ink);">'+(p.date||'—')+'</span>';
