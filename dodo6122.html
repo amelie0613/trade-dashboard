@@ -370,24 +370,43 @@ body{
 .tbl-footer strong{color:var(--text);}
 
 /* data table */
-table.data-tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.data-tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
 table.data-tbl th{
   position:sticky;top:0;z-index:2;
   background:var(--accent);
   color:#fff;
-  padding:9px 12px;
+  padding:8px 10px;
   text-align:left;
   font-weight:700;
   white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
   cursor:pointer;
   user-select:none;
 }
 table.data-tbl th:hover{background:#7b6ba0;}
 table.data-tbl td{
-  padding:8px 12px;
+  padding:7px 10px;
   white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
   color:var(--text);
 }
+/* column width distribution */
+table.data-tbl th:nth-child(1){width:5%;}   /* 類別 */
+table.data-tbl th:nth-child(2){width:7%;}   /* 產品代碼 */
+table.data-tbl th:nth-child(3){width:12%;}  /* 產品名稱 */
+table.data-tbl th:nth-child(4){width:5%;}   /* 規格 */
+table.data-tbl th:nth-child(5){width:7%;}   /* 庫存數量 */
+table.data-tbl th:nth-child(6){width:4%;}   /* 單位 */
+table.data-tbl th:nth-child(7){width:8%;}   /* 倉庫 */
+table.data-tbl th:nth-child(8){width:10%;}  /* 批號 */
+table.data-tbl th:nth-child(9){width:7%;}   /* 入庫日期 */
+table.data-tbl th:nth-child(10){width:7%;}  /* 有效期至 */
+table.data-tbl th:nth-child(11){width:8%;}  /* 剩餘天數 */
+table.data-tbl th:nth-child(12){width:7%;}  /* 單價 */
+table.data-tbl th:nth-child(13){width:8%;}  /* 核算範圍 */
+table.data-tbl th:nth-child(14){width:9%;}  /* 存貨成本 */
 table.data-tbl tbody tr:nth-child(even) td{background:#fafbfc;}
 table.data-tbl tbody tr:hover td{background:#f0f4ff;}
 table.data-tbl .row-expired td{background:#fff5f5!important;}
@@ -988,28 +1007,14 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           <button class="btn btn-ghost" onclick="exportCostAnalysis()">📊 成本分析報表</button>
         </div>
 
-        <!-- Flagged Items Table -->
-        <div class="section-card">
-          <div class="section-card-header">
-            <span style="font-size:18px;">⚠️</span>
-            <h3>需要關注的品項（過期 + 即將到期）</h3>
+        <!-- Scope Cost Table (moved from inventory) -->
+        <div class="scope-table-wrap" id="scopeCostWrap" style="display:none;">
+          <div class="scope-table-header" onclick="toggleScopeTable()">
+            <h4>💰 各存貨核算範圍成本分析</h4>
+            <span id="scopeToggleHint" style="font-size:12px;color:var(--muted);margin-left:auto;">▼ 點擊收合</span>
           </div>
-          <div class="section-card-body">
-            <table class="dash-table">
-              <thead>
-                <tr>
-                  <th>產品名稱</th>
-                  <th>批號</th>
-                  <th>倉庫</th>
-                  <th>有效期至</th>
-                  <th>庫存數量</th>
-                  <th>狀態</th>
-                </tr>
-              </thead>
-              <tbody id="db-flagged-tbody">
-                <tr><td colspan="6" style="text-align:center;color:#aaa;padding:2rem;">尚未載入庫存資料</td></tr>
-              </tbody>
-            </table>
+          <div class="scope-tbl-body" id="scopeTblBody">
+            <table class="scope-tbl" id="scopeCostTbl"></table>
           </div>
         </div>
       </div>
@@ -1040,17 +1045,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <div class="kpi-label">⚠️ 即將到期</div>
             <div class="kpi-value" id="kpi-soon">—</div>
             <div class="kpi-sub" id="kpi-soon-sub">效期未滿210天</div>
-          </div>
-        </div>
-
-        <!-- Scope Cost Table -->
-        <div class="scope-table-wrap" id="scopeCostWrap" style="display:none;">
-          <div class="scope-table-header" onclick="toggleScopeTable()">
-            <h4>💰 各存貨核算範圍成本分析</h4>
-            <span id="scopeToggleHint" style="font-size:12px;color:var(--muted);margin-left:auto;">▼ 點擊收合</span>
-          </div>
-          <div class="scope-tbl-body" id="scopeTblBody">
-            <table class="scope-tbl" id="scopeCostTbl"></table>
           </div>
         </div>
 
@@ -1683,17 +1677,13 @@ function updateDashboard(){
     ['db-total','db-expired','db-long','db-cost'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.textContent='—';
     });
-    const tb=document.getElementById('db-flagged-tbody');
-    if(tb) tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:#aaa;padding:2rem;">尚未載入庫存資料</td></tr>';
     return;
   }
-  const { soonDays } = getThresholds();
-  let expiredCnt=0, longCnt=0, soonCnt=0, costTotal=0;
+  let expiredCnt=0, longCnt=0, costTotal=0;
   allData.forEach(r => {
     const f=classify(r);
     if(f.expired) expiredCnt++;
     if(f.long)    longCnt++;
-    if(f.soon)    soonCnt++;
     const pd=getPriceData(r);
     costTotal += (parseFloat(r['庫存數量'])||0) * pd.price;
   });
@@ -1702,22 +1692,7 @@ function updateDashboard(){
   setEl('db-expired', expiredCnt);
   setEl('db-long', longCnt);
   setEl('db-cost', costTotal>0?'$'+fmtNum(Math.round(costTotal)):'—');
-  const flagged = allData
-    .filter(r=>{const f=classify(r);return f.expired||f.soon;})
-    .slice(0,60)
-    .map(r=>{
-      const f=classify(r);
-      const st=f.expired?'<span style="color:#c0392b;font-weight:700;">🔴 過期</span>':'<span style="color:#e67e22;font-weight:700;">🟠 即將到期</span>';
-      const days = f.expired&&r._expDate ? '超'+Math.round((TODAY-r._expDate)/86400000)+'天'
-                 : r._expDate ? '剩'+Math.round((r._expDate-TODAY)/86400000)+'天' : '—';
-      return '<tr><td>'+escHtml(r['產品名稱']||'')+'</td><td>'+escHtml(r['批號']||'')+'</td>'
-        +'<td>'+escHtml(r['倉庫名稱']||'')+'</td>'
-        +'<td>'+(r._expDate?fmtDate(r._expDate):'—')+'</td>'
-        +'<td>'+fmtNum(r['庫存數量']||0)+'</td>'
-        +'<td>'+st+' '+days+'</td></tr>';
-    }).join('');
-  const tbody=document.getElementById('db-flagged-tbody');
-  if(tbody) tbody.innerHTML=flagged||'<tr><td colspan="6" style="text-align:center;color:#aaa;padding:1.5rem;">無過期或即將到期品項 ✅</td></tr>';
+  renderScopeCostTable();
 }
 
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -2173,7 +2148,7 @@ function renderTable(tabKey){
     ? COLS.map(c=>c.key==='_days' ? {...c,label:'超期天數'} : c)
     : COLS;
 
-  let html = `<table><thead><tr>`;
+  let html = `<table class="data-tbl"><thead><tr>`;
   colsToShow.forEach(c => {
     const s = sortState[tabKey];
     const icon = s?.col===c.key ? (s.dir>0?'▲':'▼') : '<span style="opacity:.3">⇅</span>';
