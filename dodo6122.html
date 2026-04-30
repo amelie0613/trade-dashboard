@@ -5936,8 +5936,28 @@ function displayResults(data) {
                     <tbody id="resultBody">
     `;
 
+    // 合計列：固定在最上方（不含 data-row，不受排序影響）
+    html += `<tr id="totalRow" style="background:#fdf0f7; font-weight:700; font-size:11px; position:sticky; top:30px; z-index:1;">`;
+    html += `<td style="width:40px; background:#fdf0f7;"></td>`;
+    displayCols.forEach(col => {
+        if (col === '產品名稱') {
+            html += `<td colspan="1" style="color:#c0507a; background:#fdf0f7;">合計</td>`;
+        } else if (numericCols.includes(col)) {
+            html += `<td id="sum_${col}" style="color:#c0507a; background:#fdf0f7;"></td>`;
+        } else {
+            html += `<td style="background:#fdf0f7;"></td>`;
+        }
+    });
+    html += `</tr>`;
+
     data.forEach((row, rowIdx) => {
-        html += `<tr data-row="${rowIdx}">`;
+        // 判斷是否異常：上期結存 > 0 且 本期入庫 > 0
+        const prevStock = parseFloat(row['上期結存']) || 0;
+        const currIn    = parseFloat(row['本期入庫']) || 0;
+        const isAbnormal = prevStock > 0 && currIn > 0;
+        const trStyle = isAbnormal ? ' style="color:#ef4444;"' : '';
+
+        html += `<tr data-row="${rowIdx}"${trStyle}>`;
         html += `<td style="width:40px; padding:4px; text-align:center;">
             <input type="checkbox" data-row-idx="${rowIdx}" onchange="onCheckboxChange(this)" style="cursor:pointer;">
         </td>`;
@@ -5960,20 +5980,6 @@ function displayResults(data) {
         });
         html += '</tr>';
     });
-
-    // 合計列（預設隱藏）
-    html += `<tr id="totalRow" style="display:none; background:#fdf0f7; font-weight:700; font-size:11px;">`;
-    html += `<td style="width:40px;"></td>`;
-    displayCols.forEach(col => {
-        if (col === '產品名稱') {
-            html += `<td colspan="1" style="color:#c0507a;">合計</td>`;
-        } else if (numericCols.includes(col)) {
-            html += `<td id="sum_${col}" style="color:#c0507a;"></td>`;
-        } else {
-            html += `<td></td>`;
-        }
-    });
-    html += `</tr>`;
 
     html += `
                     </tbody>
@@ -6152,23 +6158,34 @@ function recalcSummary() {
     const visibleRows = Array.from(tbody.querySelectorAll('tr[data-row]'))
         .filter(r => r.style.display !== 'none');
 
-    let totalRental = 0, totalHandling = 0, totalSum = 0, totalWeight = 0;
+    const numericCols = ['上期結存','本期入庫','本期出庫','本期結存','天數','淨重','計價重量','出入庫','租金','總計'];
+    const sums = {};
+    numericCols.forEach(c => sums[c] = 0);
+
     visibleRows.forEach(tr => {
         const rowIdx = parseInt(tr.dataset.row);
         const row = calculatedData[rowIdx];
         if (!row) return;
-        totalRental   += parseFloat(row['租金'])      || 0;
-        totalHandling += parseFloat(row['出入庫'])     || 0;
-        totalSum      += parseFloat(row['總計'])       || 0;
-        totalWeight   += parseFloat(row['計價重量'])   || 0;
+        numericCols.forEach(c => { sums[c] += parseFloat(row[c]) || 0; });
     });
 
+    // 更新上方統計卡
     const fmt = n => '$' + Math.round(n).toLocaleString();
     const el = id => document.getElementById(id);
-    if (el('totalRental'))   el('totalRental').textContent   = fmt(totalRental);
-    if (el('totalHandling')) el('totalHandling').textContent = fmt(totalHandling);
-    if (el('totalSum'))      el('totalSum').textContent      = fmt(totalSum);
-    if (el('totalWeight'))   el('totalWeight').textContent   = totalWeight.toFixed(2);
+    if (el('totalRental'))   el('totalRental').textContent   = fmt(sums['租金']);
+    if (el('totalHandling')) el('totalHandling').textContent = fmt(sums['出入庫']);
+    if (el('totalSum'))      el('totalSum').textContent      = fmt(sums['總計']);
+    if (el('totalWeight'))   el('totalWeight').textContent   = sums['計價重量'].toFixed(2);
+
+    // 更新合計列的 sum_* 儲存格
+    numericCols.forEach(c => {
+        const cell = el('sum_' + c);
+        if (!cell) return;
+        const isMonetary = ['出入庫','租金','總計'].includes(c);
+        cell.textContent = isMonetary
+            ? fmt(sums[c])
+            : (Number.isInteger(sums[c]) ? sums[c] : sums[c].toFixed(2));
+    });
 }
 
 function toggleTotalRow() {
