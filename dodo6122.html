@@ -419,18 +419,23 @@ table.data-tbl th:nth-child(14){width:9%;}  /* 存貨成本 */
   background:var(--accent);
   color:white;font-weight:700;
   border:1px solid #4a5a9f;
-  padding:8px 10px;
+  padding:6px 8px;
   text-align:left;
   cursor:default;
   user-select:none;
+  font-size:11px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 #resultTable th:hover{background:#5868A8;}
 #resultTable td{
-  padding:7px 10px;
+  padding:5px 8px;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
   border:1px solid #dde6ef;
+  font-size:11px;
 }
 /* Rental result table column widths (26 columns) */
 #resultTable th:nth-child(1){width:3.5%;}   /* 序號 */
@@ -5847,7 +5852,7 @@ function displayResults(data) {
         const isNewCol = ['天數', '淨重', '計價重量', '出入庫', '租金', '總計', '採購部門', '備註'].includes(col);
         const highlightClass = isNewCol ? ' highlight' : '';
         html += `<th${highlightClass} style="cursor:pointer; user-select:none;" onclick="sortTable(${idx})" title="點擊排序">
-            ${col} <span id="sort_${idx}" style="font-size:0.7rem; color:#aaa;">⇅</span>
+            ${col} <span id="sort_${idx}" style="font-size:9px; color:#aaa;">⇅</span>
         </th>`;
     });
 
@@ -5867,7 +5872,7 @@ function displayResults(data) {
                     <input type="text" value="${val}"
                         data-row="${rowIdx}" data-col="${col}"
                         onchange="onCellEdit(this)"
-                        style="width:100%; min-width:${isNote?'120px':'60px'}; padding:0.4rem 0.5rem; border:none; border-bottom:1.5px solid transparent; background:transparent; font-size:0.75rem; font-family:inherit; color:inherit;
+                        style="width:100%; min-width:${isNote?'120px':'60px'}; padding:3px 5px; border:none; border-bottom:1.5px solid transparent; background:transparent; font-size:11px; font-family:inherit; color:inherit;
                         outline:none; cursor:pointer;"
                         onfocus="this.style.borderBottomColor='#f2a7c3'; this.style.background='#fff8fc';"
                         onblur="this.style.borderBottomColor='transparent'; this.style.background='transparent';" />
@@ -5880,7 +5885,7 @@ function displayResults(data) {
     });
 
     // 合計列（預設隱藏）
-    html += `<tr id="totalRow" style="display:none; background:#fdf0f7; font-weight:700; font-size:0.78rem;">`;
+    html += `<tr id="totalRow" style="display:none; background:#fdf0f7; font-weight:700; font-size:11px;">`;
     displayCols.forEach(col => {
         if (col === '產品名稱') {
             html += `<td colspan="1" style="color:#c0507a;">合計</td>`;
