@@ -669,6 +669,11 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
   padding-left:1.5rem;padding-right:1.5rem;
   margin-top:1.5rem;
 }
+.rental-content #results .overflow-auto{
+  max-height:600px;
+  overflow-y:auto;
+  overflow-x:auto;
+}
 
 /* Keep rental-specific button styles */
 .rental-content .btn-primary{
@@ -5748,6 +5753,7 @@ function getConfig() {
 
 // 租金計算表格排序狀態
 let resultTableSortState = { col: null, dir: 1 };
+let checkedResultRows = new Set(); // 追蹤被勾選的行索引
 
 function sortResultTable(colIdx){
   const tbody = document.getElementById('resultBody');
@@ -5760,18 +5766,19 @@ function sortResultTable(colIdx){
   resultTableSortState = { col: colIdx, dir };
 
   rows.sort((aEl, bEl) => {
-    // 從第 colIdx 列的 td 中提取值
+    // 因為加入了勾選框欄，實際的資料欄位索引需要+1
+    const cellIdx = colIdx + 1;
     const aTds = aEl.querySelectorAll('td');
     const bTds = bEl.querySelectorAll('td');
 
-    if(colIdx >= aTds.length || colIdx >= bTds.length) return 0;
+    if(cellIdx >= aTds.length || cellIdx >= bTds.length) return 0;
 
-    let aVal = aTds[colIdx].textContent.trim();
-    let bVal = bTds[colIdx].textContent.trim();
+    let aVal = aTds[cellIdx].textContent.trim();
+    let bVal = bTds[cellIdx].textContent.trim();
 
     // 檢查 input 元素（可編輯欄位）
-    const aInput = aTds[colIdx].querySelector('input');
-    const bInput = bTds[colIdx].querySelector('input');
+    const aInput = aTds[cellIdx].querySelector('input');
+    const bInput = bTds[cellIdx].querySelector('input');
     if(aInput) aVal = aInput.value;
     if(bInput) bVal = bInput.value;
 
@@ -5797,12 +5804,53 @@ function sortResultTable(colIdx){
   rows.forEach(row => tbody.appendChild(row));
 }
 
+// ─── 勾選框管理 ───
+function toggleAllCheckboxes(checkAllEl){
+  const isChecked = checkAllEl.checked;
+  const tbody = document.getElementById('resultBody');
+  if(!tbody) return;
+
+  checkedResultRows.clear();
+  tbody.querySelectorAll('input[type="checkbox"][data-row-idx]').forEach(checkbox => {
+    checkbox.checked = isChecked;
+    const rowIdx = parseInt(checkbox.getAttribute('data-row-idx'));
+    if(isChecked){
+      checkedResultRows.add(rowIdx);
+    }
+  });
+}
+
+function onCheckboxChange(checkboxEl){
+  const rowIdx = parseInt(checkboxEl.getAttribute('data-row-idx'));
+  if(checkboxEl.checked){
+    checkedResultRows.add(rowIdx);
+  } else {
+    checkedResultRows.delete(rowIdx);
+  }
+
+  // 更新全選勾選框狀態
+  const checkAllEl = document.getElementById('checkAll');
+  if(!checkAllEl) return;
+  const tbody = document.getElementById('resultBody');
+  if(!tbody) return;
+
+  const allCheckboxes = Array.from(tbody.querySelectorAll('input[type="checkbox"][data-row-idx]'));
+  const allChecked = allCheckboxes.length > 0 && allCheckboxes.every(cb => cb.checked);
+  checkAllEl.checked = allChecked;
+}
+
+function getCheckedRowIndices(){
+  return Array.from(checkedResultRows).sort((a, b) => a - b);
+}
+
 function displayResults(data) {
     if (!data || data.length === 0) {
         document.getElementById('results').innerHTML = '<p style="color: #999;">沒有計算結果</p>';
+        checkedResultRows.clear(); // 清空勾選狀態
         return;
     }
 
+    checkedResultRows.clear(); // 新的結果，清空舊的勾選狀態
     let totalRental = 0;
     let totalHandling = 0;
 
@@ -5869,6 +5917,9 @@ function displayResults(data) {
                 <table id="resultTable">
                     <thead>
                         <tr>
+                            <th style="width:40px; padding:6px 4px; text-align:center; cursor:default; user-select:none;" title="全選/全不選">
+                                <input type="checkbox" id="checkAll" onchange="toggleAllCheckboxes(this)" style="cursor:pointer;">
+                            </th>
     `;
 
     displayCols.forEach((col, idx) => {
@@ -5887,6 +5938,9 @@ function displayResults(data) {
 
     data.forEach((row, rowIdx) => {
         html += `<tr data-row="${rowIdx}">`;
+        html += `<td style="width:40px; padding:4px; text-align:center;">
+            <input type="checkbox" data-row-idx="${rowIdx}" onchange="onCheckboxChange(this)" style="cursor:pointer;">
+        </td>`;
         displayCols.forEach((col, colIdx) => {
             const val = row[col] !== undefined ? row[col] : '';
             if (editableCols.includes(col)) {
@@ -5909,6 +5963,7 @@ function displayResults(data) {
 
     // 合計列（預設隱藏）
     html += `<tr id="totalRow" style="display:none; background:#fdf0f7; font-weight:700; font-size:11px;">`;
+    html += `<td style="width:40px;"></td>`;
     displayCols.forEach(col => {
         if (col === '產品名稱') {
             html += `<td colspan="1" style="color:#c0507a;">合計</td>`;
@@ -5981,7 +6036,9 @@ function applyFilter() {
 
     let visible = 0;
     tbody.querySelectorAll('tr').forEach(row => {
-        const cell = colIdx >= 0 ? row.cells[colIdx]?.textContent.toLowerCase() || '' : '';
+        // 勾選框欄在索引 0，所以實際資料欄位需要 +1
+        const cellIdx = colIdx >= 0 ? colIdx + 1 : -1;
+        const cell = cellIdx >= 0 ? row.cells[cellIdx]?.textContent.toLowerCase() || '' : '';
         const show = !keyword || cell.includes(keyword);
         row.style.display = show ? '' : 'none';
         if (show) visible++;
