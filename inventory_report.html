@@ -90,7 +90,7 @@
 
     th {
       background: #2557A5; color: white; padding: 8px 4px;
-      text-align: center; font-weight: 700; font-size: 16px;
+      text-align: center; font-weight: 700; font-size: 12px;
       border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;
       overflow: hidden; cursor: pointer; user-select: none;
       transition: background 0.15s;
@@ -102,7 +102,7 @@
     .sort-icon { font-size: 10px; margin-left: 3px; opacity: 0.4; }
     .sort-icon.active { opacity: 1; }
 
-    td { padding: 6px 4px; font-size: 14px; border: 1px solid #e8edf5; overflow: hidden; vertical-align: middle; }
+    td { padding: 6px 4px; font-size: 12px; border: 1px solid #e8edf5; overflow: hidden; vertical-align: middle; }
 
     tr.row-normal  td { background: #ffffff; }
     tr.row-expired td { background: #fff5f5; }
@@ -153,14 +153,24 @@
       .type-tabs      { display: none !important; }
       .toolbar        { display: none !important; }
       .print-title    { display: block !important; }
-      .table-wrapper  { overflow: visible !important; border: none !important; border-radius: 0; }
-      table { min-width: 0 !important; }
-      .summary-bar   { margin-bottom: 6px; }
-      .summary-card  { padding: 5px 10px; min-width: 90px; }
-      .summary-value { font-size: 14px; }
+
+      /* ★ 移除捲動容器 — 防止截線 */
+      .table-wrapper  { overflow: visible !important; border: none !important; border-radius: 0 !important; }
+      table { min-width: 0 !important; width: 100% !important; }
+
+      /* ★ 字體縮小以利列印 */
+      th  { font-size: 10px !important; padding: 5px 3px !important; position: static !important; }
+      td  { font-size: 10px !important; padding: 4px 3px !important; }
+
+      /* ★ 防止列被頁面切斷 */
       table { page-break-inside: auto; }
       thead { display: table-header-group; }
-      tr    { page-break-inside: avoid; break-inside: avoid; }
+      tbody tr { page-break-inside: avoid; break-inside: avoid; }
+
+      .summary-bar   { margin-bottom: 6px; }
+      .summary-card  { padding: 5px 10px; min-width: 90px; }
+      .summary-value { font-size: 13px; }
+
       tr.row-expired td { background: #fff5f5 !important; }
       tr.row-soon    td { background: #fff8f0 !important; }
       tr.row-long    td { background: #fefce8 !important; }
@@ -426,13 +436,13 @@ function renderDetail(rows) {
 
     html += '<tr class="' + (ROW_CLS[r.status] || 'row-normal') + '">'
       + '<td>' + (r.category || '—') + '</td>'
-      + '<td style="text-align:center;font-size:12px;">' + (r.code || '—') + '</td>'
+      + '<td style="text-align:center;">' + (r.code || '—') + '</td>'
       + '<td>' + (r.name || '—') + '</td>'
-      + '<td style="color:#666;font-size:12px;">' + (r.spec || '—') + '</td>'
+      + '<td style="color:#666;">' + (r.spec || '—') + '</td>'
       + '<td style="text-align:right;">' + r.qty.toLocaleString() + '</td>'
       + '<td style="text-align:center;">' + (r.unit || '—') + '</td>'
-      + '<td style="font-size:12px;">' + (r.warehouse || '—') + '</td>'
-      + '<td style="font-size:11px;">' + (r.lot || '—') + '</td>'
+      + '<td>' + (r.warehouse || '—') + '</td>'
+      + '<td>' + (r.lot || '—') + '</td>'
       + '<td style="text-align:center;">' + (r.lotDate || '—') + '</td>'
       + '<td style="text-align:center;">' + (r.expDate || '—') + '</td>'
       + '<td style="text-align:center;" class="' + daysCls + '">' + (r.daysText || '—') + '</td>'
@@ -521,14 +531,14 @@ function renderPivot(groups) {
     html += '<tr class="' + rowCls + '">'
       + '<td>' + (g.category || '—') + '</td>'
       + '<td><strong>' + (g.name || '—') + '</strong></td>'
-      + '<td style="font-size:12px;">' + (g.warehouse || '—') + '</td>'
+      + '<td>' + (g.warehouse || '—') + '</td>'
       + '<td style="text-align:right;font-weight:700;">' + g.qty.toLocaleString() + '</td>'
       + '<td style="text-align:center;">' + (g.unit || '—') + '</td>'
       + '<td style="text-align:center;"><span class="lots-badge">' + g.lots + ' 批</span></td>'
       + '<td style="text-align:right;">' + priceDisp + '</td>'
       + '<td style="text-align:center;">' + scopeDisp + '</td>'
       + '<td style="text-align:right;" class="' + costCls + '">' + (g.cost > 0 ? '$' + Math.round(g.cost).toLocaleString() : '—') + '</td>'
-      + '<td style="font-size:11px;">' + (statusDisp || '—') + '</td>'
+      + '<td>' + (statusDisp || '—') + '</td>'
       + '</tr>';
   });
 
