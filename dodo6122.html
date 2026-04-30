@@ -251,7 +251,7 @@ body{
 .section-card-header h3{font-size:14px;font-weight:800;color:var(--text);}
 .section-card-body{overflow-x:auto;}
 
-.dash-table{width:100%;border-collapse:collapse;font-size:13px;}
+.dash-table{width:100%;border-collapse:collapse;font-size:12px;}
 .dash-table th{
   background:#f8fafc;
   padding:10px 14px;
@@ -443,7 +443,7 @@ table.data-tbl .row-caution td{background:#fffef0!important;}
 /* ══ RESULT TABLE (租金計算明細) ═════════════════════════════════ */
 #resultTable{
   border-collapse:collapse;
-  font-size:11px;
+  font-size:12px;
   min-width:2400px;
   font-family:'Noto Sans TC',sans-serif;
 }
@@ -460,7 +460,7 @@ table.data-tbl .row-caution td{background:#fffef0!important;}
   text-align:center;
   cursor:pointer;
   user-select:none;
-  font-size:11px;
+  font-size:12px;
 }
 #resultTable th.col-num   { text-align:right;  }
 #resultTable th.col-text  { text-align:left;   }
@@ -526,19 +526,22 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 }
 .scope-table-header h4{font-size:13px;font-weight:800;color:var(--text);}
 .scope-tbl-body{overflow-x:auto;}
-.scope-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.scope-tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
 .scope-tbl th{
   background:#f8fafc;padding:8px 12px;
   font-size:11px;font-weight:700;color:var(--muted);
-  text-align:right;border-bottom:1px solid var(--border);
+  border-bottom:1px solid var(--border);vertical-align:middle;
+  white-space:nowrap;
 }
-.scope-tbl th:first-child{text-align:left;}
+.scope-tbl th.col-num  { text-align:right; font-variant-numeric:tabular-nums; font-family:'DM Sans','Noto Sans TC',sans-serif; }
+.scope-tbl th.col-text { text-align:left; }
 .scope-tbl td{
-  padding:8px 12px;text-align:right;
+  padding:8px 12px;
   border-bottom:1px solid #f1f5f9;color:var(--text);
+  white-space:nowrap;vertical-align:middle;
 }
-.scope-tbl td:first-child{text-align:left;}
-.scope-tbl .scope-child td{background:#fafbfc;padding-left:24px;}
+.scope-tbl td.col-num  { text-align:right; font-variant-numeric:tabular-nums; font-family:'DM Sans','Noto Sans TC',sans-serif; }
+.scope-tbl td.col-text { text-align:left; }
 
 /* GLOBAL SEARCH BAR */
 #globalSearchBar{
@@ -2169,9 +2172,11 @@ const scopeExpanded = {};
 
 function toggleScope(sc){
   scopeExpanded[sc] = !scopeExpanded[sc];
-  const row = document.getElementById('scope-detail-'+CSS.escape(sc));
-  const arrow = document.getElementById('scope-arrow-'+CSS.escape(sc));
-  if(row){ row.style.display = scopeExpanded[sc] ? '' : 'none'; }
+  const scId = sc.replace(/[^a-zA-Z0-9一-鿿]/g,'_');
+  document.querySelectorAll(`tr[data-scope-id="${scId}"]`).forEach(row => {
+    row.style.display = scopeExpanded[sc] ? '' : 'none';
+  });
+  const arrow = document.getElementById('scope-arrow-'+scId);
   if(arrow){ arrow.textContent = scopeExpanded[sc] ? '▼' : '▶'; }
 }
 
@@ -2210,20 +2215,21 @@ function renderScopeCostTable(){
 
   const fmtCost = v => v > 0 ? '$'+fmtNum(Math.round(v)) : '<span class="cost-zero">—</span>';
 
-  // scope-tbl 統一樣式
-  const SC = `font-variant-numeric:tabular-nums;font-family:'DM Sans','Noto Sans TC',sans-serif;`;
-  const tdNum = (val, extra='') =>
-    `<td style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;${SC}${extra}">${val}</td>`;
-  const tdText = (val, extra='') =>
-    `<td style="text-align:left;padding:8px 14px;white-space:nowrap;vertical-align:middle;${extra}">${val}</td>`;
-
-  let html = `<thead><tr>
-    <th style="text-align:left;padding:8px 14px;white-space:nowrap;vertical-align:middle;">核算範圍 / 倉庫</th>
-    <th style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;${SC}">全部成本</th>
-    <th style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;${SC}">正常</th>
-    <th style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;color:#C03030;${SC}">過期品</th>
-    <th style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;color:#B05010;${SC}">長期在庫</th>
-    <th style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;color:var(--coral);${SC}">即將到期</th>
+  let html = `<colgroup>
+    <col style="width:34%">
+    <col style="width:13%">
+    <col style="width:13%">
+    <col style="width:13%">
+    <col style="width:13%">
+    <col style="width:14%">
+  </colgroup>
+  <thead><tr>
+    <th class="col-text">核算範圍 / 倉庫</th>
+    <th class="col-num">全部成本</th>
+    <th class="col-num">正常</th>
+    <th class="col-num" style="color:#C03030;">過期品</th>
+    <th class="col-num" style="color:#B05010;">長期在庫</th>
+    <th class="col-num" style="color:var(--coral);">即將到期</th>
   </tr></thead><tbody>`;
 
   scopes.forEach(sc => {
@@ -2232,45 +2238,42 @@ function renderScopeCostTable(){
     const warehouses = Object.keys(warehouseData[sc]).sort();
     const hasWh = warehouses.length > 0;
     const isOpen = scopeExpanded[sc] || false;
+    const safeOnClick = hasWh ? `toggleScope('${sc.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')` : '';
 
     // 核算範圍主列（可點擊展開）
-    html += `<tr style="cursor:${hasWh?'pointer':'default'};background:#F5F0FF;" onclick="${hasWh?`toggleScope('${sc.replace(/'/g,"\'")}')`:''}" >`;
-    html += tdText(`${hasWh?`<span id="scope-arrow-${scId}" style="margin-right:6px;font-size:11px;">${isOpen?'▼':'▶'}</span>`:''}${sc}${hasWh?`<span style="font-size:10px;color:var(--muted);margin-left:6px;">(${warehouses.length}個倉庫)</span>`:''}`, 'font-weight:800;color:var(--purple);');
-    html += tdNum(fmtCost(d['全部']),    'font-weight:800;color:var(--purple);');
-    html += tdNum(fmtCost(d['正常']),    '');
-    html += tdNum(fmtCost(d['過期品']),  'color:#C03030;');
-    html += tdNum(fmtCost(d['長期在庫']),'color:#B05010;');
-    html += tdNum(fmtCost(d['即將到期']),'color:var(--coral);');
+    html += `<tr style="cursor:${hasWh?'pointer':'default'};background:#F5F0FF;" onclick="${safeOnClick}">`;
+    html += `<td class="col-text" style="font-weight:800;color:var(--purple);">${hasWh?`<span id="scope-arrow-${scId}" style="margin-right:6px;font-size:11px;">${isOpen?'▼':'▶'}</span>`:''} ${sc}${hasWh?`<span style="font-size:10px;color:var(--muted);margin-left:6px;">(${warehouses.length}個倉庫)</span>`:''}</td>`;
+    html += `<td class="col-num" style="font-weight:800;color:var(--purple);">${fmtCost(d['全部'])}</td>`;
+    html += `<td class="col-num">${fmtCost(d['正常'])}</td>`;
+    html += `<td class="col-num" style="color:#C03030;">${fmtCost(d['過期品'])}</td>`;
+    html += `<td class="col-num" style="color:#B05010;">${fmtCost(d['長期在庫'])}</td>`;
+    html += `<td class="col-num" style="color:var(--coral);">${fmtCost(d['即將到期'])}</td>`;
     html += `</tr>`;
 
-    // 各倉庫明細列（預設隱藏）
+    // 各倉庫明細列 — 直接作為外層 tbody 的 <tr>，不用嵌套 table
     if(hasWh){
-      html += `<tr id="scope-detail-${scId}" style="display:${isOpen?'':'none'};">
-        <td colspan="6" style="padding:0;">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;">`;
       warehouses.forEach(wh => {
         const wd = warehouseData[sc][wh];
-        html += `<tr style="background:#FDFAFF;border-bottom:1px solid var(--border);">
-          <td style="text-align:left;padding:6px 14px 6px 36px;white-space:nowrap;vertical-align:middle;color:var(--muted);">🏭 ${wh}</td>
-          ${tdNum(fmtCost(wd['全部']),    'font-weight:600;')}
-          ${tdNum(fmtCost(wd['正常']),    '')}
-          ${tdNum(fmtCost(wd['過期品']),  'color:#C03030;')}
-          ${tdNum(fmtCost(wd['長期在庫']),'color:#B05010;')}
-          ${tdNum(fmtCost(wd['即將到期']),'color:var(--coral);')}
-        </tr>`;
+        html += `<tr data-scope-id="${scId}" style="display:${isOpen?'':'none'};background:#FDFAFF;border-bottom:1px solid var(--border);">`;
+        html += `<td class="col-text" style="padding-left:36px;color:var(--muted);">🏭 ${wh}</td>`;
+        html += `<td class="col-num" style="font-weight:600;">${fmtCost(wd['全部'])}</td>`;
+        html += `<td class="col-num">${fmtCost(wd['正常'])}</td>`;
+        html += `<td class="col-num" style="color:#C03030;">${fmtCost(wd['過期品'])}</td>`;
+        html += `<td class="col-num" style="color:#B05010;">${fmtCost(wd['長期在庫'])}</td>`;
+        html += `<td class="col-num" style="color:var(--coral);">${fmtCost(wd['即將到期'])}</td>`;
+        html += `</tr>`;
       });
-      html += `</table></td></tr>`;
     }
   });
 
   // 合計列
   html += `<tr style="background:#EDE8F5;">`;
-  html += tdText('合計', 'font-weight:800;');
-  html += tdNum(fmtCost(totalData['全部']),    'font-weight:800;color:var(--purple);');
-  html += tdNum(fmtCost(totalData['正常']),    'font-weight:800;');
-  html += tdNum(fmtCost(totalData['過期品']),  'font-weight:800;color:#C03030;');
-  html += tdNum(fmtCost(totalData['長期在庫']),'font-weight:800;color:#B05010;');
-  html += tdNum(fmtCost(totalData['即將到期']),'font-weight:800;color:var(--coral);');
+  html += `<td class="col-text" style="font-weight:800;">合計</td>`;
+  html += `<td class="col-num" style="font-weight:800;color:var(--purple);">${fmtCost(totalData['全部'])}</td>`;
+  html += `<td class="col-num" style="font-weight:800;">${fmtCost(totalData['正常'])}</td>`;
+  html += `<td class="col-num" style="font-weight:800;color:#C03030;">${fmtCost(totalData['過期品'])}</td>`;
+  html += `<td class="col-num" style="font-weight:800;color:#B05010;">${fmtCost(totalData['長期在庫'])}</td>`;
+  html += `<td class="col-num" style="font-weight:800;color:var(--coral);">${fmtCost(totalData['即將到期'])}</td>`;
   html += `</tr></tbody>`;
 
   document.getElementById('scopeCostTbl').innerHTML = html;
