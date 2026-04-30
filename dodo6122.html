@@ -373,13 +373,24 @@ body{
 .tbl-footer strong{color:var(--text);}
 
 /* data table */
-table.data-tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
+/* ══ UNIVERSAL TABLE ALIGNMENT CLASSES ══════════════════════════
+   使用 class 控制對齊，不用 inline style                        */
+.col-num  { text-align:right;  font-variant-numeric:tabular-nums; font-family:'DM Sans','Noto Sans TC',sans-serif; }
+.col-text { text-align:left;   }
+.col-date { text-align:center; font-variant-numeric:tabular-nums; font-family:'DM Sans','Noto Sans TC',sans-serif; }
+.col-center{ text-align:center; }
+
+/* ══ DATA-TBL (庫存分析 & 長期/過期/即將到期 明細表) ════════════ */
+table.data-tbl{
+  width:100%;border-collapse:collapse;
+  font-size:12px;table-layout:fixed;
+  font-family:'Noto Sans TC',sans-serif;
+}
 table.data-tbl th{
   position:sticky;top:0;z-index:2;
   background:var(--accent);
   color:#fff;
   padding:8px 10px;
-  text-align:center;
   font-weight:700;
   white-space:nowrap;
   overflow:hidden;
@@ -387,8 +398,14 @@ table.data-tbl th{
   cursor:pointer;
   user-select:none;
   border:1px solid #4a5a9f;
+  vertical-align:middle;
 }
+table.data-tbl th.col-num   { text-align:right;  }
+table.data-tbl th.col-text  { text-align:left;   }
+table.data-tbl th.col-date  { text-align:center; }
+table.data-tbl th.col-center{ text-align:center; }
 table.data-tbl th:hover{background:#5868A8;}
+
 table.data-tbl td{
   padding:7px 10px;
   white-space:nowrap;
@@ -397,55 +414,24 @@ table.data-tbl td{
   color:var(--text);
   text-align:left;
   border:1px solid #dde6ef;
-}
-/* 數字欄靠右對齐 */
-table.data-tbl td[style*="text-align:right"]{
-  text-align:right !important;
-}
-table.data-tbl td[style*="text-align:center"]{
-  text-align:center !important;
+  vertical-align:middle;
 }
 /* column width distribution */
-table.data-tbl th:nth-child(1){width:5%;}   /* 類別 */
-table.data-tbl th:nth-child(2){width:7%;}   /* 產品代碼 */
-table.data-tbl th:nth-child(3){width:12%;}  /* 產品名稱 */
-table.data-tbl th:nth-child(4){width:5%;}   /* 規格 */
-table.data-tbl th:nth-child(5){width:7%;}   /* 庫存數量 */
-table.data-tbl th:nth-child(6){width:4%;}   /* 單位 */
-table.data-tbl th:nth-child(7){width:8%;}   /* 倉庫 */
-table.data-tbl th:nth-child(8){width:10%;}  /* 批號 */
-table.data-tbl th:nth-child(9){width:7%;}   /* 入庫日期 */
-table.data-tbl th:nth-child(10){width:7%;}  /* 有效期至 */
-table.data-tbl th:nth-child(11){width:8%;}  /* 剩餘天數 */
-table.data-tbl th:nth-child(12){width:7%;}  /* 單價 */
-table.data-tbl th:nth-child(13){width:8%;}  /* 核算範圍 */
-table.data-tbl th:nth-child(14){width:9%;}  /* 存貨成本 */
+table.data-tbl th:nth-child(1) {width:5%;}   /* 類別 */
+table.data-tbl th:nth-child(2) {width:7%;}   /* 產品代碼 */
+table.data-tbl th:nth-child(3) {width:13%;}  /* 產品名稱 */
+table.data-tbl th:nth-child(4) {width:5%;}   /* 規格 */
+table.data-tbl th:nth-child(5) {width:7%;}   /* 庫存數量 */
+table.data-tbl th:nth-child(6) {width:4%;}   /* 單位 */
+table.data-tbl th:nth-child(7) {width:8%;}   /* 倉庫 */
+table.data-tbl th:nth-child(8) {width:9%;}   /* 批號 */
+table.data-tbl th:nth-child(9) {width:7%;}   /* 入庫日期 */
+table.data-tbl th:nth-child(10){width:7%;}   /* 有效期至 */
+table.data-tbl th:nth-child(11){width:7%;}   /* 剩餘天數 */
+table.data-tbl th:nth-child(12){width:7%;}   /* 單價 */
+table.data-tbl th:nth-child(13){width:7%;}   /* 核算範圍 */
+table.data-tbl th:nth-child(14){width:9%;}   /* 存貨成本 */
 
-/* Rental calculation results table */
-#resultTable{
-  border-collapse:collapse;font-size:12px;
-  min-width:2400px;
-}
-#resultTable th,#resultTable td{
-  white-space:nowrap;
-}
-#resultTable th{
-  position:sticky;top:0;z-index:2;
-  background:var(--accent);
-  color:white;font-weight:700;
-  border:1px solid #4a5a9f;
-  padding:6px 10px;
-  text-align:left;
-  cursor:default;
-  user-select:none;
-  font-size:11px;
-}
-#resultTable th:hover{background:#5868A8;}
-#resultTable td{
-  padding:5px 10px;
-  border:1px solid #dde6ef;
-  font-size:11px;
-}
 table.data-tbl tbody tr:nth-child(even) td{background:#fafbfc;}
 table.data-tbl tbody tr:hover td{background:#f0f4ff;}
 table.data-tbl .row-expired td{background:#fff5f5!important;}
@@ -453,7 +439,51 @@ table.data-tbl .row-urgent  td{background:#fff5f5!important;}
 table.data-tbl .row-warn    td{background:#fff8f0!important;}
 table.data-tbl .row-long    td{background:#fff8f0!important;}
 table.data-tbl .row-caution td{background:#fffef0!important;}
+
+/* ══ RESULT TABLE (租金計算明細) ═════════════════════════════════ */
+#resultTable{
+  border-collapse:collapse;
+  font-size:11px;
+  min-width:2400px;
+  font-family:'Noto Sans TC',sans-serif;
+}
+#resultTable th,#resultTable td{
+  white-space:nowrap;
+  vertical-align:middle;
+}
+#resultTable th{
+  position:sticky;top:0;z-index:2;
+  background:var(--accent);
+  color:#fff;font-weight:700;
+  border:1px solid #4a5a9f;
+  padding:7px 10px;
+  text-align:center;
+  cursor:pointer;
+  user-select:none;
+  font-size:11px;
+}
+#resultTable th.col-num   { text-align:right;  }
+#resultTable th.col-text  { text-align:left;   }
+#resultTable th.col-date  { text-align:center; }
+#resultTable th:hover{background:#5868A8;}
+#resultTable td{
+  padding:5px 10px;
+  border:1px solid #dde6ef;
+  font-size:11px;
+  text-align:left;
+}
 table.data-tbl .row-track   td{background:#f5fff0!important;}
+
+/* ── Tabular-nums for all number / date cells in any table ── */
+.col-num, .col-date,
+#resultTable td.col-num, #resultTable td.col-date {
+  font-variant-numeric: tabular-nums;
+  font-family: 'DM Sans', 'Noto Sans TC', sans-serif;
+}
+/* Ensure input inside col-num also inherits alignment */
+#resultTable td.col-num  input { text-align:right;  }
+#resultTable td.col-text input { text-align:left;   }
+#resultTable td.col-date input { text-align:center; }
 
 /* upload zone */
 .upload-zone{
@@ -2179,15 +2209,21 @@ function renderScopeCostTable(){
   });
 
   const fmtCost = v => v > 0 ? '$'+fmtNum(Math.round(v)) : '<span class="cost-zero">—</span>';
-  const TH = (txt, color='') => `<th style="color:var(--purple);${color?'color:'+color:''}">${txt}</th>`;
+
+  // scope-tbl 統一樣式
+  const SC = `font-variant-numeric:tabular-nums;font-family:'DM Sans','Noto Sans TC',sans-serif;`;
+  const tdNum = (val, extra='') =>
+    `<td style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;${SC}${extra}">${val}</td>`;
+  const tdText = (val, extra='') =>
+    `<td style="text-align:left;padding:8px 14px;white-space:nowrap;vertical-align:middle;${extra}">${val}</td>`;
 
   let html = `<thead><tr>
-    <th>核算範圍 / 倉庫</th>
-    <th>全部成本</th>
-    <th>正常</th>
-    <th style="color:#C03030">過期品</th>
-    <th style="color:#B05010">長期在庫</th>
-    <th style="color:var(--coral)">即將到期</th>
+    <th style="text-align:left;padding:8px 14px;white-space:nowrap;vertical-align:middle;">核算範圍 / 倉庫</th>
+    <th style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;${SC}">全部成本</th>
+    <th style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;${SC}">正常</th>
+    <th style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;color:#C03030;${SC}">過期品</th>
+    <th style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;color:#B05010;${SC}">長期在庫</th>
+    <th style="text-align:right;padding:8px 14px;white-space:nowrap;vertical-align:middle;color:var(--coral);${SC}">即將到期</th>
   </tr></thead><tbody>`;
 
   scopes.forEach(sc => {
@@ -2198,19 +2234,14 @@ function renderScopeCostTable(){
     const isOpen = scopeExpanded[sc] || false;
 
     // 核算範圍主列（可點擊展開）
-    html += `<tr style="cursor:${hasWh?'pointer':'default'};background:#F5F0FF;"
-      onclick="${hasWh?`toggleScope('${sc.replace(/'/g,"\'")}')`:''}" >
-      <td style="font-weight:800;color:var(--purple);padding:10px 14px;">
-        ${hasWh?`<span id="scope-arrow-${scId}" style="margin-right:6px;font-size:11px;">${isOpen?'▼':'▶'}</span>`:''}
-        ${sc}
-        ${hasWh?`<span style="font-size:10px;color:var(--muted);margin-left:6px;">(${warehouses.length}個倉庫)</span>`:''}
-      </td>
-      <td style="font-weight:800;color:var(--purple);text-align:right;padding:10px 14px;">${fmtCost(d['全部'])}</td>
-      <td style="text-align:right;padding:10px 14px;">${fmtCost(d['正常'])}</td>
-      <td style="text-align:right;color:#C03030;padding:10px 14px;">${fmtCost(d['過期品'])}</td>
-      <td style="text-align:right;color:#B05010;padding:10px 14px;">${fmtCost(d['長期在庫'])}</td>
-      <td style="text-align:right;color:var(--coral);padding:10px 14px;">${fmtCost(d['即將到期'])}</td>
-    </tr>`;
+    html += `<tr style="cursor:${hasWh?'pointer':'default'};background:#F5F0FF;" onclick="${hasWh?`toggleScope('${sc.replace(/'/g,"\'")}')`:''}" >`;
+    html += tdText(`${hasWh?`<span id="scope-arrow-${scId}" style="margin-right:6px;font-size:11px;">${isOpen?'▼':'▶'}</span>`:''}${sc}${hasWh?`<span style="font-size:10px;color:var(--muted);margin-left:6px;">(${warehouses.length}個倉庫)</span>`:''}`, 'font-weight:800;color:var(--purple);');
+    html += tdNum(fmtCost(d['全部']),    'font-weight:800;color:var(--purple);');
+    html += tdNum(fmtCost(d['正常']),    '');
+    html += tdNum(fmtCost(d['過期品']),  'color:#C03030;');
+    html += tdNum(fmtCost(d['長期在庫']),'color:#B05010;');
+    html += tdNum(fmtCost(d['即將到期']),'color:var(--coral);');
+    html += `</tr>`;
 
     // 各倉庫明細列（預設隱藏）
     if(hasWh){
@@ -2220,12 +2251,12 @@ function renderScopeCostTable(){
       warehouses.forEach(wh => {
         const wd = warehouseData[sc][wh];
         html += `<tr style="background:#FDFAFF;border-bottom:1px solid var(--border);">
-          <td style="padding:7px 14px 7px 36px;color:var(--muted);white-space:nowrap;">🏭 ${wh}</td>
-          <td style="text-align:right;padding:7px 14px;font-weight:600;">${fmtCost(wd['全部'])}</td>
-          <td style="text-align:right;padding:7px 14px;">${fmtCost(wd['正常'])}</td>
-          <td style="text-align:right;padding:7px 14px;color:#C03030;">${fmtCost(wd['過期品'])}</td>
-          <td style="text-align:right;padding:7px 14px;color:#B05010;">${fmtCost(wd['長期在庫'])}</td>
-          <td style="text-align:right;padding:7px 14px;color:var(--coral);">${fmtCost(wd['即將到期'])}</td>
+          <td style="text-align:left;padding:6px 14px 6px 36px;white-space:nowrap;vertical-align:middle;color:var(--muted);">🏭 ${wh}</td>
+          ${tdNum(fmtCost(wd['全部']),    'font-weight:600;')}
+          ${tdNum(fmtCost(wd['正常']),    '')}
+          ${tdNum(fmtCost(wd['過期品']),  'color:#C03030;')}
+          ${tdNum(fmtCost(wd['長期在庫']),'color:#B05010;')}
+          ${tdNum(fmtCost(wd['即將到期']),'color:var(--coral);')}
         </tr>`;
       });
       html += `</table></td></tr>`;
@@ -2233,14 +2264,14 @@ function renderScopeCostTable(){
   });
 
   // 合計列
-  html += `<tr style="background:#EDE8F5;">
-    <td style="font-weight:800;padding:10px 14px;">合計</td>
-    <td style="text-align:right;font-weight:800;color:var(--purple);padding:10px 14px;">${fmtCost(totalData['全部'])}</td>
-    <td style="text-align:right;font-weight:800;padding:10px 14px;">${fmtCost(totalData['正常'])}</td>
-    <td style="text-align:right;font-weight:800;color:#C03030;padding:10px 14px;">${fmtCost(totalData['過期品'])}</td>
-    <td style="text-align:right;font-weight:800;color:#B05010;padding:10px 14px;">${fmtCost(totalData['長期在庫'])}</td>
-    <td style="text-align:right;font-weight:800;color:var(--coral);padding:10px 14px;">${fmtCost(totalData['即將到期'])}</td>
-  </tr></tbody>`;
+  html += `<tr style="background:#EDE8F5;">`;
+  html += tdText('合計', 'font-weight:800;');
+  html += tdNum(fmtCost(totalData['全部']),    'font-weight:800;color:var(--purple);');
+  html += tdNum(fmtCost(totalData['正常']),    'font-weight:800;');
+  html += tdNum(fmtCost(totalData['過期品']),  'font-weight:800;color:#C03030;');
+  html += tdNum(fmtCost(totalData['長期在庫']),'font-weight:800;color:#B05010;');
+  html += tdNum(fmtCost(totalData['即將到期']),'font-weight:800;color:var(--coral);');
+  html += `</tr></tbody>`;
 
   document.getElementById('scopeCostTbl').innerHTML = html;
 }
@@ -2313,21 +2344,22 @@ function buildFilters(){
 }
 
 // ─── RENDER TABLE ─────────────────────────────────────────────
+// align: 'text'=靠左 / 'num'=靠右+tabular / 'date'=置中 / 'center'=置中
 const COLS = [
-  {key:'產品類別',   label:'類別'},
-  {key:'產品代碼',   label:'產品代碼'},
-  {key:'產品名稱',   label:'產品名稱'},
-  {key:'產品規格',   label:'規格'},
-  {key:'庫存數量',   label:'庫存數量'},
-  {key:'基本單位名稱',label:'單位'},
-  {key:'倉庫名稱',   label:'倉庫'},
-  {key:'批號',       label:'批號'},
-  {key:'_lotDate',   label:'入庫日期'},
-  {key:'有效期至',   label:'有效期至'},
-  {key:'_days',      label:'剩餘/在庫天數'},
-  {key:'_price',     label:'單價'},
-  {key:'_scope',     label:'核算範圍'},
-  {key:'_cost',      label:'存貨成本'},
+  {key:'產品類別',    label:'類別',       align:'text'},
+  {key:'產品代碼',    label:'產品代碼',   align:'text'},
+  {key:'產品名稱',    label:'產品名稱',   align:'text'},
+  {key:'產品規格',    label:'規格',       align:'text'},
+  {key:'庫存數量',    label:'庫存數量',   align:'num'},
+  {key:'基本單位名稱',label:'單位',       align:'center'},
+  {key:'倉庫名稱',    label:'倉庫',       align:'text'},
+  {key:'批號',        label:'批號',       align:'text'},
+  {key:'_lotDate',    label:'入庫日期',   align:'date'},
+  {key:'有效期至',    label:'有效期至',   align:'date'},
+  {key:'_days',       label:'剩餘/在庫天數', align:'num'},
+  {key:'_price',      label:'單價',       align:'num'},
+  {key:'_scope',      label:'核算範圍',   align:'center'},
+  {key:'_cost',       label:'存貨成本',   align:'num'},
 ];
 
 // ─── GET SORT VALUE ────────────────────────────────────────────
@@ -2409,11 +2441,12 @@ function renderTable(tabKey){
     ? COLS.map(c=>c.key==='_days' ? {...c,label:'超期天數'} : c)
     : COLS;
 
+  const bg = colHeader(tabKey);
   let html = `<table class="data-tbl"><thead><tr>`;
   colsToShow.forEach(c => {
-    const s = sortState[tabKey];
-    const icon = s?.col===c.key ? (s.dir>0?'▲':'▼') : '<span style="opacity:.3">⇅</span>';
-    html += `<th onclick="sortTable('${tabKey}','${c.key}')" style="background:${colHeader(tabKey)};cursor:pointer;">${c.label} <span class="sort-icon">${icon}</span></th>`;
+    const ss = sortState[tabKey];
+    const icon = ss?.col===c.key ? (ss.dir>0?'▲':'▼') : '<span style="opacity:.3">⇅</span>';
+    html += `<th class="col-${c.align||'text'}" onclick="sortTable('${tabKey}','${c.key}')" style="background:${bg};">${c.label} <span class="sort-icon">${icon}</span></th>`;
   });
   html += `</tr></thead><tbody>`;
 
@@ -2446,27 +2479,27 @@ function renderTable(tabKey){
       }
     }
 
-    const expDisplay = r._expDate ? fmtDate(r._expDate) : (r['有效期至']||'—');
-    const lotDisplay = r._lotDate ? fmtDate(r._lotDate) : '—';
+    const expDisplay   = r._expDate ? fmtDate(r._expDate) : (r['有效期至']||'—');
+    const lotDisplay   = r._lotDate ? fmtDate(r._lotDate) : '—';
     const priceDisplay = price > 0 ? `$${fmtNum(price)}` : `<span style="color:var(--muted)">未設定</span>`;
     const scopeDisplay = scope ? `<span class="badge badge-gray">${scope}</span>` : '<span style="color:var(--muted)">—</span>';
-    const costDisplay  = cost  > 0 ? `<strong>$${fmtNum(cost)}</strong>` : '<span style="color:var(--muted)">—</span>';
+    const costDisplay  = cost  > 0 ? `<strong>$${fmtNum(Math.round(cost))}</strong>` : '<span style="color:var(--muted)">—</span>';
 
     html += `<tr class="${rc}">`;
-    html += `<td><span class="badge badge-gray">${r['產品類別']||'—'}</span></td>`;
-    html += `<td style="font-weight:700;color:var(--purple)">${r['產品代碼']||'—'}</td>`;
-    html += `<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${r['產品名稱']||'—'}</td>`;
-    html += `<td style="color:var(--muted);font-size:11px">${r['產品規格']||'—'}</td>`;
-    html += `<td style="text-align:right;font-weight:700">${fmtNum(r['庫存數量'])}</td>`;
-    html += `<td>${r['基本單位名稱']||'—'}</td>`;
-    html += `<td>${r['倉庫名稱']||'—'}</td>`;
-    html += `<td style="font-size:11px;color:var(--muted)">${r['批號']||'—'}</td>`;
-    html += `<td>${lotDisplay}</td>`;
-    html += `<td>${expDisplay}</td>`;
-    html += `<td style="text-align:center">${dayVal}</td>`;
-    html += `<td style="text-align:right">${priceDisplay}</td>`;
-    html += `<td style="text-align:center">${scopeDisplay}</td>`;
-    html += `<td style="text-align:right">${costDisplay}</td>`;
+    html += `<td class="col-text"><span class="badge badge-gray">${r['產品類別']||'—'}</span></td>`;
+    html += `<td class="col-text" style="font-weight:700;color:var(--purple)">${r['產品代碼']||'—'}</td>`;
+    html += `<td class="col-text">${r['產品名稱']||'—'}</td>`;
+    html += `<td class="col-text" style="color:var(--muted);font-size:11px">${r['產品規格']||'—'}</td>`;
+    html += `<td class="col-num"  style="font-weight:700">${fmtNum(r['庫存數量'])}</td>`;
+    html += `<td class="col-center">${r['基本單位名稱']||'—'}</td>`;
+    html += `<td class="col-text">${r['倉庫名稱']||'—'}</td>`;
+    html += `<td class="col-text" style="color:var(--muted)">${r['批號']||'—'}</td>`;
+    html += `<td class="col-date">${lotDisplay}</td>`;
+    html += `<td class="col-date">${expDisplay}</td>`;
+    html += `<td class="col-num">${dayVal}</td>`;
+    html += `<td class="col-num">${priceDisplay}</td>`;
+    html += `<td class="col-center">${scopeDisplay}</td>`;
+    html += `<td class="col-num">${costDisplay}</td>`;
     html += `</tr>`;
   });
 
@@ -5975,11 +6008,22 @@ function displayResults(data) {
                             </th>
     `;
 
+    // 定義每個欄位的對齊方式
+    const RESULT_COL_ALIGN = {
+        '序號':'num', '核算組織名稱':'text', '產品類別':'text', '產品代碼':'text',
+        '產品名稱':'text', '基本單位':'center', '倉庫':'text', '存貨屬性':'text',
+        '批號':'text', '庫存狀態':'center',
+        '上期結存':'num', '本期入庫':'num', '本期出庫':'num', '本期結存':'num',
+        '[期初]':'date', '[期末]':'date', '天數':'num', '淨重':'num', '計價重量':'num',
+        '出入庫':'num', '租金':'num', '總計':'num',
+        '採購部門':'text', '備註':'text', '產品規格':'text', '業務屬性明細':'text',
+    };
     displayCols.forEach((col, idx) => {
         const isNewCol = ['天數', '淨重', '計價重量', '出入庫', '租金', '總計', '採購部門', '備註'].includes(col);
         const highlightClass = isNewCol ? ' highlight' : '';
-        html += `<th${highlightClass} style="cursor:pointer; user-select:none;" onclick="sortResultTable(${idx})" title="點擊排序">
-            ${col} <span id="sort_${idx}" style="font-size:9px; color:#aaa;">⇅</span>
+        const alignClass = `col-${RESULT_COL_ALIGN[col]||'text'}`;
+        html += `<th class="${alignClass}${highlightClass}" onclick="sortResultTable(${idx})" title="點擊排序">
+            ${col} <span id="sort_${idx}" style="font-size:9px;opacity:.6;">⇅</span>
         </th>`;
     });
 
@@ -6016,24 +6060,25 @@ function displayResults(data) {
                 if (col === '本期結存' && abn_neg)    cellRed = true;
                 if (col === '淨重'     && abn_weight) cellRed = true;
             }
-            const cellColorStyle = cellRed ? 'color:#ef4444; ' : '';
+            const redStyle = cellRed ? 'color:#ef4444;' : '';
+            const alignClass = `col-${RESULT_COL_ALIGN[col]||'text'}`;
 
             // 是否可編輯：固定可編輯欄 OR 此列有異常
             const canEdit = editableCols.includes(col) || hasAbnormal;
             const isNote  = col === '備註';
 
             if (canEdit) {
-                html += `<td style="padding:0; ${cellColorStyle}">
+                html += `<td class="${alignClass}" style="padding:0;${redStyle}">
                     <input type="text" value="${val}"
                         data-row="${rowIdx}" data-col="${col}"
                         onchange="onCellEdit(this)"
-                        style="width:100%; min-width:${isNote?'120px':'60px'}; padding:3px 5px; border:none; border-bottom:1.5px solid transparent; background:transparent; font-size:11px; font-family:inherit; color:inherit;
-                        outline:none; cursor:pointer;"
+                        style="width:100%; min-width:${isNote?'120px':'60px'}; padding:3px 8px; border:none; border-bottom:1.5px solid transparent; background:transparent; font-size:11px; font-family:inherit; color:inherit; font-variant-numeric:tabular-nums;
+                        outline:none; cursor:pointer; text-align:inherit;"
                         onfocus="this.style.borderBottomColor='#f2a7c3'; this.style.background='#fff8fc';"
                         onblur="this.style.borderBottomColor='transparent'; this.style.background='transparent';" />
                 </td>`;
             } else {
-                html += `<td style="${cellColorStyle}">${val}</td>`;
+                html += `<td class="${alignClass}" style="${redStyle}">${val}</td>`;
             }
         });
         html += '</tr>';
