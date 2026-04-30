@@ -361,6 +361,7 @@ body{
 .tbl-count{font-size:12px;font-weight:700;color:var(--muted);}
 .tbl-scroll{overflow-x:auto;max-height:520px;overflow-y:auto;}
 .tbl-scroll table{font-size:12px;}
+.overflow-auto{overflow-x:auto;overflow-y:visible;}
 .overflow-auto table{font-size:12px;}
 .tbl-footer{
   padding:10px 16px;
@@ -412,58 +413,29 @@ table.data-tbl th:nth-child(14){width:9%;}  /* 存貨成本 */
 
 /* Rental calculation results table */
 #resultTable{
-  width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;
+  border-collapse:collapse;font-size:12px;
+  min-width:2400px;
+}
+#resultTable th,#resultTable td{
+  white-space:nowrap;
 }
 #resultTable th{
   position:sticky;top:0;z-index:2;
   background:var(--accent);
   color:white;font-weight:700;
   border:1px solid #4a5a9f;
-  padding:6px 8px;
+  padding:6px 10px;
   text-align:left;
   cursor:default;
   user-select:none;
   font-size:11px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
 }
 #resultTable th:hover{background:#5868A8;}
 #resultTable td{
-  padding:5px 8px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  padding:5px 10px;
   border:1px solid #dde6ef;
   font-size:11px;
 }
-/* Rental result table column widths (26 columns) */
-#resultTable th:nth-child(1){width:3.5%;}   /* 序號 */
-#resultTable th:nth-child(2){width:6%;}    /* 核算組織名稱 */
-#resultTable th:nth-child(3){width:5%;}    /* 產品類別 */
-#resultTable th:nth-child(4){width:5%;}    /* 產品代碼 */
-#resultTable th:nth-child(5){width:9%;}    /* 產品名稱 */
-#resultTable th:nth-child(6){width:4%;}    /* 基本單位 */
-#resultTable th:nth-child(7){width:5%;}    /* 倉庫 */
-#resultTable th:nth-child(8){width:5%;}    /* 存貨屬性 */
-#resultTable th:nth-child(9){width:6%;}    /* 批號 */
-#resultTable th:nth-child(10){width:5%;}   /* 庫存狀態 */
-#resultTable th:nth-child(11){width:4%;}   /* 上期結存 */
-#resultTable th:nth-child(12){width:4%;}   /* 本期入庫 */
-#resultTable th:nth-child(13){width:4%;}   /* 本期出庫 */
-#resultTable th:nth-child(14){width:4%;}   /* 本期結存 */
-#resultTable th:nth-child(15){width:5%;}   /* [期初] */
-#resultTable th:nth-child(16){width:5%;}   /* [期末] */
-#resultTable th:nth-child(17){width:3%;}   /* 天數 */
-#resultTable th:nth-child(18){width:4%;}   /* 淨重 */
-#resultTable th:nth-child(19){width:4%;}   /* 計價重量 */
-#resultTable th:nth-child(20){width:4%;}   /* 出入庫 */
-#resultTable th:nth-child(21){width:4%;}   /* 租金 */
-#resultTable th:nth-child(22){width:4%;}   /* 總計 */
-#resultTable th:nth-child(23){width:6%;}   /* 採購部門 */
-#resultTable th:nth-child(24){width:6%;}   /* 備註 */
-#resultTable th:nth-child(25){width:4%;}   /* 產品規格 */
-#resultTable th:nth-child(26){width:8%;}   /* 業務屬性明細 */
 table.data-tbl tbody tr:nth-child(even) td{background:#fafbfc;}
 table.data-tbl tbody tr:hover td{background:#f0f4ff;}
 table.data-tbl .row-expired td{background:#fff5f5!important;}
