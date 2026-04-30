@@ -379,13 +379,14 @@ table.data-tbl th{
   background:var(--accent);
   color:#fff;
   padding:8px 10px;
-  text-align:left;
+  text-align:center;
   font-weight:700;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
   cursor:pointer;
   user-select:none;
+  border:1px solid #4a5a9f;
 }
 table.data-tbl th:hover{background:#5868A8;}
 table.data-tbl td{
@@ -394,6 +395,15 @@ table.data-tbl td{
   overflow:hidden;
   text-overflow:ellipsis;
   color:var(--text);
+  text-align:left;
+  border:1px solid #dde6ef;
+}
+/* 數字欄靠右對齐 */
+table.data-tbl td[style*="text-align:right"]{
+  text-align:right !important;
+}
+table.data-tbl td[style*="text-align:center"]{
+  text-align:center !important;
 }
 /* column width distribution */
 table.data-tbl th:nth-child(1){width:5%;}   /* 類別 */
@@ -2320,6 +2330,30 @@ const COLS = [
   {key:'_cost',      label:'存貨成本'},
 ];
 
+// ─── GET SORT VALUE ────────────────────────────────────────────
+const getSortVal = (r,c) => {
+  if(c==='_lotDate') return r._lotDate ? r._lotDate.getTime() : 0;
+  if(c==='_days'){
+    if(r._expDate) return daysDiff(r._expDate)||0;
+    if(r._lotDate) return (TODAY - r._lotDate)/86400000;
+    return 0;
+  }
+  if(c==='_price'){
+    const pd = getPriceData(r);
+    return pd.price || 0;
+  }
+  if(c==='_scope'){
+    const pd = getPriceData(r);
+    return pd.scope ? String(pd.scope) : '';
+  }
+  if(c==='_cost'){
+    const { cost } = computeCost(r);
+    return cost || 0;
+  }
+  if(c==='庫存數量') return parseFloat(r[c])||0;
+  return String(r[c]||'');
+};
+
 function filterRows(tabKey){
   const search    = (document.getElementById('search-global')?.value||'').toLowerCase();
   const category  = document.getElementById('filter-global-category')?.value||'';
@@ -2457,29 +2491,6 @@ function sortTable(tabKey, col){
   sortState[tabKey] = { col, dir };
   renderTable(tabKey);
 }
-
-const getSortVal = (r,c) => {
-  if(c==='_lotDate') return r._lotDate ? r._lotDate.getTime() : 0;
-  if(c==='_days'){
-    if(r._expDate) return daysDiff(r._expDate)||0;
-    if(r._lotDate) return (TODAY - r._lotDate)/86400000;
-    return 0;
-  }
-  if(c==='_price'){
-    const pd = getPriceData(r);
-    return pd.price || 0;
-  }
-  if(c==='_scope'){
-    const pd = getPriceData(r);
-    return pd.scope ? String(pd.scope) : '';
-  }
-  if(c==='_cost'){
-    const { cost } = computeCost(r);
-    return cost || 0;
-  }
-  if(c==='庫存數量') return parseFloat(r[c])||0;
-  return String(r[c]||'');
-};
 
 // ─── PRICE VIEW (card / table) ───────────────────────────────
 let priceViewMode = 'table'; // 'card' | 'table'
@@ -7326,7 +7337,7 @@ function exportInventoryReport(){
       name:      r['產品名稱']   || '',
       spec:      r['規格']       || '',
       qty,
-      unit:      r['單位']       || '',
+      unit:      r['基本單位名稱'] || r['單位'] || '',
       warehouse: r['倉庫名稱']   || '',
       lot:       r['批號']       || '',
       lotDate:   fd(r._lotDate)  || (r['入庫日期'] || '—'),
