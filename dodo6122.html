@@ -956,6 +956,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 <!-- HIDDEN INPUTS (required by JS) -->
 <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="loadFile(this)" style="display:none">
 <input type="file" id="priceFileInput" accept=".xlsx,.xls" onchange="loadPriceFile(this)" style="display:none">
+<input type="file" id="weightFileInput" accept=".xlsx,.xls" onchange="loadWeightFile(this)" style="display:none">
 
 <!-- ══ APP SHELL ══════════════════════════════════════════════════ -->
 <div class="app-shell">
@@ -1382,10 +1383,12 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       </div>
                       <div class="form-group">
                         <label>⚖️ 重量表</label>
-                        <div style="padding:8px 10px;border:1.5px solid #c9a8e0;border-radius:8px;background:#faf8ff;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                          <span id="ghWeightStatus" style="font-size:12px;color:var(--muted);font-weight:700;">尚未載入</span>
-                          <button type="button" onclick="ghLoadWeightTable()" style="padding:4px 12px;font-size:11px;font-weight:700;border:1.5px solid #c9a8e0;border-radius:7px;background:#fff;color:#8a5aa0;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 GitHub 載入</button>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">
+                          <button type="button" onclick="document.getElementById('weightFileInput').click()" style="padding:5px 11px;font-size:11px;font-weight:700;border:1.5px solid #c9a8e0;border-radius:7px;background:#fff;color:#8a5aa0;cursor:pointer;font-family:inherit;">📥 匯入 xlsx</button>
+                          <button type="button" onclick="ghBackupWeightTable()" style="padding:5px 11px;font-size:11px;font-weight:700;border:1.5px solid #c9a8e0;border-radius:7px;background:#fff;color:#8a5aa0;cursor:pointer;font-family:inherit;">☁️ 備份到 GitHub</button>
+                          <button type="button" onclick="ghLoadWeightTable()" style="padding:5px 11px;font-size:11px;font-weight:700;border:1.5px solid #c9a8e0;border-radius:7px;background:#fff;color:#8a5aa0;cursor:pointer;font-family:inherit;">📥 從 GitHub 載入</button>
                         </div>
+                        <span id="ghWeightStatus" style="font-size:11px;color:var(--muted);font-weight:700;">尚未載入</span>
                       </div>
                     </div>
                     <div>
@@ -1720,15 +1723,16 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             </div>
             <!-- 重量表 -->
             <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-              <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;">⚖️ 重量表</div>
+              <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;">⚖️ 重量表</div>
               <div style="flex-direction:column;align-items:flex-start;gap:4px;margin-bottom:8px;">
-                <label style="font-size:11px;color:var(--muted);">檔名（預設 weight_table.json）</label>
+                <label style="font-size:11px;color:var(--muted);">GitHub 檔名（預設 weight_table.json）</label>
                 <input type="text" id="settings-gh-weight-path" placeholder="weight_table.json"
                   style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;outline:none;margin-top:4px;"
                   onchange="localStorage.setItem('gh_weight_path',this.value);">
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                <button class="btn btn-primary" style="font-size:12px;" onclick="ghBackupWeightTable()">☁️ 備份重量表</button>
+                <button class="btn btn-blue" style="font-size:12px;" onclick="document.getElementById('weightFileInput').click()">📥 匯入重量表 xlsx</button>
+                <button class="btn btn-primary" style="font-size:12px;" onclick="ghBackupWeightTable()">☁️ 備份到 GitHub</button>
                 <button class="btn btn-ghost" style="font-size:12px;" onclick="ghLoadWeightTable()">📥 從 GitHub 載入</button>
                 <span id="ghWeightStatus2" style="font-size:12px;color:var(--muted);font-weight:700;"></span>
               </div>
@@ -3631,6 +3635,24 @@ function ghWeightStatus(msg, color='var(--muted)'){
     const el = document.getElementById(id);
     if(el){ el.textContent = msg; el.style.color = color; }
   });
+}
+
+function loadWeightFile(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const wb  = XLSX.read(e.target.result, {type:'binary'});
+      const ws  = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, {defval:''});
+      cachedWeightData = raw;
+      ghWeightStatus(`✅ 已匯入 ${raw.length} 筆，可備份到 GitHub`, 'var(--green)');
+      showToast(`✅ 重量表匯入 ${raw.length} 筆`);
+      setTimeout(()=>ghWeightStatus(`✅ 已載入 ${raw.length} 筆`, 'var(--green)'), 3000);
+    }catch(err){ showToast('❌ 讀取失敗：'+err.message, 4000); }
+    input.value='';
+  };
+  reader.readAsBinaryString(file);
 }
 
 async function ghBackupWeightTable(){
