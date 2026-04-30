@@ -5746,6 +5746,58 @@ function getConfig() {
     };
 }
 
+// 租金計算表格排序狀態
+let resultTableSortState = { col: null, dir: 1 };
+
+function sortResultTable(colIdx){
+  const displayCols = [
+      '序號', '核算組織名稱', '產品類別', '產品代碼', '產品名稱', '基本單位',
+      '倉庫', '存貨屬性', '批號', '庫存狀態',
+      '上期結存', '本期入庫', '本期出庫', '本期結存',
+      '[期初]', '[期末]', '天數', '淨重', '計價重量',
+      '出入庫', '租金', '總計', '採購部門', '備註', '產品規格', '業務屬性明細'
+  ];
+  const col = displayCols[colIdx];
+  if(!col) return;
+
+  const dir = resultTableSortState.col === col ? -resultTableSortState.dir : 1;
+  resultTableSortState = { col, dir };
+
+  // 對當前顯示的表格資料排序
+  const tbody = document.getElementById('resultBody');
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+
+  rows.sort((aEl, bEl) => {
+    const aIdx = parseInt(aEl.getAttribute('data-row'));
+    const bIdx = parseInt(bEl.getAttribute('data-row'));
+    const a = calculatedData[aIdx];
+    const b = calculatedData[bIdx];
+
+    let aVal = a[col] ?? '';
+    let bVal = b[col] ?? '';
+
+    // 嘗試數字比較
+    const aNum = parseFloat(aVal);
+    const bNum = parseFloat(bVal);
+    if(!isNaN(aNum) && !isNaN(bNum)){
+      return aNum < bNum ? -dir : aNum > bNum ? dir : 0;
+    }
+
+    // 字串比較
+    aVal = String(aVal).toLowerCase();
+    bVal = String(bVal).toLowerCase();
+    return aVal < bVal ? -dir : aVal > bVal ? dir : 0;
+  });
+
+  // 更新排序圖標
+  document.querySelectorAll('#resultTable span[id^="sort_"]').forEach(el => el.textContent = '⇅');
+  const sortIcon = document.getElementById(`sort_${colIdx}`);
+  if(sortIcon) sortIcon.textContent = dir === 1 ? '⬆️' : '⬇️';
+
+  // 重新排列 tr 元素
+  rows.forEach(row => tbody.appendChild(row));
+}
+
 function displayResults(data) {
     if (!data || data.length === 0) {
         document.getElementById('results').innerHTML = '<p style="color: #999;">沒有計算結果</p>';
@@ -5823,7 +5875,7 @@ function displayResults(data) {
     displayCols.forEach((col, idx) => {
         const isNewCol = ['天數', '淨重', '計價重量', '出入庫', '租金', '總計', '採購部門', '備註'].includes(col);
         const highlightClass = isNewCol ? ' highlight' : '';
-        html += `<th${highlightClass} style="cursor:pointer; user-select:none;" onclick="sortTable(${idx})" title="點擊排序">
+        html += `<th${highlightClass} style="cursor:pointer; user-select:none;" onclick="sortResultTable(${idx})" title="點擊排序">
             ${col} <span id="sort_${idx}" style="font-size:9px; color:#aaa;">⇅</span>
         </th>`;
     });
