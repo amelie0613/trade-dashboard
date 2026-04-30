@@ -5625,175 +5625,135 @@ function calculateRental(rentalData, ioData, weightData) {
     const config = getConfig();
     const result = [];
 
-    for (const row of rentalData) {
-        const productName = String(row[config.col_product1] || '').trim();
-        const batchNo = String(row[config.col_batch1] || '').trim();
-        const beginQty = parseFloat(row[config.col_begin]) || 0;
-        const endQty = parseFloat(row[config.col_end]) || 0;
-        const inboundQty = parseFloat(row[config.col_inbound]) || 0;
-
-        // 查詢重量
-        const weightRow = weightData.find(w => String(w[config.col_product3] || '').trim() === productName);
-        const weight = weightRow ? parseFloat(weightRow[config.col_weight]) || 0 : 0;
-
-        // 計算計價重量
-        let pricingWeight = 0;
-        if (beginQty !== 0) {
-            pricingWeight = beginQty * weight;
-        } else if (inboundQty !== 0) {
-            pricingWeight = inboundQty * weight;
-        }
-
-        // 安全日期解析（支援 YYYY-MM-DD 字串或 Excel 數字格式）
-        const parseDate = (val) => {
-            if (!val) return null;
-            if (val instanceof Date) return isNaN(val) ? null : val;
-            if (typeof val === 'number') {
-                // Excel 數字日期（序列號）
-                const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-                return isNaN(d) ? null : d;
-            }
-            const str = String(val).trim().replace(/\//g, '-');
-            const d = new Date(str);
+    // 日期解析：支援 YYYYMMDD 字串、YYYY-MM-DD、Excel 序列號
+    const parseDate = (val) => {
+        if (!val) return null;
+        if (val instanceof Date) return isNaN(val) ? null : val;
+        if (typeof val === 'number') {
+            const d = new Date(Math.round((val - 25569) * 86400 * 1000));
             return isNaN(d) ? null : d;
-        };
-
-        const periodStart = parseDate(document.getElementById('startDate').value);
-        const periodEnd = parseDate(document.getElementById('endDate').value);
-
-        if (!periodStart || !periodEnd) {
-            throw new Error('請先填入正確的期初/期末日期（格式：20260401）');
         }
+        const str = String(val).trim();
+        if (/^\d{8}$/.test(str)) {
+            return new Date(`${str.slice(0,4)}-${str.slice(4,6)}-${str.slice(6,8)}`);
+        }
+        const d = new Date(str.replace(/\//g, '-'));
+        return isNaN(d) ? null : d;
+    };
 
-        // 入庫類型（含「入」或明確名稱）
-        const isInbound = (type) => type && (type.includes('採購收貨') || type.includes('調撥入庫') || type.includes('拆解入庫') || type.includes('入庫'));
-        // 出庫類型（含「出」）
-        const isOutbound = (type) => type && (type.includes('調撥出庫') || type.includes('銷售出貨') || type.includes('拆解出庫') || type.includes('出庫') || type.includes('出貨'));
+    const periodStart = parseDate(document.getElementById('startDate').value);
+    const periodEnd   = parseDate(document.getElementById('endDate').value);
+    if (!periodStart || !periodEnd) {
+        throw new Error('請先填入正確的期初/期末日期（格式：20260401）');
+    }
 
-        // 該產品批號的出入庫記錄（trim避免空白差異）
-        const normalize = (v) => String(v || '').trim();
+    const baseRate      = parseFloat(document.getElementById('dailyRate').value)   || 0.8;
+    const handlingFeeRate = parseFloat(document.getElementById('handlingFee').value) || 1.0;
+
+    // 天數 > 10：整期計費；天數 ≤ 10：按比例計算
+    const calcRental = (weight, days) =>
+        days > 10 ? baseRate * weight : (baseRate / 15) * days * weight;
+
+    const daysBetween = (from, to) =>
+        Math.max(1, Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1);
+
+    const fullPeriodDays = daysBetween(periodStart, periodEnd);
+    const fmt = d => d ? d.toISOString().slice(0, 10) : '';
+    const normalize = (v) => String(v || '').trim();
+
+    const isInbound  = (t) => t && (t.includes('採購收貨') || t.includes('調撥入庫') || t.includes('拆解入庫') || t.includes('入庫'));
+    const isOutbound = (t) => t && (t.includes('調撥出庫') || t.includes('銷售出貨') || t.includes('拆解出庫') || t.includes('出庫') || t.includes('出貨'));
+
+    for (const row of rentalData) {
+        const productName = normalize(row[config.col_product1]);
+        const batchNo     = normalize(row[config.col_batch1]);
+        const beginQty    = parseFloat(row[config.col_begin]) || 0;
+
+        // 查詢單位重量（找不到記為 0）
+        const weightRow  = weightData.find(w => normalize(w[config.col_product3]) === productName);
+        const unitWeight = weightRow ? parseFloat(weightRow[config.col_weight]) || 0 : 0;
+
+        // 對應的出入庫記錄
         const ioMatch = ioData.filter(io =>
-            normalize(io[config.col_product2]) === normalize(productName) &&
-            normalize(io[config.col_batch2]) === normalize(batchNo)
+            normalize(io[config.col_product2]) === productName &&
+            normalize(io[config.col_batch2])   === batchNo
         );
 
-        // 情況1：期初數量 = 0 → 起始日 = 出入庫報表中最早的入庫日期
-        // 情況2：期初數量 ≠ 0 → 起始日 = 設定的期初日期
-        let startDate = periodStart;
-        if (beginQty === 0) {
-            const inRecords = ioMatch
-                .filter(io => isInbound(io[config.col_type]))
-                .map(io => parseDate(io[config.col_date]))
-                .filter(d => d !== null)
-                .sort((a, b) => a - b);
-            if (inRecords.length > 0) startDate = inRecords[0];
-        }
+        // ── 1. 前期結餘租金（不收手續費）────────────────────────────────
+        const balanceWeight  = beginQty * unitWeight;
+        const rentalBalance  = beginQty > 0 ? calcRental(balanceWeight, fullPeriodDays) : 0;
 
-        // 情況3：期末數量 = 0 → 結束日 = 最後一筆出庫日期
-        // 情況4：期末數量 ≠ 0 → 結束日 = 設定的期末日期
-        let endDate = periodEnd;
-        if (endQty === 0) {
-            const outRecords = ioMatch
-                .filter(io => isOutbound(io[config.col_type]))
-                .map(io => parseDate(io[config.col_date]))
-                .filter(d => d !== null)
-                .sort((a, b) => b - a);
-            if (outRecords.length > 0) endDate = outRecords[0];
-        }
+        // ── 2. 本期入庫：逐筆計算租金 + 手續費 ──────────────────────────
+        let rentalInbound   = 0;
+        let handlingInbound = 0;
+        let totalInboundQty = 0;
+        const inboundDetails = [];
 
-        // 天數 = (結束日 - 起始日) + 1
-        const days = (startDate && endDate)
-            ? Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1)
-            : 1;
-
-        // 格式化日期顯示
-        const fmt = d => d ? d.toISOString().slice(0, 10) : '';
-        const startDateStr = fmt(startDate);
-        const endDateStr = fmt(endDate);
-
-        // 出入庫酌收：只有「期初=0 且 有入庫」才收（代表本期新入庫的批次）
-        const hasInbound = beginQty === 0 && ioMatch.some(io => isInbound(io[config.col_type]));
-
-        // 計算出入庫明細（按業務屬性分組）
-        const outboundByType = {};
-        const inboundByType = {};
-        
         for (const io of ioMatch) {
-            const businessType = String(io[config.col_type] || '').trim();
-            const qty = parseFloat(io['數量'] || 0) || 0;
-            
-            if (isOutbound(businessType)) {
-                if (!outboundByType[businessType]) outboundByType[businessType] = 0;
-                outboundByType[businessType] += qty;
-            } else if (isInbound(businessType)) {
-                if (!inboundByType[businessType]) inboundByType[businessType] = 0;
-                inboundByType[businessType] += qty;
-            }
-        }
-        
-        // 生成備註：各業務屬性的出庫數量
-        const outboundRemark = Object.entries(outboundByType)
-            .map(([type, qty]) => `【${type}】${Math.round(qty)}`)
-            .join(' / ') || '';
-        
-        const inboundRemark = Object.entries(inboundByType)
-            .map(([type, qty]) => `【${type}】${Math.round(qty)}`)
-            .join(' / ') || '';
-        
-        let fullRemark = '';
-        if (outboundRemark && inboundRemark) {
-            fullRemark = `[出庫] ${outboundRemark} | [入庫] ${inboundRemark}`;
-        } else if (outboundRemark) {
-            fullRemark = `[出庫] ${outboundRemark}`;
-        } else if (inboundRemark) {
-            fullRemark = `[入庫] ${inboundRemark}`;
-        }
-        
-        // 採購部門（本期入庫的部門）
-        let purchaseDept = '';
-        const inboundRecords = ioMatch.filter(io => isInbound(io[config.col_type]));
-        if (inboundRecords.length > 0) {
-            purchaseDept = inboundRecords[0][config.col_dept] || '';
+            const bizType = normalize(io[config.col_type]);
+            if (!isInbound(bizType)) continue;
+
+            const ioQty  = Math.abs(parseFloat(io['數量'] || 0)) || 0;
+            const ioDate = parseDate(io[config.col_date]);
+            if (!ioDate || ioQty === 0) continue;
+
+            const ioWeight = ioQty * unitWeight;
+            const ioDays   = daysBetween(ioDate, periodEnd);
+
+            rentalInbound   += calcRental(ioWeight, ioDays);
+            handlingInbound += handlingFeeRate * ioWeight;
+            totalInboundQty += ioQty;
+            inboundDetails.push(`【${bizType}】${Math.round(ioQty)}(${ioDays}天)`);
         }
 
-        // 計算租金
-        const baseRate = parseFloat(document.getElementById('dailyRate').value) || 0.8;
-        const handlingFee = parseFloat(document.getElementById('handlingFee').value) || 1.0;
-        const ratePer15Days = 15;
+        // ── 3. 本期出庫：手續費（依業務屬性彙整備註）──────────────────
+        let handlingOutbound = 0;
+        const outboundByType = {};
 
-        let rentalCost = 0;
-        // 天數 > 10 用整期費率，天數 <= 10 按比例計算
-        if (days > 10) {
-            rentalCost = baseRate * pricingWeight;
-        } else {
-            rentalCost = (baseRate / ratePer15Days) * days * pricingWeight;
-        }
-        rentalCost = Math.round(rentalCost); // 四捨五入整數
+        for (const io of ioMatch) {
+            const bizType = normalize(io[config.col_type]);
+            if (!isOutbound(bizType)) continue;
 
-        // 出入庫酌收（分開）
-        let handlingCost = 0;
-        if (hasInbound) {
-            handlingCost = handlingFee * pricingWeight;
+            const ioQty = Math.abs(parseFloat(io['數量'] || 0)) || 0;
+            if (ioQty === 0) continue;
+
+            handlingOutbound += handlingFeeRate * ioQty * unitWeight;
+            outboundByType[bizType] = (outboundByType[bizType] || 0) + ioQty;
         }
 
-        const totalCost = rentalCost + handlingCost;
+        // ── 4. 彙總金額 ───────────────────────────────────────────────
+        const rentalCost   = Math.round(rentalBalance + rentalInbound);
+        const handlingCost = Math.round(handlingInbound + handlingOutbound);
+        const totalCost    = rentalCost + handlingCost;
 
-        // 組合結果（保留原欄位 + 新增計算欄位）
-        const result_row = {
+        // 計價重量 = 前期結餘重量 + 本期入庫總重量
+        const pricingWeight = balanceWeight + totalInboundQty * unitWeight;
+
+        // 備註
+        const outboundDetails = Object.entries(outboundByType)
+            .map(([t, q]) => `【${t}】${Math.round(q)}`);
+        const remarkParts = [];
+        if (outboundDetails.length) remarkParts.push(`[出庫] ${outboundDetails.join(' / ')}`);
+        if (inboundDetails.length)  remarkParts.push(`[入庫] ${inboundDetails.join(' / ')}`);
+        const fullRemark = remarkParts.join(' | ');
+
+        // 採購部門（第一筆入庫紀錄的部門）
+        const firstInbound = ioMatch.find(io => isInbound(normalize(io[config.col_type])));
+        const purchaseDept = firstInbound ? (firstInbound[config.col_dept] || '') : '';
+
+        result.push({
             ...row,
-            '[期初]': startDateStr || '',
-            '[期末]': endDateStr || '',
-            '天數': days,
-            '淨重': weight.toFixed(4),
+            '[期初]': fmt(periodStart),
+            '[期末]': fmt(periodEnd),
+            '天數': fullPeriodDays,
+            '淨重': unitWeight.toFixed(4),
             '計價重量': pricingWeight.toFixed(2),
-            '出入庫': Math.round(handlingCost).toString(),
+            '出入庫': handlingCost.toString(),
             '租金': rentalCost.toString(),
-            '總計': (rentalCost + Math.round(handlingCost)).toString(),
+            '總計': totalCost.toString(),
             '採購部門': purchaseDept,
             '業務屬性明細': fullRemark
-        };
-
-        result.push(result_row);
+        });
     }
 
     return result;
