@@ -5750,31 +5750,30 @@ function getConfig() {
 let resultTableSortState = { col: null, dir: 1 };
 
 function sortResultTable(colIdx){
-  const displayCols = [
-      '序號', '核算組織名稱', '產品類別', '產品代碼', '產品名稱', '基本單位',
-      '倉庫', '存貨屬性', '批號', '庫存狀態',
-      '上期結存', '本期入庫', '本期出庫', '本期結存',
-      '[期初]', '[期末]', '天數', '淨重', '計價重量',
-      '出入庫', '租金', '總計', '採購部門', '備註', '產品規格', '業務屬性明細'
-  ];
-  const col = displayCols[colIdx];
-  if(!col) return;
-
-  const dir = resultTableSortState.col === col ? -resultTableSortState.dir : 1;
-  resultTableSortState = { col, dir };
-
-  // 對當前顯示的表格資料排序
   const tbody = document.getElementById('resultBody');
-  const rows = Array.from(tbody.querySelectorAll('tr'));
+  if(!tbody) return;
+
+  const rows = Array.from(tbody.querySelectorAll('tr[data-row]'));
+  if(rows.length === 0) return;
+
+  const dir = resultTableSortState.col === colIdx ? -resultTableSortState.dir : 1;
+  resultTableSortState = { col: colIdx, dir };
 
   rows.sort((aEl, bEl) => {
-    const aIdx = parseInt(aEl.getAttribute('data-row'));
-    const bIdx = parseInt(bEl.getAttribute('data-row'));
-    const a = calculatedData[aIdx];
-    const b = calculatedData[bIdx];
+    // 從第 colIdx 列的 td 中提取值
+    const aTds = aEl.querySelectorAll('td');
+    const bTds = bEl.querySelectorAll('td');
 
-    let aVal = a[col] ?? '';
-    let bVal = b[col] ?? '';
+    if(colIdx >= aTds.length || colIdx >= bTds.length) return 0;
+
+    let aVal = aTds[colIdx].textContent.trim();
+    let bVal = bTds[colIdx].textContent.trim();
+
+    // 檢查 input 元素（可編輯欄位）
+    const aInput = aTds[colIdx].querySelector('input');
+    const bInput = bTds[colIdx].querySelector('input');
+    if(aInput) aVal = aInput.value;
+    if(bInput) bVal = bInput.value;
 
     // 嘗試數字比較
     const aNum = parseFloat(aVal);
