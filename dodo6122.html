@@ -2344,7 +2344,7 @@ function filterRows(tabKey){
 
 function renderTable(tabKey){
   if(!allData.length) return;
-  const rows = filterRows(tabKey);
+  let rows = filterRows(tabKey);
   const wrap  = document.getElementById(`tbl-${tabKey}-wrap`);
   const countEl = document.getElementById(`count-${tabKey}`);
   const footerEl = document.getElementById(`footer-${tabKey}`);
@@ -2354,6 +2354,17 @@ function renderTable(tabKey){
     countEl.textContent = '0 筆';
     if(footerEl) footerEl.style.display='none';
     return;
+  }
+
+  // 應用排序到過濾後的行
+  const s = sortState[tabKey];
+  if(s && s.col){
+    rows = rows.slice(); // 複製陣列，避免修改原始資料
+    rows.sort((a,b) => {
+      const av = getSortVal(a, s.col);
+      const bv = getSortVal(b, s.col);
+      return av < bv ? -s.dir : av > bv ? s.dir : 0;
+    });
   }
 
   let totalQty=0, totalCost=0;
@@ -2368,7 +2379,7 @@ function renderTable(tabKey){
   colsToShow.forEach(c => {
     const s = sortState[tabKey];
     const icon = s?.col===c.key ? (s.dir>0?'▲':'▼') : '<span style="opacity:.3">⇅</span>';
-    html += `<th onclick="sortTable('${tabKey}','${c.key}')" style="background:${colHeader(tabKey)}">${c.label} <span class="sort-icon">${icon}</span></th>`;
+    html += `<th onclick="sortTable('${tabKey}','${c.key}')" style="background:${colHeader(tabKey)};cursor:pointer;">${c.label} <span class="sort-icon">${icon}</span></th>`;
   });
   html += `</tr></thead><tbody>`;
 
@@ -2444,24 +2455,31 @@ function sortTable(tabKey, col){
   const s = sortState[tabKey] || {};
   const dir = s.col===col ? -s.dir : 1;
   sortState[tabKey] = { col, dir };
-
-  const getSortVal = (r,c) => {
-    if(c==='_lotDate') return r._lotDate ? r._lotDate.getTime() : 0;
-    if(c==='_days'){
-      if(r._expDate) return daysDiff(r._expDate)||0;
-      if(r._lotDate) return (TODAY - r._lotDate)/86400000;
-      return 0;
-    }
-    if(c==='庫存數量') return parseFloat(r[c])||0;
-    return String(r[c]||'');
-  };
-
-  allData.sort((a,b) => {
-    const av = getSortVal(a,col), bv = getSortVal(b,col);
-    return av < bv ? -dir : av > bv ? dir : 0;
-  });
   renderTable(tabKey);
 }
+
+const getSortVal = (r,c) => {
+  if(c==='_lotDate') return r._lotDate ? r._lotDate.getTime() : 0;
+  if(c==='_days'){
+    if(r._expDate) return daysDiff(r._expDate)||0;
+    if(r._lotDate) return (TODAY - r._lotDate)/86400000;
+    return 0;
+  }
+  if(c==='_price'){
+    const pd = getPriceData(r);
+    return pd.price || 0;
+  }
+  if(c==='_scope'){
+    const pd = getPriceData(r);
+    return pd.scope ? String(pd.scope) : '';
+  }
+  if(c==='_cost'){
+    const { cost } = computeCost(r);
+    return cost || 0;
+  }
+  if(c==='庫存數量') return parseFloat(r[c])||0;
+  return String(r[c]||'');
+};
 
 // ─── PRICE VIEW (card / table) ───────────────────────────────
 let priceViewMode = 'table'; // 'card' | 'table'
