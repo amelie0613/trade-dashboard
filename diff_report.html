@@ -197,15 +197,35 @@ td {
 
 /* ── PRINT ── */
 @media print {
+  /* 隱藏操作列 */
   .toolbar, .type-tabs { display: none !important; }
-  .report-header { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .kpi-row { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  thead th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .tbl-scroll { border: none; }
-  body { font-size: 10px; }
-  table { font-size: 10px; }
-  thead th { font-size: 11px; padding: 5px 6px; }
-  td { padding: 4px 6px; font-size: 10px; }
+
+  /* 保持顏色 */
+  * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+
+  /* 移除捲動容器限制 — 這是切線的主因 */
+  .tbl-scroll {
+    overflow: visible !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+  .table-wrap { padding: 8px 0 0; }
+
+  /* 字體縮小 */
+  body  { font-size: 10px; }
+  table { font-size: 10px; width: 100%; }
+  thead th { font-size: 10px; padding: 5px 6px; position: static !important; }
+  td        { padding: 4px 6px; font-size: 10px; }
+
+  /* ★ 防止列被頁面切斷（切線的第二個原因） */
+  tbody tr  { page-break-inside: avoid; break-inside: avoid; }
+
+  /* thead 每頁重複顯示 */
+  thead     { display: table-header-group; }
+
+  /* KPI 卡片換頁不切 */
+  .kpi-row  { page-break-inside: avoid; break-inside: avoid; }
+  .kpi-card { page-break-inside: avoid; break-inside: avoid; }
 }
 @page { size: A4 landscape; margin: 8mm; }
 </style>
