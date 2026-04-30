@@ -5851,6 +5851,7 @@ function displayResults(data) {
     }
 
     checkedResultRows.clear(); // 新的結果，清空舊的勾選狀態
+    _redFilterOn = false;     // 重置異常篩選按鈕狀態
     let totalRental = 0;
     let totalHandling = 0;
 
@@ -5883,39 +5884,62 @@ function displayResults(data) {
             <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.6rem; margin-bottom:1rem;">
                 <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
                     <div style="font-size:0.75rem; color:#c0507a; font-weight:700; margin-bottom:0.2rem;">租金合計</div>
-                    <div style="font-size:1.2rem; font-weight:800; color:#c0507a;" id="totalRental">$0</div>
+                    <div style="font-size:0.85rem; color:#888; margin-bottom:0.1rem;">$</div>
+                    <div style="font-size:1.2rem; font-weight:800; color:#c0507a;" id="totalRental">0</div>
                 </div>
                 <div style="background:#fff8e8; border:1.5px solid #f7d96b; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
                     <div style="font-size:0.75rem; color:#b07020; font-weight:700; margin-bottom:0.2rem;">出入庫酌收合計</div>
-                    <div style="font-size:1.2rem; font-weight:800; color:#b07020;" id="totalHandling">$0</div>
+                    <div style="font-size:0.85rem; color:#888; margin-bottom:0.1rem;">$</div>
+                    <div style="font-size:1.2rem; font-weight:800; color:#b07020;" id="totalHandling">0</div>
                 </div>
                 <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
                     <div style="font-size:0.75rem; color:#2a6a82; font-weight:700; margin-bottom:0.2rem;">總計合計</div>
-                    <div style="font-size:1.2rem; font-weight:800; color:#2a6a82;" id="totalSum">$0</div>
+                    <div style="font-size:0.85rem; color:#888; margin-bottom:0.1rem;">$</div>
+                    <div style="font-size:1.2rem; font-weight:800; color:#2a6a82;" id="totalSum">0</div>
                 </div>
                 <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
                     <div style="font-size:0.75rem; color:#4a9a37; font-weight:700; margin-bottom:0.2rem;">計價重量合計</div>
+                    <div style="font-size:0.85rem; color:#888; margin-bottom:0.1rem;">kg</div>
                     <div style="font-size:1.2rem; font-weight:800; color:#4a9a37;" id="totalWeight">0</div>
                 </div>
             </div>
 
             <div style="margin-bottom:0.8rem; display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-                <input type="text" id="filterInput" placeholder="搜尋產品名稱 / 批號..." 
-                    style="width:220px; padding:0.5rem 0.7rem; font-size:0.85rem;"
+                <input type="text" id="filterInput" placeholder="搜尋產品名稱 / 批號..."
+                    style="width:200px; padding:0.5rem 0.7rem; font-size:0.85rem;"
                     oninput="applyFilter()" />
-                <select id="filterCol" style="width:130px; padding:0.5rem; font-size:0.85rem;" onchange="applyFilter()">
+                <select id="filterCol" style="width:120px; padding:0.5rem; font-size:0.85rem;" onchange="applyFilter()">
                     <option value="產品名稱">產品名稱</option>
                     <option value="批號">批號</option>
                     <option value="產品類別">產品類別</option>
                     <option value="採購部門">採購部門</option>
                 </select>
+                <button id="btnFilterRed" onclick="toggleRedFilter()" style="padding:0.5rem 0.8rem; font-size:0.85rem; flex:none; background:#fff5f5; color:#ef4444; border:1.5px solid #ef4444; border-radius:6px; font-weight:700;">🔴 只顯示異常</button>
                 <button onclick="clearFilter()" style="padding:0.5rem 0.8rem; font-size:0.85rem; flex:none; background:#fdf0f7; color:#c0507a; border:1px solid #f2a7c3; border-radius:6px; font-weight:700;">清除篩選</button>
                 <span id="filterNote" style="font-size:0.8rem; color:#999;"></span>
-                <span style="font-size:0.78rem; color:#8a6a7a; margin-left:auto;">✏️ 出入庫、租金、總計、備註欄可直接點擊編輯</span>
+                <span style="font-size:0.78rem; color:#8a6a7a; margin-left:auto;">✏️ 異常列及出入庫、租金、總計、備註欄均可直接點擊編輯</span>
             </div>
             <div class="overflow-auto">
                 <table id="resultTable">
                     <thead>
+                        <!-- 合計列：在欄位名稱上方，屬於 thead 所以不受排序影響 -->
+                        <tr id="totalRow" style="background:#fdf0f7; font-weight:700; font-size:11px;">
+                            <th style="width:40px; background:#fdf0f7; border:1px solid #e8c8d8;"></th>
+    `;
+
+    displayCols.forEach(col => {
+        if (col === '產品名稱') {
+            html += `<th style="color:#c0507a; background:#fdf0f7; border:1px solid #e8c8d8; font-weight:700; text-align:left;">合計</th>`;
+        } else if (numericCols.includes(col)) {
+            html += `<th id="sum_${col}" style="color:#c0507a; background:#fdf0f7; border:1px solid #e8c8d8; font-weight:700; text-align:left;"></th>`;
+        } else {
+            html += `<th style="background:#fdf0f7; border:1px solid #e8c8d8;"></th>`;
+        }
+    });
+
+    html += `
+                        </tr>
+                        <!-- 欄位名稱列 -->
                         <tr>
                             <th style="width:40px; padding:6px 4px; text-align:center; cursor:default; user-select:none;" title="全選/全不選">
                                 <input type="checkbox" id="checkAll" onchange="toggleAllCheckboxes(this)" style="cursor:pointer;">
@@ -5936,36 +5960,41 @@ function displayResults(data) {
                     <tbody id="resultBody">
     `;
 
-    // 合計列：固定在最上方（不含 data-row，不受排序影響）
-    html += `<tr id="totalRow" style="background:#fdf0f7; font-weight:700; font-size:11px; position:sticky; top:30px; z-index:1;">`;
-    html += `<td style="width:40px; background:#fdf0f7;"></td>`;
-    displayCols.forEach(col => {
-        if (col === '產品名稱') {
-            html += `<td colspan="1" style="color:#c0507a; background:#fdf0f7;">合計</td>`;
-        } else if (numericCols.includes(col)) {
-            html += `<td id="sum_${col}" style="color:#c0507a; background:#fdf0f7;"></td>`;
-        } else {
-            html += `<td style="background:#fdf0f7;"></td>`;
-        }
-    });
-    html += `</tr>`;
-
     data.forEach((row, rowIdx) => {
-        // 判斷是否異常：上期結存 > 0 且 本期入庫 > 0
-        const prevStock = parseFloat(row['上期結存']) || 0;
-        const currIn    = parseFloat(row['本期入庫']) || 0;
-        const isAbnormal = prevStock > 0 && currIn > 0;
-        const trStyle = isAbnormal ? ' style="color:#ef4444;"' : '';
+        const prevStock  = parseFloat(row['上期結存']);
+        const currIn     = parseFloat(row['本期入庫']);
+        const currClose  = parseFloat(row['本期結存']);
+        const netWeight  = parseFloat(row['淨重']);
 
-        html += `<tr data-row="${rowIdx}"${trStyle}>`;
+        // 異常條件
+        const abn_both   = (prevStock  > 0) && (currIn > 0);          // 上期結存>0 且 本期入庫>0
+        const abn_neg    = !isNaN(currClose) && currClose < 0;         // 本期結存<0
+        const abn_weight = !isNaN(netWeight) && netWeight === 0;       // 淨重=0
+
+        const hasAbnormal = abn_both || abn_neg || abn_weight;
+        const trColor = abn_both ? ' style="color:#ef4444;"' : '';     // 整行紅：上期+入庫同時>0
+
+        html += `<tr data-row="${rowIdx}" data-abnormal="${hasAbnormal}"${trColor}>`;
         html += `<td style="width:40px; padding:4px; text-align:center;">
             <input type="checkbox" data-row-idx="${rowIdx}" onchange="onCheckboxChange(this)" style="cursor:pointer;">
         </td>`;
-        displayCols.forEach((col, colIdx) => {
+        displayCols.forEach((col) => {
             const val = row[col] !== undefined ? row[col] : '';
-            if (editableCols.includes(col)) {
-                const isNote = col === '備註';
-                html += `<td style="padding:0;">
+
+            // 儲存格層級紅字（不整行紅的情況）
+            let cellRed = false;
+            if (!abn_both) {
+                if (col === '本期結存' && abn_neg)    cellRed = true;
+                if (col === '淨重'     && abn_weight) cellRed = true;
+            }
+            const cellColorStyle = cellRed ? 'color:#ef4444; ' : '';
+
+            // 是否可編輯：固定可編輯欄 OR 此列有異常
+            const canEdit = editableCols.includes(col) || hasAbnormal;
+            const isNote  = col === '備註';
+
+            if (canEdit) {
+                html += `<td style="padding:0; ${cellColorStyle}">
                     <input type="text" value="${val}"
                         data-row="${rowIdx}" data-col="${col}"
                         onchange="onCellEdit(this)"
@@ -5975,7 +6004,7 @@ function displayResults(data) {
                         onblur="this.style.borderBottomColor='transparent'; this.style.background='transparent';" />
                 </td>`;
             } else {
-                html += `<td>${val}</td>`;
+                html += `<td style="${cellColorStyle}">${val}</td>`;
             }
         });
         html += '</tr>';
@@ -5990,6 +6019,16 @@ function displayResults(data) {
 
     document.getElementById('results').innerHTML = html;
     recalcSummary();
+
+    // 動態計算合計列高度，讓欄位名稱列正確 sticky 在合計列下方
+    requestAnimationFrame(() => {
+        const totalRowEl = document.getElementById('totalRow');
+        if (!totalRowEl) return;
+        const h = totalRowEl.offsetHeight;
+        document.querySelectorAll('#resultTable thead tr:last-child th').forEach(th => {
+            th.style.top = h + 'px';
+        });
+    });
 }
 
 let rentalSortState = { col: -1, asc: true };
@@ -6026,6 +6065,18 @@ function rentalSortTable(colIdx) {
     updateCount();
 }
 
+let _redFilterOn = false;
+
+function toggleRedFilter() {
+    _redFilterOn = !_redFilterOn;
+    const btn = document.getElementById('btnFilterRed');
+    if (btn) {
+        btn.style.background  = _redFilterOn ? '#ef4444' : '#fff5f5';
+        btn.style.color       = _redFilterOn ? '#fff'    : '#ef4444';
+    }
+    applyFilter();
+}
+
 function applyFilter() {
     const keyword = document.getElementById('filterInput')?.value.trim().toLowerCase() || '';
     const col = document.getElementById('filterCol')?.value || '產品名稱';
@@ -6042,7 +6093,12 @@ function applyFilter() {
 
     let visible = 0;
     tbody.querySelectorAll('tr').forEach(row => {
-        // 勾選框欄在索引 0，所以實際資料欄位需要 +1
+        // 篩選異常列
+        if (_redFilterOn && row.dataset.abnormal !== 'true') {
+            row.style.display = 'none';
+            return;
+        }
+        // 關鍵字篩選（勾選框欄在索引 0，資料欄位需 +1）
         const cellIdx = colIdx >= 0 ? colIdx + 1 : -1;
         const cell = cellIdx >= 0 ? row.cells[cellIdx]?.textContent.toLowerCase() || '' : '';
         const show = !keyword || cell.includes(keyword);
@@ -6051,7 +6107,7 @@ function applyFilter() {
     });
 
     const note = document.getElementById('filterNote');
-    if (note) note.textContent = keyword ? `顯示 ${visible} 筆` : '';
+    if (note) note.textContent = (keyword || _redFilterOn) ? `顯示 ${visible} 筆` : '';
     updateCount();
     recalcSummary();
 }
@@ -6063,6 +6119,10 @@ function clearFilter() {
     if (tbody) tbody.querySelectorAll('tr').forEach(r => r.style.display = '');
     const note = document.getElementById('filterNote');
     if (note) note.textContent = '';
+    // 重置異常篩選
+    _redFilterOn = false;
+    const btn = document.getElementById('btnFilterRed');
+    if (btn) { btn.style.background = '#fff5f5'; btn.style.color = '#ef4444'; }
     updateCount();
     recalcSummary();
 }
@@ -6169,12 +6229,16 @@ function recalcSummary() {
         numericCols.forEach(c => { sums[c] += parseFloat(row[c]) || 0; });
     });
 
-    // 更新上方統計卡
-    const fmt = n => '$' + Math.round(n).toLocaleString();
+    // 會計格式：正數 1,234  負數 (1,234)
+    const fmtAcct = n => {
+        const rounded = Math.round(n);
+        if (rounded < 0) return '(' + Math.abs(rounded).toLocaleString() + ')';
+        return rounded.toLocaleString();
+    };
     const el = id => document.getElementById(id);
-    if (el('totalRental'))   el('totalRental').textContent   = fmt(sums['租金']);
-    if (el('totalHandling')) el('totalHandling').textContent = fmt(sums['出入庫']);
-    if (el('totalSum'))      el('totalSum').textContent      = fmt(sums['總計']);
+    if (el('totalRental'))   el('totalRental').textContent   = fmtAcct(sums['租金']);
+    if (el('totalHandling')) el('totalHandling').textContent = fmtAcct(sums['出入庫']);
+    if (el('totalSum'))      el('totalSum').textContent      = fmtAcct(sums['總計']);
     if (el('totalWeight'))   el('totalWeight').textContent   = sums['計價重量'].toFixed(2);
 
     // 更新合計列的 sum_* 儲存格
@@ -6183,8 +6247,8 @@ function recalcSummary() {
         if (!cell) return;
         const isMonetary = ['出入庫','租金','總計'].includes(c);
         cell.textContent = isMonetary
-            ? fmt(sums[c])
-            : (Number.isInteger(sums[c]) ? sums[c] : sums[c].toFixed(2));
+            ? fmtAcct(sums[c])
+            : (Number.isInteger(sums[c]) ? sums[c].toLocaleString() : sums[c].toFixed(2));
     });
 }
 
