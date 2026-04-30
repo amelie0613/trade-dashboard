@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>差異比較明細報表</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+
+:root {
+  --primary: #6878C0;
+  --primary-dark: #4a5a9f;
+  --primary-light: #eceeff;
+  --primary-mid: #7888d0;
+  --accent: #f0f2ff;
+  --text: #1a2540;
+  --muted: #64748b;
+  --border: #dde6ef;
+  --bg: #EFF4F8;
+  --white: #ffffff;
+  --green: #1a7a3c;
+  --red: #b02020;
+  --orange: #b05000;
+  --blue-mid: #1a4fa0;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans TC', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* ── HEADER ── */
+.report-header {
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 60%, var(--primary-mid) 100%);
+  color: white;
+  padding: 18px 28px 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.report-title { font-size: 22px; font-weight: 900; letter-spacing: 1px; }
+.report-subtitle { font-size: 12px; opacity: 0.75; margin-top: 4px; }
+.report-meta { text-align: right; font-size: 11px; opacity: 0.8; line-height: 1.7; }
+
+/* ── TOOLBAR ── */
+.toolbar {
+  background: var(--white);
+  border-bottom: 2px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.filter-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+.chip {
+  background: var(--accent);
+  border: 1px solid var(--border);
+  color: var(--primary-dark);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.btn-print {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.btn-print:hover { background: var(--primary-dark); }
+
+/* ── TYPE TABS ── */
+.type-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--white);
+  border-bottom: 2px solid var(--border);
+  padding: 0 20px;
+  overflow-x: auto;
+}
+.type-tab {
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.type-tab:hover { color: var(--primary); }
+.type-tab.active { color: var(--primary-dark); border-bottom-color: var(--primary); }
+
+/* ── SUMMARY CARDS ── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  padding: 14px 20px 10px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+}
+.kpi-card {
+  background: var(--accent);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: center;
+}
+.kpi-card.active { border-color: var(--primary); background: var(--primary-light); }
+.kpi-label { font-size: 11px; color: var(--muted); font-weight: 500; }
+.kpi-value { font-size: 22px; font-weight: 900; color: var(--primary-dark); line-height: 1.1; margin: 2px 0; }
+.kpi-card.new-card .kpi-value { color: #1a7a3c; }
+.kpi-card.gone-card .kpi-value { color: #b02020; }
+.kpi-card.up-card .kpi-value { color: #1a4fa0; }
+.kpi-card.down-card .kpi-value { color: #b05000; }
+.kpi-card.same-card .kpi-value { color: var(--muted); }
+
+/* ── TABLE AREA ── */
+.table-wrap {
+  padding: 14px 20px 24px;
+}
+.table-count {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.tbl-scroll { overflow-x: auto; border-radius: 10px; border: 1.5px solid var(--border); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+thead th {
+  background: var(--primary);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  position: sticky;
+  top: 0;
+}
+thead th:hover { background: var(--primary-dark); }
+thead th .sort-icon { margin-left: 4px; opacity: 0.6; font-style: normal; font-size: 11px; }
+
+tbody tr:nth-child(even) { background: var(--accent); }
+tbody tr:hover { background: var(--primary-light); }
+td {
+  padding: 7px 10px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+/* ── BADGES ── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.badge-new  { background: #d4f0dd; color: #1a7a3c; }
+.badge-gone { background: #fde0e0; color: #b02020; }
+.badge-up   { background: #d6e6ff; color: #1a4fa0; }
+.badge-down { background: #ffe8cc; color: #b05000; }
+.badge-same { background: #e8e8e8; color: #666; }
+.badge-cat  { background: var(--primary-light); color: var(--primary-dark); border: 1px solid var(--border); }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+  font-size: 15px;
+}
+.empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+
+/* ── PRINT ── */
+@media print {
+  /* 隱藏操作列 */
+  .toolbar, .type-tabs { display: none !important; }
+
+  /* 保持顏色 */
+  * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+
+  /* 移除捲動容器限制 — 這是切線的主因 */
+  .tbl-scroll {
+    overflow: visible !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+  .table-wrap { padding: 8px 0 0; }
+
+  /* 字體縮小 */
+  body  { font-size: 10px; }
+  table { font-size: 10px; width: 100%; }
+  thead th { font-size: 10px; padding: 5px 6px; position: static !important; }
+  td        { padding: 4px 6px; font-size: 10px; }
+
+  /* ★ 防止列被頁面切斷（切線的第二個原因） */
+  tbody tr  { page-break-inside: avoid; break-inside: avoid; }
+
+  /* thead 每頁重複顯示 */
+  thead     { display: table-header-group; }
+
+  /* KPI 卡片換頁不切 */
+  .kpi-row  { page-break-inside: avoid; break-inside: avoid; }
+  .kpi-card { page-break-inside: avoid; break-inside: avoid; }
+}
+@page { size: A4 landscape; margin: 8mm; }
+</style>
+</head>
+<body>
+
+<div class="report-header">
+  <div>
+    <div class="report-title">&#128202; 差異比較明細報表</div>
+    <div class="report-subtitle" id="header-subtitle">載入中…</div>
+  </div>
+  <div class="report-meta" id="header-meta"></div>
+</div>
+
+<div class="toolbar">
+  <div class="filter-chips" id="filter-chips"></div>
+  <button class="btn-print" onclick="window.print()">&#128424; 列印 / PDF</button>
+</div>
+
+<div class="type-tabs" id="type-tabs"></div>
+
+<div class="kpi-row" id="kpi-row"></div>
+
+<div class="table-wrap">
+  <div class="table-count" id="table-count"></div>
+  <div class="tbl-scroll">
+    <div id="table-container"></div>
+  </div>
+</div>
+
+<script>
+const CHG_LABEL = { new:'&#128994; 新增', gone:'&#128308; 消失', up:'&#128309; 增加', down:'&#128992; 減少', same:'&#9898; 不變' };
+const BADGE_CLS = { new:'badge-new', gone:'badge-gone', up:'badge-up', down:'badge-down', same:'badge-same' };
+const ROW_CLS   = { new:'row-new',   gone:'row-gone',   up:'row-up',   down:'row-down',   same:'' };
+const CHG_ORDER = ['new','gone','up','down','same'];
+
+let payload = null;
+let allRows = [];
+let currentTab = 'all';
+let sortCol = null;
+let sortDir = 'asc';
+
+function fmt(n){
+  if(n === null || n === undefined || n === '') return '—';
+  return Number(n).toLocaleString('zh-TW');
+}
+function fmtCost(n){
+  if(n === null || n === undefined) return '—';
+  return '$' + Math.round(n).toLocaleString('zh-TW');
+}
+function fmtDiff(n){
+  if(n === null || n === undefined) return '—';
+  return (n > 0 ? '+' : '') + Number(n).toLocaleString('zh-TW');
+}
+function fmtCostDiff(n){
+  if(n === null || n === undefined) return '—';
+  return (n > 0 ? '+$' : '$') + Math.round(n).toLocaleString('zh-TW');
+}
+
+window.addEventListener('DOMContentLoaded', function(){
+  try {
+    payload = JSON.parse(localStorage.getItem('diffReportPayload') || '{}');
+  } catch(e) { payload = {}; }
+
+  allRows = payload.rows || [];
+  const f = payload.filters || {};
+  const hasPrices = payload.hasPrices || false;
+
+  // Header
+  document.getElementById('header-subtitle').textContent =
+    '倉庫：' + (f.warehouse||'全部') + '　類別：' + (f.category||'全部') + '　變化類型：' + (f.filter||'全部');
+  document.getElementById('header-meta').innerHTML =
+    '產生時間：' + (payload.generatedAt || '') + '<br>共 ' + allRows.length + ' 筆';
+
+  // Filter chips
+  const chips = document.getElementById('filter-chips');
+  [['變化類型', f.filter||'全部'], ['倉庫', f.warehouse||'全部'], ['類別', f.category||'全部'], ['筆數', allRows.length + ' 筆']]
+    .forEach(([k,v]) => {
+      chips.innerHTML += `<span class="chip">${k}：${v}</span>`;
+    });
+
+  // Build type tabs
+  buildTypeTabs();
+
+  // KPI cards
+  buildKPI();
+
+  // Table
+  renderTable();
+});
+
+function buildTypeTabs(){
+  const tabs = document.getElementById('type-tabs');
+  const counts = { all: allRows.length };
+  CHG_ORDER.forEach(t => { counts[t] = allRows.filter(r => r._changeType === t).length; });
+  const labels = { all:'全部', new:'&#128994; 新增', gone:'&#128308; 消失', up:'&#128309; 增加', down:'&#128992; 減少', same:'&#9898; 不變' };
+  ['all', ...CHG_ORDER].forEach(key => {
+    const btn = document.createElement('button');
+    btn.className = 'type-tab' + (key === 'all' ? ' active' : '');
+    btn.innerHTML = `${labels[key]} (${counts[key]})`;
+    btn.onclick = () => switchTab(key, btn);
+    tabs.appendChild(btn);
+  });
+}
+
+function switchTab(key, btn){
+  currentTab = key;
+  document.querySelectorAll('.type-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  sortCol = null; sortDir = 'asc';
+  renderTable();
+}
+
+function buildKPI(){
+  const kpi = document.getElementById('kpi-row');
+  const totals = { new:0, gone:0, up:0, down:0, same:0 };
+  allRows.forEach(r => totals[r._changeType]++);
+  const cards = [
+    ['全部', allRows.length, '', ''],
+    ['新增品項', totals.new, 'new-card', '#1a7a3c'],
+    ['消失品項', totals.gone, 'gone-card', '#b02020'],
+    ['數量增加', totals.up, 'up-card', '#1a4fa0'],
+    ['數量減少', totals.down, 'down-card', '#b05000'],
+  ];
+  kpi.innerHTML = cards.map(([label, val, cls]) =>
+    `<div class="kpi-card ${cls}"><div class="kpi-label">${label}</div><div class="kpi-value">${val}</div></div>`
+  ).join('');
+
+  if(payload.hasPrices){
+    let totA = 0, totB = 0;
+    allRows.forEach(r => { if(r._costA != null) totA += r._costA; if(r._costB != null) totB += r._costB; });
+    const diff = totA - totB;
+    const sign = diff >= 0 ? '+' : '';
+    kpi.style.gridTemplateColumns = 'repeat(5,1fr) 1fr 1fr 1fr';
+    kpi.innerHTML += [
+      ['本期總成本', '$' + Math.round(totA).toLocaleString('zh-TW'), ''],
+      ['上期總成本', '$' + Math.round(totB).toLocaleString('zh-TW'), ''],
+      ['成本差異', sign + '$' + Math.round(Math.abs(diff)).toLocaleString('zh-TW') + (diff < 0 ? '&#8595;' : '&#8593;'), diff < 0 ? 'gone-card' : 'new-card'],
+    ].map(([label, val, cls]) =>
+      `<div class="kpi-card ${cls}"><div class="kpi-label">${label}</div><div class="kpi-value" style="font-size:16px">${val}</div></div>`
+    ).join('');
+  }
+}
+
+function getRows(){
+  let rows = currentTab === 'all' ? [...allRows] : allRows.filter(r => r._changeType === currentTab);
+  if(!sortCol) return rows;
+  rows.sort((a, b) => {
+    let av = a[sortCol], bv = b[sortCol];
+    if(av === null || av === undefined) av = sortDir === 'asc' ? Infinity : -Infinity;
+    if(bv === null || bv === undefined) bv = sortDir === 'asc' ? Infinity : -Infinity;
+    if(typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sortDir === 'asc' ? av - bv : bv - av;
+  });
+  return rows;
+}
+
+function onSort(col){
+  if(sortCol === col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  else { sortCol = col; sortDir = 'asc'; }
+  renderTable();
+}
+
+function sortIcon(col){
+  if(sortCol !== col) return '<i class="sort-icon">&#8645;</i>';
+  return '<i class="sort-icon">' + (sortDir === 'asc' ? '&#9650;' : '&#9660;') + '</i>';
+}
+
+function renderTable(){
+  const rows = getRows();
+  document.getElementById('table-count').textContent = rows.length + ' 筆';
+  const hasPrices = payload.hasPrices;
+  const container = document.getElementById('table-container');
+
+  if(!rows.length){
+    container.innerHTML = '<div class="empty-state"><div class="icon">&#128202;</div><p>無符合條件的差異資料</p></div>';
+    return;
+  }
+
+  const cols = [
+    { key: '_changeType', label: '變化',    w: '72px',  align: 'center' },
+    { key: '產品類別',    label: '類別',    w: '80px',  align: 'center' },
+    { key: '產品代碼',    label: '產品代碼', w: '90px',  align: 'left'   },
+    { key: '產品名稱',    label: '產品名稱', w: '160px', align: 'left'   },
+    { key: '產品規格',    label: '規格',    w: '90px',  align: 'left'   },
+    { key: '倉庫',        label: '倉庫',    w: '90px',  align: 'left'   },
+    { key: '批號',        label: '批號',    w: '90px',  align: 'left'   },
+    { key: '基本單位',    label: '單位',    w: '55px',  align: 'center' },
+    { key: '_qtyA',       label: '本期(A)', w: '80px',  align: 'right'  },
+    { key: '_qtyB',       label: '上期(B)', w: '80px',  align: 'right'  },
+    { key: '_diff',       label: '差異(A-B)',w:'90px',  align: 'right'  },
+  ];
+  if(hasPrices){
+    cols.push(
+      { key: '_unitPrice', label: '單價',   w: '80px',  align: 'right' },
+      { key: '_costA',     label: '本期成本',w: '100px', align: 'right' },
+      { key: '_costB',     label: '上期成本',w: '100px', align: 'right' },
+      { key: '_costDiff',  label: '成本差異',w: '100px', align: 'right' },
+      { key: '_scope',     label: '核算範圍',w: '90px',  align: 'left'  },
+    );
+  }
+
+  let html = `<table><thead><tr>`;
+  cols.forEach(c => {
+    html += `<th style="width:${c.w};text-align:${c.align}" onclick="onSort('${c.key}')">${c.label}${sortIcon(c.key)}</th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  rows.forEach(r => {
+    const ct = r._changeType;
+    html += `<tr class="${ROW_CLS[ct]||''}">`;
+
+    cols.forEach(c => {
+      let val = '';
+      if(c.key === '_changeType'){
+        val = `<span class="badge ${BADGE_CLS[ct]}">${CHG_LABEL[ct]||ct}</span>`;
+      } else if(c.key === '產品類別'){
+        val = `<span class="badge badge-cat">${r['產品類別']||'—'}</span>`;
+      } else if(c.key === '_qtyA'){
+        val = ct === 'gone' ? '<span style="color:var(--muted)">—</span>' : fmt(r._qtyA);
+      } else if(c.key === '_qtyB'){
+        val = ct === 'new'  ? '<span style="color:var(--muted)">—</span>' : fmt(r._qtyB);
+      } else if(c.key === '_diff'){
+        const d = r._diff;
+        const style = d > 0 ? 'color:#1a7a3c;font-weight:700' : d < 0 ? 'color:#b02020;font-weight:700' : 'color:var(--muted)';
+        val = `<span style="${style}">${fmtDiff(d)}</span>`;
+      } else if(c.key === '_unitPrice'){
+        val = r._unitPrice != null ? fmt(r._unitPrice) : '—';
+      } else if(c.key === '_costA'){
+        val = r._costA != null ? fmtCost(r._costA) : '—';
+      } else if(c.key === '_costB'){
+        val = r._costB != null ? fmtCost(r._costB) : '—';
+      } else if(c.key === '_costDiff'){
+        const cd = r._costDiff;
+        if(cd == null){ val = '—'; }
+        else {
+          const style = cd > 0 ? 'color:#1a7a3c;font-weight:700' : cd < 0 ? 'color:#b02020;font-weight:700' : 'color:var(--muted)';
+          val = `<span style="${style}">${fmtCostDiff(cd)}</span>`;
+        }
+      } else {
+        val = r[c.key] || '—';
+      }
+      html += `<td style="text-align:${c.align}">${val}</td>`;
+    });
+
+    html += `</tr>`;
+  });
+
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+</script>
+</body>
+</html>

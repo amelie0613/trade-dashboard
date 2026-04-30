@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>各倉庫貨幣區間成本分析</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      background: linear-gradient(135deg, #f0f4f9 0%, #e8f4ff 100%);
+      min-height: 100vh;
+      padding: 16px;
+      color: #1a1a1a;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 6px 24px rgba(37,87,165,0.12);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1E2A50 0%, #6878C0 100%);
+      color: white;
+      padding: 12px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 19px;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+    }
+
+    .header-actions { display: flex; gap: 8px; }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: 7px;
+      border: none;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-primary  { background: #f08080; color: white; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.25);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.5);
+    }
+
+    .content { padding: 14px 18px 18px; }
+
+    .scope-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .scope-card {
+      background: #fff;
+      border: 1px solid #d0d9e8;
+      border-top: 4px solid #6878C0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 2px 6px rgba(37,87,165,0.07);
+    }
+
+    .scope-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #e8edf5;
+    }
+
+    .scope-card-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: #1B3F6E;
+      line-height: 1.3;
+    }
+
+    .scope-card-wh {
+      font-size: 10px;
+      color: #999;
+      margin-top: 2px;
+      font-weight: 400;
+    }
+
+    .scope-card-total {
+      font-size: 16px;
+      font-weight: 900;
+      color: #6878C0;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .scope-card-total-label {
+      font-size: 9px;
+      color: #999;
+      text-align: right;
+    }
+
+    .scope-card-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .scope-card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+
+    .scope-card-row-label { color: #555; font-weight: 600; }
+
+    .scope-card-row-value {
+      font-weight: 700;
+      color: #6878C0;
+      text-align: right;
+    }
+
+    .scope-card-row-value.red    { color: #DC2626; }
+    .scope-card-row-value.orange { color: #EA580C; }
+    .scope-card-row-value.muted  { color: #bbb; font-weight: 400; }
+
+    .table-section { margin-top: 0; }
+
+    .table-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #6878C0;
+      padding: 8px 12px;
+      background: #f0f4f9;
+      border-radius: 7px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-left: 4px solid #6878C0;
+    }
+
+    .table-wrapper {
+      border-radius: 7px;
+      border: 1px solid #d0d9e8;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: #6878C0;
+      color: white;
+      padding: 8px 5px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 13px;
+      border: 1px solid #fff;
+      overflow: hidden;
+      word-break: break-word;
+    }
+
+    td {
+      padding: 7px 5px;
+      font-size: 12px;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+    }
+
+    tr.parent-row td { background: #f0f4f9; font-weight: 600; color: #1a1a1a; }
+    tr.child-row  td { background: #fafbfc; color: #444; }
+    tr.total-row  td { background: #dce8f5; font-weight: 700; color: #1a1a1a; }
+
+    .currency      { color: #6878C0; font-weight: 700; }
+    .expired-value { color: #DC2626 !important; font-weight: 700; }
+
+    .expand-btn {
+      cursor: pointer;
+      user-select: none;
+      font-weight: bold;
+      color: #6878C0;
+      margin-right: 4px;
+    }
+
+    .expand-btn:before         { content: '\25BC '; }
+    .expand-btn.collapsed:before { content: '\25B6 '; }
+
+    .child-row.hidden { display: none; }
+
+    .footer {
+      padding: 10px 18px;
+      background: #f5f5f5;
+      border-top: 1px solid #e0e0e0;
+      font-size: 12px;
+      color: #999;
+    }
+
+    @page {
+      size: A4 portrait;
+      margin: 8mm 8mm;
+    }
+
+    @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      html, body { margin: 0; padding: 0; background: white !important; width: 100%; }
+      body { padding: 0 !important; }
+
+      .container {
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+      }
+
+      .header-actions { display: none !important; }
+      .child-row.hidden { display: none !important; }
+
+      .scope-grid { page-break-inside: avoid; break-inside: avoid; }
+      .scope-card { page-break-inside: avoid; break-inside: avoid; }
+      table       { page-break-inside: auto; }
+      thead       { display: table-header-group; }
+      tr          { page-break-inside: avoid; break-inside: avoid; }
+
+      .header          { background: linear-gradient(135deg, #1B3F6E 0%, #6878C0 100%) !important; }
+      th               { background: #6878C0 !important; color: white !important; }
+      tr.parent-row td { background: #f0f4f9 !important; }
+      tr.total-row  td { background: #dce8f5 !important; }
+      .table-title     { background: #f0f4f9 !important; }
+      .footer          { background: #f5f5f5 !important; }
+      .scope-card      { border: 1px solid #d0d9e8 !important; box-shadow: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container" id="reportContainer">
+  <div class="header">
+    <h1>&#128269; 各倉庫貨幣區間成本分析</h1>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="window.history.back()">&#8592; 返回</button>
+      <button class="btn btn-primary" onclick="exportImage()">&#128229; 匯出 PDF</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="scope-grid" id="scopeGrid"></div>
+
+    <div class="table-section">
+      <div class="table-title">
+        &#128203; 按倉庫分類的成本明細（可展開/收合）
+      </div>
+
+      <div class="table-wrapper">
+        <table id="costTable">
+          <thead>
+            <tr>
+              <th style="width:28%;">核算範圍 / 倉庫</th>
+              <th style="width:15%;">全部成本</th>
+              <th style="width:14%;">正常</th>
+              <th style="width:14%; background:#8B2020; color:#FFD0D0;">⚠ 過期品</th>
+              <th style="width:15%; background:#7A4A0A; color:#FFDCA0;">⏳ 長期在庫</th>
+              <th style="width:14%; background:#7A5500; color:#FFE899;">🔔 即將到期</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    &#128161; 說明：每個核算範圍可點擊展開查看個別倉庫的成本明細 | &#128309; 藍色數字表示成本 | &#9888;&#65039; 紅色數字表示過期品
+  </div>
+</div>
+
+<script>
+let costData = [];
+
+function fmt(num) {
+  if (!num || num === 0) return '<span style="color:#bbb;">—</span>';
+  return '$' + num.toLocaleString();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+
+  if (!costData.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:#999;">
+      &#9888; 無成本數據。請先在主程序設定單價與核算範圍，再點「&#128202; 成本分析」。
+    </td></tr>`;
+    return;
+  }
+
+  let grandTotal = 0, grandNormal = 0, grandExpired = 0, grandLongterm = 0, grandSoon = 0;
+
+  costData.forEach(parent => {
+    grandTotal    += parent.total;
+    grandNormal   += parent.normal;
+    grandExpired  += parent.expired;
+    grandLongterm += parent.longterm;
+    grandSoon     += parent.soon;
+
+    const expClass = parent.expired > 0 ? 'expired-value' : 'currency';
+    const hasChildren = parent.children && parent.children.length > 0;
+
+    const parentRow = document.createElement('tr');
+    parentRow.className = 'parent-row';
+    if (hasChildren) parentRow.style.cursor = 'pointer';
+    parentRow.innerHTML = `
+      <td>
+        ${hasChildren ? `<span class="expand-btn" onclick="toggleChildren(this)"></span>` : ''}
+        ${parent.name}
+        ${hasChildren ? `<span style="font-size:12px;color:#999;margin-left:4px;">(${parent.children.length} 個倉庫)</span>` : ''}
+      </td>
+      <td class="currency" style="text-align:right;">${fmt(parent.total)}</td>
+      <td class="currency" style="text-align:right;">${fmt(parent.normal)}</td>
+      <td class="${expClass}" style="text-align:right;">${fmt(parent.expired)}</td>
+      <td class="currency" style="text-align:right;">${fmt(parent.longterm)}</td>
+      <td class="currency" style="text-align:right;">${fmt(parent.soon)}</td>
+    `;
+    tbody.appendChild(parentRow);
+
+    if (hasChildren) {
+      parent.children.forEach(child => {
+        const childRow = document.createElement('tr');
+        childRow.className = 'child-row hidden';
+        const childExpClass = child.expired > 0 ? 'expired-value' : 'currency';
+        childRow.innerHTML = `
+          <td style="padding-left:32px;">&#127981; ${child.name}</td>
+          <td class="currency" style="text-align:right;">${fmt(child.total)}</td>
+          <td class="currency" style="text-align:right;">${fmt(child.normal)}</td>
+          <td class="${childExpClass}" style="text-align:right;">${fmt(child.expired)}</td>
+          <td class="currency" style="text-align:right;">${fmt(child.longterm)}</td>
+          <td class="currency" style="text-align:right;">${fmt(child.soon)}</td>
+        `;
+        tbody.appendChild(childRow);
+      });
+    }
+  });
+
+  const totalExpClass = grandExpired > 0 ? 'expired-value' : 'currency';
+  const totalRow = document.createElement('tr');
+  totalRow.className = 'total-row';
+  totalRow.innerHTML = `
+    <td>合計</td>
+    <td class="currency" style="text-align:right;">${fmt(grandTotal)}</td>
+    <td class="currency" style="text-align:right;">${fmt(grandNormal)}</td>
+    <td class="${totalExpClass}" style="text-align:right;">${fmt(grandExpired)}</td>
+    <td class="currency" style="text-align:right;">${fmt(grandLongterm)}</td>
+    <td class="currency" style="text-align:right;">${fmt(grandSoon)}</td>
+  `;
+  tbody.appendChild(totalRow);
+}
+
+function toggleChildren(btn) {
+  btn.classList.toggle('collapsed');
+  const parentRow = btn.closest('tr');
+  let sibling = parentRow.nextElementSibling;
+  while (sibling && sibling.classList.contains('child-row')) {
+    sibling.classList.toggle('hidden');
+    sibling = sibling.nextElementSibling;
+  }
+}
+
+function renderScopeCards() {
+  const grid = document.getElementById('scopeGrid');
+  grid.innerHTML = '';
+  if (!costData.length) return;
+
+  const borderColors = ['#6878C0','#1B5B9E','#2E6CB8','#3575C0','#4A6FA5','#3A5E8C'];
+
+  costData.forEach((scope, i) => {
+    const color = borderColors[i % borderColors.length];
+    const whCount = scope.children ? scope.children.length : 0;
+
+    const fmtCard = v => v > 0
+      ? '$' + v.toLocaleString()
+      : '<span style="color:#ccc;">—</span>';
+
+    const card = document.createElement('div');
+    card.className = 'scope-card';
+    card.style.borderTopColor = color;
+
+    card.innerHTML = `
+      <div class="scope-card-header">
+        <div>
+          <div class="scope-card-name">${scope.name}</div>
+          <div class="scope-card-wh">${whCount > 0 ? whCount + ' 個倉庫' : '—'}</div>
+        </div>
+        <div>
+          <div class="scope-card-total-label">總成本</div>
+          <div class="scope-card-total" style="color:${color};">${fmtCard(scope.total)}</div>
+        </div>
+      </div>
+      <div class="scope-card-rows">
+        <div class="scope-card-row">
+          <span class="scope-card-row-label">正常品</span>
+          <span class="scope-card-row-value">${fmtCard(scope.normal)}</span>
+        </div>
+        <div class="scope-card-row">
+          <span class="scope-card-row-label" style="color:#DC2626;">過期品</span>
+          <span class="scope-card-row-value ${scope.expired > 0 ? 'red' : 'muted'}">${fmtCard(scope.expired)}</span>
+        </div>
+        <div class="scope-card-row">
+          <span class="scope-card-row-label" style="color:#EA580C;">長期在庫</span>
+          <span class="scope-card-row-value ${scope.longterm > 0 ? 'orange' : 'muted'}">${fmtCard(scope.longterm)}</span>
+        </div>
+        <div class="scope-card-row">
+          <span class="scope-card-row-label">即將到期</span>
+          <span class="scope-card-row-value ${scope.soon > 0 ? '' : 'muted'}">${fmtCard(scope.soon)}</span>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function exportImage() {
+  window.print();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  let payload = null;
+  try {
+    const raw = localStorage.getItem('costAnalysisPayload');
+    if (raw) payload = JSON.parse(raw);
+  } catch (e) {
+    console.warn('Failed to parse costAnalysisPayload:', e);
+  }
+
+  if (payload && payload.costData && payload.costData.length) {
+    costData = payload.costData;
+  }
+
+  renderScopeCards();
+  renderTable();
+});
+</script>
+
+</body>
+</html>
