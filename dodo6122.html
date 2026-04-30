@@ -5706,8 +5706,7 @@ function calculateRental(rentalData, ioData, weightData) {
             inboundDetails.push(`【${bizType}】${Math.round(ioQty)}(${ioDays}天)`);
         }
 
-        // ── 3. 本期出庫：手續費（依業務屬性彙整備註）──────────────────
-        let handlingOutbound = 0;
+        // ── 3. 本期出庫：僅彙整備註，不收手續費 ────────────────────────
         const outboundByType = {};
 
         for (const io of ioMatch) {
@@ -5717,13 +5716,12 @@ function calculateRental(rentalData, ioData, weightData) {
             const ioQty = Math.abs(parseFloat(io['數量'] || 0)) || 0;
             if (ioQty === 0) continue;
 
-            handlingOutbound += handlingFeeRate * ioQty * unitWeight;
             outboundByType[bizType] = (outboundByType[bizType] || 0) + ioQty;
         }
 
         // ── 4. 彙總金額 ───────────────────────────────────────────────
         const rentalCost   = Math.round(rentalBalance + rentalInbound);
-        const handlingCost = Math.round(handlingInbound + handlingOutbound);
+        const handlingCost = Math.round(handlingInbound);
         const totalCost    = rentalCost + handlingCost;
 
         // 計價重量 = 前期結餘重量 + 本期入庫總重量
