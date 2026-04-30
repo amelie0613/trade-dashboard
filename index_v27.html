@@ -1486,9 +1486,6 @@ function cv(v){var s=(v===undefined||v===null)?'':v.toString().trim();return s&&
 function isPend(r){
   // 待補填中的案件不算待審核（補填完成後才讓老闆簽核）
   var fillStat = (r[F.fillStatus]||r['銷售補填狀態']||'').toString().trim();
-  if(g(r,'formId')==='T20260414729'){
-    
-  }
   if(fillStat==='待補填') return false;
   var s=g(r,'status');
   return s===''||s==='否'||s==='待審核'||s==='尚未';
@@ -3526,6 +3523,12 @@ function doApp(rowNum,status){
     'approval.bossNote':     note,
     'approval.approvedAt':   tsNow,
   };
+  // 退回時：若為補填案件，重置 fillStatus 讓補填連結可重新開啟
+  if(status==='退回' && r && (r[F.fillStatus]||r['銷售補填狀態']||'')==='已完成'){
+    firestoreFields['transfer.fillStatus'] = '';
+    firestoreFields['銷售補填狀態']       = '';
+    if(r){ r[F.fillStatus]=''; r['銷售補填狀態']=''; }
+  }
 
   function onDone(){
     if(r){r[F.status]=status;r[F.bossNote]=note;r[F.signTime]=tsNow;}
@@ -4430,7 +4433,7 @@ function doSplitCase(rowNum){
     sales:     Object.assign({}, r.sales||{}),
     logistics: baseLogistics,
     fees:      baseFees,
-    approval:  Object.assign({}, r.approval||{}), // 銷售單繼承原審核狀態
+    approval:  { bossApproved:'', bossNote:'', approvedAt:'' },
     splitInfo: Object.assign({}, baseSplitInfo),
     voided:    false
   };
@@ -4477,9 +4480,31 @@ function doSplitCase(rowNum){
       rows = allData;
 
       addLog('拆分案件', byWho, caseName, '→ '+idP+'、'+idS, formId);
+
+      // 通知老闆：兩張拆分單皆需重新簽核
+      var splitStaff = (docP.meta&&docP.meta.staff)||g(r,'staff')||'';
+      backupActionToGAS({
+        action:      'newCase',
+        formId:      idP,
+        caseName:    caseName+' (採購)',
+        staff:       splitStaff,
+        staffEmail:  '',
+        buyPeriods:  (docP.purchase&&docP.purchase.periods)||[],
+        sellPeriods: [],
+      });
+      backupActionToGAS({
+        action:      'newCase',
+        formId:      idS,
+        caseName:    caseName+' (銷售)',
+        staff:       splitStaff,
+        staffEmail:  '',
+        buyPeriods:  [],
+        sellPeriods: (docS.sales&&docS.sales.periods)||[],
+      });
+
       closeD();
       onLoad();
-      showPopup('✂️','拆分完成','採購單 '+idP+' 及銷售單 '+idS+' 已建立');
+      showPopup('✂️','拆分完成','採購單 '+idP+' 及銷售單 '+idS+' 已建立，老闆將收到審核通知');
     })
     .catch(function(e){
       console.error('拆分失敗：',e);
