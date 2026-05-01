@@ -970,7 +970,7 @@ function readAllFirebase(cb, forceRefresh){
   // 初始化隊列
   REQUESTS_IN_FLIGHT['cases'] = [cb];
 
-  sb.from('cases').select('*').order('created_at', { ascending: false }).then(function(response){
+  sb.from('cases').select('*').order('id', { ascending: false }).then(function(response){
     var result = [];
 
     if(response.error){
@@ -979,23 +979,16 @@ function readAllFirebase(cb, forceRefresh){
 
     var rows = response.data || [];
     rows.forEach(function(row){
-      // 展開 JSONB data 物件，加上 _firebaseKey 識別符，_dbCreatedAt 供排序用
+      // 展開 JSONB data 物件，加上 _firebaseKey 識別符
       var item = Object.assign({}, row.data, {
         _firebaseKey: row.id,
-        _row: row.id,
-        _dbCreatedAt: row.created_at || ''
+        _row: row.id
       });
       result.push(item);
     });
 
-    // 按資料庫插入時間排序（新到舊），與 Supabase 查詢結果一致
-    result.sort(function(a, b){
-      var at = a._dbCreatedAt || '';
-      var bt = b._dbCreatedAt || '';
-      if(bt > at) return 1;
-      if(bt < at) return -1;
-      return 0;
-    });
+    // id 格式為 TYYYYMMDDXXX，字串降序 = 時間降序（新→舊）
+    // Supabase 已用 order('id', desc) 排好，不需再排
 
     // 限制 200 筆
     result = result.slice(0, 200);
