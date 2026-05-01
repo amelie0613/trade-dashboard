@@ -2102,11 +2102,12 @@ function renderDash(){
   }
 
   buildStaffFilter();
-  // ★ 預設顯示全部案件（排序：待審核先，其次新到舊）
+  // ★ 預設顯示全部案件（排序：待審核先，其次依案件編號 TYYYYMMDDXXX 降序 = 新→舊）
   var defaultData = rows.slice().sort(function(a,b){
     var ap=isPend(a)?0:1, bp=isPend(b)?0:1;
     if(ap!==bp) return ap-bp;
-    return (g(b,'time')||'')>(g(a,'time')||'')?1:-1;
+    var aid=a._row||a['表單編號']||'', bid=b._row||b['表單編號']||'';
+    return bid>aid?1:bid<aid?-1:0;
   });
   filtered = defaultData;
   renderCards(filtered, 'records-cards', true);
@@ -2204,11 +2205,10 @@ function _renderCardsPage(){
   var el = document.getElementById(_cardTarget);
   if(!el) return;
 
-  // 排序
+  // 排序（用案件編號 TYYYYMMDDXXX 確保跨格式一致）
   var sorted = _cardData.slice().sort(function(a,b){
-    var ta = g(a,'time')||'';
-    var tb = g(b,'time')||'';
-    return _cardSort==='desc' ? (tb>ta?1:-1) : (ta>tb?1:-1);
+    var aid=a._row||a['表單編號']||'', bid=b._row||b['表單編號']||'';
+    return _cardSort==='desc' ? (bid>aid?1:bid<aid?-1:0) : (aid>bid?1:aid<bid?-1:0);
   });
 
   var total = sorted.length;
