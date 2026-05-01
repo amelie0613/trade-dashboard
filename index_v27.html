@@ -1676,7 +1676,7 @@ function doRefresh(forceRefresh){
   window._refreshDone=function(){
     if(btn){ btn.classList.remove('spinning'); }
   };
-  load(forceRefresh);
+  load(true); // 手動點擊一律強制重新讀取，避免快取導致動畫瞬間結束
 }
 
 // ★ 智能快取系統 v2（增量同步 + 防重複請求）
