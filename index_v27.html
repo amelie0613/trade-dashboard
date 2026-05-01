@@ -969,7 +969,7 @@ function readAllFirebase(cb, forceRefresh){
   // 初始化隊列
   REQUESTS_IN_FLIGHT['cases'] = [cb];
 
-  sb.from('cases').select('*').then(function(response){
+  sb.from('cases').select('*').order('created_at', { ascending: false }).then(function(response){
     var result = [];
 
     if(response.error){
@@ -978,16 +978,22 @@ function readAllFirebase(cb, forceRefresh){
 
     var rows = response.data || [];
     rows.forEach(function(row){
-      // 展開 JSONB data 物件，加上 _firebaseKey 識別符
-      var item = Object.assign({}, row.data, { _firebaseKey: row.id, _row: row.id });
+      // 展開 JSONB data 物件，加上 _firebaseKey 識別符，_dbCreatedAt 供排序用
+      var item = Object.assign({}, row.data, {
+        _firebaseKey: row.id,
+        _row: row.id,
+        _dbCreatedAt: row.created_at || ''
+      });
       result.push(item);
     });
 
-    // 按 createdAt 時間戳排序（新到舊）
+    // 按資料庫插入時間排序（新到舊），與 Supabase 查詢結果一致
     result.sort(function(a, b){
-      var aTime = (a.meta && a.meta.createdAt) || '';
-      var bTime = (b.meta && b.meta.createdAt) || '';
-      return bTime.localeCompare(aTime);
+      var at = a._dbCreatedAt || '';
+      var bt = b._dbCreatedAt || '';
+      if(bt > at) return 1;
+      if(bt < at) return -1;
+      return 0;
     });
 
     // 限制 200 筆
@@ -1498,6 +1504,19 @@ var F={
 };
 function g(r,k){return(r[F[k]]||'').toString().trim();}
 function pf(v){return parseFloat((v||'').toString().replace(/[^0-9.-]/g,''))||0;}
+// 通用日期解析：支援 yyyy/mm/dd、yyyy-mm-dd、及 JS Date 完整字串
+function parseDateStr(s){
+  if(!s) return '';
+  s = s.toString().trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  if(/^\d{4}\/\d{2}\/\d{2}/.test(s)) return s.replace(/\//g,'-').slice(0,10);
+  if(/^\d{4}\/\d{1,2}\/\d{1,2}/.test(s)){
+    var pts=s.split('/'); return pts[0]+'-'+('0'+pts[1]).slice(-2)+'-'+('0'+pts[2]).slice(-2);
+  }
+  var d = new Date(s);
+  if(!isNaN(d.getTime())) return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+  return '';
+}
 function cv(v){var s=(v===undefined||v===null)?'':v.toString().trim();return s&&s!=='—'&&s!=='0'&&s!=='-'&&s!=='undefined';}
 function isPend(r){
   // 待補填中的案件不算待審核（補填完成後才讓老闆簽核）
@@ -2624,7 +2643,7 @@ function renderDaily(){
     if(hasBuy) bps.forEach(function(bp,bi){
       if((bp.status||'')==='approved') return;
       var amt  = parseFloat(bp.amount||bp.amt)||0;
-      var date = ((bp.expectedDate||bp.date||'').replace(/\//g,'-')).slice(0,10);
+      var date = parseDateStr(bp.expectedDate||bp.date||'');
       var cur  = (bp.currency||bp.cur||'TWD').toUpperCase();
       var name = bp.name||('第'+(bi+1)+'期');
       if(!amt||!date) return;
@@ -2641,7 +2660,7 @@ function renderDaily(){
     if(hasSell) sps.forEach(function(sp,si){
       if((sp.status||'')==='approved') return;
       var amt  = parseFloat(sp.amount||sp.amt)||0;
-      var date = ((sp.expectedDate||sp.date||'').replace(/\//g,'-')).slice(0,10);
+      var date = parseDateStr(sp.expectedDate||sp.date||'');
       var cur  = (sp.currency||sp.cur||'TWD').toUpperCase();
       var name = sp.name||('第'+(si+1)+'期');
       if(!amt||!date) return;
@@ -2657,7 +2676,7 @@ function renderDaily(){
     _csvRawItems.forEach(function(p){
       var override = _fbPayStatus[String(p._row)];
       var isPaid = override ? !!override.paid : p.isPaid;
-      var dStr = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
+      var dStr = parseDateStr(p.dueDate||'');
       if(!dStr) return;
       var d = new Date(dStr);
       calItems.push({date:dStr,direction:p.direction||'payable',isForecast:false,source:'csv',
@@ -2876,7 +2895,7 @@ function _renderDayDetail(){
     if(hasBuy) bps.forEach(function(bp,bi){
       if((bp.status||'')==='approved') return;
       var amt  = parseFloat(bp.amount||bp.amt)||0;
-      var date = (bp.expectedDate||bp.date||'').replace(/\//g,'-').slice(0,10);
+      var date = parseDateStr(bp.expectedDate||bp.date||'');
       var cur  = (bp.currency||bp.cur||'TWD').toUpperCase();
       var name = bp.name||('第'+(bi+1)+'期');
       if(!amt||date!==dateStr) return;
@@ -2894,7 +2913,7 @@ function _renderDayDetail(){
     if(hasSell) sps.forEach(function(sp,si){
       if((sp.status||'')==='approved') return;
       var amt  = parseFloat(sp.amount||sp.amt)||0;
-      var date = (sp.expectedDate||sp.date||'').replace(/\//g,'-').slice(0,10);
+      var date = parseDateStr(sp.expectedDate||sp.date||'');
       var cur  = (sp.currency||sp.cur||'TWD').toUpperCase();
       var name = sp.name||('第'+(si+1)+'期');
       if(!amt||date!==dateStr) return;
@@ -2909,7 +2928,7 @@ function _renderDayDetail(){
   // CSV 帳款（只讀）
   try{
     _csvRawItems.forEach(function(p){
-      var dStr = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
+      var dStr = parseDateStr(p.dueDate||'');
       if(dStr!==dateStr) return;
       var override = _fbPayStatus[String(p._row)];
       var isPaid = override?!!override.paid:p.isPaid;
@@ -5297,7 +5316,7 @@ function buildCombinedPayments() {
       return {name:p.name,currency:p.cur,amount:p.amt,expectedDate:p.date,note:p.note,status:p.status||'',acctNote:p.acctNote||''};
     });
     bps.forEach(function(p, idx) {
-      var d = (p.expectedDate||p.date||'').replace(/\//g,'-').slice(0,10);
+      var d = parseDateStr(p.expectedDate||p.date||'');
       var dd = d ? new Date(d) : null;
       var approved = (p.status||'')==='approved';
       if (approved) return; // 已確認期別不顯示在帳款
@@ -5327,7 +5346,7 @@ function buildCombinedPayments() {
       return {name:p.name,currency:p.cur,amount:p.amt,expectedDate:p.date,note:p.note,status:p.status||'',acctNote:p.acctNote||''};
     });
     sps.forEach(function(p, idx) {
-      var d = (p.expectedDate||p.date||'').replace(/\//g,'-').slice(0,10);
+      var d = parseDateStr(p.expectedDate||p.date||'');
       var dd = d ? new Date(d) : null;
       var approved = (p.status||'')==='approved';
       if (approved) return;
@@ -5940,7 +5959,7 @@ function _buildTransferItems() {
           r.purchase.periods = initBuyPeriods;
         }
         bpsFallback.forEach(function(p, idx) {
-          var dueDate = p.date ? new Date(p.date.replace(/\//g,'-')) : null;
+          var dueDate = p.date ? new Date(parseDateStr(p.date)) : null;
           _transferItems.push({
             _row: formId+'_buy_'+idx, _firebaseRow: r._row,
             formId: formId, caseName: caseName, staff: staff, caseType: caseType,
@@ -6001,7 +6020,7 @@ function _buildTransferItems() {
           r.sales.periods = initSellPeriods;
         }
         spsFallback.forEach(function(p, idx) {
-          var dueDate = p.date ? new Date(p.date.replace(/\//g,'-')) : null;
+          var dueDate = p.date ? new Date(parseDateStr(p.date)) : null;
           _transferItems.push({
             _row: formId+'_sell_'+idx, _firebaseRow: r._row,
             formId: formId, caseName: caseName, staff: staff, caseType: caseType,
@@ -6047,8 +6066,8 @@ function _renderTransfer() {
       av = parseFloat(a.amt) || 0;
       bv = parseFloat(b.amt) || 0;
     } else if (sc === 'dueDate') {
-      av = (a.dueDate || '9999').replace(/\//g,'-');
-      bv = (b.dueDate || '9999').replace(/\//g,'-');
+      av = parseDateStr(a.dueDate||'') || '9999';
+      bv = parseDateStr(b.dueDate||'') || '9999';
     } else if (sc === 'staff') {
       av = a.staff || ''; bv = b.staff || '';
     } else if (sc === 'caseName') {
@@ -6154,7 +6173,7 @@ function _renderTransfer() {
     html += '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(isPayable?'var(--pay)':'var(--jade)')+';">'+cur+' '+fmtN(p.amt)+'</td>';
 
     // 預計付款日：可編輯 input
-    var dateVal   = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
+    var dateVal   = parseDateStr(p.dueDate||'');
     var existNote = p.acctNote || '';
     var safeId    = p.formId.replace(/[^a-zA-Z0-9]/g,'_') + '_' + (p.periodType === 'purchase' ? 'buy' : 'sell') + '_' + (p.periodIdx !== undefined ? p.periodIdx : escId.replace(/[^a-zA-Z0-9]/g,'_'));
     var textId    = 'note-text-'  + safeId;
@@ -6635,7 +6654,7 @@ function getPaymentsByDate() {
   var calItems = buildCombinedPayments().calendar;
 
   calItems.forEach(function(p) {
-    var d = (p.dueDate||'').replace(/\//g,'-').slice(0,10);
+    var d = parseDateStr(p.dueDate||'');
     if (!d) return;
     if (!map[d]) map[d] = { payable:{}, receivable:{} };
     var c = (p.cur||'NTD').toUpperCase();
