@@ -1486,6 +1486,9 @@ function cv(v){var s=(v===undefined||v===null)?'':v.toString().trim();return s&&
 function isPend(r){
   // 待補填中的案件不算待審核（補填完成後才讓老闆簽核）
   var fillStat = (r[F.fillStatus]||r['銷售補填狀態']||'').toString().trim();
+  if(g(r,'formId')==='T20260414729'){
+    
+  }
   if(fillStat==='待補填') return false;
   var s=g(r,'status');
   return s===''||s==='否'||s==='待審核'||s==='尚未';
@@ -3445,7 +3448,10 @@ function showD(rowNum){
 
       +'<button class="btn-edit-save" id="ebtn-'+rowNum+'" onclick="doEdit('+rq+')" style="margin-top:10px;">💾 儲存修改</button>'
       +(isVoided
-        ? '<button onclick="doUnvoid('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#f0fdf4;color:#16a34a;border:0.5px solid #86efac;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">↩ 恢復此案件</button>'
+        ? (canCancelSplit(r)
+            ? '<button onclick="confirmCancelSplit('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#eff6ff;color:#1d4ed8;border:0.5px solid #bfdbfe;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">↩ 取消拆分（子案件仍補填中）</button>'
+            : '')
+          +'<button onclick="doUnvoid('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#f0fdf4;color:#16a34a;border:0.5px solid #86efac;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">↩ 強制恢復此案件</button>'
         : '<button onclick="confirmVoid('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#fef9c3;color:#92400e;border:0.5px solid #fde68a;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">🚫 作廢此案件</button>'
       )
       +((!isVoided && caseType3.indexOf('採購')>=0 && caseType3.indexOf('銷售')>=0)
@@ -3523,12 +3529,6 @@ function doApp(rowNum,status){
     'approval.bossNote':     note,
     'approval.approvedAt':   tsNow,
   };
-  // 退回時：若為補填案件，重置 fillStatus 讓補填連結可重新開啟
-  if(status==='退回' && r && (r[F.fillStatus]||r['銷售補填狀態']||'')==='已完成'){
-    firestoreFields['transfer.fillStatus'] = '';
-    firestoreFields['銷售補填狀態']       = '';
-    if(r){ r[F.fillStatus]=''; r['銷售補填狀態']=''; }
-  }
 
   function onDone(){
     if(r){r[F.status]=status;r[F.bossNote]=note;r[F.signTime]=tsNow;}
@@ -4374,17 +4374,17 @@ function doEdit(rowNum){
 function confirmSplitCase(rowNum){
   var r = rows.find(function(x){ return x._row===rowNum; });
   if(!r) return;
-  var name = g(r,'name');
+  var name   = g(r,'name');
   var formId = r[F.formId]||r['表單編號']||r._firebaseKey||'';
   var idP = formId+'-P';
   var idS = formId+'-S';
   if(!confirm(
     '確定要拆分案件「'+name+'」嗎？\n\n'
     +'拆分後將產生兩張新案件：\n'
-    +'  採購單：'+idP+'\n'
-    +'  銷售單：'+idS+'\n\n'
-    +'原案件將自動作廢（記錄保留）。\n'
-    +'此操作無法自動還原，請確認。'
+    +'  採購單：'+idP+'（退回業務補填 → 重新審核）\n'
+    +'  銷售單：'+idS+'（退回業務補填 → 重新審核）\n\n'
+    +'原案件暫時作廢（拆分完成補填前可取消）。\n'
+    +'業務員將收到補填通知郵件。'
   )) return;
   doSplitCase(rowNum);
 }
@@ -4397,6 +4397,7 @@ function doSplitCase(rowNum){
 
   var formId   = r[F.formId]||r['表單編號']||r._firebaseKey||'';
   var caseName = g(r,'name');
+  var staff    = g(r,'staff')||'';
   var now      = new Date().toISOString();
   var nowStr   = new Date().toLocaleString('zh-TW',{hour12:false});
   var byWho    = (curUser&&curUser.name)||'';
@@ -4404,112 +4405,182 @@ function doSplitCase(rowNum){
   var idP = formId+'-P';
   var idS = formId+'-S';
 
-  // ── 共用基礎欄位（兩張單都繼承）──────────────────────
-  var baseMeta = Object.assign({}, (r.meta||{}), {
-    createdAt: now,
-    timestamp: nowStr,
-    splitFrom: formId
-  });
+  var baseMeta      = Object.assign({}, (r.meta||{}), { createdAt:now, timestamp:nowStr });
   var baseLogistics = Object.assign({}, r.logistics||{});
   var baseFees      = Object.assign({}, r.fees||{});
-  var baseSplitInfo = { from: formId, into: [], at: nowStr, by: byWho, note: '由 '+formId+' 拆分' };
+  var baseSplitInfo = { from:formId, into:[], at:nowStr, by:byWho, note:'由 '+formId+' 拆分' };
+  // 新案件皆清空審核，退回補填
+  var clearApproval = { bossApproved:'', bossNote:'', approvedAt:'' };
+  var fillTransfer  = { fillStatus:'待補填', transferTo:staff };
 
-  // ── 採購單（只保留 purchase，清空 sales）──────────────
+  // ── 採購單：保留 purchase，銷售清空 ──────────────────
   var docP = {
-    meta:      Object.assign({}, baseMeta, { formId: idP, caseType: '採購' }),
-    purchase:  Object.assign({}, r.purchase||{}),
+    meta:      Object.assign({}, baseMeta, { formId:idP, caseType:'採購' }),
+    purchase:  JSON.parse(JSON.stringify(r.purchase||{})),
     sales:     { customer:'', paymentTerms:'', note:'', periods:[] },
-    logistics: baseLogistics,
-    fees:      baseFees,
-    approval:  { bossApproved:'', bossNote:'', approvedAt:'' },
+    logistics: JSON.parse(JSON.stringify(baseLogistics)),
+    fees:      JSON.parse(JSON.stringify(baseFees)),
+    approval:  clearApproval,
+    transfer:  fillTransfer,
     splitInfo: Object.assign({}, baseSplitInfo),
     voided:    false
   };
 
-  // ── 銷售單（只保留 sales，清空 purchase）──────────────
+  // ── 銷售單：保留 sales，採購清空 ──────────────────────
   var docS = {
-    meta:      Object.assign({}, baseMeta, { formId: idS, caseType: '銷售' }),
+    meta:      Object.assign({}, baseMeta, { formId:idS, caseType:'銷售' }),
     purchase:  { supplier:'', paymentTerms:'', note:'', periods:[] },
-    sales:     Object.assign({}, r.sales||{}),
-    logistics: baseLogistics,
-    fees:      baseFees,
-    approval:  { bossApproved:'', bossNote:'', approvedAt:'' },
+    sales:     JSON.parse(JSON.stringify(r.sales||{})),
+    logistics: JSON.parse(JSON.stringify(baseLogistics)),
+    fees:      JSON.parse(JSON.stringify(baseFees)),
+    approval:  clearApproval,
+    transfer:  fillTransfer,
     splitInfo: Object.assign({}, baseSplitInfo),
     voided:    false
+  };
+
+  // 原案件作廢資料（整個 splitInfo 物件一次寫入，避免 dot notation 失敗）
+  var voidUpdate = {
+    voided:    true,
+    voidedAt:  now,
+    voidedBy:  byWho,
+    splitInfo: { from:'', into:[idP,idS], at:nowStr, by:byWho, note:'已拆分為 '+idP+'（採購）、'+idS+'（銷售）' }
   };
 
   toast('拆分中...','#1d4ed8');
 
-  // ── 寫入兩張新案件 ─────────────────────────────────────
+  // ── Step1：寫入採購單 ──────────────────────────────────
   db.collection('cases').doc(idP).set(docP)
-    .then(function(){
-      return db.collection('cases').doc(idS).set(docS);
-    })
-    .then(function(){
-      // ── 作廢原案件並記錄拆分來源 ────────────────────────
-      return db.collection('cases').doc(formId).update({
-        voided:    true,
-        voidedAt:  now,
-        voidedBy:  byWho,
-        'splitInfo.into': [idP, idS],
-        'splitInfo.at':   nowStr,
-        'splitInfo.by':   byWho,
-        'splitInfo.note': '已拆分為 '+idP+'（採購）、'+idS+'（銷售）'
-      });
-    })
-    .then(function(){
-      // ── 更新本地記憶體 ────────────────────────────────
-      invalidateCache('cases');
-      r.voided = true;
-      r.splitInfo = { into:[idP,idS], at:nowStr, by:byWho, note:'已拆分' };
-
-      // 新增兩筆到 rows/allData
-      var newRowP = Object.assign({}, docP, { _firebaseKey:idP, _row:idP });
-      newRowP['表單編號'] = idP;
-      newRowP['業務名稱'] = (docP.meta&&docP.meta.staff)||g(r,'staff');
-      newRowP['案件名稱'] = caseName;
-      newRowP['案件屬性'] = '採購';
-      var newRowS = Object.assign({}, docS, { _firebaseKey:idS, _row:idS });
-      newRowS['表單編號'] = idS;
-      newRowS['業務名稱'] = (docS.meta&&docS.meta.staff)||g(r,'staff');
-      newRowS['案件名稱'] = caseName;
-      newRowS['案件屬性'] = '銷售';
-
-      allData.push(newRowP);
-      allData.push(newRowS);
-      rows = allData;
-
-      addLog('拆分案件', byWho, caseName, '→ '+idP+'、'+idS, formId);
-
-      // 通知老闆：兩張拆分單皆需重新簽核
-      var splitStaff = (docP.meta&&docP.meta.staff)||g(r,'staff')||'';
-      backupActionToGAS({
-        action:      'newCase',
-        formId:      idP,
-        caseName:    caseName+' (採購)',
-        staff:       splitStaff,
-        staffEmail:  '',
-        buyPeriods:  (docP.purchase&&docP.purchase.periods)||[],
-        sellPeriods: [],
-      });
-      backupActionToGAS({
-        action:      'newCase',
-        formId:      idS,
-        caseName:    caseName+' (銷售)',
-        staff:       splitStaff,
-        staffEmail:  '',
-        buyPeriods:  [],
-        sellPeriods: (docS.sales&&docS.sales.periods)||[],
-      });
-
-      closeD();
-      onLoad();
-      showPopup('✂️','拆分完成','採購單 '+idP+' 及銷售單 '+idS+' 已建立，老闆將收到審核通知');
-    })
-    .catch(function(e){
-      console.error('拆分失敗：',e);
-      toast('❌ 拆分失敗：'+e.message,'#dc2626');
+  .then(function(){
+    // ── Step2：寫入銷售單 ──────────────────────────────
+    return db.collection('cases').doc(idS).set(docS);
+  })
+  .then(function(){
+    // ── Step3：作廢原案件（整個物件一次 set merge）────────
+    return db.collection('cases').doc(formId).set(voidUpdate, {merge:true});
+  })
+  .then(function(){
+    // ── Step4：郵件通知業務補填（採購單）────────────────
+    backupActionToGAS({
+      action:'resendFillRequest', formId:idP, caseName:caseName+'（採購）',
+      staff:staff, type:'採購', splitFrom:formId,
+      buyPeriods: (docP.purchase.periods||[]).map(function(p){
+        return {name:p.name||'',cur:p.currency||'TWD',amt:parseFloat(p.amount||0),date:p.expectedDate||'',note:p.note||''};
+      }),
+      sellPeriods:[], resent:false, resentBy:byWho
     });
+    // ── Step5：郵件通知業務補填（銷售單）────────────────
+    backupActionToGAS({
+      action:'resendFillRequest', formId:idS, caseName:caseName+'（銷售）',
+      staff:staff, type:'銷售', splitFrom:formId,
+      buyPeriods:[],
+      sellPeriods: (docS.sales.periods||[]).map(function(p){
+        return {name:p.name||'',cur:p.currency||'TWD',amt:parseFloat(p.amount||0),date:p.expectedDate||'',note:p.note||''};
+      }),
+      resent:false, resentBy:byWho
+    });
+
+    // ── Step6：更新本地記憶體 ─────────────────────────
+    Object.assign(r, voidUpdate); // 原案件在 memory 也作廢
+
+    function makeLocalRow(doc, id, type){
+      var row = Object.assign({}, doc, { _firebaseKey:id, _row:id });
+      row['表單編號'] = id;
+      row['業務名稱'] = staff;
+      row['案件名稱'] = caseName;
+      row['案件屬性'] = type;
+      row['銷售補填狀態'] = '待補填';
+      return row;
+    }
+    allData.push(makeLocalRow(docP, idP, '採購'));
+    allData.push(makeLocalRow(docS, idS, '銷售'));
+    rows = allData;
+
+    invalidateCache('cases'); // 清除快取，下次強制讀 Firebase
+    addLog('拆分案件', byWho, caseName, '→ '+idP+'、'+idS, formId);
+    closeD();
+    onLoad();
+    showPopup('✂️','拆分完成！','已通知業務員補填 '+idP+' 及 '+idS);
+  })
+  .catch(function(e){
+    console.error('拆分失敗：',e);
+    toast('❌ 拆分失敗：'+(e.message||e),'#dc2626');
+  });
+}
+
+// ── 取消拆分（限拆分出的案件都還在補填中）────────────────
+function canCancelSplit(r){
+  if(!r || !r.voided) return false;
+  var si = r.splitInfo||{};
+  if(!si.into || !si.into.length) return false;
+  // 所有拆分子案件都還在「待補填」才允許取消
+  return si.into.every(function(id){
+    var sub = rows.find(function(x){ return x._row===id || x[F.formId]===id; });
+    return sub && (sub['銷售補填狀態']||sub[F.fillStatus]||'')==='待補填';
+  });
+}
+
+function confirmCancelSplit(rowNum){
+  var r = rows.find(function(x){ return x._row===rowNum; });
+  if(!r || !canCancelSplit(r)) return;
+  var si = r.splitInfo||{};
+  if(!confirm(
+    '確定要取消拆分嗎？\n\n'
+    +'將刪除：'+si.into.join('、')+'\n'
+    +'原案件「'+g(r,'name')+'」恢復正常。\n\n'
+    +'（僅限子案件還在補填中才可取消）'
+  )) return;
+  doCancelSplit(rowNum);
+}
+
+function doCancelSplit(rowNum){
+  var r = rows.find(function(x){ return x._row===rowNum; });
+  if(!r){ toast('❌ 找不到案件','#dc2626'); return; }
+  var db = getFirebaseDb();
+  if(!db){ toast('❌ Firebase 未連線','#dc2626'); return; }
+
+  var formId   = r[F.formId]||r['表單編號']||r._firebaseKey||'';
+  var caseName = g(r,'name');
+  var byWho    = (curUser&&curUser.name)||'';
+  var si       = r.splitInfo||{};
+  var subIds   = si.into||[];
+
+  toast('取消拆分中...','#0369a1');
+
+  // 刪除所有子案件
+  var delPromises = subIds.map(function(id){
+    return db.collection('cases').doc(id).delete();
+  });
+
+  Promise.all(delPromises)
+  .then(function(){
+    // 恢復原案件
+    return db.collection('cases').doc(formId).set({
+      voided:    false,
+      voidedAt:  '',
+      voidedBy:  '',
+      splitInfo: { from:'', into:[], at:'', by:'', note:'' }
+    }, {merge:true});
+  })
+  .then(function(){
+    // 更新本地記憶體
+    r.voided    = false;
+    r.splitInfo = { from:'', into:[], at:'', by:'', note:'' };
+    subIds.forEach(function(id){
+      allData = allData.filter(function(x){ return x._row!==id && x[F.formId]!==id; });
+    });
+    rows = allData;
+
+    invalidateCache('cases');
+    addLog('取消拆分', byWho, caseName, '刪除 '+subIds.join('、'), formId);
+    closeD();
+    onLoad();
+    showPopup('↩','拆分已取消','原案件已恢復正常');
+  })
+  .catch(function(e){
+    console.error('取消拆分失敗：',e);
+    toast('❌ 取消失敗：'+(e.message||e),'#dc2626');
+  });
 }
 
 // 作廢
