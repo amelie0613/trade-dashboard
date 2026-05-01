@@ -3447,17 +3447,27 @@ function showD(rowNum){
       +'</div>'
 
       +'<button class="btn-edit-save" id="ebtn-'+rowNum+'" onclick="doEdit('+rq+')" style="margin-top:10px;">💾 儲存修改</button>'
+      +'</div>';
+  }
+
+  // ── 操作按鈕區（admin + staff 可見，boss 不顯示）────────
+  var canOperate = curUser && (
+    curUser.role==='admin' ||
+    (curUser.role==='staff' && (!curUser.staffName || curUser.staffName===g(r,'staff')))
+  );
+  if(canOperate){
+    h+='<div style="margin-top:8px;">'
       +(isVoided
         ? (canCancelSplit(r)
-            ? '<button onclick="confirmCancelSplit('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#eff6ff;color:#1d4ed8;border:0.5px solid #bfdbfe;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">↩ 取消拆分（子案件仍補填中）</button>'
+            ? '<button onclick="confirmCancelSplit('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#eff6ff;color:#1d4ed8;border:0.5px solid #bfdbfe;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px;">↩ 取消拆分（子案件仍補填中）</button>'
             : '')
-          +'<button onclick="doUnvoid('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#f0fdf4;color:#16a34a;border:0.5px solid #86efac;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">↩ 強制恢復此案件</button>'
-        : '<button onclick="confirmVoid('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#fef9c3;color:#92400e;border:0.5px solid #fde68a;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">🚫 作廢此案件</button>'
+          +'<button onclick="doUnvoid('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#f0fdf4;color:#16a34a;border:0.5px solid #86efac;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px;">↩ 強制恢復此案件</button>'
+        : '<button onclick="confirmVoid('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#fef9c3;color:#92400e;border:0.5px solid #fde68a;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px;">🚫 作廢此案件</button>'
       )
       +((!isVoided && caseType3.indexOf('採購')>=0 && caseType3.indexOf('銷售')>=0)
-        ? '<button onclick="confirmSplitCase('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#eff6ff;color:#1d4ed8;border:0.5px solid #bfdbfe;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">✂️ 拆分案件（採購／銷售分開）</button>'
+        ? '<button onclick="confirmSplitCase('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#eff6ff;color:#1d4ed8;border:0.5px solid #bfdbfe;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px;">✂️ 拆分案件（採購／銷售分開）</button>'
         : '')
-      +'<button onclick="confirmDel('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">🗑️ 刪除此案件</button>'
+      +'<button onclick="confirmDel('+rq+')" style="width:100%;padding:11px;border-radius:9px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:13px;font-weight:700;cursor:pointer;">🗑️ 刪除此案件</button>'
       +'</div>';
   }
 
