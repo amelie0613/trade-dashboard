@@ -1240,6 +1240,8 @@ function doLogin(u){
   // ★ 建立安全會話（只儲存 token，不儲存密碼）
   createSession(u);
   addLog('登入', u.name, '', '');
+  // 從資料庫同步最新權限設定（非阻塞）
+  syncPermConfigFromDB(null);
   document.getElementById('L').style.display = 'none';
   document.getElementById('A').style.display = 'block';
   var bd = document.getElementById('rbdg');
@@ -3119,13 +3121,13 @@ function showD(rowNum){
       if(!isBuy){
         var hasDate = p.date && p.date.toString().trim();
         dateDisplay = hasDate
-          ? '<span style="color:var(--ink);">'+p.date+'</span>'
+          ? '<span style="color:var(--ink);">'+fmtDateSlash(p.date)+'</span>'
           : '<span style="color:#d97706;font-weight:700;font-size:11px;">⚠ 未設定</span>';
         opCell = hasDate
           ? '<span style="text-align:center;"><button onclick="event.stopPropagation();doDeletePeriodDate(\''+rowNum+'\','+idx+')" style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 刪日期</button></span>'
           : '<span></span>';
       } else {
-        dateDisplay = '<span style="color:var(--ink);">'+(p.date||'—')+'</span>';
+        dateDisplay = '<span style="color:var(--ink);">'+(fmtDateSlash(p.date)||'—')+'</span>';
       }
       html += '<div style="display:grid;grid-template-columns:'+colTpl+';background:'+bg+';padding:8px 12px;border-top:0.5px solid '+rowBdr+';font-size:12px;align-items:center;">'
         +'<span style="color:var(--ink);font-weight:600;">'+(p.name||'—')+'</span>'
@@ -4783,21 +4785,44 @@ var PERM_FEATURES = [
   { key:'edit_case',    label:'編輯案件' },
   { key:'approve',      label:'簽核案件' },
   { key:'payment',      label:'支付追蹤管理' },
+  { key:'receipts',     label:'收單紀錄' },
   { key:'daily_report', label:'日報表' },
   { key:'manage_acct',  label:'帳號管理' },
   { key:'perm_setting', label:'權限設置' },
 ];
 var PERM_DEFAULT = {
-  boss:    { view_all:1,view_own:1,add_case:0,edit_case:0,approve:1,payment:1,daily_report:1,manage_acct:1,perm_setting:1 },
-  admin:   { view_all:1,view_own:1,add_case:0,edit_case:0,approve:0,payment:1,daily_report:1,manage_acct:1,perm_setting:1 },
-  finance: { view_all:0,view_own:0,add_case:0,edit_case:0,approve:0,payment:1,daily_report:1,manage_acct:0,perm_setting:0 },
-  staff:   { view_all:0,view_own:1,add_case:1,edit_case:1,approve:0,payment:0,daily_report:0,manage_acct:0,perm_setting:0 },
+  boss:    { view_all:1,view_own:1,add_case:0,edit_case:0,approve:1,payment:1,receipts:1,daily_report:1,manage_acct:1,perm_setting:1 },
+  admin:   { view_all:1,view_own:1,add_case:0,edit_case:0,approve:0,payment:1,receipts:1,daily_report:1,manage_acct:1,perm_setting:1 },
+  finance: { view_all:0,view_own:0,add_case:0,edit_case:0,approve:0,payment:1,receipts:1,daily_report:1,manage_acct:0,perm_setting:0 },
+  staff:   { view_all:0,view_own:1,add_case:1,edit_case:1,approve:0,payment:0,receipts:0,daily_report:0,manage_acct:0,perm_setting:0 },
 };
 function loadPermConfig(){
   try { var s=localStorage.getItem('perm_config'); return s ? JSON.parse(s) : JSON.parse(JSON.stringify(PERM_DEFAULT)); } catch(e){ return JSON.parse(JSON.stringify(PERM_DEFAULT)); }
 }
 function savePermConfig(cfg){
   try { localStorage.setItem('perm_config',JSON.stringify(cfg)); } catch(e){}
+  // 同步寫入 Supabase accounts 表（特殊記錄 id = __perm_config__）
+  var sb = getSupabase();
+  if(sb){
+    sb.from('accounts').upsert({ id: '__perm_config__', data: { perm_config: cfg } })
+      .then(function(res){ if(res.error) console.warn('權限設定同步失敗：', res.error.message); })
+      .catch(function(e){ console.warn('權限設定同步失敗：', e); });
+  }
+}
+// 登入後從 Supabase 載入最新權限設定，覆蓋 localStorage
+function syncPermConfigFromDB(cb){
+  var sb = getSupabase();
+  if(!sb){ if(cb) cb(); return; }
+  sb.from('accounts').select('data').eq('id','__perm_config__').single()
+    .then(function(res){
+      if(res.data && res.data.data && res.data.data.perm_config){
+        var cfg = res.data.data.perm_config;
+        try { localStorage.setItem('perm_config', JSON.stringify(cfg)); } catch(e){}
+        console.log('✅ 權限設定已從資料庫同步');
+      }
+      if(cb) cb();
+    })
+    .catch(function(){ if(cb) cb(); });
 }
 function hasPerm(role, key){
   var cfg = loadPermConfig();
@@ -4902,10 +4927,22 @@ function openEditAccountModal(id){
     +'</div>'
     +'<div style="display:flex;gap:10px;margin-top:20px;">'
     +'<button onclick="saveEditAccount(\''+id+'\')" style="flex:1;padding:11px;border-radius:8px;background:var(--sea);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;">💾 儲存</button>'
-    +'<button onclick="closeD()" style="flex:1;padding:11px;border-radius:8px;background:#f1f5f9;color:var(--muted);font-size:14px;font-weight:700;border:none;cursor:pointer;">取消</button>'
+    +'<button onclick="document.getElementById(\'EditAccM\').classList.remove(\'open\')" style="flex:1;padding:11px;border-radius:8px;background:#f1f5f9;color:var(--muted);font-size:14px;font-weight:700;border:none;cursor:pointer;">取消</button>'
     +'</div>'
     +'</div>';
-  openD(html);
+
+  var modal = document.getElementById('EditAccM');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'EditAccM';
+    modal.className = 'modal-bg';
+    modal.style.zIndex = '700';
+    modal.innerHTML = '<div class="modal-box" style="max-width:440px;"></div>';
+    modal.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); });
+    document.body.appendChild(modal);
+  }
+  modal.querySelector('.modal-box').innerHTML = html;
+  modal.classList.add('open');
 }
 
 function saveEditAccount(id){
@@ -5902,7 +5939,7 @@ function makePayRow(p, today) {
     + '<td class="tdb" style="max-width:220px;word-break:break-all;">'+(p.note||'—')+'</td>'
     + '<td class="tdg">'+(p.category||'—')+'</td>'
     + '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+stColor+';">'+amtDisplay+'</td>'
-    + '<td class="tdg" style="'+(p.isOverdue?'color:var(--coral);font-weight:700;':'')+';">'+(p.dueDate||'—')+'</td>'
+    + '<td class="tdg" style="'+(p.isOverdue?'color:var(--coral);font-weight:700;':'')+';">'+fmtDateSlash(p.dueDate||'')+'</td>'
     + '<td>'+actionBtn+'</td>'
     + '</tr>';
 }
@@ -5926,7 +5963,7 @@ function showPayInfo(rowId) {
   html += dr('部門', p.dept || '—');
   html += dr('類別', p.category || '—');
   html += dr('狀態', '<span style="color:'+stColor+';font-weight:700;">'+stText+'</span>');
-  html += dr('付款日', p.dueDate || '—');
+  html += dr('付款日', fmtDateSlash(p.dueDate||'') || '—');
   html += '</div></div>';
 
   var dirColor = p.direction === 'receivable' ? 'var(--jade)' : 'var(--pay)';
@@ -6318,8 +6355,9 @@ function _renderTransfer() {
   pageData.forEach(function(p) {
     var isPayable = p.direction === 'payable';
     var cur = (p.cur || 'TWD').toUpperCase();
-    var sym = '';  // 不使用符號，直接用幣別縮寫顯示
     var escId = String(p._row).replace(/'/g, "\\'");
+    var dateVal   = parseDateStr(p.dueDate||'');
+    var existNote = p.acctNote || '';
 
     html += '<tr style="'+(p.isOverdue?'background:#fff5f5;':'')+'">';
     html += '<td style="font-size:11px;color:var(--muted);">'+p.formId+'</td>';
@@ -6330,54 +6368,25 @@ function _renderTransfer() {
     html += '<td><span style="font-family:\'DM Mono\',monospace;font-size:12px;background:'+(isPayable?'var(--pay-bg)':'#f0fdf4')+';padding:2px 8px;border-radius:6px;color:'+(isPayable?'var(--pay)':'#16a34a')+';font-weight:700;">'+cur+'</span></td>';
     html += '<td style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+(isPayable?'var(--pay)':'var(--jade)')+';">'+cur+' '+fmtN(p.amt)+'</td>';
 
-    // 預計付款日：可編輯 input
-    var dateVal   = parseDateStr(p.dueDate||'');
-    var existNote = p.acctNote || '';
-    var safeId    = p.formId.replace(/[^a-zA-Z0-9]/g,'_') + '_' + (p.periodType === 'purchase' ? 'buy' : 'sell') + '_' + (p.periodIdx !== undefined ? p.periodIdx : escId.replace(/[^a-zA-Z0-9]/g,'_'));
-    var textId    = 'note-text-'  + safeId;
-    var inputId   = 'note-input-' + safeId;
+    // 預計付款日：唯讀顯示（YYYY/MM/DD）
+    html += '<td style="font-size:12px;color:'+(p.isOverdue?'var(--coral)':'var(--muted)')+';">'
+      + fmtDateSlash(p.dueDate||'') + (p.isOverdue ? ' ⚠️' : '') + '</td>';
 
-    html += '<td>'
-      + '<input type="date" value="'+dateVal+'"'
-      + ' onchange="updatePayDate(\''+escId+'\', this.value)"'
-      + ' style="background:#f8fafc;border:1.5px solid var(--border);border-radius:7px;'
-      + 'padding:5px 8px;font-size:12px;outline:none;font-family:inherit;'
-      + (p.isOverdue ? 'border-color:var(--coral);' : '')
-      + 'cursor:pointer;width:130px;">'
-      + '</td>';
+    // 帳務備註：唯讀顯示
+    html += '<td style="font-size:12px;color:'+(existNote?'var(--ink)':'#94a3b8')+';">'
+      + (existNote || '—') + '</td>';
 
-    // 帳務備註：inline-edit
-    html += '<td style="min-width:160px;">'
-      + '<div id="'+textId+'"'
-      + ' onclick="editNote(\''+safeId+'\')"'
-      + ' style="cursor:pointer;font-size:12px;color:'+(existNote?'var(--ink)':'#94a3b8')+';'
-      + 'padding:5px 8px;border-radius:7px;border:1.5px dashed var(--border);'
-      + 'min-height:34px;line-height:1.6;transition:background .15s;"'
-      + ' title="點擊編輯備註">'
-      + (existNote || '（點擊輸入備註）')
-      + '</div>'
-      + '<input id="'+inputId+'"'
-      + ' type="text"'
-      + ' value="'+existNote.replace(/"/g,'&quot;')+'"'
-      + ' placeholder="帳務備註"'
-      + ' onblur="saveNote(\''+safeId+'\', \''+p.formId+'\', '+(p.periodIdx||0)+', \''+p.periodType+'\')"'
-      + ' onkeydown="if(event.key===\'Enter\'){ this._saving=false; this.blur(); }"'
-      + ' style="display:none;width:100%;background:#fff;border:1.5px solid var(--sea);'
-      + 'border-radius:7px;padding:5px 8px;font-size:12px;outline:none;font-family:inherit;">'
-      + '</td>';
-
-    // 審核欄
+    // 操作欄：統一走編輯 Modal
     if (_transferFilter === 'approved') {
-      html += '<td style="font-size:11px;">'
-        + '<div style="color:var(--muted);margin-bottom:5px;">'+(p.approvedAt ? p.approvedAt.slice(0,10) : '已確認')+'</div>'
-        + '<button onclick="cancelTransfer(\''+p.formId+'\', '+(p.periodIdx||0)+', \''+p.periodType+'\')"'
-        + ' style="padding:4px 10px;border-radius:7px;background:#fff5f5;color:#dc2626;border:1px solid #fca5a5;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">↩ 取消確認</button>'
+      html += '<td style="white-space:nowrap;">'
+        + '<div style="font-size:11px;color:var(--muted);margin-bottom:4px;">'+fmtDateSlash(p.approvedAt||'')+'</div>'
+        + '<button onclick="openTransferEditModal(\''+escId+'\')" style="padding:4px 10px;border-radius:6px;background:#eff6ff;color:var(--sea);border:0.5px solid #bae6fd;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;">✏️ 編輯</button>'
+        + '<button onclick="cancelTransfer(\''+p.formId+'\', '+(p.periodIdx||0)+', \''+p.periodType+'\')" style="padding:4px 10px;border-radius:6px;background:#fff5f5;color:#dc2626;border:1px solid #fca5a5;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">↩ 取消</button>'
         + '</td>';
     } else {
-      html += '<td>'
-        + '<button class="btn-v"'
-        + ' onclick="approveTransfer(\''+p.formId+'\', '+(p.periodIdx||0)+', \''+p.periodType+'\')"'
-        + ' style="background:#16a34a;white-space:nowrap;">✅ 確認</button>'
+      html += '<td style="white-space:nowrap;">'
+        + '<button onclick="openTransferEditModal(\''+escId+'\')" style="padding:4px 10px;border-radius:6px;background:#eff6ff;color:var(--sea);border:0.5px solid #bae6fd;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;">✏️ 編輯</button>'
+        + '<button onclick="approveTransfer(\''+p.formId+'\', '+(p.periodIdx||0)+', \''+p.periodType+'\')" style="padding:4px 10px;border-radius:6px;background:#16a34a;color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;">✅ 確認</button>'
         + '</td>';
     }
 
@@ -6491,6 +6500,108 @@ function updatePayDate(rowId, newDate) {
       toast('📅 日期已更新', '#0369a1');
     } else {
       toast('❌ 更新失敗，請重試', '#dc2626');
+    }
+  });
+}
+
+// ── 訂單轉入：編輯 Modal ─────────────────────────────
+function openTransferEditModal(rowId) {
+  var p = _transferItems.find(function(x) { return String(x._row) === String(rowId); });
+  if (!p) { toast('找不到資料', '#dc2626'); return; }
+
+  var isPayable = p.direction === 'payable';
+  var cur = (p.cur || 'TWD').toUpperCase();
+  var dateVal = parseDateStr(p.dueDate || '');
+  var existNote = p.acctNote || '';
+  var isApproved = p.periodStatus === 'approved';
+
+  var dirLabel = isPayable
+    ? '<span style="background:var(--pay-bg);color:var(--pay);padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700;">↓ 應付</span>'
+    : '<span style="background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700;">↑ 應收</span>';
+
+  var html = '<div style="padding:22px;min-width:300px;">'
+    + '<div style="font-size:15px;font-weight:700;margin-bottom:16px;">✏️ 編輯訂單轉入</div>'
+
+    // 唯讀摘要
+    + '<div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;line-height:2;">'
+    + '<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">案號</span><span style="font-weight:700;">'+p.formId+'</span></div>'
+    + '<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">案件名稱</span><span style="font-weight:600;">'+escHtml(p.caseName||'')+'</span></div>'
+    + '<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">業務</span><span>'+escHtml(p.staff||'')+'</span></div>'
+    + '<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">期別</span><span>'+escHtml(p.periodName||'')+'</span></div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:var(--muted);">方向</span>'+dirLabel+'</div>'
+    + '<div style="display:flex;justify-content:space-between;"><span style="color:var(--muted);">金額</span><span style="font-weight:700;color:'+(isPayable?'var(--pay)':'#16a34a')+';">'+cur+' '+fmtN(p.amt)+'</span></div>'
+    + '</div>'
+
+    // 可編輯欄位
+    + '<div style="display:flex;flex-direction:column;gap:12px;">'
+    + '<div><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">預計付款日</div>'
+    + '<input id="tedit-date" type="date" value="'+dateVal+'" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;outline:none;"></div>'
+    + '<div><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">帳務備註</div>'
+    + '<textarea id="tedit-note" rows="3" placeholder="輸入備註..." style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;resize:none;line-height:1.6;">'+escHtml(existNote)+'</textarea></div>'
+    + '</div>'
+
+    // 按鈕
+    + '<div style="display:flex;gap:8px;margin-top:18px;">'
+    + '<button onclick="saveTransferEdit(\''+rowId+'\')" style="flex:1;padding:11px;border-radius:8px;background:var(--sea);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;">💾 儲存</button>'
+    + (isApproved ? '' : '<button onclick="saveTransferEdit(\''+rowId+'\',true)" style="flex:1;padding:11px;border-radius:8px;background:#16a34a;color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;">✅ 儲存並確認</button>')
+    + '<button onclick="document.getElementById(\'TransferEditM\').classList.remove(\'open\')" style="padding:11px 14px;border-radius:8px;background:#f1f5f9;color:var(--muted);font-size:14px;font-weight:700;border:none;cursor:pointer;">取消</button>'
+    + '</div>'
+    + '</div>';
+
+  var modal = document.getElementById('TransferEditM');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'TransferEditM';
+    modal.className = 'modal-bg';
+    modal.style.zIndex = '700';
+    modal.innerHTML = '<div class="modal-box" style="max-width:460px;"></div>';
+    modal.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); });
+    document.body.appendChild(modal);
+  }
+  modal.querySelector('.modal-box').innerHTML = html;
+  modal._rowId = rowId;
+  modal.classList.add('open');
+}
+
+function saveTransferEdit(rowId, andApprove) {
+  var p = _transferItems.find(function(x) { return String(x._row) === String(rowId); });
+  if (!p) return;
+
+  var dateEl = document.getElementById('tedit-date');
+  var noteEl = document.getElementById('tedit-note');
+  var newDate = dateEl ? dateEl.value : '';
+  var newNote = noteEl ? noteEl.value.trim() : '';
+
+  var periods = _getFirebasePeriodsRef(p.formId, p.periodType);
+  if (!periods) { toast('❌ 找不到 periods', '#dc2626'); return; }
+
+  var updated = JSON.parse(JSON.stringify(periods));
+  var target  = updated[p.periodIdx];
+  if (!target) { toast('❌ 找不到期別', '#dc2626'); return; }
+
+  var changed = [];
+  if (newDate && newDate !== parseDateStr(p.dueDate||'')) {
+    target.expectedDate = newDate;
+    target.date         = newDate;
+    changed.push('日期：'+p.dueDate+' → '+newDate);
+    p.dueDate = newDate;
+  }
+  if (newNote !== (p.acctNote||'')) {
+    target.acctNote = newNote;
+    changed.push('備註：'+newNote);
+    p.acctNote = newNote;
+  }
+
+  _writePeriodsToFirebase(p.formId, p.periodType, updated, function(ok) {
+    if (!ok) { toast('❌ 儲存失敗', '#dc2626'); return; }
+    var who = (curUser && curUser.name) || '?';
+    if (changed.length) addLog('訂單轉入編輯', who, p.caseName+'【'+p.periodName+'】', changed.join('；'), p.formId);
+    document.getElementById('TransferEditM').classList.remove('open');
+    if (andApprove) {
+      approveTransfer(p.formId, p.periodIdx||0, p.periodType);
+    } else {
+      toast('💾 已儲存', '#0369a1');
+      _renderTransfer();
     }
   });
 }
@@ -6858,6 +6969,12 @@ function goTab(id) {
 // 工具函式
 // ══════════════════════════════════════════════════════
 function fmtN(n) { return Math.round(n||0).toLocaleString('zh-TW'); }
+// 把 YYYY-MM-DD 轉為 YYYY/MM/DD 顯示（空值回 '—'）
+function fmtDateSlash(s) {
+  var d = parseDateStr(s);
+  if (!d) return '—';
+  return d.replace(/-/g, '/');
+}
 var CUR_SYMBOL = {'TWD':'TWD','USD':'USD','JPY':'JPY','EUR':'EUR','CNY':'CNY','NTD':'TWD'};
 function fmtAmt(amt, cur, direction) {
   var n   = Math.round(parseFloat(amt)||0);
