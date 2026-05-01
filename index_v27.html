@@ -1239,11 +1239,11 @@ function fetchRates(){
     }
   } catch(e){}
 
-  // 2. 透過 Apps Script 取台灣銀行即期買入匯率（5 秒逾時則改用備援）
+  // 2. 透過 Apps Script 取台灣銀行即期買入匯率（15 秒逾時，冷啟動需時較長）
   var done = false;
   var timer = setTimeout(function(){
     if(!done){ done=true; _fallbackFetchRates(); }
-  }, 5000);
+  }, 15000);
 
   jsonpGet(SCRIPT+'?action=getRates', function(d, err){
     if(done) return;
