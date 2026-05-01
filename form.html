@@ -490,7 +490,7 @@ const fd = {};
 
 // ══════════════════════════════════════════════════════
 // ★ 案件編號產生（T{YYYYMMDD}{003} 格式，3碼補零）
-// 使用 Supabase counters 表原子遞增
+// 使用 Supabase RPC next_case_id() 原子遞增，確保號碼唯一且不因刪除而重用
 // ══════════════════════════════════════════════════════
 async function generateFormId(){
   var now   = new Date();
@@ -499,26 +499,16 @@ async function generateFormId(){
     + ('0'+now.getDate()).slice(-2);
   var prefix = 'T' + ymd; // e.g. T20260424
 
-  // 序號補零為 3 碼
-  function pad3(n){ return ('00' + n).slice(-3); }
-
   try {
     var sb = getSb();
-
-    // 讀取今天的計數器
-    var res = await sb.from('counters').select('count').eq('id', prefix).single();
-    var current = (res.data && res.data.count) ? res.data.count : 0;
-    var next = current + 1;
-
-    // Upsert 新計數
-    await sb.from('counters').upsert({ id: prefix, count: next });
-
-    var newSeq = next;
-    var formId = prefix + pad3(newSeq); // e.g. T20260424001
-    return formId;
+    // next_case_id() 在 DB 端原子執行 INSERT…ON CONFLICT DO UPDATE RETURNING
+    var res = await sb.rpc('next_case_id', { p_prefix: prefix });
+    if(res.error) throw new Error(res.error.message);
+    return res.data; // e.g. T20260501001
   } catch(e){
-    console.warn('generateFormId 失敗，使用備援：', e);
-    return prefix + pad3(parseInt(String(Date.now()).slice(-3)));
+    console.warn('generateFormId RPC 失敗，使用備援：', e);
+    // 備援：毫秒時間戳 + 隨機碼，避免撞號
+    return prefix + 'X' + String(Date.now()).slice(-3) + String(Math.floor(Math.random()*10));
   }
 }
 
