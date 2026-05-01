@@ -5008,7 +5008,7 @@ function addLog(a, u, tgt, n, caseId) {
   try { localStorage.setItem('tl', JSON.stringify(logs)); } catch(e) {}
   renderLog();
 
-  // ★ 同步寫入 Supabase logs
+  // ★ 同步寫入 Supabase logs（異步，不阻擋主流程）
   var sb = getSupabase();
   if (!sb) return;
   var role = (curUser && curUser.role) || '';
@@ -5016,9 +5016,16 @@ function addLog(a, u, tgt, n, caseId) {
     t: ts, u: u||'', role: role,
     a: a||'', g: tgt||'', n: n||'', caseId: caseId||''
   };
-  sb.from('logs').insert({ data: sbEntry }).catch(function(e) {
-    console.warn('Log 寫入 Supabase 失敗：', e);
-  });
+  (function() {
+    try {
+      var res = sb.from('logs').insert({ data: sbEntry });
+      if (res && typeof res.then === 'function') {
+        res.catch(function(e) { console.warn('Log 寫入失敗：', e); });
+      }
+    } catch(e) {
+      console.warn('Log 寫入失敗：', e);
+    }
+  })();
 }
 
 // ── 從 Supabase 讀取 logs（供 renderLog 使用）─────────
