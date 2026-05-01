@@ -105,9 +105,7 @@ textarea{height:72px;resize:none;line-height:1.6;}
 .ss2{font-size:14px;color:var(--sub);line-height:1.7;margin-bottom:28px;}
 .bnew{padding:14px 32px;border-radius:12px;background:linear-gradient(135deg,#0369a1,var(--teal));color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;}
 </style>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -475,63 +473,24 @@ textarea{height:72px;resize:none;line-height:1.6;}
 // ══════════════════════════════════════════════════════
 // Firebase 設定
 // ══════════════════════════════════════════════════════
-const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyAvyDv1dEC9K-xYwLuyUahGhRPuQunWlxs",
-  authDomain:        "ot001-5c061.firebaseapp.com",
-  databaseURL:       "https://ot001-5c061-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:         "ot001-5c061",
-  storageBucket:     "ot001-5c061.firebasestorage.app",
-  messagingSenderId: "569582007093",
-  appId:             "1:569582007093:web:9e3b2aa67053030ee2d27c",
-  measurementId:     "G-T3JPXQ0N1F"
-};
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyXxIvnOZM4Oeq_TkIB8RI-G3hYJAULShVyvezOACjcTw1XcK8kAMUrx0R8Te-q7HrdRw/exec';
+const SUPABASE_URL = 'https://omrhceuzfponqggicton.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tcmhjZXV6ZnBvbnFnZ2ljdG9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2MDM4NzAsImV4cCI6MjA5MzE3OTg3MH0.RJExH4Ya7XNBE_kta4dYxKdfdPXsx6q1hSbT35G2k_k';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby0-JfzAhx0CuiM9jArKy2W7AvA7SKTJKHC8IlBPdxdwjOzjFJ1zbv9mbsWmG6ghkh_/exec';
+
+var _sbClient = null;
+function getSb(){
+  if(_sbClient) return _sbClient;
+  _sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  return _sbClient;
+}
 
 // ★ 幣別匯率（毛利計算用，從 GAS getRates 更新）
 var RATE = { TWD:1, USD:30.5, JPY:0.205, EUR:33.5, CNY:4.2 };
 const fd = {};
 
 // ══════════════════════════════════════════════════════
-// Firebase 初始化
-// ══════════════════════════════════════════════════════
-var _fbApp = null;
-var _fbDb  = null;
-var _fbAuthReady = false;
-
-function getFirebaseDb(){
-  if(_fbDb) return _fbDb;
-  if(!window.firebase){ console.error('Firebase SDK 未載入'); return null; }
-  if(!_fbApp){
-    try { _fbApp = firebase.app(); } catch(e) { _fbApp = firebase.initializeApp(FIREBASE_CONFIG); }
-  }
-  _fbDb = firebase.firestore();
-  return _fbDb;
-}
-
-function ensureAuth(){
-  return new Promise(function(resolve){
-    if(_fbAuthReady){ resolve(); return; }
-    var app;
-    try { app = firebase.app(); } catch(e) { app = firebase.initializeApp(FIREBASE_CONFIG); }
-    _fbApp = app;
-    _fbDb  = app.firestore();
-    firebase.auth().onAuthStateChanged(function(user){
-      if(user){
-        _fbAuthReady = true;
-        resolve();
-      } else {
-        firebase.auth().signInAnonymously()
-          .then(function(){ _fbAuthReady = true; resolve(); })
-          .catch(function(){ _fbAuthReady = true; resolve(); });
-      }
-    });
-  });
-}
-
-// ══════════════════════════════════════════════════════
 // ★ 案件編號產生（T{YYYYMMDD}{003} 格式，3碼補零）
-// 使用 Firestore transaction 原子遞增 counters/daily
-// 刪除案件不影響序號，嚴格只增不補
+// 使用 Supabase counters 表原子遞增
 // ══════════════════════════════════════════════════════
 async function generateFormId(){
   var now   = new Date();
@@ -544,36 +503,21 @@ async function generateFormId(){
   function pad3(n){ return ('00' + n).slice(-3); }
 
   try {
-    await ensureAuth();
-    var db = getFirebaseDb();
-    if(!db) throw new Error('db null');
+    var sb = getSb();
 
-    var counterRef = db.collection('counters').doc('daily');
+    // 讀取今天的計數器
+    var res = await sb.from('counters').select('count').eq('id', prefix).single();
+    var current = (res.data && res.data.count) ? res.data.count : 0;
+    var next = current + 1;
 
-    // ★ 原子遞增：transaction 保證不重複，刪除案件不影響序號
-    var newSeq = await db.runTransaction(async function(t){
-      var doc  = await t.get(counterRef);
-      var data = doc.exists ? doc.data() : {};
-      var next = (data[prefix] || 0) + 1;
-      var upd  = {};
-      upd[prefix] = next;
-      if(doc.exists){ t.update(counterRef, upd); }
-      else           { t.set(counterRef, upd);    }
-      return next;
-    });
+    // Upsert 新計數
+    await sb.from('counters').upsert({ id: prefix, count: next });
 
+    var newSeq = next;
     var formId = prefix + pad3(newSeq); // e.g. T20260424001
-
-    // 最終防重（transaction 已保證唯一，此處為最終防線）
-    var checkDoc = await db.collection('cases').doc(formId).get();
-    if(checkDoc.exists){
-      newSeq++;
-      formId = prefix + pad3(newSeq);
-    }
     return formId;
   } catch(e){
     console.warn('generateFormId 失敗，使用備援：', e);
-    // 備援：timestamp 末 3 碼補零（不可重新計算流水）
     return prefix + pad3(parseInt(String(Date.now()).slice(-3)));
   }
 }
@@ -671,76 +615,85 @@ function buildFirestoreDoc(payload){
 // 寫入 Firestore
 // ══════════════════════════════════════════════════════
 async function writeFirebase(payload){
-  await ensureAuth();
-  var db = getFirebaseDb();
-  if(!db) throw new Error('Firestore 未初始化');
+  var sb = getSb();
   var doc    = sanitizeForFirebase(buildFirestoreDoc(payload));
   var formId = payload.formId;
   if(!formId) throw new Error('formId 為空');
-  console.log('Firestore 寫入中：', formId);
-  await db.collection('cases').doc(formId).set(doc);
-  console.log('Firestore 寫入成功：' + formId);
+  console.log('Supabase 寫入中：', formId);
+  var res = await sb.from('cases').upsert({ id: formId, data: doc });
+  if(res.error) throw new Error(res.error.message);
+  console.log('Supabase 寫入成功：' + formId);
 }
 
 // ══════════════════════════════════════════════════════
-// 更新 Firestore（補填用）
+// 更新 Supabase（補填用）
 // ══════════════════════════════════════════════════════
 async function updateFirebase(formId, fields){
-  var db = getFirebaseDb();
-  if(!db) throw new Error('Firestore 未初始化');
+  var sb = getSb();
   var fp = fields.fillPart || '銷售';
-  var updateData = {
-    'transfer.fillStatus': '已完成',
-    'meta.caseType':       '採購+銷售(三角貿易)',
-    '_fillUpdatedAt':      new Date().toLocaleString('zh-TW', {hour12:false}),
-  };
-  if(fields.buyCon  !== undefined) updateData['purchase.contract']     = fields.buyCon;
-  if(fields.sellCon !== undefined) updateData['sales.contract']        = fields.sellCon;
-  if(fields.trade   !== undefined) updateData['logistics.tradeTerms']  = fields.trade;
-  if(fields.etd     !== undefined) updateData['logistics.etd']         = fields.etd;
-  if(fields.eta     !== undefined) updateData['logistics.eta']         = fields.eta;
-  if(fields.origin  !== undefined) updateData['logistics.origin']      = fields.origin;
-  if(fields.dest    !== undefined) updateData['logistics.destination'] = fields.dest;
-  // ★ 費用改為 {amt,cur} 物件
-  if(fields.extra   !== undefined) updateData['fees.other']      = fields.extra;
-  if(fields.freight !== undefined) updateData['fees.freight']    = fields.freight;
-  if(fields.tax     !== undefined) updateData['fees.tax']        = fields.tax;
-  if(fields.insure  !== undefined) updateData['fees.insurance']  = fields.insure;
-  if(fields.comm    !== undefined) updateData['fees.commission'] = fields.comm;
+
+  // 先讀取現有資料
+  var res = await sb.from('cases').select('data').eq('id', formId).single();
+  if(res.error) throw new Error(res.error.message);
+  var existing = res.data ? res.data.data : {};
+
+  // 合併更新
+  existing.transfer = existing.transfer || {};
+  existing.transfer.fillStatus = '已完成';
+  existing.meta = existing.meta || {};
+  existing.meta.caseType = '採購+銷售(三角貿易)';
+  existing._fillUpdatedAt = new Date().toLocaleString('zh-TW', {hour12:false});
+
+  existing.logistics = existing.logistics || {};
+  if(fields.trade   !== undefined) existing.logistics.tradeTerms  = fields.trade;
+  if(fields.etd     !== undefined) existing.logistics.etd         = fields.etd;
+  if(fields.eta     !== undefined) existing.logistics.eta         = fields.eta;
+  if(fields.origin  !== undefined) existing.logistics.origin      = fields.origin;
+  if(fields.dest    !== undefined) existing.logistics.destination = fields.dest;
+
+  existing.fees = existing.fees || {};
+  if(fields.extra   !== undefined) existing.fees.other      = fields.extra;
+  if(fields.freight !== undefined) existing.fees.freight    = fields.freight;
+  if(fields.tax     !== undefined) existing.fees.tax        = fields.tax;
+  if(fields.insure  !== undefined) existing.fees.insurance  = fields.insure;
+  if(fields.comm    !== undefined) existing.fees.commission = fields.comm;
 
   if(fp === '銷售'){
-    if(fields.buyer    !== undefined) updateData['sales.customer']     = fields.buyer;
-    if(fields.sellPay  !== undefined) updateData['sales.paymentTerms'] = fields.sellPay;
-    if(fields.sellNote !== undefined) updateData['sales.note']         = fields.sellNote;
+    existing.sales = existing.sales || {};
+    if(fields.buyer    !== undefined) existing.sales.customer     = fields.buyer;
+    if(fields.sellCon  !== undefined) existing.sales.contract     = fields.sellCon;
+    if(fields.sellPay  !== undefined) existing.sales.paymentTerms = fields.sellPay;
+    if(fields.sellNote !== undefined) existing.sales.note         = fields.sellNote;
     if(fields.sellPeriods) {
-      updateData['sales.periods'] = fields.sellPeriods.map(function(p){
+      existing.sales.periods = fields.sellPeriods.map(function(p){
         return { name:p.name||'', currency:p.cur||'TWD', amount:parseFloat(p.amt)||0, expectedDate:p.date||'', note:p.note||'' };
       });
     }
   } else {
-    if(fields.supplier !== undefined) updateData['purchase.supplier']     = fields.supplier;
-    if(fields.buyPay   !== undefined) updateData['purchase.paymentTerms'] = fields.buyPay;
-    if(fields.buyNote  !== undefined) updateData['purchase.note']         = fields.buyNote;
+    existing.purchase = existing.purchase || {};
+    if(fields.supplier !== undefined) existing.purchase.supplier     = fields.supplier;
+    if(fields.buyCon   !== undefined) existing.purchase.contract     = fields.buyCon;
+    if(fields.buyPay   !== undefined) existing.purchase.paymentTerms = fields.buyPay;
+    if(fields.buyNote  !== undefined) existing.purchase.note         = fields.buyNote;
     if(fields.buyPeriods) {
-      updateData['purchase.periods'] = fields.buyPeriods.map(function(p){
+      existing.purchase.periods = fields.buyPeriods.map(function(p){
         return { name:p.name||'', currency:p.cur||'TWD', amount:parseFloat(p.amt)||0, expectedDate:p.date||'', note:p.note||'' };
       });
     }
   }
-  var clean = sanitizeForFirebase(updateData);
-  await db.collection('cases').doc(formId).update(clean);
+
+  var upd = await sb.from('cases').update({ data: existing }).eq('id', formId);
+  if(upd.error) throw new Error(upd.error.message);
 }
 
 // ══════════════════════════════════════════════════════
-// 讀取單筆 Firestore
-// ★ 修正：先 ensureAuth() 確保匿名登入完成再讀取
+// 讀取單筆 Supabase
 // ══════════════════════════════════════════════════════
 async function readFirebase(formId){
-  await ensureAuth();
-  var db = getFirebaseDb();
-  if(!db) throw new Error('Firestore 未初始化');
-  var snap = await db.collection('cases').doc(formId).get();
-  return snap.exists ? snap.data() : null;
+  var sb = getSb();
+  var res = await sb.from('cases').select('data').eq('id', formId).single();
+  if(res.error) return null;
+  return res.data ? res.data.data : null;
 }
 
 // ══════════════════════════════════════════════════════
@@ -1198,13 +1151,9 @@ async function submitForm(){
     notifyGASviaJSONP(gasPayload);
     showPage('success');
   } catch(e) {
-    console.error('Firebase 寫入失敗：', e);
+    console.error('Supabase 寫入失敗：', e);
     var errMsg = e.message || e.toString();
-    if(errMsg.indexOf('permission')>=0||errMsg.indexOf('PERMISSION')>=0){
-      alert('Firebase 寫入被拒絕（Security Rules）\n請確認已開啟匿名登入\n\n錯誤：' + errMsg);
-    } else {
-      alert('資料送出失敗：' + errMsg);
-    }
+    alert('資料送出失敗：' + errMsg);
     var fallbackPayload = Object.assign({}, payload, { action: transferTo?'transfer':'newCase' });
     notifyGASviaJSONP(fallbackPayload);
     showPage('success');
@@ -1679,14 +1628,16 @@ function processFillRow(row, fillId, banner){
   banner.style.background = fillColor;
   banner.textContent = '補填'+fillPart+'內容｜' + fd.caseName + '（' + fillId + '）由 ' + fd.staff + ' 轉交';
 
-  // 同步信箱
-  getFirebaseDb() && getFirebaseDb().collection('accounts').get()
-    .then(function(snap){
-      snap.forEach(function(doc){
-        var u=doc.data();
-        if(u.email&&u.staffName) STAFF_EMAILS[u.staffName]=u.email;
+  // 同步信箱（從 Supabase accounts 讀取）
+  try {
+    var sb = getSb();
+    sb.from('accounts').select('data').then(function(res){
+      if(res.data) res.data.forEach(function(row){
+        var u = row.data || {};
+        if(u.email && u.staffName) STAFF_EMAILS[u.staffName] = u.email;
       });
-    }).catch(function(){});
+    });
+  } catch(e){}
 
   // 顯示對方已填的資訊摘要
   var refTitle  = fillPart==='銷售' ? '採購' : '銷售';
