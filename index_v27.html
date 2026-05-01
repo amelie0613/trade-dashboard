@@ -4777,7 +4777,17 @@ function doDelete(rowNum,name){
 function renderAdmin(){
   var ug = document.getElementById('ug');
   if(!ug) return;
-  ug.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;"><div class="spin" style="margin:0 auto 8px;"></div>載入帳號中...</div>';
+
+  // 分兩個 tab：帳號管理 + 權限設置
+  var tabHtml = '<div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0;">'
+    +'<button onclick="document.getElementById(\'tab-accounts\').style.display=\'block\';document.getElementById(\'tab-permissions\').style.display=\'none\';this.style.borderBottom=\'2px solid var(--sea)\';document.querySelectorAll(\'.admin-tab-btn\').forEach(b=>{if(b!==this)b.style.borderBottom=\'none\';});" style="padding:10px 16px;border:none;background:none;color:var(--sea);font-weight:700;cursor:pointer;border-bottom:2px solid var(--sea);" class="admin-tab-btn">👥 帳號管理</button>'
+    +'<button onclick="document.getElementById(\'tab-accounts\').style.display=\'none\';document.getElementById(\'tab-permissions\').style.display=\'block\';this.style.borderBottom=\'2px solid var(--sea)\';document.querySelectorAll(\'.admin-tab-btn\').forEach(b=>{if(b!==this)b.style.borderBottom=\'none\';});" style="padding:10px 16px;border:none;background:none;color:var(--muted);font-weight:700;cursor:pointer;" class="admin-tab-btn">⚙️ 權限設置</button>'
+    +'</div>';
+
+  ug.innerHTML = tabHtml + '<div id="tab-accounts"></div><div id="tab-permissions" style="display:none;"></div>';
+
+  var accountsDiv = document.getElementById('tab-accounts');
+  accountsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;"><div class="spin" style="margin:0 auto 8px;"></div>載入帳號中...</div>';
 
   readAccountsFirebase(function(fbAccs, err){
     var allLocal = BASE_USERS.concat(DEFAULT_STAFF);
@@ -4805,12 +4815,20 @@ function renderAdmin(){
         ? '<input id="usn-'+u.id+'" value="'+escHtml(u.staffName||u.name||'')+'" placeholder="與表單一致" style="min-width:80px;">'
         : '<span style="color:var(--muted);font-size:12px;">—</span>';
 
+      // 角色編輯下拉菜單（只有 boss/admin 可改）
+      var canEditRole = (curUser.role==='boss' || curUser.role==='admin') && u.id !== curUser.id && u.role !== 'boss';
+      var roleCell = canEditRole
+        ? '<select id="ur-'+u.id+'" style="min-width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;"><option value="staff">👤 業務員</option><option value="finance">💰 財務</option><option value="admin">🔧 管理員</option></select>'
+        : '<span class="u-role-badge" style="'+roleStyle(u.role)+'">'+roleLabel(u.role)+'</span>';
+      // 初始化下拉菜單
+      var roleSelectJs = canEditRole ? 'setTimeout(function(){var sel=document.getElementById(\'ur-'+u.id+'\');if(sel)sel.value=\''+u.role+'\';},100);' : '';
+
       var delBtn = (u.id !== curUser.id && u.role !== 'boss')
         ? '<button onclick="confirmDeleteAccount(\''+u.id+'\')" style="padding:4px 10px;border-radius:6px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 刪除</button>'
         : '';
 
-      return '<tr id="uc-'+u.id+'">'
-        +'<td><span class="u-role-badge" style="'+roleStyle(u.role)+'">'+roleLabel(u.role)+'</span></td>'
+      return '<tr id="uc-'+u.id+'" onload="'+roleSelectJs+'">'
+        +'<td>'+roleCell+'</td>'
         +'<td><input id="un-'+u.id+'" value="'+escHtml(u.name||'')+'" style="min-width:70px;"></td>'
         +'<td><input id="up-'+u.id+'" type="text" value="'+escHtml(u.pwd||'')+'" autocomplete="off" style="min-width:90px;font-family:monospace;"></td>'
         +'<td><input id="ue-'+u.id+'" type="email" value="'+escHtml(u.email||'')+'" placeholder="name@co.com" style="min-width:120px;"></td>'
@@ -4823,14 +4841,87 @@ function renderAdmin(){
         +'</tr>';
     }).join('');
 
-    ug.innerHTML = '<table class="utbl">'
+    // 初始化下拉菜單值
+    setTimeout(function(){
+      editableUsers.forEach(function(u){
+        var sel = document.getElementById('ur-'+u.id);
+        if(sel) sel.value = u.role;
+      });
+    }, 100);
+
+    accountsDiv.innerHTML = '<table class="utbl">'
       +'<thead><tr>'
       +'<th>角色</th><th>顯示名稱</th><th>密碼</th><th>信箱</th><th>業務名稱</th><th>操作</th>'
       +'</tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'</table>'
       +'<button onclick="showAddAccountModal()" style="margin-top:12px;padding:8px 18px;border-radius:8px;background:var(--sea);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;">＋ 新增帳號</button>';
+
+    // 權限設置面板
+    renderPermissionsPanel();
   });
+}
+
+// 權限設置面板
+function renderPermissionsPanel(){
+  var permDiv = document.getElementById('tab-permissions');
+  if(!permDiv) return;
+
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;">'
+    +'<div style="background:#fef9c3;border:1px solid rgba(212,168,19,.3);border-radius:12px;padding:16px;">'
+    +'<div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:10px;">👑 董事長</div>'
+    +'<ul style="font-size:12px;color:#78350f;line-height:1.8;margin:0;padding-left:16px;">'
+    +'<li>✓ 檢視所有案件（全公司）</li>'
+    +'<li>✓ 簽核案件（批准/拒絕）</li>'
+    +'<li>✓ 查看支付追蹤</li>'
+    +'<li>✓ 帳號管理</li>'
+    +'<li>✓ 系統設置</li>'
+    +'<li>❌ 編輯案件（不可編輯，需業務修改後簽核）</li>'
+    +'</ul>'
+    +'</div>'
+
+    +'<div style="background:#eff6ff;border:1px solid rgba(29,78,216,.3);border-radius:12px;padding:16px;">'
+    +'<div style="font-size:14px;font-weight:700;color:#1d4ed8;margin-bottom:10px;">🔧 管理員</div>'
+    +'<ul style="font-size:12px;color:#1e40af;line-height:1.8;margin:0;padding-left:16px;">'
+    +'<li>✓ 檢視所有案件（全公司）</li>'
+    +'<li>✓ 帳號管理（新增/編輯/刪除）</li>'
+    +'<li>✓ 更改帳號權限</li>'
+    +'<li>✓ 查看審計日誌</li>'
+    +'<li>✓ 備份設置</li>'
+    +'<li>❌ 簽核案件</li>'
+    +'<li>❌ 編輯案件</li>'
+    +'</ul>'
+    +'</div>'
+
+    +'<div style="background:#f0fdf4;border:1px solid rgba(21,128,61,.3);border-radius:12px;padding:16px;">'
+    +'<div style="font-size:14px;font-weight:700;color:#15803d;margin-bottom:10px;">💰 財務</div>'
+    +'<ul style="font-size:12px;color:#166534;line-height:1.8;margin:0;padding-left:16px;">'
+    +'<li>✓ 檢視已簽核的案件</li>'
+    +'<li>✓ 支付追蹤管理</li>'
+    +'<li>✓ 確認收款狀態</li>'
+    +'<li>✓ 生成財務報表</li>'
+    +'<li>❌ 檢視待簽核案件</li>'
+    +'<li>❌ 簽核</li>'
+    +'<li>❌ 帳號管理</li>'
+    +'</ul>'
+    +'</div>'
+
+    +'<div style="background:#f1f5f9;border:1px solid rgba(71,85,105,.3);border-radius:12px;padding:16px;">'
+    +'<div style="font-size:14px;font-weight:700;color:#475569;margin-bottom:10px;">👤 業務員</div>'
+    +'<ul style="font-size:12px;color:#334155;line-height:1.8;margin:0;padding-left:16px;">'
+    +'<li>✓ 新增案件</li>'
+    +'<li>✓ 編輯自己的案件</li>'
+    +'<li>✓ 檢視案件進度</li>'
+    +'<li>✓ 修改密碼</li>'
+    +'<li>❌ 簽核案件</li>'
+    +'<li>❌ 查看其他業務的案件</li>'
+    +'<li>❌ 支付追蹤</li>'
+    +'<li>❌ 帳號管理</li>'
+    +'</ul>'
+    +'</div>'
+    +'</div>';
+
+  permDiv.innerHTML = html;
 }
 
 function confirmDeleteAccount(uid){
@@ -4850,17 +4941,22 @@ function saveAccountToFirebase(id){
   var pwdEl   = document.getElementById('up-'+id);
   var emailEl = document.getElementById('ue-'+id);
   var stnEl   = document.getElementById('usn-'+id);
+  var roleEl  = document.getElementById('ur-'+id);
   if(!nameEl||!pwdEl) return;
+
   var name      = nameEl.value.trim();
   var pwd       = pwdEl.value.trim();
   var email     = emailEl ? emailEl.value.trim() : '';
   var staffName = stnEl ? stnEl.value.trim() : '';
+  var newRole   = roleEl ? roleEl.value : '';
+
   if(!name||!pwd){ toast('名稱和密碼不能空白','#dc2626'); return; }
 
   var existing = (CLOUD_ACCOUNTS||[]).find(function(u){ return u.id===id; }) || {};
   var acc = Object.assign({}, existing, { id:id, name:name, pwd:pwd });
   if(email) acc.email = email;
   if(staffName) acc.staffName = staffName;
+  if(newRole) acc.role = newRole;  // 保存新角色
 
   saveAccountFirebase(acc, function(ok){
     if(ok){
@@ -4871,9 +4967,14 @@ function saveAccountToFirebase(id){
       }
       var sv=document.getElementById('sv-'+id);
       if(sv){sv.style.display='inline';setTimeout(function(){sv.style.display='none';},2000);}
-      toast('✅ 已儲存至 Firebase','#16a34a');
-      // 同步備份到 Sheets
-      backupActionToGAS({action:'updateAccount',id:id,name:name,pwd:pwd,email:email,staffName:staffName});
+
+      var msg = newRole && newRole !== existing.role
+        ? '✅ 已儲存（權限已更新為：' + (newRole==='boss'?'董事長':newRole==='admin'?'管理員':newRole==='finance'?'財務':'業務員') + '）'
+        : '✅ 已儲存至 Supabase';
+      toast(msg,'#16a34a');
+
+      // 同步備份到 GAS
+      backupActionToGAS({action:'updateAccount',id:id,name:name,pwd:pwd,email:email,staffName:staffName,role:newRole||existing.role});
     } else {
       toast('❌ 儲存失敗','#dc2626');
     }
