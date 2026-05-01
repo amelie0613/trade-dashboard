@@ -388,9 +388,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
   .cal-more  { font-size:9px !important; color:#94a3b8 !important; }
 }
 </style>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -929,34 +927,22 @@ var SCRIPT = CONFIG.SCRIPT;
 var CSV    = CONFIG.CSV;
 
 // ══════════════════════════════════════════════════════
-// ★ Firebase 設定（請填入你的 Firebase 專案資訊）★
+// ★ Supabase 設定 ★
 // ══════════════════════════════════════════════════════
-var FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyAvyDv1dEC9K-xYwLuyUahGhRPuQunWlxs",
-  authDomain:        "ot001-5c061.firebaseapp.com",
-  databaseURL:       "https://ot001-5c061-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:         "ot001-5c061",
-  storageBucket:     "ot001-5c061.firebasestorage.app",
-  messagingSenderId: "569582007093",
-  appId:             "1:569582007093:web:9e3b2aa67053030ee2d27c",
-  measurementId:     "G-T3JPXQ0N1F"
-};
+var SUPABASE_URL = "https://omrhceuzfponqggicton.supabase.co";
+var SUPABASE_KEY = "sb_publishable_CxqVyqmlSFrYuTvexjKVow_JqgtJOO9";
 // ══════════════════════════════════════════════════════
 
-// ── Firebase 初始化（Firestore）────────────────────────
-var _fbApp = null;
-var _fbDb  = null;
-function getFirebaseDb(){
-  if(_fbDb) return _fbDb;
-  if(!window.firebase) return null;
-  if(!_fbApp){
-    try { _fbApp = firebase.app(); } catch(e) { _fbApp = firebase.initializeApp(FIREBASE_CONFIG); }
-  }
-  _fbDb = firebase.firestore();
-  return _fbDb;
+// ── Supabase 初始化 ────────────────────────
+var _sbClient = null;
+function getSupabase(){
+  if(_sbClient) return _sbClient;
+  if(typeof supabase === 'undefined') return null;
+  _sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  return _sbClient;
 }
 
-// ── Firebase 操作封裝 ──────────────────────────────────
+// ── Supabase 操作封裝 ──────────────────────────────────
 function readAllFirebase(cb, forceRefresh){
   // ★ 防重複請求：如果已有進行中的請求，加入隊列
   if(REQUESTS_IN_FLIGHT['cases']){
@@ -968,110 +954,146 @@ function readAllFirebase(cb, forceRefresh){
   if(!forceRefresh){
     var cached = getCache('cases');
     if(cached){
-      console.log('📦 cases 從 localStorage 讀取（節省 1 次 read）');
+      console.log('📦 cases 從快取讀取（節省 1 次 read）');
       cb(cached, null);
       return;
     }
   }
 
-  var db = getFirebaseDb();
-  if(!db){ cb(null, 'Firestore 未初始化'); return; }
+  var sb = getSupabase();
+  if(!sb){ cb(null, 'Supabase 未初始化'); return; }
 
   // 初始化隊列
   REQUESTS_IN_FLIGHT['cases'] = [cb];
 
-  db.collection('cases')
-    .orderBy('meta.createdAt', 'desc')
-    .limit(200)
-    .get()
-    .then(function(snap){
-      var result = [];
-      snap.forEach(function(doc){
-        var val = doc.data();
-        if(val) result.push(Object.assign({ _firebaseKey: doc.id }, val));
-      });
+  sb.from('cases').select('*').then(function(response){
+    var result = [];
 
-      // ★ 保存快取
-      setCache('cases', result);
-      console.log('✓ cases 已從 Firebase 讀取並快取（共 '+result.length+' 筆）');
+    if(response.error){
+      throw new Error(response.error.message);
+    }
 
-      // ★ 執行所有待執行的 callback
-      var cbs = REQUESTS_IN_FLIGHT['cases'];
-      delete REQUESTS_IN_FLIGHT['cases'];
-      cbs.forEach(function(c){ c(result, null); });
-    })
-    .catch(function(e){
-      console.error('❌ Firebase cases 讀取失敗：', e.toString());
-      var cbs = REQUESTS_IN_FLIGHT['cases'];
-      delete REQUESTS_IN_FLIGHT['cases'];
-      cbs.forEach(function(c){ c(null, e.toString()); });
+    var rows = response.data || [];
+    rows.forEach(function(row){
+      // 展開 JSONB data 物件，加上 _firebaseKey 識別符
+      var item = Object.assign({}, row.data, { _firebaseKey: row.id, _row: row.id });
+      result.push(item);
     });
+
+    // 按 createdAt 時間戳排序（新到舊）
+    result.sort(function(a, b){
+      var aTime = (a.meta && a.meta.createdAt) || '';
+      var bTime = (b.meta && b.meta.createdAt) || '';
+      return bTime.localeCompare(aTime);
+    });
+
+    // 限制 200 筆
+    result = result.slice(0, 200);
+
+    // ★ 保存快取
+    setCache('cases', result);
+    console.log('✓ cases 已從 Supabase 讀取並快取（共 '+result.length+' 筆）');
+
+    // ★ 執行所有待執行的 callback
+    var cbs = REQUESTS_IN_FLIGHT['cases'];
+    delete REQUESTS_IN_FLIGHT['cases'];
+    cbs.forEach(function(c){ c(result, null); });
+  })
+  .catch(function(e){
+    console.error('❌ Supabase cases 讀取失敗：', e.toString());
+    var cbs = REQUESTS_IN_FLIGHT['cases'];
+    delete REQUESTS_IN_FLIGHT['cases'];
+    cbs.forEach(function(c){ c(null, e.toString()); });
+  });
+}
+
+// ── dot notation 展開輔助（'a.b.c': val → {a:{b:{c:val}}}）──
+function applyDotFields(base, fields){
+  var obj = JSON.parse(JSON.stringify(base || {}));
+  Object.keys(fields).forEach(function(key){
+    var val = fields[key];
+    var parts = key.split('.');
+    var cur = obj;
+    for(var i = 0; i < parts.length - 1; i++){
+      if(cur[parts[i]] === undefined || typeof cur[parts[i]] !== 'object') cur[parts[i]] = {};
+      cur = cur[parts[i]];
+    }
+    cur[parts[parts.length - 1]] = val;
+  });
+  return obj;
 }
 
 function updateFirebase(formId, fields, cb){
-  var db = getFirebaseDb();
-  if(!db){ if(cb) cb(false); return; }
+  var sb = getSupabase();
+  if(!sb){ if(cb) cb(false); return; }
 
-  db.collection('cases').doc(formId).update(fields)
-    .then(function(){
-      // ★ 清除快取，下次 refresh 會重新讀取
+  // 先讀現有資料，再合併 dot notation 欄位，再寫回
+  sb.from('cases').select('data').eq('id', formId).single()
+    .then(function(res){
+      if(res.error) throw new Error(res.error.message);
+      var merged = applyDotFields(res.data ? res.data.data : {}, fields);
+      return sb.from('cases').upsert({ id: formId, data: merged });
+    })
+    .then(function(res){
+      if(res.error) throw new Error(res.error.message);
       invalidateCache('cases');
-      console.log('✓ cases 快取已清除（資料已更新）');
       if(cb) cb(true);
     })
     .catch(function(e){
-      console.error('Firestore update 失敗：', e);
-      // 降級：用 set + merge:true（保留其他欄位）
-      db.collection('cases').doc(formId).set(fields, {merge:true})
-        .then(function(){
-          invalidateCache('cases');
-          if(cb) cb(true);
-        })
-        .catch(function(e2){ console.error('Firestore set merge 也失敗：', e2); if(cb) cb(false); });
-    });
-}
-
-function deleteFirebase(formId, cb){
-  var db = getFirebaseDb();
-  if(!db){ if(cb) cb(false); return; }
-  db.collection('cases').doc(formId).delete()
-    .then(function(){
-      invalidateCache('cases');
-      console.log('✓ cases 快取已清除（文件已刪除）');
-      if(cb) cb(true);
-    })
-    .catch(function(e){
-      console.error('Firestore delete 失敗：', e);
+      console.error('Supabase update 失敗：', e);
       if(cb) cb(false);
     });
 }
 
-// ── Firebase 帳號管理 ──────────────────────────────────
-function readAccountsFirebase(cb){
-  var db = getFirebaseDb();
-  if(!db){ cb(null,'Firestore 未初始化'); return; }
-  db.collection('accounts').get()
-    .then(function(snap){
-      var result=[];
-      snap.forEach(function(doc){ result.push(Object.assign({id:doc.id},doc.data())); });
-      cb(result,null);
+function deleteFirebase(formId, cb){
+  var sb = getSupabase();
+  if(!sb){ if(cb) cb(false); return; }
+  sb.from('cases').delete().eq('id', formId)
+    .then(function(res){
+      if(res.error) throw new Error(res.error.message);
+      invalidateCache('cases');
+      if(cb) cb(true);
     })
-    .catch(function(e){ cb(null,e.toString()); });
+    .catch(function(e){
+      console.error('Supabase delete 失敗：', e);
+      if(cb) cb(false);
+    });
+}
+
+// ── Supabase 帳號管理 ──────────────────────────────────
+function readAccountsFirebase(cb){
+  var sb = getSupabase();
+  if(!sb){ cb(null,'Supabase 未初始化'); return; }
+  sb.from('accounts').select('*')
+    .then(function(res){
+      if(res.error) throw new Error(res.error.message);
+      var result = (res.data||[]).map(function(row){
+        return Object.assign({}, row.data, { id: row.id });
+      });
+      cb(result, null);
+    })
+    .catch(function(e){ cb(null, e.toString()); });
 }
 
 function saveAccountFirebase(acc, cb){
-  var db = getFirebaseDb();
-  if(!db){ if(cb) cb(false); return; }
-  db.collection('accounts').doc(acc.id).set(acc, {merge:true})
-    .then(function(){ if(cb) cb(true); })
+  var sb = getSupabase();
+  if(!sb){ if(cb) cb(false); return; }
+  sb.from('accounts').upsert({ id: acc.id, data: acc })
+    .then(function(res){
+      if(res.error) throw new Error(res.error.message);
+      if(cb) cb(true);
+    })
     .catch(function(e){ console.error('帳號寫入失敗：',e); if(cb) cb(false); });
 }
 
 function deleteAccountFirebase(id, cb){
-  var db = getFirebaseDb();
-  if(!db){ if(cb) cb(false); return; }
-  db.collection('accounts').doc(id).delete()
-    .then(function(){ if(cb) cb(true); })
+  var sb = getSupabase();
+  if(!sb){ if(cb) cb(false); return; }
+  sb.from('accounts').delete().eq('id', id)
+    .then(function(res){
+      if(res.error) throw new Error(res.error.message);
+      if(cb) cb(true);
+    })
     .catch(function(e){ if(cb) cb(false); });
 }
 
@@ -1235,17 +1257,8 @@ function doLogin(u){
     } else {    }
   }, 600000); // 每 10 分鐘檢查一次
   setInterval(fetchRates, 1800000);
-  // Firebase Auth 登入完成後才讀資料
-  try{
-    var fbApp = window.firebase ? (function(){ try{return firebase.app();}catch(e){return firebase.initializeApp(FIREBASE_CONFIG);} })() : null;
-    if(fbApp){
-      firebase.auth().signInWithEmailAndPassword('amelie@macroocean.org','fong24659736')
-        .then(function(){ load(); })
-        .catch(function(e){ console.warn('Firebase Auth 登入失敗，直接讀取：',e); load(); });
-    } else {
-      load();
-    }
-  }catch(e){ load(); }
+  // 直接讀取（Supabase 不需要 Auth）
+  load();
 }
 
 // 載入雲端帳號（Apps Script Sheets — JSONP 模式）
@@ -1596,7 +1609,7 @@ function logout(){
     document.removeEventListener('click', window._calClickHandler, true);
     window._calClickHandler = null;
   }
-  try{ firebase.auth().signOut(); }catch(e){}
+  // Supabase 不需要 signOut
   // ★ 清除安全會話
   clearSession();
   document.getElementById('L').style.display='flex';
@@ -4402,8 +4415,8 @@ function confirmSplitCase(rowNum){
 function doSplitCase(rowNum){
   var r = rows.find(function(x){ return x._row===rowNum; });
   if(!r){ toast('❌ 找不到案件','#dc2626'); return; }
-  var db = getFirebaseDb();
-  if(!db){ toast('❌ Firebase 未連線','#dc2626'); return; }
+  var sb = getSupabase();
+  if(!sb){ toast('❌ Supabase 未連線','#dc2626'); return; }
 
   var formId   = r[F.formId]||r['表單編號']||r._firebaseKey||'';
   var caseName = g(r,'name');
@@ -4461,14 +4474,20 @@ function doSplitCase(rowNum){
   toast('拆分中...','#1d4ed8');
 
   // ── Step1：寫入採購單 ──────────────────────────────────
-  db.collection('cases').doc(idP).set(docP)
-  .then(function(){
+  sb.from('cases').upsert({ id: idP, data: docP })
+  .then(function(res){
+    if(res.error) throw new Error(res.error.message);
     // ── Step2：寫入銷售單 ──────────────────────────────
-    return db.collection('cases').doc(idS).set(docS);
+    return sb.from('cases').upsert({ id: idS, data: docS });
   })
-  .then(function(){
-    // ── Step3：作廢原案件（整個物件一次 set merge）────────
-    return db.collection('cases').doc(formId).set(voidUpdate, {merge:true});
+  .then(function(res){
+    if(res.error) throw new Error(res.error.message);
+    // ── Step3：作廢原案件（讀取後合併再寫回）────────────
+    return sb.from('cases').select('data').eq('id', formId).single()
+      .then(function(r2){
+        var merged = Object.assign({}, r2.data ? r2.data.data : {}, voidUpdate);
+        return sb.from('cases').upsert({ id: formId, data: merged });
+      });
   })
   .then(function(){
     // ── Step4：郵件通知業務補填（採購單）—— 使用 rejected 觸發退回補填信 ────
@@ -4538,8 +4557,8 @@ function confirmCancelSplit(rowNum){
 function doCancelSplit(rowNum){
   var r = rows.find(function(x){ return x._row===rowNum; });
   if(!r){ toast('❌ 找不到案件','#dc2626'); return; }
-  var db = getFirebaseDb();
-  if(!db){ toast('❌ Firebase 未連線','#dc2626'); return; }
+  var sb = getSupabase();
+  if(!sb){ toast('❌ Supabase 未連線','#dc2626'); return; }
 
   var formId   = r[F.formId]||r['表單編號']||r._firebaseKey||'';
   var caseName = g(r,'name');
@@ -4551,18 +4570,20 @@ function doCancelSplit(rowNum){
 
   // 刪除所有子案件
   var delPromises = subIds.map(function(id){
-    return db.collection('cases').doc(id).delete();
+    return sb.from('cases').delete().eq('id', id);
   });
 
   Promise.all(delPromises)
   .then(function(){
-    // 恢復原案件
-    return db.collection('cases').doc(formId).set({
-      voided:    false,
-      voidedAt:  '',
-      voidedBy:  '',
-      splitInfo: { from:'', into:[], at:'', by:'', note:'' }
-    }, {merge:true});
+    // 恢復原案件（讀取後合併）
+    return sb.from('cases').select('data').eq('id', formId).single()
+      .then(function(r2){
+        var merged = Object.assign({}, r2.data ? r2.data.data : {}, {
+          voided: false, voidedAt: '', voidedBy: '',
+          splitInfo: { from:'', into:[], at:'', by:'', note:'' }
+        });
+        return sb.from('cases').upsert({ id: formId, data: merged });
+      });
   })
   .then(function(){
     // 更新本地記憶體（立即從畫面上移除子案件）
@@ -4987,39 +5008,31 @@ function addLog(a, u, tgt, n, caseId) {
   try { localStorage.setItem('tl', JSON.stringify(logs)); } catch(e) {}
   renderLog();
 
-  // ★ 同步寫入 Firebase logs collection
-  var db = getFirebaseDb();
-  if (!db) return;
+  // ★ 同步寫入 Supabase logs
+  var sb = getSupabase();
+  if (!sb) return;
   var role = (curUser && curUser.role) || '';
-  var fbEntry = {
-    t:      ts,
-    u:      u      || '',
-    role:   role,
-    a:      a      || '',
-    g:      tgt    || '',
-    n:      n      || '',
-    caseId: caseId || ''
+  var sbEntry = {
+    t: ts, u: u||'', role: role,
+    a: a||'', g: tgt||'', n: n||'', caseId: caseId||''
   };
-  db.collection('logs').add(fbEntry).catch(function(e) {
-    console.warn('Log 寫入 Firebase 失敗：', e);
+  sb.from('logs').insert({ data: sbEntry }).catch(function(e) {
+    console.warn('Log 寫入 Supabase 失敗：', e);
   });
 }
 
-// ── 從 Firebase 讀取 logs（供 renderLog 使用）─────────
+// ── 從 Supabase 讀取 logs（供 renderLog 使用）─────────
 function loadLogsFromFirebase(cb) {
-  var db = getFirebaseDb();
-  if (!db) { if (cb) cb([]); return; }
-  db.collection('logs')
-    .orderBy('t', 'desc')
-    .limit(300)
-    .get()
-    .then(function(snap) {
-      var result = [];
-      snap.forEach(function(doc) { result.push(doc.data()); });
+  var sb = getSupabase();
+  if (!sb) { if (cb) cb([]); return; }
+  sb.from('logs').select('data, created_at').order('created_at', { ascending: false }).limit(300)
+    .then(function(res) {
+      if (res.error) throw new Error(res.error.message);
+      var result = (res.data||[]).map(function(row){ return row.data; });
       if (cb) cb(result);
     })
     .catch(function(e) {
-      console.warn('讀取 Firebase logs 失敗：', e);
+      console.warn('讀取 Supabase logs 失敗：', e);
       if (cb) cb([]);
     });
 }
@@ -5260,15 +5273,17 @@ function parseCSVLine(line) {
 // 層1：Firebase payments_status 讀取（付款狀態持久化）
 // ══════════════════════════════════════════════════════
 function loadPaymentStatusFromFirebase(cb) {
-  var db = getFirebaseDb();
-  if (!db) { if (cb) cb(); return; }
-  db.collection('payments_status').get()
-    .then(function(snap) {
+  var sb = getSupabase();
+  if (!sb) { if (cb) cb(); return; }
+  sb.from('payments_status').select('*')
+    .then(function(res) {
+      if (res.error) throw new Error(res.error.message);
       _fbPayStatus = {};
-      snap.forEach(function(doc) {
-        var d = doc.data();
+      (res.data||[]).forEach(function(row) {
+        var d = row.data;
         if (d && d.rowId) _fbPayStatus[String(d.rowId)] = d;
-      });      if (cb) cb();
+      });
+      if (cb) cb();
     })
     .catch(function(e) {
       console.warn('讀取 payments_status 失敗：', e);
@@ -5819,9 +5834,9 @@ function markPaymentPaid(rowId, paid) {
   toast(paid ? '⏳ 儲存中...' : '⏳ 取消中...', '#0369a1');
   renderPayments();
 
-  // 2. 寫入 Firebase payments_status（持久化）
-  var db = getFirebaseDb();
-  if (!db) { toast('⚠️ Firebase 未連線，僅本地更新', '#d97706'); return; }
+  // 2. 寫入 Supabase payments_status（持久化）
+  var sb = getSupabase();
+  if (!sb) { toast('⚠️ Supabase 未連線，僅本地更新', '#d97706'); return; }
   var docId = String(rowId).replace(/[^a-zA-Z0-9_\-]/g,'_');
   var data = {
     rowId: String(rowId), note: p.note||'', dept: p.dept||'',
@@ -5829,8 +5844,9 @@ function markPaymentPaid(rowId, paid) {
     paid: paid, actualDate: actualDate||null, actualAmt: actualAmt||null,
     updatedAt: new Date().toISOString(), updatedBy: (curUser&&curUser.name)||''
   };
-  db.collection('payments_status').doc(docId).set(data, {merge:true})
-    .then(function() {
+  sb.from('payments_status').upsert({ id: docId, data: data })
+    .then(function(res) {
+      if (res.error) throw new Error(res.error.message);
       invalidateCache('payments_status');
       _fbPayStatus[String(rowId)] = data;
       var who = (curUser&&curUser.name)||'?';
@@ -6237,43 +6253,36 @@ function _getFirebasePeriodsRef(formId, periodType) {
   return null;
 }
 
-// ── 整包 periods 寫回 Firebase（唯一正確方式）─────────
-// 用 set({merge:true}) 以 dot-notation key：purchase.periods / sales.periods
+// ── 整包 periods 寫回 Supabase ────────────────────────
 function _writePeriodsToFirebase(formId, periodType, periodsArray, cb) {
-  var db = getFirebaseDb();
-  if (!db) { if (cb) cb(false); return; }
+  var sb = getSupabase();
+  if (!sb) { if (cb) cb(false); return; }
 
-  // ★ 直接用 Firestore SDK update()，傳入巢狀物件（不用 dot-notation key）
-  // Firestore update() 接受 { 'purchase.periods': [...] } 格式，
-  // 這樣只更新 purchase 下的 periods，不影響 purchase 其他欄位
-  var key  = (periodType === 'purchase') ? 'purchase.periods' : 'sales.periods';
-  var data = {};
-  data[key] = periodsArray;
-  data['meta.updatedAt'] = new Date().toISOString();
-
-  db.collection('cases').doc(formId).update(data)
-    .then(function() {
+  // 讀取現有資料，更新對應 periods 欄位，再寫回
+  sb.from('cases').select('data').eq('id', formId).single()
+    .then(function(res) {
+      if (res.error) throw new Error(res.error.message);
+      var current = res.data ? res.data.data : {};
+      var merged = JSON.parse(JSON.stringify(current));
+      if (periodType === 'purchase') {
+        if (!merged.purchase) merged.purchase = {};
+        merged.purchase.periods = periodsArray;
+      } else {
+        if (!merged.sales) merged.sales = {};
+        merged.sales.periods = periodsArray;
+      }
+      if (!merged.meta) merged.meta = {};
+      merged.meta.updatedAt = new Date().toISOString();
+      return sb.from('cases').upsert({ id: formId, data: merged });
+    })
+    .then(function(res) {
+      if (res.error) throw new Error(res.error.message);
       _syncLocalPeriods(formId, periodType, periodsArray);
       if (cb) cb(true);
     })
     .catch(function(e) {
-      console.error('update periods 失敗，改用 set merge：', e);
-      // fallback：改傳巢狀物件結構（不用 dot-notation），讓 set+merge 正確寫入
-      var nested = { 'meta': { 'updatedAt': new Date().toISOString() } };
-      if (periodType === 'purchase') {
-        nested['purchase'] = { 'periods': periodsArray };
-      } else {
-        nested['sales'] = { 'periods': periodsArray };
-      }
-      db.collection('cases').doc(formId).set(nested, { merge: true })
-        .then(function() {
-          _syncLocalPeriods(formId, periodType, periodsArray);
-          if (cb) cb(true);
-        })
-        .catch(function(e2) {
-          console.error('set merge periods 也失敗：', e2);
-          if (cb) cb(false);
-        });
+      console.error('Supabase update periods 失敗：', e);
+      if (cb) cb(false);
     });
 }
 
@@ -6742,18 +6751,15 @@ var _keyinFilter   = 'all';
 var _keyinPage     = 1;
 var KEYIN_PAGE_SIZE = 15;
 
-// ── Firebase：讀取 manual_payments ────────────────────
+// ── Supabase：讀取 manual_payments ────────────────────
 function loadManualPaymentsFromFirebase(cb) {
-  var db = getFirebaseDb();
-  if (!db) { if (cb) cb([]); return; }
-  db.collection('manual_payments')
-    .orderBy('createdAt', 'desc')
-    .limit(500)
-    .get()
-    .then(function(snap) {
-      var result = [];
-      snap.forEach(function(doc) {
-        result.push(Object.assign({ _id: doc.id }, doc.data()));
+  var sb = getSupabase();
+  if (!sb) { if (cb) cb([]); return; }
+  sb.from('manual_payments').select('*').order('created_at', { ascending: false }).limit(500)
+    .then(function(res) {
+      if (res.error) throw new Error(res.error.message);
+      var result = (res.data||[]).map(function(row) {
+        return Object.assign({}, row.data, { _id: row.id });
       });
       allKeyinItems = result;
       _syncManualToPayments();
@@ -6765,44 +6771,46 @@ function loadManualPaymentsFromFirebase(cb) {
     });
 }
 
-// ── Firebase：新增或更新一筆帳款 ──────────────────────
+// ── Supabase：新增或更新一筆帳款 ──────────────────────
 function saveManualPayment(data, cb) {
-  var db = getFirebaseDb();
-  if (!db) { if (cb) cb(false); return; }
+  var sb = getSupabase();
+  if (!sb) { if (cb) cb(false); return; }
   var now = new Date().toISOString();
+  var payload = Object.assign({}, data);
+  delete payload._id;
+
   if (data._id) {
-    // 更新：set merge，保留其他欄位
-    var id = data._id;
-    var payload = Object.assign({}, data);
-    delete payload._id;
+    // 更新
     payload.updatedAt = now;
-    db.collection('manual_payments').doc(id).set(payload, { merge: true })
-      .then(function() {
+    sb.from('manual_payments').update({ data: payload }).eq('id', data._id)
+      .then(function(res) {
+        if (res.error) throw new Error(res.error.message);
         invalidateCache('manual_payments');
-        if (cb) cb(true, id);
+        if (cb) cb(true, data._id);
       })
       .catch(function(e) { console.error('manual_payments 更新失敗：', e); if (cb) cb(false); });
   } else {
-    // 新增：add，自動產生 doc id
-    var newPayload = Object.assign({}, data);
-    delete newPayload._id;
-    newPayload.createdAt = now;
-    newPayload.updatedAt = now;
-    db.collection('manual_payments').add(newPayload)
-      .then(function(ref) {
+    // 新增：自動產生 uuid
+    payload.createdAt = now;
+    payload.updatedAt = now;
+    sb.from('manual_payments').insert({ data: payload }).select('id')
+      .then(function(res) {
+        if (res.error) throw new Error(res.error.message);
         invalidateCache('manual_payments');
-        if (cb) cb(true, ref.id);
+        var newId = res.data && res.data[0] ? res.data[0].id : null;
+        if (cb) cb(true, newId);
       })
       .catch(function(e) { console.error('manual_payments 新增失敗：', e); if (cb) cb(false); });
   }
 }
 
-// ── Firebase：刪除一筆帳款 ────────────────────────────
+// ── Supabase：刪除一筆帳款 ────────────────────────────
 function deleteManualPayment(id, cb) {
-  var db = getFirebaseDb();
-  if (!db) { if (cb) cb(false); return; }
-  db.collection('manual_payments').doc(id).delete()
-    .then(function() {
+  var sb = getSupabase();
+  if (!sb) { if (cb) cb(false); return; }
+  sb.from('manual_payments').delete().eq('id', id)
+    .then(function(res) {
+      if (res.error) throw new Error(res.error.message);
       invalidateCache('manual_payments');
       if (cb) cb(true);
     })
