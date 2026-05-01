@@ -4773,155 +4773,218 @@ function doDelete(rowNum,name){
   }
 }
 
+// ══════════════════════════════════════════════════════
+// 權限配置（預設值，可透過「權限設置」面板修改並存 localStorage）
+// ══════════════════════════════════════════════════════
+var PERM_FEATURES = [
+  { key:'view_all',     label:'檢視全公司案件' },
+  { key:'view_own',     label:'檢視自己的案件' },
+  { key:'add_case',     label:'新增案件' },
+  { key:'edit_case',    label:'編輯案件' },
+  { key:'approve',      label:'簽核案件' },
+  { key:'payment',      label:'支付追蹤管理' },
+  { key:'daily_report', label:'日報表' },
+  { key:'manage_acct',  label:'帳號管理' },
+  { key:'perm_setting', label:'權限設置' },
+];
+var PERM_DEFAULT = {
+  boss:    { view_all:1,view_own:1,add_case:0,edit_case:0,approve:1,payment:1,daily_report:1,manage_acct:1,perm_setting:1 },
+  admin:   { view_all:1,view_own:1,add_case:0,edit_case:0,approve:0,payment:1,daily_report:1,manage_acct:1,perm_setting:1 },
+  finance: { view_all:0,view_own:0,add_case:0,edit_case:0,approve:0,payment:1,daily_report:1,manage_acct:0,perm_setting:0 },
+  staff:   { view_all:0,view_own:1,add_case:1,edit_case:1,approve:0,payment:0,daily_report:0,manage_acct:0,perm_setting:0 },
+};
+function loadPermConfig(){
+  try { var s=localStorage.getItem('perm_config'); return s ? JSON.parse(s) : JSON.parse(JSON.stringify(PERM_DEFAULT)); } catch(e){ return JSON.parse(JSON.stringify(PERM_DEFAULT)); }
+}
+function savePermConfig(cfg){
+  try { localStorage.setItem('perm_config',JSON.stringify(cfg)); } catch(e){}
+}
+function hasPerm(role, key){
+  var cfg = loadPermConfig();
+  return !!(cfg[role] && cfg[role][key]);
+}
+
 // 後台管理
 function renderAdmin(){
   var ug = document.getElementById('ug');
   if(!ug) return;
 
-  // 分兩個 tab：帳號管理 + 權限設置
-  var tabHtml = '<div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0;">'
-    +'<button onclick="document.getElementById(\'tab-accounts\').style.display=\'block\';document.getElementById(\'tab-permissions\').style.display=\'none\';this.style.borderBottom=\'2px solid var(--sea)\';document.querySelectorAll(\'.admin-tab-btn\').forEach(b=>{if(b!==this)b.style.borderBottom=\'none\';});" style="padding:10px 16px;border:none;background:none;color:var(--sea);font-weight:700;cursor:pointer;border-bottom:2px solid var(--sea);" class="admin-tab-btn">👥 帳號管理</button>'
-    +'<button onclick="document.getElementById(\'tab-accounts\').style.display=\'none\';document.getElementById(\'tab-permissions\').style.display=\'block\';this.style.borderBottom=\'2px solid var(--sea)\';document.querySelectorAll(\'.admin-tab-btn\').forEach(b=>{if(b!==this)b.style.borderBottom=\'none\';});" style="padding:10px 16px;border:none;background:none;color:var(--muted);font-weight:700;cursor:pointer;" class="admin-tab-btn">⚙️ 權限設置</button>'
+  // 帳號管理 + 權限設置 只開放給 admin
+  if(curUser.role !== 'admin'){
+    ug.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:14px;">⚠️ 此功能僅限管理員使用</div>';
+    return;
+  }
+
+  var tabHtml = '<div style="display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border);">'
+    +'<button id="atab-acct" onclick="switchAdminTab(\'accounts\')" style="padding:10px 20px;border:none;background:none;color:var(--sea);font-weight:700;cursor:pointer;border-bottom:2px solid var(--sea);font-size:13px;">👥 帳號管理</button>'
+    +'<button id="atab-perm" onclick="switchAdminTab(\'permissions\')" style="padding:10px 20px;border:none;background:none;color:var(--muted);font-weight:700;cursor:pointer;border-bottom:2px solid transparent;font-size:13px;">⚙️ 權限設置</button>'
     +'</div>';
 
   ug.innerHTML = tabHtml + '<div id="tab-accounts"></div><div id="tab-permissions" style="display:none;"></div>';
 
-  var accountsDiv = document.getElementById('tab-accounts');
-  accountsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;"><div class="spin" style="margin:0 auto 8px;"></div>載入帳號中...</div>';
-
-  readAccountsFirebase(function(fbAccs, err){
+  readAccountsFirebase(function(fbAccs){
     var allLocal = BASE_USERS.concat(DEFAULT_STAFF);
-    var allUsers = (fbAccs && fbAccs.length > 0) ? fbAccs : (CLOUD_ACCOUNTS && CLOUD_ACCOUNTS.length > 0 ? CLOUD_ACCOUNTS : allLocal);
+    var allUsers = (fbAccs&&fbAccs.length>0)?fbAccs:(CLOUD_ACCOUNTS&&CLOUD_ACCOUNTS.length>0?CLOUD_ACCOUNTS:allLocal);
     CLOUD_ACCOUNTS = allUsers;
-
-    var editableUsers = allUsers.filter(function(u){
-      if(curUser.role==='boss') return true;
-      if(curUser.role==='admin') return true;
-      return u.id === curUser.id;
-    });
-
-    function roleStyle(role){
-      if(role==='boss')    return 'background:#fef9c3;color:#92400e;';
-      if(role==='admin')   return 'background:#eff6ff;color:#1d4ed8;';
-      if(role==='finance') return 'background:#f0fdf4;color:#15803d;';
-      return 'background:#f1f5f9;color:#475569;';
-    }
-    function roleLabel(role){
-      return role==='boss'?'👑 董事長':role==='admin'?'🔧 管理員':role==='finance'?'💰 財務':'👤 業務員';
-    }
-
-    var rows = editableUsers.map(function(u){
-      var snCell = u.role==='staff'
-        ? '<input id="usn-'+u.id+'" value="'+escHtml(u.staffName||u.name||'')+'" placeholder="與表單一致" style="min-width:80px;">'
-        : '<span style="color:var(--muted);font-size:12px;">—</span>';
-
-      // 角色編輯下拉菜單（只有 boss/admin 可改）
-      var canEditRole = (curUser.role==='boss' || curUser.role==='admin') && u.id !== curUser.id && u.role !== 'boss';
-      var roleCell = canEditRole
-        ? '<select id="ur-'+u.id+'" style="min-width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:4px;"><option value="staff">👤 業務員</option><option value="finance">💰 財務</option><option value="admin">🔧 管理員</option></select>'
-        : '<span class="u-role-badge" style="'+roleStyle(u.role)+'">'+roleLabel(u.role)+'</span>';
-      // 初始化下拉菜單
-      var roleSelectJs = canEditRole ? 'setTimeout(function(){var sel=document.getElementById(\'ur-'+u.id+'\');if(sel)sel.value=\''+u.role+'\';},100);' : '';
-
-      var delBtn = (u.id !== curUser.id && u.role !== 'boss')
-        ? '<button onclick="confirmDeleteAccount(\''+u.id+'\')" style="padding:4px 10px;border-radius:6px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 刪除</button>'
-        : '';
-
-      return '<tr id="uc-'+u.id+'" onload="'+roleSelectJs+'">'
-        +'<td>'+roleCell+'</td>'
-        +'<td><input id="un-'+u.id+'" value="'+escHtml(u.name||'')+'" style="min-width:70px;"></td>'
-        +'<td><input id="up-'+u.id+'" type="text" value="'+escHtml(u.pwd||'')+'" autocomplete="off" style="min-width:90px;font-family:monospace;"></td>'
-        +'<td><input id="ue-'+u.id+'" type="email" value="'+escHtml(u.email||'')+'" placeholder="name@co.com" style="min-width:120px;"></td>'
-        +'<td>'+snCell+'</td>'
-        +'<td style="white-space:nowrap;display:flex;gap:6px;align-items:center;">'
-        +'<button onclick="saveAccountToFirebase(\''+u.id+'\')" style="padding:4px 12px;border-radius:6px;background:var(--sea);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">💾 儲存</button>'
-        +delBtn
-        +'<span class="svd" id="sv-'+u.id+'" style="font-size:11px;">✓ 已儲存</span>'
-        +'</td>'
-        +'</tr>';
-    }).join('');
-
-    // 初始化下拉菜單值
-    setTimeout(function(){
-      editableUsers.forEach(function(u){
-        var sel = document.getElementById('ur-'+u.id);
-        if(sel) sel.value = u.role;
-      });
-    }, 100);
-
-    accountsDiv.innerHTML = '<table class="utbl">'
-      +'<thead><tr>'
-      +'<th>角色</th><th>顯示名稱</th><th>密碼</th><th>信箱</th><th>業務名稱</th><th>操作</th>'
-      +'</tr></thead>'
-      +'<tbody>'+rows+'</tbody>'
-      +'</table>'
-      +'<button onclick="showAddAccountModal()" style="margin-top:12px;padding:8px 18px;border-radius:8px;background:var(--sea);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;">＋ 新增帳號</button>';
-
-    // 權限設置面板
+    renderAccountsTab(allUsers);
     renderPermissionsPanel();
   });
 }
 
-// 權限設置面板
+function switchAdminTab(tab){
+  document.getElementById('tab-accounts').style.display    = tab==='accounts'    ? 'block' : 'none';
+  document.getElementById('tab-permissions').style.display = tab==='permissions' ? 'block' : 'none';
+  document.getElementById('atab-acct').style.cssText = 'padding:10px 20px;border:none;background:none;font-weight:700;cursor:pointer;font-size:13px;'+(tab==='accounts'?'color:var(--sea);border-bottom:2px solid var(--sea);':'color:var(--muted);border-bottom:2px solid transparent;');
+  document.getElementById('atab-perm').style.cssText = 'padding:10px 20px;border:none;background:none;font-weight:700;cursor:pointer;font-size:13px;'+(tab==='permissions'?'color:var(--sea);border-bottom:2px solid var(--sea);':'color:var(--muted);border-bottom:2px solid transparent;');
+}
+
+function renderAccountsTab(allUsers){
+  var div = document.getElementById('tab-accounts');
+  if(!div) return;
+  var isSuper = curUser.role==='boss'||curUser.role==='admin';
+  var list = allUsers.filter(function(u){ return isSuper ? true : u.id===curUser.id; });
+
+  function roleBadge(role){
+    var s = role==='boss'?'background:#fef9c3;color:#92400e;':role==='admin'?'background:#eff6ff;color:#1d4ed8;':role==='finance'?'background:#f0fdf4;color:#15803d;':'background:#f1f5f9;color:#475569;';
+    var l = role==='boss'?'👑 董事長':role==='admin'?'🔧 管理員':role==='finance'?'💰 財務':'👤 業務員';
+    return '<span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;'+s+'">'+l+'</span>';
+  }
+
+  var rows = list.map(function(u){
+    var canDel = isSuper && u.id!==curUser.id && u.role!=='boss';
+    return '<tr>'
+      +'<td>'+roleBadge(u.role)+'</td>'
+      +'<td style="font-weight:600;">'+escHtml(u.name||u.id)+'</td>'
+      +'<td style="font-family:monospace;color:var(--muted);">'+escHtml(u.id)+'</td>'
+      +'<td style="color:var(--muted);font-size:12px;">'+escHtml(u.email||'—')+'</td>'
+      +'<td style="color:var(--muted);font-size:12px;">'+escHtml(u.staffName||'—')+'</td>'
+      +'<td style="white-space:nowrap;">'
+      +'<button onclick="openEditAccountModal(\''+u.id+'\')" style="padding:4px 12px;border-radius:6px;background:var(--sea);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;">✏️ 編輯</button>'
+      +(canDel?'<button onclick="confirmDeleteAccount(\''+u.id+'\')" style="padding:4px 10px;border-radius:6px;background:#fef2f2;color:var(--coral);border:0.5px solid #fca5a5;font-size:12px;font-weight:700;cursor:pointer;">🗑 移除</button>':'')
+      +'</td>'
+      +'</tr>';
+  }).join('');
+
+  div.innerHTML = '<table class="utbl"><thead><tr>'
+    +'<th>角色</th><th>顯示名稱</th><th>帳號ID</th><th>信箱</th><th>業務名稱</th><th>操作</th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<button onclick="showAddAccountModal()" style="margin-top:12px;padding:8px 18px;border-radius:8px;background:var(--sea);color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;">＋ 新增帳號</button>';
+}
+
+// 編輯帳號 Modal
+function openEditAccountModal(id){
+  var u = (CLOUD_ACCOUNTS||[]).find(function(x){ return x.id===id; });
+  if(!u){ toast('找不到帳號','#dc2626'); return; }
+  var isSuper = curUser.role==='boss'||curUser.role==='admin';
+  var canChangeRole = isSuper && u.role!=='boss' && u.id!==curUser.id;
+
+  var roleOpts = ['staff','finance','admin','boss'].map(function(r){
+    var l = r==='boss'?'👑 董事長':r==='admin'?'🔧 管理員':r==='finance'?'💰 財務':'👤 業務員';
+    return '<option value="'+r+'"'+(u.role===r?' selected':'')+'>'+l+'</option>';
+  }).join('');
+
+  var html = '<div style="padding:24px;min-width:300px;">'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:20px;">✏️ 編輯帳號：'+escHtml(u.name||u.id)+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:14px;">'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">角色</div>'
+    +(canChangeRole
+      ? '<select id="edit-role" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;">'+roleOpts+'</select>'
+      : '<div style="padding:9px 12px;background:#f8fafc;border-radius:8px;font-size:14px;color:var(--muted);">'+(u.role==='boss'?'👑 董事長':u.role==='admin'?'🔧 管理員':u.role==='finance'?'💰 財務':'👤 業務員')+'</div>')
+    +'</div>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">顯示名稱 <span style="color:var(--coral);">*</span></div>'
+    +'<input id="edit-name" type="text" value="'+escHtml(u.name||'')+'" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"></div>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">密碼 <span style="color:var(--coral);">*</span></div>'
+    +'<input id="edit-pwd" type="text" value="'+escHtml(u.pwd||'')+'" autocomplete="off" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:monospace;"></div>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">信箱</div>'
+    +'<input id="edit-email" type="email" value="'+escHtml(u.email||'')+'" placeholder="name@company.com" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"></div>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">業務名稱（與表單一致）</div>'
+    +'<input id="edit-sn" type="text" value="'+escHtml(u.staffName||'')+'" placeholder="留空則不顯示於轉交清單" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:10px;margin-top:20px;">'
+    +'<button onclick="saveEditAccount(\''+id+'\')" style="flex:1;padding:11px;border-radius:8px;background:var(--sea);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;">💾 儲存</button>'
+    +'<button onclick="closeD()" style="flex:1;padding:11px;border-radius:8px;background:#f1f5f9;color:var(--muted);font-size:14px;font-weight:700;border:none;cursor:pointer;">取消</button>'
+    +'</div>'
+    +'</div>';
+  openD(html);
+}
+
+function saveEditAccount(id){
+  var nameEl  = document.getElementById('edit-name');
+  var pwdEl   = document.getElementById('edit-pwd');
+  var emailEl = document.getElementById('edit-email');
+  var snEl    = document.getElementById('edit-sn');
+  var roleEl  = document.getElementById('edit-role');
+
+  var name = nameEl?nameEl.value.trim():'';
+  var pwd  = pwdEl?pwdEl.value.trim():'';
+  if(!name||!pwd){ toast('名稱和密碼不能空白','#dc2626'); return; }
+
+  var existing = (CLOUD_ACCOUNTS||[]).find(function(u){ return u.id===id; })||{};
+  var acc = Object.assign({}, existing, {
+    id:id, name:name, pwd:pwd,
+    email:   emailEl?emailEl.value.trim():(existing.email||''),
+    staffName: snEl?snEl.value.trim():(existing.staffName||''),
+    role:    roleEl?roleEl.value:(existing.role||'staff'),
+  });
+
+  saveAccountFirebase(acc, function(ok){
+    if(!ok){ toast('❌ 儲存失敗','#dc2626'); return; }
+    if(CLOUD_ACCOUNTS){
+      var idx=CLOUD_ACCOUNTS.findIndex(function(u){return u.id===id;});
+      if(idx>=0) CLOUD_ACCOUNTS[idx]=acc; else CLOUD_ACCOUNTS.push(acc);
+    }
+    closeD();
+    toast('✅ 帳號已更新','#16a34a');
+    renderAccountsTab(CLOUD_ACCOUNTS);
+    backupActionToGAS({action:'updateAccount',id:id,name:name,pwd:pwd,email:acc.email,staffName:acc.staffName,role:acc.role});
+  });
+}
+
+// 權限設置面板（可勾選）
 function renderPermissionsPanel(){
   var permDiv = document.getElementById('tab-permissions');
   if(!permDiv) return;
+  var cfg = loadPermConfig();
+  var roles = [
+    {key:'boss',    label:'👑 董事長', bg:'#fef9c3', border:'rgba(212,168,19,.3)', tc:'#92400e', locked:false},
+    {key:'admin',   label:'🔧 管理員', bg:'#eff6ff', border:'rgba(29,78,216,.3)',  tc:'#1d4ed8', locked:false},
+    {key:'finance', label:'💰 財務',   bg:'#f0fdf4', border:'rgba(21,128,61,.3)',  tc:'#15803d', locked:false},
+    {key:'staff',   label:'👤 業務員', bg:'#f1f5f9', border:'rgba(71,85,105,.3)', tc:'#475569', locked:false},
+  ];
 
-  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;">'
-    +'<div style="background:#fef9c3;border:1px solid rgba(212,168,19,.3);border-radius:12px;padding:16px;">'
-    +'<div style="font-size:14px;font-weight:700;color:#92400e;margin-bottom:10px;">👑 董事長</div>'
-    +'<ul style="font-size:12px;color:#78350f;line-height:1.8;margin:0;padding-left:16px;">'
-    +'<li>✓ 檢視所有案件（全公司）</li>'
-    +'<li>✓ 簽核案件（批准/拒絕）</li>'
-    +'<li>✓ 查看支付追蹤</li>'
-    +'<li>✓ 帳號管理</li>'
-    +'<li>✓ 系統設置</li>'
-    +'<li>❌ 編輯案件（不可編輯，需業務修改後簽核）</li>'
-    +'</ul>'
-    +'</div>'
+  var cards = roles.map(function(r){
+    var items = PERM_FEATURES.map(function(f){
+      var checked = cfg[r.key]&&cfg[r.key][f.key]?'checked':'';
+      var disabled = r.locked?' disabled':'';
+      return '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:'+(r.locked?'default':'pointer')+';font-size:13px;color:'+r.tc+';">'
+        +'<input type="checkbox" id="perm-'+r.key+'-'+f.key+'" '+checked+disabled
+        +' style="width:16px;height:16px;accent-color:'+r.tc+';cursor:'+(r.locked?'default':'pointer')+';">'
+        +f.label
+        +'</label>';
+    }).join('');
 
-    +'<div style="background:#eff6ff;border:1px solid rgba(29,78,216,.3);border-radius:12px;padding:16px;">'
-    +'<div style="font-size:14px;font-weight:700;color:#1d4ed8;margin-bottom:10px;">🔧 管理員</div>'
-    +'<ul style="font-size:12px;color:#1e40af;line-height:1.8;margin:0;padding-left:16px;">'
-    +'<li>✓ 檢視所有案件（全公司）</li>'
-    +'<li>✓ 帳號管理（新增/編輯/刪除）</li>'
-    +'<li>✓ 更改帳號權限</li>'
-    +'<li>✓ 查看審計日誌</li>'
-    +'<li>✓ 備份設置</li>'
-    +'<li>❌ 簽核案件</li>'
-    +'<li>❌ 編輯案件</li>'
-    +'</ul>'
-    +'</div>'
+    var footer = r.locked
+      ? '<div style="margin-top:12px;font-size:11px;color:'+r.tc+';opacity:.6;">董事長權限固定，不可更改</div>'
+      : '<button onclick="saveRolePerms(\''+r.key+'\')" style="margin-top:12px;width:100%;padding:7px;border-radius:7px;background:'+r.tc+';color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;">💾 儲存'+r.label+'設定</button>';
 
-    +'<div style="background:#f0fdf4;border:1px solid rgba(21,128,61,.3);border-radius:12px;padding:16px;">'
-    +'<div style="font-size:14px;font-weight:700;color:#15803d;margin-bottom:10px;">💰 財務</div>'
-    +'<ul style="font-size:12px;color:#166534;line-height:1.8;margin:0;padding-left:16px;">'
-    +'<li>✓ 檢視已簽核的案件</li>'
-    +'<li>✓ 支付追蹤管理</li>'
-    +'<li>✓ 確認收款狀態</li>'
-    +'<li>✓ 生成財務報表</li>'
-    +'<li>❌ 檢視待簽核案件</li>'
-    +'<li>❌ 簽核</li>'
-    +'<li>❌ 帳號管理</li>'
-    +'</ul>'
-    +'</div>'
+    return '<div style="background:'+r.bg+';border:1px solid '+r.border+';border-radius:12px;padding:16px;">'
+      +'<div style="font-size:14px;font-weight:700;color:'+r.tc+';margin-bottom:12px;">'+r.label+'</div>'
+      +items+footer+'</div>';
+  }).join('');
 
-    +'<div style="background:#f1f5f9;border:1px solid rgba(71,85,105,.3);border-radius:12px;padding:16px;">'
-    +'<div style="font-size:14px;font-weight:700;color:#475569;margin-bottom:10px;">👤 業務員</div>'
-    +'<ul style="font-size:12px;color:#334155;line-height:1.8;margin:0;padding-left:16px;">'
-    +'<li>✓ 新增案件</li>'
-    +'<li>✓ 編輯自己的案件</li>'
-    +'<li>✓ 檢視案件進度</li>'
-    +'<li>✓ 修改密碼</li>'
-    +'<li>❌ 簽核案件</li>'
-    +'<li>❌ 查看其他業務的案件</li>'
-    +'<li>❌ 支付追蹤</li>'
-    +'<li>❌ 帳號管理</li>'
-    +'</ul>'
-    +'</div>'
-    +'</div>';
+  permDiv.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;">'+cards+'</div>'
+    +'<div style="margin-top:14px;font-size:12px;color:var(--muted);">⚠️ 權限設置儲存於本機，更改後立即生效於下次登入。</div>';
+}
 
-  permDiv.innerHTML = html;
+function saveRolePerms(role){
+  var cfg = loadPermConfig();
+  if(!cfg[role]) cfg[role]={};
+  PERM_FEATURES.forEach(function(f){
+    var cb = document.getElementById('perm-'+role+'-'+f.key);
+    if(cb) cfg[role][f.key] = cb.checked ? 1 : 0;
+  });
+  savePermConfig(cfg);
+  toast('✅ '+( role==='admin'?'管理員':role==='finance'?'財務':'業務員' )+'權限已儲存','#16a34a');
 }
 
 function confirmDeleteAccount(uid){
