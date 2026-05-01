@@ -1176,7 +1176,7 @@ function jsonpGet(url, cb){
 }
 
 // ★ 匯率換算：預設值，啟動後自動從免費 API 更新
-var RATE={TWD:1,USD:30.5,JPY:0.205,EUR:33.5};
+var RATE={TWD:1,USD:30.5,JPY:0.205,EUR:33.5,CNY:4.5};
 
 // ★ 幣別顯示排序規範：NTD(TWD) > USD > JPY > EUR > ZAR > 其他
 var CUR_ORDER = ['TWD','NTD','USD','JPY','EUR','ZAR'];
@@ -1192,26 +1192,69 @@ function sortedCurKeys(map){
   return keys;
 }
 
-function fetchRates(){
-  var el=document.getElementById('rate-info');
-  if(el)el.textContent='載入台灣銀行匯率中...';
+// ── 匯率快取（localStorage，60分鐘有效）────────────────
+function _cacheRates(usd, jpy, eur, cny, source){
+  try {
+    localStorage.setItem('rate_cache', JSON.stringify({USD:usd,JPY:jpy,EUR:eur,CNY:cny,source:source}));
+    localStorage.setItem('rate_cache_time', Date.now().toString());
+  } catch(e){}
+}
+function _applyRates(usd, jpy, eur, cny, source, updated){
+  if(usd>0) RATE.USD = usd;
+  if(jpy>0) RATE.JPY = jpy;
+  if(eur>0) RATE.EUR = eur;
+  if(cny>0) RATE.CNY = cny;
+  var el = document.getElementById('rate-info');
+  if(el) el.textContent = '即期匯率（'+source+'）'+(updated||'')
+    +' | USD '+RATE.USD.toFixed(2)
+    +' / JPY '+RATE.JPY.toFixed(3)
+    +' / EUR '+RATE.EUR.toFixed(2)
+    +' / CNY '+RATE.CNY.toFixed(3);
+  if(rows.length>0) onLoad();
+}
+// Apps Script 失敗時：保留快取的 BOT 匯率，顯示警告（不使用市場匯率）
+function _fallbackFetchRates(){
+  var el = document.getElementById('rate-info');
+  var msg = '⚠️ 台灣銀行匯率取得失敗，使用上次快取值'
+    + ' | USD '+RATE.USD.toFixed(2)
+    + ' / JPY '+RATE.JPY.toFixed(3)
+    + ' / EUR '+RATE.EUR.toFixed(2)
+    + (RATE.CNY ? ' / CNY '+RATE.CNY.toFixed(3) : '');
+  if(el) el.textContent = msg;
+  console.warn('台灣銀行匯率取得失敗，Apps Script 請確認部署狀態');
+}
 
-  // 透過 Apps Script getRates（台灣銀行即期買入，Apps Script 處理 CORS）
+function fetchRates(){
+  var el = document.getElementById('rate-info');
+  if(el) el.textContent='載入台灣銀行匯率中...';
+
+  // 1. 先套用 localStorage 快取（讓畫面立即顯示上次資料）
+  try {
+    var cached   = localStorage.getItem('rate_cache');
+    var cacheAge = Date.now() - parseInt(localStorage.getItem('rate_cache_time')||'0');
+    if(cached && cacheAge < 3600000){ // 60 分鐘內視為有效
+      var cr = JSON.parse(cached);
+      _applyRates(cr.USD,cr.JPY,cr.EUR,cr.CNY||0, (cr.source||'快取')+'（快取）','');
+      if(cacheAge < 1800000) return; // 30 分鐘內不重新拉取
+    }
+  } catch(e){}
+
+  // 2. 透過 Apps Script 取台灣銀行即期買入匯率（5 秒逾時則改用備援）
+  var done = false;
+  var timer = setTimeout(function(){
+    if(!done){ done=true; _fallbackFetchRates(); }
+  }, 5000);
+
   jsonpGet(SCRIPT+'?action=getRates', function(d, err){
+    if(done) return;
+    clearTimeout(timer);
+    done = true;
     if(d && d.status==='ok' && d.rates){
       var r = d.rates;
-      if(r.USD>0) RATE.USD = r.USD;
-      if(r.JPY>0) RATE.JPY = r.JPY;
-      if(r.EUR>0) RATE.EUR = r.EUR;
-      var src = d.source || '台灣銀行即期買入';
-      if(el) el.textContent='即期匯率（'+src+'）'+d.updated
-        +' | USD '+RATE.USD.toFixed(2)
-        +' / JPY '+RATE.JPY.toFixed(3)
-        +' / EUR '+RATE.EUR.toFixed(2);
-      if(rows.length>0) onLoad();
+      _cacheRates(r.USD||RATE.USD, r.JPY||RATE.JPY, r.EUR||RATE.EUR, r.CNY||RATE.CNY||4.5, d.source||'台灣銀行即期買入');
+      _applyRates(r.USD,r.JPY,r.EUR,r.CNY||0, d.source||'台灣銀行即期買入', d.updated||'');
     } else {
-      if(el) el.textContent='即期匯率（備用）| USD '+RATE.USD+' / JPY '+RATE.JPY+' / EUR '+RATE.EUR;
-      console.warn('匯率取得失敗，使用預設值');
+      _fallbackFetchRates();
     }
   });
 }
@@ -1261,7 +1304,7 @@ function doLogin(u){
     if(age > 1800000){ // 超過 30 分鐘才重讀      load();
     } else {    }
   }, 600000); // 每 10 分鐘檢查一次
-  setInterval(fetchRates, 1800000);
+  setInterval(fetchRates, 3600000); // 每 60 分鐘重新拉取匯率
   // 直接讀取（Supabase 不需要 Auth）
   load();
 }
@@ -2085,8 +2128,8 @@ function renderDash(){
 
   // ★ 4 個統計卡片
   var statsHtml='<div class="sg">'
-    +'<div class="st s1"><div class="stlbl">總進貨金額（已審核）</div><div class="stval v1">'+fmtM(tB)+'</div><div class="stsub">NTD 換算</div></div>'
-    +'<div class="st s2"><div class="stlbl">總出貨金額（已審核）</div><div class="stval v2">'+fmtM(tS)+'</div><div class="stsub">NTD 換算</div></div>'
+    +'<div class="st s1"><div class="stlbl">總採購金額（已審核）</div><div class="stval v1">'+fmtM(tB)+'</div><div class="stsub">NTD 換算</div></div>'
+    +'<div class="st s2"><div class="stlbl">總銷售金額（已審核）</div><div class="stval v2">'+fmtM(tS)+'</div><div class="stsub">NTD 換算</div></div>'
     +'<div class="st s3"><div class="stlbl">預估總毛利（已審核）</div><div class="stval v3">'+fmtM(tP)+'</div><div class="stsub">毛利率 '+mg+'%</div></div>'
     +'<div class="st s4"><div class="stlbl">待審核</div><div class="stval v4">'+pend+'</div><div class="stsub">筆合約</div></div>'
     +'</div>';
@@ -2141,7 +2184,7 @@ function makeCard(r,showApprove){
     +'<div class="cc-id">'+g(r,'formId')+splitBadge+'</div>'
     +'<div class="cc-name">'+g(r,'name')+'</div>'
     +'</div><span class="bdg '+bc+'">'+sl+'</span></div>'
-    +'<div class="cc-meta">'+g(r,'staff')+'　·　'+g(r,'time').split(' ')[0]+'</div>'
+    +'<div class="cc-meta">'+g(r,'staff')+'　·　'+fmtDateSlash(g(r,'time'))+'</div>'
     +(function(){
       // 應收：顯示原幣金額（取第1期幣別+金額，若多期同幣則加總，不同幣則顯示折合NTD）
       var sellPeriods = getPeriods01(r,'sell');
@@ -2308,8 +2351,8 @@ function renderMyCase(){
   var statsEl = document.getElementById('mycase-stats');
   if(statsEl){
     statsEl.innerHTML=
-      '<div class="st s1"><div class="stlbl">總進貨成本</div><div class="stval v1">'+fmtM(tB)+'</div><div class="stsub">NTD 換算</div></div>'
-     +'<div class="st s2"><div class="stlbl">總出貨金額</div><div class="stval v2">'+fmtM(tS)+'</div><div class="stsub">NTD 換算</div></div>'
+      '<div class="st s1"><div class="stlbl">總採購金額</div><div class="stval v1">'+fmtM(tB)+'</div><div class="stsub">NTD 換算</div></div>'
+     +'<div class="st s2"><div class="stlbl">總銷售金額</div><div class="stval v2">'+fmtM(tS)+'</div><div class="stsub">NTD 換算</div></div>'
      +'<div class="st s3"><div class="stlbl">預估總毛利</div><div class="stval v3">'+fmtM(tP)+'</div><div class="stsub">毛利率 '+mg+'%</div></div>'
      +'<div class="st s3"><div class="stlbl">待審核</div><div class="stval v4">'+pend+'</div><div class="stsub">筆合約</div></div>';
   }
@@ -3090,7 +3133,7 @@ function showD(rowNum){
   if(!r)return;
   document.getElementById('dm-id').textContent='案件號碼 '+g(r,'formId');
   document.getElementById('dm-nm').textContent=g(r,'name');
-  document.getElementById('dm-tm').textContent=g(r,'time')+'　'+g(r,'staff')+(g(r,'asst')?'/'+g(r,'asst'):'');
+  document.getElementById('dm-tm').textContent=fmtDateSlash(g(r,'time'))+'　'+g(r,'staff')+(g(r,'asst')?'/'+g(r,'asst'):'');
 
   var m=calcMargin(r);
   var h='';
@@ -3195,8 +3238,8 @@ function showD(rowNum){
     +dr('佣金',     fmtFeeDisplay(r[F.comm]))
     +dr('其他費用', fmtFeeDisplay(r[F.extra]))
     +(r[F.asst]?dr('承辦業助', r[F.asst]):'')
-    +(r[F.etd] ?dr('ETD 出貨日', r[F.etd]):'')
-    +(r[F.eta] ?dr('ETA 到貨日', r[F.eta]):'')
+    +(r[F.etd] ?dr('ETD 出貨日', fmtDateSlash(r[F.etd])):'')
+    +(r[F.eta] ?dr('ETA 到貨日', fmtDateSlash(r[F.eta])):'')
     +(r[F.origin]?dr('出貨地', r[F.origin]):'')
     +(r[F.dest]  ?dr('目的地', r[F.dest]):'')
     +(r[F.trade] ?dr('貿易條件', r[F.trade]):'')
@@ -3244,7 +3287,7 @@ function showD(rowNum){
       +'<div style="display:flex;align-items:center;gap:7px;margin-bottom:'+(bNote?'10px':'0')+';">'
       +'<div style="width:3px;height:16px;background:'+bAccent+';border-radius:2px;"></div>'
       +'<span style="font-size:13px;font-weight:700;color:'+bAccent+';letter-spacing:.04em;">'+bLabel+'</span>'
-      +(bSignTime?'<span style="font-size:10px;color:#94a3b8;margin-left:auto;font-family:monospace;">'+bSignTime+'</span>':'')
+      +(bSignTime?'<span style="font-size:10px;color:#94a3b8;margin-left:auto;font-family:monospace;">'+fmtDateTimeSlash(bSignTime)+'</span>':'')
       +'</div>'
       +(bNote?'<div style="font-size:13px;color:'+bColor+';font-weight:500;line-height:1.8;background:#fff;border-radius:7px;padding:10px 14px;border-left:3px solid '+bAccent+';">'+bNote+'</div>':'')
       +'</div>';
@@ -6792,7 +6835,7 @@ function cancelTransfer(formId, periodIdx, periodType) {
       '期別：' + htmlEsc(linkedKeyin.periodName || ('第'+(periodIdx+1)+'期')) + '<br>' +
       '方向：' + dirLabel + '<br>' +
       '幣別 / 金額：' + (linkedKeyin.currency||'TWD').toUpperCase() + ' ' + fmtN(parseFloat(linkedKeyin.amount)||0) + '<br>' +
-      '建立時間：' + (linkedKeyin.createdAt ? linkedKeyin.createdAt.slice(0,10) : '—');
+      '建立時間：' + fmtDateSlash(linkedKeyin.createdAt || '');
     document.getElementById('ctm-keyin-info').innerHTML = infoHtml;
 
     // 綁定「刪除收單記錄 並 取消確認」按鈕
@@ -6969,11 +7012,27 @@ function goTab(id) {
 // 工具函式
 // ══════════════════════════════════════════════════════
 function fmtN(n) { return Math.round(n||0).toLocaleString('zh-TW'); }
-// 把 YYYY-MM-DD 轉為 YYYY/MM/DD 顯示（空值回 '—'）
+// 把任意日期字串轉為 YYYY/MM/DD（空值回 '—'）
 function fmtDateSlash(s) {
   var d = parseDateStr(s);
   if (!d) return '—';
   return d.replace(/-/g, '/');
+}
+// 把任意日期時間字串轉為 YYYY/MM/DD HH:MM（用於簽核時間等）
+function fmtDateTimeSlash(s) {
+  if (!s) return '';
+  try {
+    var str = String(s).trim();
+    var dt = new Date(str.replace(/-/g, '/'));
+    if (isNaN(dt.getTime())) dt = new Date(str);
+    if (isNaN(dt.getTime())) return str.split(/[T ]/)[0].replace(/-/g,'/') || str;
+    var Y = dt.getFullYear();
+    var M = ('0'+(dt.getMonth()+1)).slice(-2);
+    var D = ('0'+dt.getDate()).slice(-2);
+    var h = ('0'+dt.getHours()).slice(-2);
+    var m = ('0'+dt.getMinutes()).slice(-2);
+    return Y+'/'+M+'/'+D+' '+h+':'+m;
+  } catch(e) { return s; }
 }
 var CUR_SYMBOL = {'TWD':'TWD','USD':'USD','JPY':'JPY','EUR':'EUR','CNY':'CNY','NTD':'TWD'};
 function fmtAmt(amt, cur, direction) {
