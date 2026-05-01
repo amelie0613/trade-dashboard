@@ -1009,9 +1009,20 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'">
       </div>
     </div>
-    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+    <div style="margin-top:16px;padding:14px;background:#f0f4ff;border-radius:12px;border:1.5px solid #c8d0ee;">
+      <div style="font-size:11px;font-weight:800;color:#4a5a9f;margin-bottom:10px;">📤 上傳原始資料（供 Dashboard 讀取）</div>
+      <div style="font-size:11px;color:#666;margin-bottom:10px;line-height:1.7;">
+        將未分類的主資料、單價設定、差異報告結果上傳到 Sheets，<br>
+        讓 dashboard.html 能自行計算並顯示所有報表。
+      </div>
+      <button class="btn" onclick="uploadRawData()" id="rawUploadBtn"
+        style="background:#4a5a9f;color:white;font-size:12px;padding:7px 18px;border-radius:8px;width:100%;">
+        📤 上傳原始資料 + 單價 + 差異結果
+      </button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeSheetsPanel()">取消</button>
-      <button class="btn btn-primary" onclick="writeToSheets()" id="sheetsSaveBtn">☁️ 寫入</button>
+      <button class="btn btn-primary" onclick="writeToSheets()" id="sheetsSaveBtn">☁️ 寫入分析結果</button>
     </div>
     <div id="sheetsStatus" style="margin-top:10px;font-size:12px;text-align:center;min-height:18px;color:var(--muted);"></div>
   </div>
@@ -3929,11 +3940,103 @@ async function writeToSheets(){
   }
 
   btn.disabled = false;
-  btn.textContent = '☁️ 寫入';
+  btn.textContent = '☁️ 寫入分析結果';
   if(errors.length === 0){
     statusEl.style.color = 'var(--green)';
     statusEl.textContent = `✅ 4個分頁全部寫入完成，共 ${totalRows} 筆`;
     showToast('✅ 已寫入 Google Sheets 4個分頁');
+  } else {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '⚠️ 部分失敗：' + errors.join('、');
+  }
+}
+
+// ── 上傳原始資料（供 dashboard.html 讀取） ───────────────────────
+async function uploadRawData(){
+  const urlEl    = document.getElementById('sheetsUrl');
+  const url      = (urlEl?.value || '').trim() || (localStorage.getItem('sheetsScriptUrl') || DEFAULT_SHEETS_SCRIPT_URL).trim();
+  const sheetId  = document.getElementById('sheetId')?.value?.trim() || '';
+  const statusEl = document.getElementById('sheetsStatus');
+  const btn      = document.getElementById('rawUploadBtn');
+
+  if(!url){ statusEl.textContent = '❌ Apps Script 網址未設定'; statusEl.style.color='var(--red)'; return; }
+  if(!allData || !allData.length){ showToast('❌ 請先加載庫存數據'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '上傳中…';
+  statusEl.style.color = 'var(--muted)';
+
+  const post = async (payload) => {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload),
+    });
+    return resp.text();
+  };
+
+  const errors = [];
+
+  // ① 原始庫存（allData 的原始欄位，不含計算欄）
+  try {
+    statusEl.textContent = '(1/3) 上傳原始庫存…';
+    const rawHeaders = ['核算組織名稱','產品類別','產品代碼','產品名稱','產品規格',
+                        '庫存數量','基本單位名稱','倉庫名稱','批號','有效期至'];
+    const rawRows = allData.map(r => rawHeaders.map(h => r[h] !== undefined ? String(r[h]) : ''));
+    const res = await post({ sheetId, sheetName:'原始庫存', headers: rawHeaders, rows: rawRows, headerColor:'#4a5a9f' });
+    if(!res.includes('success')) errors.push('原始庫存：' + res.slice(0,60));
+  } catch(e){ errors.push('原始庫存：' + e.message); }
+
+  // ② 單價設定（prices object → 列表）
+  try {
+    statusEl.textContent = '(2/3) 上傳單價設定…';
+    const priceHeaders = ['產品名稱__批號key','單價','存貨核算範圍名稱'];
+    const priceRows = Object.entries(prices)
+      .filter(([,v]) => v && (v.price > 0 || v.scope))
+      .map(([k,v]) => [k, String(v.price || 0), String(v.scope || '')]);
+    const res = await post({ sheetId, sheetName:'單價設定', headers: priceHeaders, rows: priceRows, headerColor:'#059669' });
+    if(!res.includes('success')) errors.push('單價設定：' + res.slice(0,60));
+  } catch(e){ errors.push('單價設定：' + e.message); }
+
+  // ③ 差異報告（若有 diffReportPayload）
+  try {
+    statusEl.textContent = '(3/3) 上傳差異報告…';
+    const diffRaw = localStorage.getItem('diffReportPayload');
+    if(diffRaw){
+      const diffPayload = JSON.parse(diffRaw);
+      const diffRows    = diffPayload.rows || [];
+      if(diffRows.length){
+        const diffHeaders = ['產品名稱','產品類別','產品代碼','產品規格','批號','倉庫',
+                             '變化類型','期初數量','期末數量','數量變化','期初成本','期末成本','成本變化','產生時間'];
+        const chgMap = { new:'新增', gone:'消失', up:'增加', down:'減少', same:'不變' };
+        const genAt  = diffPayload.generatedAt || '';
+        const rows   = diffRows.map(r => [
+          r['產品名稱']||'', r['產品類別']||'', r['產品代碼']||'', r['產品規格']||'',
+          r['批號']||'', r['倉庫']||'',
+          chgMap[r._changeType] || r._changeType || '',
+          r._qtyA !== undefined ? String(r._qtyA) : '',
+          r._qtyB !== undefined ? String(r._qtyB) : '',
+          r._diff !== undefined ? String(r._diff) : '',
+          r._costA !== undefined ? String(Math.round(r._costA)) : '',
+          r._costB !== undefined ? String(Math.round(r._costB)) : '',
+          r._costDiff !== undefined ? String(Math.round(r._costDiff)) : '',
+          genAt
+        ]);
+        const res = await post({ sheetId, sheetName:'差異報告', headers: diffHeaders, rows, headerColor:'#7C3AED' });
+        if(!res.includes('success')) errors.push('差異報告：' + res.slice(0,60));
+      }
+    } else {
+      statusEl.textContent = '(3/3) 無差異報告資料，跳過';
+    }
+  } catch(e){ errors.push('差異報告：' + e.message); }
+
+  btn.disabled = false;
+  btn.textContent = '📤 上傳原始資料 + 單價 + 差異結果';
+
+  if(errors.length === 0){
+    statusEl.style.color = 'var(--green)';
+    statusEl.textContent = '✅ 原始資料上傳完成（原始庫存 / 單價設定 / 差異報告）';
+    showToast('✅ 原始資料已上傳到 Google Sheets');
   } else {
     statusEl.style.color = 'var(--red)';
     statusEl.textContent = '⚠️ 部分失敗：' + errors.join('、');

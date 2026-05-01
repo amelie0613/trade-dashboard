@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>庫存管理 Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
+
+:root {
+  --accent:  #6878C0;
+  --accent2: #4a5a9f;
+  --bg:      #EFF4F8;
+  --card:    #FFFFFF;
+  --border:  #dde6ef;
+  --muted:   #64748b;
+  --text:    #1a2540;
+  --red:     #DC2626;
+  --orange:  #EA580C;
+  --amber:   #B45309;
+  --green:   #059669;
+  --purple:  #7C3AED;
+  --sidebar: #1E2A50;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── HEADER ── */
+.topbar {
+  background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
+  color: white; padding: 0 20px;
+  display: flex; align-items: center; gap: 14px;
+  height: 56px; position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(104,120,192,.25);
+}
+.topbar-title { font-size: 17px; font-weight: 900; flex: 1; }
+.topbar-sub   { font-size: 11px; opacity: .7; margin-left: 6px; }
+.topbar-meta  { font-size: 11px; opacity: .65; }
+
+.btn {
+  padding: 6px 14px; border-radius: 7px; border: none;
+  font-family: 'Noto Sans TC', sans-serif; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all .18s; white-space: nowrap;
+}
+.btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.btn-ghost   { background: rgba(255,255,255,.18); color: white; border: 1px solid rgba(255,255,255,.35); }
+.btn-primary { background: #f08080; color: white; }
+.btn-blue    { background: var(--accent2); color: white; }
+.btn-green   { background: var(--green); color: white; }
+.btn-purple  { background: var(--purple); color: white; }
+
+/* ── TABS ── */
+.tab-bar {
+  display: flex; gap: 0; background: white;
+  border-bottom: 2px solid var(--border);
+  padding: 0 20px; position: sticky; top: 56px; z-index: 90;
+}
+.tab-item {
+  padding: 11px 22px; font-size: 13px; font-weight: 700; cursor: pointer;
+  border-bottom: 3px solid transparent; margin-bottom: -2px;
+  color: var(--muted); transition: all .15s;
+}
+.tab-item:hover { color: var(--accent); }
+.tab-item.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── CONTENT ── */
+.tab-panel { display: none; padding: 16px 20px; }
+.tab-panel.active { display: block; }
+
+/* ── STATUS CHIPS ── */
+.status-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.status-chip {
+  padding: 6px 14px; border-radius: 8px; border: 2px solid;
+  font-size: 12px; font-weight: 700; cursor: pointer; transition: all .15s;
+  background: white;
+}
+.status-chip:hover { opacity: .85; }
+.status-chip[data-s="all"]     { border-color: var(--accent); color: var(--accent); }
+.status-chip[data-s="normal"]  { border-color: var(--green);  color: var(--green);  }
+.status-chip[data-s="soon"]    { border-color: var(--orange); color: var(--orange); }
+.status-chip[data-s="expired"] { border-color: var(--red);    color: var(--red);    }
+.status-chip[data-s="long"]    { border-color: var(--amber);  color: var(--amber);  }
+.status-chip[data-s="all"].active     { background: var(--accent); color: white; }
+.status-chip[data-s="normal"].active  { background: var(--green);  color: white; }
+.status-chip[data-s="soon"].active    { background: var(--orange); color: white; }
+.status-chip[data-s="expired"].active { background: var(--red);    color: white; }
+.status-chip[data-s="long"].active    { background: var(--amber);  color: white; }
+.chip-cnt { font-size: 10px; background: rgba(0,0,0,.12); border-radius: 20px; padding: 1px 6px; margin-left: 3px; }
+.status-chip.active .chip-cnt { background: rgba(255,255,255,.28); }
+
+/* ── SUMMARY CARDS ── */
+.summary-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.summary-card { background: #f6f7ff; border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; min-width: 110px; }
+.s-label { font-size: 10px; color: #888; font-weight: 600; margin-bottom: 2px; }
+.s-value { font-size: 18px; font-weight: 900; color: var(--accent); }
+.s-value.red    { color: var(--red); }
+.s-value.orange { color: var(--orange); }
+.s-value.amber  { color: var(--amber); }
+.s-value.green  { color: var(--green); }
+
+/* ── TABLE ── */
+.tbl-wrap { border-radius: 8px; border: 1px solid var(--border); overflow: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+th {
+  background: var(--accent); color: white; padding: 8px 5px;
+  text-align: center; font-size: 12px; font-weight: 700;
+  border: 1px solid rgba(255,255,255,.2); white-space: nowrap;
+  cursor: pointer; user-select: none;
+}
+th:hover { background: var(--accent2); }
+td { padding: 6px 5px; font-size: 12px; border: 1px solid #e8edf5; vertical-align: middle; }
+tr.row-normal  td { background: #fff; }
+tr.row-expired td { background: #fff5f5; }
+tr.row-soon    td { background: #fff8f0; }
+tr.row-long    td { background: #fefce8; }
+tr:not(.total-row):hover td { filter: brightness(.97); }
+tr.total-row td { background: #eceeff !important; font-weight: 700; }
+
+.cost-blue   { color: var(--accent); font-weight: 700; }
+.cost-red    { color: var(--red);    font-weight: 700; }
+.cost-orange { color: var(--orange); font-weight: 700; }
+.cost-amber  { color: var(--amber);  font-weight: 700; }
+.days-expired { color: var(--red);    font-weight: 700; }
+.days-soon    { color: var(--orange); font-weight: 700; }
+.days-long    { color: var(--amber);  font-weight: 700; }
+.days-normal  { color: var(--accent); font-weight: 700; }
+.days-green   { color: var(--green);  font-weight: 700; }
+.scope-badge  { display: inline-block; background: #eceeff; color: var(--accent2); border: 1px solid #c0c8ef; border-radius: 5px; font-size: 10px; font-weight: 700; padding: 1px 5px; }
+
+/* ── NOTE CELL ── */
+td.note-cell { padding: 3px 5px !important; min-width: 120px; }
+td.note-cell textarea {
+  width: 100%; height: 34px; resize: vertical; min-height: 28px;
+  border: 1px solid transparent; border-radius: 4px; padding: 2px 5px;
+  font-size: 11px; font-family: 'Noto Sans TC', sans-serif; color: #333;
+  background: transparent; transition: border-color .15s, background .15s;
+}
+td.note-cell textarea:hover  { border-color: #c8d0ee; background: #f5f7ff; }
+td.note-cell textarea:focus  { outline: none; border-color: var(--accent); background: #eef1ff; }
+td.note-cell .save-indicator { font-size: 9px; color: var(--green); display: none; margin-top: 1px; }
+td.note-cell .save-indicator.show { display: block; }
+
+/* ── DIFF TABLE ── */
+.badge-new  { background: #d1fae5; color: #065f46; }
+.badge-gone { background: #fee2e2; color: #991b1b; }
+.badge-up   { background: #dbeafe; color: #1e40af; }
+.badge-down { background: #fef3c7; color: #92400e; }
+.badge-same { background: #f3f4f6; color: #374151; }
+.chg-badge  { display: inline-block; border-radius: 5px; font-size: 10px; font-weight: 700; padding: 1px 7px; white-space: nowrap; }
+
+/* ── COST TABLE ── */
+.cost-section { margin-bottom: 24px; }
+.cost-section h3 { font-size: 13px; font-weight: 800; color: var(--accent); margin-bottom: 8px; }
+.cost-tbl th { background: var(--accent); }
+.cost-tbl td { text-align: right; }
+.cost-tbl td:first-child { text-align: left; font-weight: 700; }
+.cost-bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 3px; }
+.cost-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+
+/* ── LOADING / EMPTY ── */
+.loading-wrap { text-align: center; padding: 60px 20px; color: var(--muted); }
+.loading-wrap .spin { font-size: 30px; animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-msg { text-align: center; padding: 40px; color: #aaa; font-size: 13px; }
+
+/* ── MODAL ── */
+.modal-bg {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(26,37,64,.5); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+.modal-bg.open { display: flex; }
+.modal {
+  background: white; border-radius: 20px; padding: 28px 32px;
+  width: min(520px, 95vw); box-shadow: 0 20px 60px rgba(104,120,192,.3);
+}
+.modal h3 { font-size: 16px; font-weight: 900; color: var(--accent); margin-bottom: 18px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+.form-group input {
+  width: 100%; border: 2px solid var(--border); border-radius: 10px;
+  padding: 9px 14px; font-size: 13px; font-family: inherit; outline: none;
+  transition: border-color .15s;
+}
+.form-group input:focus { border-color: var(--accent); }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.modal-status  { font-size: 11px; text-align: center; min-height: 16px; margin-top: 10px; color: var(--muted); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #1a2540; color: white; padding: 10px 22px; border-radius: 10px;
+  font-size: 13px; font-weight: 600; z-index: 999; opacity: 0; transition: opacity .3s;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; }
+
+/* ── UPLOAD PANEL in topbar ── */
+.upload-status { font-size: 11px; color: rgba(255,255,255,.75); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+
+<!-- ════ TOPBAR ════ -->
+<div class="topbar">
+  <div class="topbar-title">📊 庫存管理 Dashboard
+    <span class="topbar-sub" id="dataDate"></span>
+  </div>
+  <span class="upload-status" id="uploadStatus"></span>
+  <button class="btn btn-ghost" onclick="refreshData()">🔄 重新載入</button>
+  <button class="btn btn-green" onclick="uploadAnalyzed()">☁️ 上傳分析結果</button>
+  <button class="btn btn-ghost" onclick="openConfig()">⚙️ 設定</button>
+</div>
+
+<!-- ════ TABS ════ -->
+<div class="tab-bar">
+  <div class="tab-item active" data-tab="inventory" onclick="switchTab('inventory',this)">📋 庫存明細</div>
+  <div class="tab-item"        data-tab="cost"      onclick="switchTab('cost',this)">💰 成本分析</div>
+  <div class="tab-item"        data-tab="diff"      onclick="switchTab('diff',this)">🔄 差異報告</div>
+</div>
+
+<!-- ════ INVENTORY TAB ════ -->
+<div class="tab-panel active" id="panel-inventory">
+  <div class="status-bar">
+    <div class="status-chip active" data-s="all"     onclick="switchStatus('all',this)">📋 全部 <span class="chip-cnt" id="cnt-all">0</span></div>
+    <div class="status-chip"        data-s="normal"  onclick="switchStatus('normal',this)">✅ 正常品 <span class="chip-cnt" id="cnt-normal">0</span></div>
+    <div class="status-chip"        data-s="soon"    onclick="switchStatus('soon',this)">⚠️ 即將到期 <span class="chip-cnt" id="cnt-soon">0</span></div>
+    <div class="status-chip"        data-s="expired" onclick="switchStatus('expired',this)">❌ 過期品 <span class="chip-cnt" id="cnt-expired">0</span></div>
+    <div class="status-chip"        data-s="long"    onclick="switchStatus('long',this)">⏳ 長期在庫 <span class="chip-cnt" id="cnt-long">0</span></div>
+  </div>
+  <div class="summary-row">
+    <div class="summary-card"><div class="s-label">顯示筆數</div><div class="s-value" id="s-count">—</div></div>
+    <div class="summary-card"><div class="s-label">總庫存數量</div><div class="s-value" id="s-qty">—</div></div>
+    <div class="summary-card"><div class="s-label">總存貨成本</div><div class="s-value" id="s-cost">—</div></div>
+    <div class="summary-card"><div class="s-label">已設定單價</div><div class="s-value green" id="s-priced">—</div></div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%"  onclick="sortInv('category')">類別</th>
+          <th style="width:5%"  onclick="sortInv('code')">產品代碼</th>
+          <th style="width:12%" onclick="sortInv('name')">產品名稱</th>
+          <th style="width:7%"  onclick="sortInv('spec')">規格</th>
+          <th style="width:5%"  onclick="sortInv('qty')">數量</th>
+          <th style="width:4%"  onclick="sortInv('unit')">單位</th>
+          <th style="width:6%"  onclick="sortInv('warehouse')">倉庫</th>
+          <th style="width:8%"  onclick="sortInv('lot')">批號</th>
+          <th style="width:6%"  onclick="sortInv('lotDate')">入庫日期</th>
+          <th style="width:6%"  onclick="sortInv('expDate')">有效期至</th>
+          <th style="width:5%"  onclick="sortInv('days')" id="th-days">剩餘天數</th>
+          <th style="width:6%"  onclick="sortInv('price')">單價</th>
+          <th style="width:6%"  onclick="sortInv('scope')">核算範圍</th>
+          <th style="width:7%"  onclick="sortInv('cost')">存貨成本</th>
+          <th style="width:12%">備註</th>
+        </tr>
+      </thead>
+      <tbody id="inv-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════ COST TAB ════ -->
+<div class="tab-panel" id="panel-cost">
+  <div class="summary-row">
+    <div class="summary-card"><div class="s-label">核算範圍數</div><div class="s-value" id="c-scopes">—</div></div>
+    <div class="summary-card"><div class="s-label">總存貨成本</div><div class="s-value" id="c-total">—</div></div>
+    <div class="summary-card"><div class="s-label">過期品成本</div><div class="s-value red" id="c-expired">—</div></div>
+    <div class="summary-card"><div class="s-label">即將到期成本</div><div class="s-value orange" id="c-soon">—</div></div>
+    <div class="summary-card"><div class="s-label">長期在庫成本</div><div class="s-value amber" id="c-long">—</div></div>
+  </div>
+  <div class="tbl-wrap">
+    <table class="cost-tbl">
+      <thead>
+        <tr>
+          <th style="text-align:left;width:20%">核算範圍</th>
+          <th style="width:8%">品項數</th>
+          <th style="width:14%">正常成本</th>
+          <th style="width:14%">即將到期</th>
+          <th style="width:14%">過期品</th>
+          <th style="width:14%">長期在庫</th>
+          <th style="width:16%">合計成本</th>
+          <th style="width:14%">佔比</th>
+        </tr>
+      </thead>
+      <tbody id="cost-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════ DIFF TAB ════ -->
+<div class="tab-panel" id="panel-diff">
+  <div class="status-bar" id="diff-status-bar">
+    <div class="status-chip active" style="border-color:var(--accent);color:var(--accent);" data-d="all"  onclick="switchDiff('all',this)">全部 <span class="chip-cnt" id="d-cnt-all">0</span></div>
+    <div class="status-chip"       style="border-color:var(--green);color:var(--green);"  data-d="新增" onclick="switchDiff('新增',this)">🟢 新增 <span class="chip-cnt" id="d-cnt-new">0</span></div>
+    <div class="status-chip"       style="border-color:var(--red);color:var(--red);"     data-d="消失" onclick="switchDiff('消失',this)">🔴 消失 <span class="chip-cnt" id="d-cnt-gone">0</span></div>
+    <div class="status-chip"       style="border-color:#3b82f6;color:#3b82f6;"           data-d="增加" onclick="switchDiff('增加',this)">🔵 增加 <span class="chip-cnt" id="d-cnt-up">0</span></div>
+    <div class="status-chip"       style="border-color:var(--amber);color:var(--amber);" data-d="減少" onclick="switchDiff('減少',this)">🟡 減少 <span class="chip-cnt" id="d-cnt-down">0</span></div>
+    <div class="status-chip"       style="border-color:#9ca3af;color:#9ca3af;"           data-d="不變" onclick="switchDiff('不變',this)">⚪ 不變 <span class="chip-cnt" id="d-cnt-same">0</span></div>
+  </div>
+  <div class="summary-row">
+    <div class="summary-card"><div class="s-label">顯示筆數</div><div class="s-value" id="d-count">—</div></div>
+    <div class="summary-card"><div class="s-label">產生時間</div><div class="s-value" style="font-size:12px;padding-top:3px;" id="d-gentime">—</div></div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:7%">變化類型</th>
+          <th style="width:5%">產品類別</th>
+          <th style="width:5%">產品代碼</th>
+          <th style="width:13%">產品名稱</th>
+          <th style="width:7%">規格</th>
+          <th style="width:8%">批號</th>
+          <th style="width:7%">倉庫</th>
+          <th style="width:7%">本期數量</th>
+          <th style="width:7%">上期數量</th>
+          <th style="width:7%">數量差異</th>
+          <th style="width:9%">本期成本</th>
+          <th style="width:9%">上期成本</th>
+          <th style="width:9%">成本差異</th>
+        </tr>
+      </thead>
+      <tbody id="diff-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════ CONFIG MODAL ════ -->
+<div class="modal-bg" id="config-modal" onclick="if(event.target===this)closeConfig()">
+  <div class="modal">
+    <h3>⚙️ 設定</h3>
+    <div class="form-group">
+      <label>Google Sheet ID</label>
+      <input type="text" id="cfg-sheetId" placeholder="試算表 ID（網址中的長串字元）">
+    </div>
+    <div class="form-group">
+      <label>Apps Script 網址 <span style="color:var(--red)">*</span></label>
+      <input type="text" id="cfg-scriptUrl" placeholder="https://script.google.com/macros/s/...">
+    </div>
+    <div class="form-group">
+      <label>即將到期天數（預設 210）</label>
+      <input type="number" id="cfg-soonDays" value="210" min="1" max="999">
+    </div>
+    <div class="form-group">
+      <label>長期在庫年數（預設 3）</label>
+      <input type="number" id="cfg-longYears" value="3" min="1" max="20">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" style="color:var(--text);border-color:var(--border);" onclick="closeConfig()">取消</button>
+      <button class="btn btn-blue" onclick="saveConfig()">💾 儲存並重新載入</button>
+    </div>
+    <div class="modal-status" id="cfg-status"></div>
+  </div>
+</div>
+
+<!-- ════ TOAST ════ -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════════
+let CFG = {
+  sheetId:   localStorage.getItem('dash_sheetId')   || '',
+  scriptUrl: localStorage.getItem('dash_scriptUrl') || '',
+  soonDays:  +(localStorage.getItem('dash_soonDays')  || 210),
+  longYears: +(localStorage.getItem('dash_longYears') || 3),
+};
+
+function openConfig(){
+  document.getElementById('cfg-sheetId').value   = CFG.sheetId;
+  document.getElementById('cfg-scriptUrl').value = CFG.scriptUrl;
+  document.getElementById('cfg-soonDays').value  = CFG.soonDays;
+  document.getElementById('cfg-longYears').value = CFG.longYears;
+  document.getElementById('config-modal').classList.add('open');
+}
+function closeConfig(){ document.getElementById('config-modal').classList.remove('open'); }
+function saveConfig(){
+  CFG.sheetId   = document.getElementById('cfg-sheetId').value.trim();
+  CFG.scriptUrl = document.getElementById('cfg-scriptUrl').value.trim();
+  CFG.soonDays  = +document.getElementById('cfg-soonDays').value  || 210;
+  CFG.longYears = +document.getElementById('cfg-longYears').value || 3;
+  localStorage.setItem('dash_sheetId',   CFG.sheetId);
+  localStorage.setItem('dash_scriptUrl', CFG.scriptUrl);
+  localStorage.setItem('dash_soonDays',  CFG.soonDays);
+  localStorage.setItem('dash_longYears', CFG.longYears);
+  closeConfig();
+  refreshData();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+
+let rawRows   = [];   // 原始庫存（從 Sheets）
+let prices    = {};   // { 'name__lot': { price, scope } }
+let notesMap  = {};   // { key: noteText }
+let diffRows  = [];   // 差異報告（已算好）
+
+let invStatus  = 'all';
+let invSortCol = null;
+let invSortDir = 'asc';
+let diffFilter = 'all';
+
+// ═══════════════════════════════════════════════════════════════
+//  TAB SWITCH
+// ═══════════════════════════════════════════════════════════════
+function switchTab(id, el){
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════════════
+function fmtMoney(n){ return n > 0 ? '$' + Math.round(n).toLocaleString('zh-TW') : '—'; }
+function fmtNum(n)  { return (+n||0).toLocaleString('zh-TW'); }
+function fmtDiff(n) { if(n===''||n===null||n===undefined) return '—'; n=+n; return (n>0?'+':'')+n.toLocaleString('zh-TW'); }
+function fmtCostDiff(n){ if(n===''||n===null||n===undefined) return '—'; n=+n; return (n>0?'+$':'$')+Math.round(n).toLocaleString('zh-TW'); }
+
+function fmtDate(d){
+  if(!d) return '';
+  const dt = d instanceof Date ? d : new Date(d);
+  if(isNaN(dt)) return String(d);
+  return `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+}
+
+function parseDate(v){
+  if(!v || v === '') return null;
+  if(v instanceof Date && !isNaN(v)) return v;
+  if(!isNaN(v) && +v > 40000){ // Excel serial
+    const d = new Date(Math.round((+v - 25569)*86400*1000));
+    if(!isNaN(d)) return d;
+  }
+  const s = String(v).trim();
+  const dt = new Date(s);
+  return isNaN(dt) ? null : dt;
+}
+
+function parseLotDate(lot){
+  if(!lot) return null;
+  let s = String(lot).trim();
+  if(s.toUpperCase().startsWith('E')) s = s.slice(1);
+  const digits = s.replace(/[^0-9]/g,'');
+  if(digits.length >= 8){
+    const d = digits.slice(0,8);
+    const y=+d.slice(0,4), m=+d.slice(4,6)-1, day=+d.slice(6,8);
+    if(y>1990 && m>=0 && m<12 && day>=1 && day<=31){
+      const dt = new Date(y,m,day);
+      if(!isNaN(dt)) return dt;
+    }
+  }
+  return null;
+}
+
+function daysDiff(d){ return d ? Math.round((d - TODAY) / 86400000) : null; }
+
+function priceKey(r){ return `${String(r['產品名稱']||'').trim()}__${String(r['批號']||'').trim()}`; }
+function noteKey(r) { return `${String(r['產品代碼']||'').trim()}__${String(r['批號']||'').trim()}__${String(r['倉庫名稱']||'').trim()}`; }
+
+function classify(row){
+  const expDate = row._expDate;
+  const lotDate = row._lotDate;
+  const flags = { expired:false, long:false, soon:false };
+
+  if(expDate){
+    const left = daysDiff(expDate);
+    if(left < 0) flags.expired = true;
+    else if(left < CFG.soonDays) flags.soon = true;
+  }
+  if(lotDate){
+    const cutoff = new Date(TODAY);
+    cutoff.setFullYear(cutoff.getFullYear() - CFG.longYears);
+    if(lotDate <= cutoff) flags.long = true;
+  }
+  return flags;
+}
+
+function getStatus(flags){
+  if(flags.expired) return 'expired';
+  if(flags.soon)    return 'soon';
+  if(flags.long)    return 'long';
+  return 'normal';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FETCH
+// ═══════════════════════════════════════════════════════════════
+function scriptGet(sheetName){
+  if(!CFG.scriptUrl) return Promise.reject(new Error('尚未設定 Apps Script 網址'));
+  const url = `${CFG.scriptUrl}?action=read&sheetId=${encodeURIComponent(CFG.sheetId)}&sheetName=${encodeURIComponent(sheetName)}`;
+  return fetch(url, { redirect: 'follow' }).then(r => r.json());
+}
+
+function fetchNotes(){
+  if(!CFG.scriptUrl) return Promise.resolve({});
+  const url = `${CFG.scriptUrl}?action=readNotes&sheetId=${encodeURIComponent(CFG.sheetId)}`;
+  return fetch(url, { redirect: 'follow' })
+    .then(r => r.json())
+    .then(d => d.notes || {})
+    .catch(() => ({}));
+}
+
+function showLoading(panelId){
+  const body = document.getElementById(panelId);
+  if(body) body.innerHTML = '<tr><td colspan="20"><div class="loading-wrap"><div class="spin">⏳</div><div style="margin-top:12px;font-size:13px;">載入中…</div></div></td></tr>';
+}
+
+async function refreshData(){
+  if(!CFG.scriptUrl){
+    toast('⚙️ 請先點右上角「設定」填入 Apps Script 網址');
+    openConfig();
+    return;
+  }
+
+  showLoading('inv-body');
+  setUploadStatus('🔄 載入資料中…');
+
+  try {
+    // 平行抓三個 sheet
+    const [invRes, priceRes, noteRes, diffRes] = await Promise.all([
+      scriptGet('原始庫存'),
+      scriptGet('單價設定').catch(() => ({ rows: [] })),
+      fetchNotes(),
+      scriptGet('差異報告').catch(() => ({ rows: [] })),
+    ]);
+
+    if(invRes.error) throw new Error(invRes.error);
+
+    // 解析單價
+    prices = {};
+    (priceRes.rows || []).forEach(r => {
+      const k = r['產品名稱__批號key'] || '';
+      if(k) prices[k] = { price: +(r['單價']||0), scope: r['存貨核算範圍名稱']||'' };
+    });
+
+    // 解析備註
+    notesMap = noteRes || {};
+
+    // 解析原始庫存並附加計算欄
+    rawRows = (invRes.rows || []).map(r => {
+      r._expDate = parseDate(r['有效期至']);
+      r._lotDate = parseLotDate(r['批號']);
+      return r;
+    });
+
+    // 解析差異報告
+    diffRows = (diffRes.rows || []);
+
+    // 更新產生時間
+    const genAt = diffRows.length ? (diffRows[0]['產生時間'] || '') : '';
+    document.getElementById('d-gentime').textContent = genAt || '—';
+    document.getElementById('dataDate').textContent =
+      rawRows.length ? '　資料筆數：' + rawRows.length : '';
+
+    renderInventory();
+    renderCost();
+    renderDiff();
+    setUploadStatus('✅ 載入完成 ' + new Date().toLocaleTimeString('zh-TW'));
+
+  } catch(err) {
+    setUploadStatus('❌ 載入失敗：' + err.message);
+    document.getElementById('inv-body').innerHTML =
+      `<tr><td colspan="15" class="empty-msg">❌ 載入失敗：${err.message}<br><br>請確認 Apps Script 網址與 Sheet ID 正確，且 Sheet 已分享為「任何人可檢視」。</td></tr>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INVENTORY RENDER
+// ═══════════════════════════════════════════════════════════════
+const DAYS_HEADER = { all:'剩餘/在庫天數', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
+const ROW_CLS     = { normal:'row-normal', expired:'row-expired', soon:'row-soon', long:'row-long' };
+const COST_CLS    = { normal:'cost-blue', expired:'cost-red', soon:'cost-orange', long:'cost-amber' };
+
+function switchStatus(s, el){
+  invStatus = s;
+  document.querySelectorAll('.status-chip[data-s]').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const th = document.getElementById('th-days');
+  if(th) th.textContent = DAYS_HEADER[s] || '剩餘天數';
+  renderInventory();
+}
+
+function sortInv(col){
+  invSortDir = invSortCol === col && invSortDir === 'asc' ? 'desc' : 'asc';
+  invSortCol = col;
+  renderInventory();
+}
+
+function getInvRows(){
+  // Build processed rows
+  const numCols = new Set(['qty','days','price','cost']);
+  let rows = rawRows.map(r => {
+    const flags  = classify(r);
+    const status = getStatus(flags);
+    const pd     = prices[priceKey(r)] || { price: 0, scope: '' };
+    const qty    = parseFloat(r['庫存數量']) || 0;
+    const days   = flags.long && r._lotDate ? daysDiff(r._lotDate) : daysDiff(r._expDate);
+    return {
+      status, flags,
+      category:  r['產品類別']  || '',
+      code:      r['產品代碼']  || '',
+      name:      r['產品名稱']  || '',
+      spec:      r['產品規格']  || '',
+      qty,
+      unit:      r['基本單位名稱'] || '',
+      warehouse: r['倉庫名稱']  || '',
+      lot:       r['批號']     || '',
+      lotDate:   fmtDate(r._lotDate),
+      expDate:   fmtDate(r._expDate) || (r['有效期至'] || ''),
+      days,
+      daysAbs:   days !== null ? Math.abs(days) : null,
+      price:     pd.price,
+      scope:     pd.scope,
+      cost:      qty * pd.price,
+      _key:      noteKey(r),
+    };
+  });
+
+  if(invStatus !== 'all') rows = rows.filter(r => r.status === invStatus);
+
+  if(invSortCol){
+    const dir = invSortDir === 'asc' ? 1 : -1;
+    rows.sort((a,b) => {
+      let va = a[invSortCol], vb = b[invSortCol];
+      if(numCols.has(invSortCol)){ va = va ?? -Infinity; vb = vb ?? -Infinity; return (va-vb)*dir; }
+      return String(va||'').localeCompare(String(vb||''),'zh-TW') * dir;
+    });
+  }
+  return rows;
+}
+
+function renderInventory(){
+  const rows = getInvRows();
+
+  // Counts
+  const counts = { all: rawRows.length, normal:0, soon:0, expired:0, long:0 };
+  rawRows.forEach(r => { const s = getStatus(classify(r)); if(counts[s]!==undefined) counts[s]++; });
+  Object.entries(counts).forEach(([k,v]) => {
+    const el = document.getElementById('cnt-' + k); if(el) el.textContent = v;
+  });
+
+  // Summary
+  const totalQty  = rows.reduce((s,r) => s + r.qty,  0);
+  const totalCost = rows.reduce((s,r) => s + r.cost, 0);
+  const pricedCnt = rows.filter(r => r.price > 0).length;
+  document.getElementById('s-count').textContent  = rows.length.toLocaleString() + ' 筆';
+  document.getElementById('s-qty').textContent    = totalQty.toLocaleString('zh-TW');
+  document.getElementById('s-cost').textContent   = fmtMoney(totalCost);
+  document.getElementById('s-priced').textContent = `${pricedCnt} / ${rows.length}`;
+  const costEl = document.getElementById('s-cost');
+  costEl.className = 's-value' + (invStatus==='expired'?' red':invStatus==='soon'?' orange':invStatus==='long'?' amber':'');
+
+  if(!rows.length){
+    document.getElementById('inv-body').innerHTML = '<tr><td colspan="15" class="empty-msg">此類別暫無資料</td></tr>';
+    return;
+  }
+
+  let grandQty = 0, grandCost = 0, html = '';
+  rows.forEach(r => {
+    grandQty  += r.qty;
+    grandCost += r.cost;
+
+    let daysCls = 'days-normal';
+    if     (r.status==='expired')             daysCls = 'days-expired';
+    else if(r.status==='soon')                daysCls = 'days-soon';
+    else if(r.status==='long')                daysCls = 'days-long';
+    else if(r.days !== null && r.days > 210)  daysCls = 'days-green';
+
+    const daysDisp = r.days !== null ? r.daysAbs : '—';
+    const priceDisp = r.price > 0 ? '$' + r.price.toLocaleString('zh-TW') : '<span style="color:#bbb">未設定</span>';
+    const scopeDisp = r.scope ? `<span class="scope-badge">${r.scope}</span>` : '<span style="color:#bbb">—</span>';
+    const costDisp  = r.cost > 0 ? '$' + Math.round(r.cost).toLocaleString('zh-TW') : '—';
+    const noteVal   = (notesMap[r._key] || '').replace(/"/g,'&quot;');
+
+    html += `<tr class="${ROW_CLS[r.status]||'row-normal'}">
+      <td>${r.category||'—'}</td>
+      <td style="text-align:center">${r.code||'—'}</td>
+      <td>${r.name||'—'}</td>
+      <td style="color:#666">${r.spec||'—'}</td>
+      <td style="text-align:right">${r.qty.toLocaleString('zh-TW')}</td>
+      <td style="text-align:center">${r.unit||'—'}</td>
+      <td>${r.warehouse||'—'}</td>
+      <td>${r.lot||'—'}</td>
+      <td style="text-align:center">${r.lotDate||'—'}</td>
+      <td style="text-align:center">${r.expDate||'—'}</td>
+      <td style="text-align:center" class="${daysCls}">${daysDisp}</td>
+      <td style="text-align:right">${priceDisp}</td>
+      <td style="text-align:center">${scopeDisp}</td>
+      <td style="text-align:right" class="${COST_CLS[r.status]||'cost-blue'}">${costDisp}</td>
+      <td class="note-cell">
+        <textarea data-key="${r._key}" onblur="saveNote(this)" placeholder="輸入備註…">${noteVal}</textarea>
+        <div class="save-indicator" id="si-${r._key.replace(/[^a-zA-Z0-9]/g,'_')}">已儲存 ✓</div>
+      </td>
+    </tr>`;
+  });
+
+  html += `<tr class="total-row">
+    <td colspan="4" style="text-align:right;padding-right:8px">合計</td>
+    <td style="text-align:right">${grandQty.toLocaleString('zh-TW')}</td>
+    <td colspan="7"></td>
+    <td style="text-align:right">${fmtMoney(grandCost)}</td>
+    <td colspan="2"></td>
+  </tr>`;
+
+  document.getElementById('inv-body').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  NOTE SAVE
+// ═══════════════════════════════════════════════════════════════
+let noteTimers = {};
+
+function saveNote(textarea){
+  const key  = textarea.dataset.key;
+  const note = textarea.value.trim();
+
+  clearTimeout(noteTimers[key]);
+  noteTimers[key] = setTimeout(async () => {
+    if(!CFG.scriptUrl){ toast('❌ 請先設定 Apps Script 網址'); return; }
+
+    notesMap[key] = note;
+
+    try {
+      const resp = await fetch(CFG.scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action:'writeNote', sheetId: CFG.sheetId, key, note }),
+        redirect: 'follow',
+      });
+      const text = await resp.text();
+      if(text.includes('"success"') || text.includes('success')){
+        const indId = 'si-' + key.replace(/[^a-zA-Z0-9]/g,'_');
+        const ind = document.getElementById(indId);
+        if(ind){ ind.classList.add('show'); setTimeout(() => ind.classList.remove('show'), 2000); }
+      }
+    } catch(e){ toast('❌ 備註儲存失敗：' + e.message); }
+  }, 800);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COST RENDER
+// ═══════════════════════════════════════════════════════════════
+function renderCost(){
+  const scopeMap = {};
+  let grandTotal = 0;
+
+  rawRows.forEach(r => {
+    const flags = classify(r);
+    const st    = getStatus(flags);
+    const pd    = prices[priceKey(r)] || { price:0, scope:'' };
+    const sc    = pd.scope || '（未設定）';
+    const cost  = (parseFloat(r['庫存數量'])||0) * pd.price;
+    if(!scopeMap[sc]) scopeMap[sc] = { normal:0, soon:0, expired:0, long:0, total:0, qty:0 };
+    scopeMap[sc][st]  += cost;
+    scopeMap[sc].total += cost;
+    scopeMap[sc].qty++;
+    grandTotal += cost;
+  });
+
+  const scopes = Object.entries(scopeMap).sort((a,b)=>b[1].total-a[1].total);
+  const expiredTotal = scopes.reduce((s,[,d])=>s+d.expired, 0);
+  const soonTotal    = scopes.reduce((s,[,d])=>s+d.soon, 0);
+  const longTotal    = scopes.reduce((s,[,d])=>s+d.long, 0);
+
+  document.getElementById('c-scopes').textContent  = scopes.length;
+  document.getElementById('c-total').textContent   = fmtMoney(grandTotal);
+  document.getElementById('c-expired').textContent = fmtMoney(expiredTotal);
+  document.getElementById('c-soon').textContent    = fmtMoney(soonTotal);
+  document.getElementById('c-long').textContent    = fmtMoney(longTotal);
+
+  if(!scopes.length){
+    document.getElementById('cost-body').innerHTML = '<tr><td colspan="8" class="empty-msg">無成本資料（請先設定單價）</td></tr>';
+    return;
+  }
+
+  let html = '';
+  scopes.forEach(([sc, d]) => {
+    const pct    = grandTotal > 0 ? (d.total / grandTotal * 100).toFixed(1) : '0.0';
+    const barW   = grandTotal > 0 ? Math.round(d.total / grandTotal * 100) : 0;
+    html += `<tr>
+      <td>${sc}</td>
+      <td>${d.qty.toLocaleString()}</td>
+      <td>${fmtMoney(d.normal)}</td>
+      <td>${fmtMoney(d.soon)}</td>
+      <td>${fmtMoney(d.expired)}</td>
+      <td>${fmtMoney(d.long)}</td>
+      <td style="font-weight:800;color:var(--accent)">${fmtMoney(d.total)}</td>
+      <td>
+        <div style="font-size:11px;font-weight:700;margin-bottom:2px">${pct}%</div>
+        <div class="cost-bar"><div class="cost-bar-fill" style="width:${barW}%"></div></div>
+      </td>
+    </tr>`;
+  });
+
+  html += `<tr class="total-row">
+    <td>合計 ${scopes.length} 個範圍</td>
+    <td>${rawRows.length.toLocaleString()}</td>
+    <td>${fmtMoney(scopes.reduce((s,[,d])=>s+d.normal,0))}</td>
+    <td>${fmtMoney(soonTotal)}</td>
+    <td>${fmtMoney(expiredTotal)}</td>
+    <td>${fmtMoney(longTotal)}</td>
+    <td style="font-weight:800;color:var(--accent)">${fmtMoney(grandTotal)}</td>
+    <td>100%</td>
+  </tr>`;
+
+  document.getElementById('cost-body').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DIFF RENDER
+// ═══════════════════════════════════════════════════════════════
+const BADGE_CLS = { 新增:'badge-new', 消失:'badge-gone', 增加:'badge-up', 減少:'badge-down', 不變:'badge-same' };
+
+function switchDiff(f, el){
+  diffFilter = f;
+  document.querySelectorAll('#diff-status-bar .status-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderDiff();
+}
+
+function renderDiff(){
+  const cnts = { 新增:0, 消失:0, 增加:0, 減少:0, 不變:0 };
+  diffRows.forEach(r => { if(cnts[r['變化類型']]!==undefined) cnts[r['變化類型']]++; });
+  document.getElementById('d-cnt-all').textContent  = diffRows.length;
+  document.getElementById('d-cnt-new').textContent  = cnts['新增'];
+  document.getElementById('d-cnt-gone').textContent = cnts['消失'];
+  document.getElementById('d-cnt-up').textContent   = cnts['增加'];
+  document.getElementById('d-cnt-down').textContent = cnts['減少'];
+  document.getElementById('d-cnt-same').textContent = cnts['不變'];
+
+  let rows = diffFilter === 'all' ? diffRows : diffRows.filter(r => r['變化類型'] === diffFilter);
+  document.getElementById('d-count').textContent = rows.length.toLocaleString() + ' 筆';
+
+  if(!rows.length){
+    document.getElementById('diff-body').innerHTML = '<tr><td colspan="13" class="empty-msg">無差異報告資料。請先在 dodo6122 執行差異比較後上傳原始資料。</td></tr>';
+    return;
+  }
+
+  let html = '';
+  rows.forEach(r => {
+    const chg = r['變化類型'] || '';
+    const bcls = BADGE_CLS[chg] || '';
+    html += `<tr>
+      <td style="text-align:center"><span class="chg-badge ${bcls}">${chg}</span></td>
+      <td>${r['產品類別']||'—'}</td>
+      <td style="text-align:center">${r['產品代碼']||'—'}</td>
+      <td>${r['產品名稱']||'—'}</td>
+      <td style="color:#666">${r['產品規格']||'—'}</td>
+      <td>${r['批號']||'—'}</td>
+      <td>${r['倉庫']||'—'}</td>
+      <td style="text-align:right">${r['本期數量']&&r['本期數量']!==''? fmtNum(r['本期數量']):'—'}</td>
+      <td style="text-align:right">${r['上期數量']&&r['上期數量']!==''? fmtNum(r['上期數量']):'—'}</td>
+      <td style="text-align:right;font-weight:700;color:${+r['數量變化']>0?'#3b82f6':+r['數量變化']<0?'var(--orange)':'#888'}">${r['數量變化']!==''?fmtDiff(r['數量變化']):'—'}</td>
+      <td style="text-align:right">${r['本期成本']&&r['本期成本']!==''?'$'+Math.round(+r['本期成本']).toLocaleString('zh-TW'):'—'}</td>
+      <td style="text-align:right">${r['上期成本']&&r['上期成本']!==''?'$'+Math.round(+r['上期成本']).toLocaleString('zh-TW'):'—'}</td>
+      <td style="text-align:right;font-weight:700;color:${+r['成本變化']>0?'#3b82f6':+r['成本變化']<0?'var(--orange)':'#888'}">${r['成本變化']!==''?fmtCostDiff(r['成本變化']):'—'}</td>
+    </tr>`;
+  });
+
+  document.getElementById('diff-body').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  UPLOAD ANALYZED RESULTS
+// ═══════════════════════════════════════════════════════════════
+async function uploadAnalyzed(){
+  if(!CFG.scriptUrl){ toast('❌ 請先設定 Apps Script 網址'); return; }
+  if(!rawRows.length){ toast('❌ 請先載入資料'); return; }
+
+  setUploadStatus('⏳ 上傳分析結果中…');
+
+  const post = async (payload) => {
+    const resp = await fetch(CFG.scriptUrl, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload), redirect: 'follow',
+    });
+    return resp.text();
+  };
+
+  const headers = ['核算組織名稱','產品類別','產品代碼','產品名稱','產品規格',
+    '庫存數量','單位','倉庫名稱','批號','入庫日期','有效期至',
+    '剩餘/在庫天數','庫存狀態','存貨核算範圍名稱','單價','存貨成本'];
+
+  const sheets = [
+    { sheetName:'全部庫存',  filter:'all',     color:'#7B6BAA' },
+    { sheetName:'過期品',    filter:'expired', color:'#E07070' },
+    { sheetName:'長期在庫',  filter:'long',    color:'#E0904A' },
+    { sheetName:'即將到期',  filter:'soon',    color:'#D0736A' },
+  ];
+
+  const chgLabel = { normal:'正常', expired:'過期品', long:'長期在庫', soon:'即將到期' };
+  const errors = [];
+  let totalRows = 0;
+
+  for(const s of sheets){
+    let source = rawRows.map(r => {
+      const flags  = classify(r);
+      const status = getStatus(flags);
+      const pd     = prices[priceKey(r)] || { price:0, scope:'' };
+      const qty    = parseFloat(r['庫存數量'])||0;
+      const days   = flags.long && r._lotDate ? Math.round((TODAY-r._lotDate)/86400000) : daysDiff(r._expDate);
+      return {
+        status,
+        row: [
+          r['核算組織名稱']||'', r['產品類別']||'', r['產品代碼']||'',
+          r['產品名稱']||'', r['產品規格']||'', String(qty),
+          r['基本單位名稱']||'', r['倉庫名稱']||'', r['批號']||'',
+          fmtDate(r._lotDate), fmtDate(r._expDate)||(r['有效期至']||''),
+          days !== null ? String(days) : '', chgLabel[status]||'',
+          pd.scope||'', String(pd.price||0),
+          qty * pd.price > 0 ? String(Math.round(qty*pd.price)) : '',
+        ]
+      };
+    });
+
+    if(s.filter !== 'all') source = source.filter(x => x.status === s.filter);
+    const rows = source.map(x => x.row);
+
+    try {
+      const res = await post({ sheetId: CFG.sheetId, sheetName: s.sheetName, headers, rows, headerColor: s.color });
+      if(res.includes('success')) totalRows += rows.length;
+      else errors.push(`${s.sheetName}：${res.slice(0,50)}`);
+    } catch(e){ errors.push(`${s.sheetName}：${e.message}`); }
+  }
+
+  if(errors.length === 0){
+    setUploadStatus(`✅ 分析結果已上傳，共 ${totalRows} 筆`);
+    toast('✅ 分析結果已上傳到 Google Sheets');
+  } else {
+    setUploadStatus('⚠️ 部分失敗：' + errors.join('、'));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════
+function setUploadStatus(msg){ document.getElementById('uploadStatus').textContent = msg; }
+
+let toastTimer;
+function toast(msg, dur=3000){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  if(CFG.scriptUrl && CFG.sheetId){
+    refreshData();
+  } else {
+    setUploadStatus('⚙️ 請先設定 Apps Script 網址與 Sheet ID');
+    document.getElementById('inv-body').innerHTML =
+      '<tr><td colspan="15" class="empty-msg">⚙️ 請先點右上角「設定」填入 Apps Script 網址與 Google Sheet ID。</td></tr>';
+    openConfig();
+  }
+});
+</script>
+</body>
+</html>
