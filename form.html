@@ -1942,28 +1942,17 @@ function submitSellPart(){
       if(d.rates.EUR>0) RATE.EUR=d.rates.EUR;
     }
   });
-  // 從 Firebase Accounts 同步業務員信箱
-  var db = getFirebaseDb();
-  if(db){
-    db.collection('accounts').get()
-      .then(function(snap){
-        snap.forEach(function(doc){
-          var u=doc.data();
-          if(u.email&&u.staffName) STAFF_EMAILS[u.staffName]=u.email;
-        });
-        var sel=document.getElementById('transfer-to');
-        if(sel&&sel.value) onTransferChange();
-      })
-      .catch(function(){
-        jsonpGet(SCRIPT_URL+'?action=getAccounts', function(accData){
-          if(accData&&accData.status==='ok'&&accData.accounts){
-            accData.accounts.forEach(function(u){
-              if(u.email&&u.staffName) STAFF_EMAILS[u.staffName]=u.email;
-            });
-          }
-        });
+  // 從 Supabase Accounts 同步業務員信箱
+  try {
+    getSb().from('accounts').select('data').then(function(res){
+      if(res.data) res.data.forEach(function(row){
+        var u = row.data || {};
+        if(u.email && u.staffName) STAFF_EMAILS[u.staffName] = u.email;
       });
-  }
+      var sel = document.getElementById('transfer-to');
+      if(sel && sel.value) onTransferChange();
+    });
+  } catch(e){}
 })();
 
 checkFillMode();
