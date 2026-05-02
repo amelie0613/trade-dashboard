@@ -1117,7 +1117,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
       <div class="header-title" id="headerTitle">總覽儀表板</div>
       <div class="header-right">
         <button onclick="loadAll()" title="一次帶入所有資料（GitHub 單價 + Sheets 庫存 + Sheets 差異）" style="display:flex;align-items:center;gap:5px;padding:6px 14px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">⬇️ 全部帶入</button>
-        <button onclick="ghLoadPrices()" title="從 GitHub 載入單價" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 GitHub 載入</button>
+        <button onclick="ghLoadChoose(event)" title="從 GitHub 載入單價或重量表" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 GitHub 載入 ▾</button>
         <button onclick="openReadSheetsMenu()" title="從 Google Sheets 讀取資料" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📊 從 Sheets 讀取</button>
         <button onclick="openWriteSheetsMenu()" title="寫入 Google Sheets" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">☁️ 寫入 Sheets</button>
         <!-- Context-aware export buttons -->
@@ -3708,6 +3708,33 @@ async function ghBackupPrices(){
   }
 }
 
+function ghLoadChoose(event) {
+  const existing = document.getElementById('ghLoadMenu');
+  if (existing) { existing.remove(); return; }
+  const menu = document.createElement('div');
+  menu.id = 'ghLoadMenu';
+  menu.style.cssText = 'position:fixed;z-index:9999;background:#fff;border:1.5px solid #dde1e7;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:5px;min-width:150px;';
+  const items = [
+    { icon: '💰', label: '載入單價', fn: 'ghLoadPrices' },
+    { icon: '⚖️', label: '載入重量表', fn: 'ghLoadWeightTable' },
+  ];
+  menu.innerHTML = items.map(it =>
+    `<div onclick="${it.fn}();document.getElementById('ghLoadMenu')?.remove()"
+      onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''"
+      style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-radius:7px;user-select:none;">${it.icon} ${it.label}</div>`
+  ).join('');
+  const btn = event.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  menu.style.top = (rect.bottom + 4) + 'px';
+  menu.style.left = rect.left + 'px';
+  document.body.appendChild(menu);
+  setTimeout(() => {
+    document.addEventListener('click', function dismiss(e) {
+      if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', dismiss); }
+    });
+  }, 10);
+}
+
 async function ghLoadPrices(){
   let token = localStorage.getItem(GH_PRICE_LS.token);
   const owner = ghPriceGetOwner();
@@ -5955,12 +5982,49 @@ function toggleAllCheckboxes(checkAllEl){
   });
 }
 
+function _enableRowEdit(rowIdx) {
+  const tr = document.querySelector(`#resultBody tr[data-row="${rowIdx}"]`);
+  if (!tr) return;
+  const row = calculatedData[rowIdx];
+  if (!row) return;
+  tr.querySelectorAll('td[data-static="true"]').forEach(td => {
+    const col = td.dataset.col;
+    const val = (row[col] !== undefined && row[col] !== null) ? String(row[col]) : '';
+    const safeVal = val.replace(/"/g, '&quot;');
+    const isNote = col === '備註';
+    td.style.padding = '0';
+    td.setAttribute('data-static', 'editing');
+    td.innerHTML = `<input type="text" value="${safeVal}"
+      data-row="${rowIdx}" data-col="${col}"
+      onchange="onCellEdit(this)"
+      style="width:100%;min-width:${isNote?'120px':'50px'};padding:3px 6px;border:none;border-bottom:1.5px solid #c8d8ff;background:#f0f4ff;font-size:11px;font-family:inherit;color:inherit;font-variant-numeric:tabular-nums;outline:none;cursor:text;"
+      onfocus="this.style.borderBottomColor='#f2a7c3';this.style.background='#fff8fc';"
+      onblur="this.style.borderBottomColor='#c8d8ff';this.style.background='#f0f4ff';" />`;
+  });
+}
+
+function _disableRowEdit(rowIdx) {
+  const tr = document.querySelector(`#resultBody tr[data-row="${rowIdx}"]`);
+  if (!tr) return;
+  const row = calculatedData[rowIdx];
+  if (!row) return;
+  tr.querySelectorAll('td[data-static="editing"]').forEach(td => {
+    const col = td.dataset.col;
+    const val = (row[col] !== undefined && row[col] !== null) ? String(row[col]) : '';
+    td.style.padding = '';
+    td.setAttribute('data-static', 'true');
+    td.textContent = val;
+  });
+}
+
 function onCheckboxChange(checkboxEl){
   const rowIdx = parseInt(checkboxEl.getAttribute('data-row-idx'));
   if(checkboxEl.checked){
     checkedResultRows.add(rowIdx);
+    _enableRowEdit(rowIdx);
   } else {
     checkedResultRows.delete(rowIdx);
+    _disableRowEdit(rowIdx);
   }
 
   // 更新全選勾選框狀態
@@ -6017,18 +6081,15 @@ function displayResults(data) {
             <!-- 合計區：永遠顯示在表格上方，篩選後自動更新 -->
             <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.6rem; margin-bottom:1rem;">
                 <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
-                    <div style="font-size:0.75rem; color:#c0507a; font-weight:700; margin-bottom:0.2rem;">租金合計</div>
-                    <div style="font-size:0.85rem; color:#888; margin-bottom:0.1rem;">$</div>
+                    <div style="font-size:0.75rem; color:#c0507a; font-weight:700; margin-bottom:0.3rem;">租金合計</div>
                     <div style="font-size:1.2rem; font-weight:800; color:#c0507a;" id="totalRental">0</div>
                 </div>
                 <div style="background:#fff8e8; border:1.5px solid #f7d96b; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
-                    <div style="font-size:0.75rem; color:#b07020; font-weight:700; margin-bottom:0.2rem;">出入庫酌收合計</div>
-                    <div style="font-size:0.85rem; color:#888; margin-bottom:0.1rem;">$</div>
+                    <div style="font-size:0.75rem; color:#b07020; font-weight:700; margin-bottom:0.3rem;">出入庫酌收合計</div>
                     <div style="font-size:1.2rem; font-weight:800; color:#b07020;" id="totalHandling">0</div>
                 </div>
                 <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
-                    <div style="font-size:0.75rem; color:#2a6a82; font-weight:700; margin-bottom:0.2rem;">總計合計</div>
-                    <div style="font-size:0.85rem; color:#888; margin-bottom:0.1rem;">$</div>
+                    <div style="font-size:0.75rem; color:#2a6a82; font-weight:700; margin-bottom:0.3rem;">總計合計</div>
                     <div style="font-size:1.2rem; font-weight:800; color:#2a6a82;" id="totalSum">0</div>
                 </div>
                 <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
@@ -6150,7 +6211,7 @@ function displayResults(data) {
                         onblur="this.style.borderBottomColor='transparent'; this.style.background='transparent';" />
                 </td>`;
             } else {
-                html += `<td class="${alignClass}" style="${redStyle}">${val}</td>`;
+                html += `<td class="${alignClass}" style="${redStyle}" data-col="${col}" data-static="true">${val}</td>`;
             }
         });
         html += '</tr>';
