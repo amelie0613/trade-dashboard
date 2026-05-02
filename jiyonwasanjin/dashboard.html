@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>庫存管理 Dashboard</title>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
 
@@ -208,7 +209,9 @@ td.note-cell .save-indicator.show { display: block; }
     <span class="topbar-sub" id="dataDate"></span>
   </div>
   <span class="upload-status" id="uploadStatus"></span>
-  <button class="btn btn-ghost" onclick="refreshData()">🔄 重新載入</button>
+  <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="loadExcel(this)">
+  <button class="btn btn-primary" onclick="document.getElementById('xlsxInput').click()">📂 上傳庫存 Excel</button>
+  <button class="btn btn-ghost" onclick="refreshData()">🔄 從 Sheets 載入</button>
   <button class="btn btn-green" onclick="uploadAnalyzed()">☁️ 上傳分析結果</button>
   <button class="btn btn-ghost" onclick="openConfig()">⚙️ 設定</button>
 </div>
@@ -340,6 +343,11 @@ td.note-cell .save-indicator.show { display: block; }
       <input type="text" id="cfg-scriptUrl" placeholder="https://script.google.com/macros/s/...">
     </div>
     <div class="form-group">
+      <label>庫存工作表名稱 <span style="font-size:11px;color:#888;">（預設：原始庫存）</span></label>
+      <input type="text" id="cfg-invSheet" placeholder="原始庫存">
+      <div style="font-size:11px;color:#888;margin-top:4px;">若找不到，會自動嘗試「全部庫存」</div>
+    </div>
+    <div class="form-group">
       <label>即將到期天數（預設 210）</label>
       <input type="number" id="cfg-soonDays" value="210" min="1" max="999">
     </div>
@@ -362,9 +370,13 @@ td.note-cell .save-indicator.show { display: block; }
 // ═══════════════════════════════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════
+const DEFAULT_SHEET_ID   = '1vAjncE2dWp95g0tCzOcprCgu3caWPPr6qw42Hb4xyMI';
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcHHwc6iAxtDrq2f3ahNDzN2RPm_mtCD1bCLgVXFlGJIoxcqdb3sQSAXV_foUssiTZ/exec';
+
 let CFG = {
-  sheetId:   localStorage.getItem('dash_sheetId')   || '',
-  scriptUrl: localStorage.getItem('dash_scriptUrl') || '',
+  sheetId:   localStorage.getItem('dash_sheetId')   || DEFAULT_SHEET_ID,
+  scriptUrl: localStorage.getItem('dash_scriptUrl') || DEFAULT_SCRIPT_URL,
+  invSheet:  localStorage.getItem('dash_invSheet')  || '原始庫存',
   soonDays:  +(localStorage.getItem('dash_soonDays')  || 210),
   longYears: +(localStorage.getItem('dash_longYears') || 3),
 };
@@ -372,6 +384,7 @@ let CFG = {
 function openConfig(){
   document.getElementById('cfg-sheetId').value   = CFG.sheetId;
   document.getElementById('cfg-scriptUrl').value = CFG.scriptUrl;
+  document.getElementById('cfg-invSheet').value  = CFG.invSheet;
   document.getElementById('cfg-soonDays').value  = CFG.soonDays;
   document.getElementById('cfg-longYears').value = CFG.longYears;
   document.getElementById('config-modal').classList.add('open');
@@ -380,10 +393,12 @@ function closeConfig(){ document.getElementById('config-modal').classList.remove
 function saveConfig(){
   CFG.sheetId   = document.getElementById('cfg-sheetId').value.trim();
   CFG.scriptUrl = document.getElementById('cfg-scriptUrl').value.trim();
+  CFG.invSheet  = document.getElementById('cfg-invSheet').value.trim() || '原始庫存';
   CFG.soonDays  = +document.getElementById('cfg-soonDays').value  || 210;
   CFG.longYears = +document.getElementById('cfg-longYears').value || 3;
   localStorage.setItem('dash_sheetId',   CFG.sheetId);
   localStorage.setItem('dash_scriptUrl', CFG.scriptUrl);
+  localStorage.setItem('dash_invSheet',  CFG.invSheet);
   localStorage.setItem('dash_soonDays',  CFG.soonDays);
   localStorage.setItem('dash_longYears', CFG.longYears);
   closeConfig();
@@ -522,9 +537,16 @@ async function refreshData(){
   setUploadStatus('🔄 載入資料中…');
 
   try {
-    // 平行抓三個 sheet
-    const [invRes, priceRes, noteRes, diffRes] = await Promise.all([
-      scriptGet('原始庫存'),
+    // 平行抓三個 sheet，庫存使用設定的工作表名稱，找不到時自動退回「全部庫存」
+    const invSheetName = CFG.invSheet || '原始庫存';
+    const fallbackSheet = invSheetName === '全部庫存' ? '原始庫存' : '全部庫存';
+    let invRes = await scriptGet(invSheetName);
+    if(invRes.error){
+      setUploadStatus(`⚠️ 找不到「${invSheetName}」，改讀「${fallbackSheet}」…`);
+      invRes = await scriptGet(fallbackSheet);
+    }
+
+    const [priceRes, noteRes, diffRes] = await Promise.all([
       scriptGet('單價設定').catch(() => ({ rows: [] })),
       fetchNotes(),
       scriptGet('差異報告').catch(() => ({ rows: [] })),
@@ -542,10 +564,25 @@ async function refreshData(){
     // 解析備註
     notesMap = noteRes || {};
 
-    // 解析原始庫存並附加計算欄
+    // 解析原始庫存並附加計算欄；同時從行內提取單價（若 單價設定 sheet 沒有資料時做後備）
     rawRows = (invRes.rows || []).map(r => {
       r._expDate = parseDate(r['有效期至']);
       r._lotDate = parseLotDate(r['批號']);
+      // 欄位別名：相容「基本單位」/「基本單位名稱」、「倉庫」/「倉庫名稱」
+      if(!r['基本單位名稱'] && r['基本單位']) r['基本單位名稱'] = r['基本單位'];
+      if(!r['倉庫名稱']   && r['倉庫'])   r['倉庫名稱']   = r['倉庫'];
+      // 從行內提取單價（期末優先 → 期初 → 單價欄）
+      const endCost    = parseFloat(r['期末單位成本']);
+      const startCost  = parseFloat(r['期初單位成本']);
+      const directPrice= parseFloat(r['單價']);
+      const extracted  = (!isNaN(directPrice) && directPrice > 0) ? directPrice
+                       : (!isNaN(endCost)    && endCost    > 0) ? endCost
+                       : (!isNaN(startCost)  && startCost  > 0) ? startCost : 0;
+      if(extracted > 0){
+        const k = priceKey(r);
+        if(k !== '__' && !(prices[k] && prices[k].price > 0))
+          prices[k] = { price: extracted, scope: String(r['存貨核算範圍名稱']||'').trim() };
+      }
       return r;
     });
 
@@ -952,16 +989,138 @@ function toast(msg, dur=3000){
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  EXCEL 上傳（本地）
+// ═══════════════════════════════════════════════════════════════
+
+// 欄位別名對照表：內部欄位名 → 可能的 Excel 欄名（依優先順序）
+const COL_ALIASES = {
+  '產品名稱':         ['產品名稱','品名','品項名稱','存貨名稱'],
+  '產品代碼':         ['產品代碼','品號','品項代碼','存貨代碼','材料代碼','存貨編號'],
+  '產品類別':         ['產品類別','類別','存貨類別','分類'],
+  '產品規格':         ['產品規格','規格','規格說明'],
+  '庫存數量':         ['期末庫存數量','庫存數量','結存數量','本期結存','期末結存','數量'],
+  '基本單位名稱':      ['基本單位名稱','基本單位','計量單位','單位'],
+  '倉庫名稱':         ['倉庫名稱','倉庫','存儲位置','庫別','倉別'],
+  '批號':             ['批號','批次'],
+  '有效期至':         ['有效期至','效期至','有效日期','到期日','效期'],
+  '核算組織名稱':      ['核算組織名稱','核算組織','組織名稱'],
+  '存貨核算範圍名稱':  ['存貨核算範圍名稱','核算範圍名稱','核算範圍','成本中心'],
+  // 單價欄（依優先順序抓第一個有值的）
+  '_price_end':       ['期末單位成本','期末成本'],
+  '_price_start':     ['期初單位成本','期初成本'],
+  '_price_direct':    ['單價','單位成本'],
+};
+
+function detectCol(headers, aliases){
+  for(const alias of aliases){
+    const h = headers.find(h => h.trim() === alias);
+    if(h) return h;
+  }
+  return null;
+}
+
+function loadExcel(input){
+  const file = input.files[0];
+  if(!file) return;
+  input.value = '';   // 允許重複選同一檔
+  setUploadStatus('⏳ 讀取 Excel…');
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb  = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      // 選工作表：優先找含「庫存」的，否則用第一張
+      const sheetName = wb.SheetNames.find(n => n.includes('庫存')) || wb.SheetNames[0];
+      const ws  = wb.Sheets[sheetName];
+      const raw = XLSX.utils.sheet_to_json(ws, { defval:'' });
+
+      if(!raw.length){ toast('❌ 工作表「' + sheetName + '」沒有資料'); return; }
+
+      const headers = Object.keys(raw[0]);
+
+      // 建立欄位對應 map：內部名 → 實際 Excel 欄名（或 null）
+      const colMap = {};
+      for(const [internal, aliases] of Object.entries(COL_ALIASES)){
+        colMap[internal] = detectCol(headers, aliases);
+      }
+
+      const get = (row, internal) => {
+        const h = colMap[internal];
+        return h ? String(row[h] ?? '').trim() : '';
+      };
+
+      prices = {};   // 清空舊單價
+
+      rawRows = raw.map(row => {
+        const r = {};
+
+        // 基本欄位
+        r['產品名稱']        = get(row, '產品名稱');
+        r['產品代碼']        = get(row, '產品代碼');
+        r['產品類別']        = get(row, '產品類別');
+        r['產品規格']        = get(row, '產品規格');
+        r['基本單位名稱']     = get(row, '基本單位名稱') || get(row, '倉庫名稱');   // fallback
+        r['基本單位名稱']     = get(row, '基本單位名稱');
+        r['倉庫名稱']        = get(row, '倉庫名稱');
+        r['批號']            = get(row, '批號');
+        r['核算組織名稱']     = get(row, '核算組織名稱');
+        r['存貨核算範圍名稱'] = get(row, '存貨核算範圍名稱');
+
+        // 數量（支援帶千分位的字串）
+        const qtyRaw = get(row, '庫存數量');
+        r['庫存數量'] = parseFloat(String(qtyRaw).replace(/,/g,'')) || 0;
+
+        // 有效期至（可能是 Date 物件或字串）
+        const expRaw = colMap['有效期至'] ? row[colMap['有效期至']] : '';
+        if(expRaw instanceof Date){
+          r['有效期至'] = expRaw.toISOString().slice(0,10).replace(/-/g,'');
+        } else {
+          r['有效期至'] = String(expRaw||'').replace(/[-/]/g,'').slice(0,8);
+        }
+
+        // 計算日期
+        r._expDate = parseDate(r['有效期至']);
+        r._lotDate = parseLotDate(r['批號']);
+
+        // 提取單價：期末成本 > 期初成本 > 單價欄
+        const tryPrice = key => {
+          const h = colMap[key];
+          if(!h) return 0;
+          return parseFloat(String(row[h]||'').replace(/[$, ]/g,'')) || 0;
+        };
+        const price = tryPrice('_price_end') || tryPrice('_price_start') || tryPrice('_price_direct');
+        const scope = r['存貨核算範圍名稱'] || r['核算組織名稱'];
+        const k = priceKey(r);
+        if(price > 0 && k !== '__') prices[k] = { price, scope };
+
+        return r;
+      }).filter(r => r['產品名稱']);   // 過濾掉空行
+
+      const pricedCnt = Object.keys(prices).length;
+      setUploadStatus(`✅ 已載入 ${rawRows.length} 筆，已抓到單價 ${pricedCnt} 筆`);
+      document.getElementById('dataDate').textContent = `　${file.name}　${rawRows.length} 筆`;
+
+      renderInventory();
+      renderCost();
+
+    } catch(err){
+      toast('❌ Excel 解析失敗：' + err.message);
+      setUploadStatus('❌ ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   if(CFG.scriptUrl && CFG.sheetId){
     refreshData();
   } else {
-    setUploadStatus('⚙️ 請先設定 Apps Script 網址與 Sheet ID');
+    setUploadStatus('📂 請上傳庫存 Excel，或點「設定」連接 Google Sheets');
     document.getElementById('inv-body').innerHTML =
-      '<tr><td colspan="15" class="empty-msg">⚙️ 請先點右上角「設定」填入 Apps Script 網址與 Google Sheet ID。</td></tr>';
-    openConfig();
+      '<tr><td colspan="15" class="empty-msg">📂 請點左上角「上傳庫存 Excel」直接讀取本機檔案，<br>或點右上角「設定」填入 Apps Script 網址與 Google Sheet ID。</td></tr>';
   }
 });
 </script>
