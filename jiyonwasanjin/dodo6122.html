@@ -466,7 +466,7 @@ table.data-tbl .row-caution td{background:#fffef0!important;}
 #resultTable th.col-text  { text-align:left;   }
 #resultTable th.col-date  { text-align:center; }
 #resultTable th:hover{background:#5868A8;}
-#resultTable th{ position:relative; }
+/* position:relative was here but breaks sticky header; col-resize-handle still works with sticky */
 table.data-tbl th{ position:relative; }
 #tbl-diff-wrap table th{ position:relative; }
 .col-resize-handle{
@@ -6079,23 +6079,22 @@ function displayResults(data) {
             </div>
 
             <!-- 合計區：永遠顯示在表格上方，篩選後自動更新 -->
-            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.6rem; margin-bottom:1rem;">
-                <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
-                    <div style="font-size:0.75rem; color:#c0507a; font-weight:700; margin-bottom:0.3rem;">租金合計</div>
-                    <div style="font-size:1.2rem; font-weight:800; color:#c0507a;" id="totalRental">0</div>
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; margin-bottom:0.8rem;">
+                <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:8px; padding:0.45rem 0.7rem; text-align:center;">
+                    <div style="font-size:0.7rem; color:#c0507a; font-weight:700; margin-bottom:0.15rem;">租金合計</div>
+                    <div style="font-size:0.95rem; font-weight:800; color:#c0507a;" id="totalRental">0</div>
                 </div>
-                <div style="background:#fff8e8; border:1.5px solid #f7d96b; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
-                    <div style="font-size:0.75rem; color:#b07020; font-weight:700; margin-bottom:0.3rem;">出入庫酌收合計</div>
-                    <div style="font-size:1.2rem; font-weight:800; color:#b07020;" id="totalHandling">0</div>
+                <div style="background:#fff8e8; border:1.5px solid #f7d96b; border-radius:8px; padding:0.45rem 0.7rem; text-align:center;">
+                    <div style="font-size:0.7rem; color:#b07020; font-weight:700; margin-bottom:0.15rem;">出入庫酌收合計</div>
+                    <div style="font-size:0.95rem; font-weight:800; color:#b07020;" id="totalHandling">0</div>
                 </div>
-                <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
-                    <div style="font-size:0.75rem; color:#2a6a82; font-weight:700; margin-bottom:0.3rem;">總計合計</div>
-                    <div style="font-size:1.2rem; font-weight:800; color:#2a6a82;" id="totalSum">0</div>
+                <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:8px; padding:0.45rem 0.7rem; text-align:center;">
+                    <div style="font-size:0.7rem; color:#2a6a82; font-weight:700; margin-bottom:0.15rem;">總計合計</div>
+                    <div style="font-size:0.95rem; font-weight:800; color:#2a6a82;" id="totalSum">0</div>
                 </div>
-                <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.7rem 1rem; text-align:center;">
-                    <div style="font-size:0.75rem; color:#4a9a37; font-weight:700; margin-bottom:0.2rem;">計價重量合計</div>
-                    <div style="font-size:0.85rem; color:#888; margin-bottom:0.1rem;">kg</div>
-                    <div style="font-size:1.2rem; font-weight:800; color:#4a9a37;" id="totalWeight">0</div>
+                <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:8px; padding:0.45rem 0.7rem; text-align:center;">
+                    <div style="font-size:0.7rem; color:#4a9a37; font-weight:700; margin-bottom:0.15rem;">計價重量合計 (kg)</div>
+                    <div style="font-size:0.95rem; font-weight:800; color:#4a9a37;" id="totalWeight">0</div>
                 </div>
             </div>
 
@@ -6487,7 +6486,7 @@ function recalcSummary() {
     if (el('totalRental'))   el('totalRental').textContent   = fmtAcct(sums['租金']);
     if (el('totalHandling')) el('totalHandling').textContent = fmtAcct(sums['出入庫']);
     if (el('totalSum'))      el('totalSum').textContent      = fmtAcct(sums['總計']);
-    if (el('totalWeight'))   el('totalWeight').textContent   = sums['計價重量'].toFixed(2);
+    if (el('totalWeight'))   el('totalWeight').textContent   = Number(sums['計價重量']).toLocaleString('zh-TW',{minimumFractionDigits:2,maximumFractionDigits:2});
 
     // 更新合計列的 sum_* 儲存格
     numericCols.forEach(c => {
