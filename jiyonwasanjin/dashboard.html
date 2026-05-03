@@ -277,6 +277,56 @@ td.note-cell .save-indicator.show { display: block; }
   .inv-cards { display:none !important; }
   .tbl-wrap  { display:block; }
 }
+
+/* ── FILTER BAR ── */
+.filter-bar { display:flex; gap:7px; margin-bottom:10px; flex-wrap:wrap; align-items:center; }
+.filter-group { position:relative; }
+.filter-btn {
+  padding:5px 11px; border-radius:7px; border:1.5px solid var(--border);
+  background:white; font-size:12px; font-weight:700; cursor:pointer;
+  color:var(--text); font-family:inherit; transition:all .15s; white-space:nowrap;
+  line-height:1.4;
+}
+.filter-btn:hover { border-color:var(--accent); color:var(--accent); }
+.filter-btn.has-sel { background:var(--accent); color:white; border-color:var(--accent); }
+.filter-dropdown {
+  display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:80;
+  background:white; border:1.5px solid var(--border); border-radius:10px;
+  padding:5px 0; min-width:170px; max-height:260px; overflow-y:auto;
+  box-shadow:0 4px 18px rgba(104,120,192,.22);
+}
+.filter-dropdown.open { display:block; }
+.filter-dd-head {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:4px 12px 6px; border-bottom:1px solid var(--border); margin-bottom:3px;
+}
+.filter-dd-head span { font-size:10px; color:#aaa; }
+.filter-dd-head a { font-size:11px; color:var(--accent); cursor:pointer; font-weight:700; }
+.filter-dd-head a:hover { text-decoration:underline; }
+.filter-dd-item {
+  display:flex; align-items:center; gap:8px;
+  padding:5px 12px; cursor:pointer; font-size:12px; color:var(--text); white-space:nowrap;
+}
+.filter-dd-item:hover { background:#f4f6ff; }
+.filter-dd-item input[type=checkbox] { width:14px; height:14px; accent-color:var(--accent); flex-shrink:0; }
+.filter-input {
+  padding:5px 10px; border-radius:7px; border:1.5px solid var(--border);
+  font-size:12px; font-family:inherit; outline:none; width:120px;
+  background:white; transition:border-color .15s;
+}
+.filter-input:focus { border-color:var(--accent); }
+.filter-input.has-val { border-color:var(--accent); background:#eef1ff; }
+.filter-clear-btn {
+  padding:5px 10px; border-radius:7px; border:1.5px solid #e06070;
+  background:white; color:#e06070; font-size:12px; font-weight:700;
+  cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
+}
+.filter-clear-btn:hover { background:#e06070; color:white; }
+@media (max-width:700px) {
+  .filter-bar { gap:6px; }
+  .filter-input { width:100px; }
+  .filter-btn { font-size:11px; padding:5px 9px; }
+}
 </style>
 </head>
 <body>
@@ -325,6 +375,24 @@ td.note-cell .save-indicator.show { display: block; }
     <div class="status-chip"        data-s="soon"    onclick="switchStatus('soon',this)">⚠️ 即將到期 <span class="chip-cnt" id="cnt-soon">0</span></div>
     <div class="status-chip"        data-s="expired" onclick="switchStatus('expired',this)">❌ 過期品 <span class="chip-cnt" id="cnt-expired">0</span></div>
     <div class="status-chip"        data-s="long"    onclick="switchStatus('long',this)">⏳ 長期在庫 <span class="chip-cnt" id="cnt-long">0</span></div>
+  </div>
+  <!-- 篩選列 -->
+  <div class="filter-bar" id="filter-bar">
+    <div class="filter-group">
+      <button class="filter-btn" id="fbtn-warehouse" onclick="toggleFDrop('warehouse')">倉庫<span id="fc-warehouse"></span> ▾</button>
+      <div class="filter-dropdown" id="fd-warehouse"></div>
+    </div>
+    <div class="filter-group">
+      <button class="filter-btn" id="fbtn-scope" onclick="toggleFDrop('scope')">核算範圍<span id="fc-scope"></span> ▾</button>
+      <div class="filter-dropdown" id="fd-scope"></div>
+    </div>
+    <div class="filter-group">
+      <button class="filter-btn" id="fbtn-category" onclick="toggleFDrop('category')">產品類別<span id="fc-category"></span> ▾</button>
+      <div class="filter-dropdown" id="fd-category"></div>
+    </div>
+    <input class="filter-input" type="text" placeholder="🔍 產品名稱" id="fi-name" oninput="onFilterText()">
+    <input class="filter-input" type="text" placeholder="🔍 批號" id="fi-lot" oninput="onFilterText()">
+    <button class="filter-clear-btn" id="filter-clear-btn" style="display:none" onclick="clearFilters()">✕ 清除篩選</button>
   </div>
   <div class="summary-row">
     <div class="summary-card"><div class="s-label">顯示筆數</div><div class="s-value" id="s-count">—</div></div>
@@ -517,6 +585,13 @@ let invSortCol = null;
 let invSortDir = 'asc';
 let diffFilter = 'all';
 
+// ── 篩選狀態 ──
+let filterWarehouses = new Set();
+let filterScopes     = new Set();
+let filterCategories = new Set();
+let filterName       = '';
+let filterLot        = '';
+
 // ═══════════════════════════════════════════════════════════════
 //  TAB SWITCH
 // ═══════════════════════════════════════════════════════════════
@@ -573,7 +648,7 @@ function parseLotDate(lot){
 function daysDiff(d){ return d ? Math.round((d - TODAY) / 86400000) : null; }
 
 function priceKey(r){ return `${String(r['產品名稱']||'').trim()}__${String(r['批號']||'').trim()}`; }
-function noteKey(r) { return `${String(r['產品代碼']||'').trim()}__${String(r['批號']||'').trim()}__${String(r['倉庫名稱']||'').trim()}`; }
+function noteKey(r) { return `${String(r['產品名稱']||'').trim()}__${String(r['批號']||'').trim()}__${String(r['倉庫名稱']||'').trim()}`; }
 
 function classify(row){
   const expDate = row._expDate;
@@ -646,7 +721,7 @@ async function refreshData(){
     const [priceRes, noteRes, diffRes] = await Promise.all([
       scriptGet('單價設定').catch(() => ({ rows: [] })),
       fetchNotes(),
-      scriptGet('差異報告').catch(() => ({ rows: [] })),
+      scriptGet('庫存差異比較').catch(() => ({ rows: [] })),
     ]);
 
     if(invRes.error) throw new Error(invRes.error);
@@ -735,10 +810,13 @@ function getInvRows(){
     const pd     = prices[priceKey(r)] || { price: 0, scope: '' };
     const qty    = parseFloat(r['庫存數量']) || 0;
     const days   = flags.long && r._lotDate ? daysDiff(r._lotDate) : daysDiff(r._expDate);
+    // 4-digit code: pad pure-numeric codes to 4 digits
+    const codeRaw = String(r['產品代碼'] || '').trim();
+    const codeDisp = /^\d{1,3}$/.test(codeRaw) ? codeRaw.padStart(4, '0') : codeRaw;
     return {
       status, flags,
       category:  r['產品類別']  || '',
-      code:      r['產品代碼']  || '',
+      code:      codeDisp,
       name:      r['產品名稱']  || '',
       spec:      r['產品規格']  || '',
       qty,
@@ -756,7 +834,14 @@ function getInvRows(){
     };
   });
 
-  if(invStatus !== 'all') rows = rows.filter(r => r.status === invStatus);
+  if(invStatus !== 'all')        rows = rows.filter(r => r.status === invStatus);
+
+  // 多選篩選
+  if(filterWarehouses.size > 0)  rows = rows.filter(r => filterWarehouses.has(r.warehouse));
+  if(filterScopes.size > 0)      rows = rows.filter(r => filterScopes.has(r.scope));
+  if(filterCategories.size > 0)  rows = rows.filter(r => filterCategories.has(r.category));
+  if(filterName)                  rows = rows.filter(r => r.name.includes(filterName));
+  if(filterLot)                   rows = rows.filter(r => r.lot.includes(filterLot));
 
   if(invSortCol){
     const dir = invSortDir === 'asc' ? 1 : -1;
@@ -767,6 +852,115 @@ function getInvRows(){
     });
   }
   return rows;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  FILTER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', e => {
+  if(!e.target.closest('.filter-group'))
+    document.querySelectorAll('.filter-dropdown.open').forEach(d => d.classList.remove('open'));
+});
+
+function toggleFDrop(type){
+  const fd = document.getElementById('fd-' + type);
+  if(!fd) return;
+  const wasOpen = fd.classList.contains('open');
+  document.querySelectorAll('.filter-dropdown.open').forEach(d => d.classList.remove('open'));
+  if(!wasOpen){ _rebuildDropdown(type); fd.classList.add('open'); }
+}
+
+function _rebuildDropdown(type){
+  const sets = { warehouse:filterWarehouses, scope:filterScopes, category:filterCategories };
+  const selectedSet = sets[type] || new Set();
+
+  let options = [];
+  if(type === 'warehouse'){
+    options = [...new Set(rawRows.map(r => String(r['倉庫名稱']||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
+  } else if(type === 'scope'){
+    const s = new Set();
+    rawRows.forEach(r => { const pd = prices[priceKey(r)]; if(pd && pd.scope) s.add(pd.scope); });
+    options = [...s].sort((a,b)=>a.localeCompare(b,'zh-TW'));
+  } else if(type === 'category'){
+    options = [...new Set(rawRows.map(r => String(r['產品類別']||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
+  }
+
+  const fd = document.getElementById('fd-' + type);
+  if(!fd) return;
+  fd.dataset.optCount = options.length;
+
+  let html = `<div class="filter-dd-head">
+    <span>${options.length} 個選項</span>
+    <a onclick="filterSelectAll('${type}');event.stopPropagation()">全選</a>
+  </div>`;
+  options.forEach(opt => {
+    const esc = opt.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    const chk = (selectedSet.size === 0 || selectedSet.has(opt)) ? 'checked' : '';
+    html += `<label class="filter-dd-item"><input type="checkbox" value="${esc}" ${chk} onchange="onFilterCheck('${type}',this)">${esc}</label>`;
+  });
+  fd.innerHTML = html;
+}
+
+function onFilterCheck(type, cb){
+  const sets = { warehouse:filterWarehouses, scope:filterScopes, category:filterCategories };
+  const set = sets[type]; if(!set) return;
+  if(cb.checked) set.add(cb.value);
+  else           set.delete(cb.value);
+  // If every option is checked → treat as "no filter" (clear the set)
+  const fd = document.getElementById('fd-' + type);
+  if(fd && +fd.dataset.optCount > 0 && set.size >= +fd.dataset.optCount) set.clear();
+  _syncFilterBtn(type);
+  updateFilterClearBtn();
+  renderInventory();
+}
+
+function filterSelectAll(type){
+  const sets = { warehouse:filterWarehouses, scope:filterScopes, category:filterCategories };
+  const set = sets[type]; if(!set) return;
+  set.clear();
+  const fd = document.getElementById('fd-' + type);
+  if(fd) fd.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+  _syncFilterBtn(type);
+  updateFilterClearBtn();
+  renderInventory();
+}
+
+function _syncFilterBtn(type){
+  const sets = { warehouse:filterWarehouses, scope:filterScopes, category:filterCategories };
+  const set = sets[type]; if(!set) return;
+  const btn = document.getElementById('fbtn-' + type);
+  const fc  = document.getElementById('fc-' + type);
+  if(btn) btn.classList.toggle('has-sel', set.size > 0);
+  if(fc)  fc.textContent = set.size > 0 ? ` (${set.size})` : '';
+}
+
+function onFilterText(){
+  filterName = document.getElementById('fi-name').value.trim();
+  filterLot  = document.getElementById('fi-lot').value.trim();
+  const ni = document.getElementById('fi-name');
+  const li = document.getElementById('fi-lot');
+  if(ni) ni.classList.toggle('has-val', !!filterName);
+  if(li) li.classList.toggle('has-val', !!filterLot);
+  updateFilterClearBtn();
+  renderInventory();
+}
+
+function clearFilters(){
+  filterWarehouses.clear(); filterScopes.clear(); filterCategories.clear();
+  filterName = ''; filterLot = '';
+  const ni = document.getElementById('fi-name'); if(ni){ ni.value = ''; ni.classList.remove('has-val'); }
+  const li = document.getElementById('fi-lot');  if(li){ li.value = ''; li.classList.remove('has-val'); }
+  ['warehouse','scope','category'].forEach(t => _syncFilterBtn(t));
+  updateFilterClearBtn();
+  renderInventory();
+}
+
+function updateFilterClearBtn(){
+  const has = filterWarehouses.size > 0 || filterScopes.size > 0 || filterCategories.size > 0 || filterName || filterLot;
+  const btn = document.getElementById('filter-clear-btn');
+  if(btn) btn.style.display = has ? '' : 'none';
 }
 
 function renderInventory(){
@@ -1218,10 +1412,11 @@ function loadExcel(input){
 
         // 基本欄位
         r['產品名稱']        = get(row, '產品名稱');
-        r['產品代碼']        = get(row, '產品代碼');
+        // 4-digit codes: preserve leading zeros for pure-numeric codes
+        const _codeRaw = get(row, '產品代碼');
+        r['產品代碼']        = /^\d{1,3}$/.test(_codeRaw) ? _codeRaw.padStart(4,'0') : _codeRaw;
         r['產品類別']        = get(row, '產品類別');
         r['產品規格']        = get(row, '產品規格');
-        r['基本單位名稱']     = get(row, '基本單位名稱') || get(row, '倉庫名稱');   // fallback
         r['基本單位名稱']     = get(row, '基本單位名稱');
         r['倉庫名稱']        = get(row, '倉庫名稱');
         r['批號']            = get(row, '批號');
