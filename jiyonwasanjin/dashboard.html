@@ -199,21 +199,115 @@ td.note-cell .save-indicator.show { display: block; }
 
 /* ── UPLOAD PANEL in topbar ── */
 .upload-status { font-size: 11px; color: rgba(255,255,255,.75); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── MOBILE HAMBURGER MENU ── */
+.mob-menu-btn { display:none; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.35); border-radius:7px; color:#fff; font-size:18px; width:36px; height:36px; cursor:pointer; align-items:center; justify-content:center; }
+.mob-menu-overlay { display:none; position:fixed; inset:0; z-index:150; }
+.mob-menu-overlay.open { display:block; }
+.mob-menu-panel { position:fixed; top:0; right:0; bottom:0; width:220px; background:#1E2A50; z-index:151; padding:20px 0; box-shadow:-4px 0 20px rgba(0,0,0,.3); transform:translateX(100%); transition:transform .25s; display:flex; flex-direction:column; gap:4px; }
+.mob-menu-overlay.open .mob-menu-panel { transform:none; }
+.mob-menu-btn-top { display:flex; justify-content:flex-end; padding:0 16px 12px; }
+.mob-menu-item { display:flex; align-items:center; gap:10px; padding:13px 20px; font-size:13px; font-weight:700; color:#c8d4ff; cursor:pointer; transition:background .15s; }
+.mob-menu-item:hover { background:rgba(255,255,255,.08); }
+.mob-menu-divider { height:1px; background:rgba(255,255,255,.1); margin:6px 16px; }
+
+/* ── INV CARDS (mobile) ── */
+.inv-cards { display:none; flex-direction:column; gap:10px; }
+.inv-card { background:#fff; border-radius:10px; padding:12px 14px; box-shadow:0 1px 4px rgba(104,120,192,.12); border:1px solid var(--border); }
+.inv-card.card-expired { border-left:4px solid var(--red); }
+.inv-card.card-soon    { border-left:4px solid var(--orange); }
+.inv-card.card-long    { border-left:4px solid var(--amber); }
+.inv-card.card-normal  { border-left:4px solid var(--green); }
+.inv-card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+.inv-card-name { font-size:14px; font-weight:800; color:var(--text); flex:1; }
+.inv-card-badge { font-size:10px; font-weight:700; border-radius:6px; padding:2px 8px; white-space:nowrap; margin-left:8px; }
+.badge-normal  { background:#d1fae5; color:#065f46; }
+.badge-expired { background:#fee2e2; color:#991b1b; }
+.badge-soon    { background:#ffedd5; color:#9a3412; }
+.badge-long    { background:#fef3c7; color:#92400e; }
+.inv-card-meta { display:grid; grid-template-columns:1fr 1fr; gap:3px 10px; font-size:11px; color:#555; margin-bottom:6px; }
+.inv-card-meta span { display:flex; align-items:baseline; gap:3px; }
+.inv-card-meta .lbl { color:#999; font-size:10px; white-space:nowrap; }
+.inv-card-cost { display:flex; justify-content:space-between; align-items:center; padding:7px 10px; background:#f4f6ff; border-radius:7px; margin-top:6px; }
+.inv-card-cost .price-block { text-align:center; }
+.inv-card-cost .lbl { font-size:9px; color:#888; display:block; margin-bottom:1px; }
+.inv-card-cost .val { font-size:13px; font-weight:800; color:var(--accent); }
+.inv-card-cost .val.red    { color:var(--red); }
+.inv-card-cost .val.orange { color:var(--orange); }
+.inv-card-cost .val.amber  { color:var(--amber); }
+.inv-card-days { font-size:12px; font-weight:700; }
+.inv-card-note { width:100%; margin-top:8px; border:1px solid #e0e5f0; border-radius:6px; padding:5px 8px; font-size:12px; font-family:inherit; resize:vertical; min-height:32px; background:#fafbff; }
+.inv-card-note:focus { outline:none; border-color:var(--accent); background:#fff; }
+.inv-card-total-row { background:#eceeff; border-radius:8px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center; font-weight:800; font-size:13px; color:var(--accent2); }
+
+/* ── RESPONSIVE BREAKPOINTS ── */
+@media (max-width: 700px) {
+  .topbar { height:auto; flex-wrap:wrap; padding:8px 12px; gap:6px; min-height:52px; }
+  .topbar-title { font-size:14px; min-width:0; }
+  .topbar-sub { display:none; }
+  .upload-status { max-width:100%; flex:1 1 100%; order:10; font-size:10px; }
+  .topbar-hide-mobile { display:none !important; }
+  .mob-menu-btn { display:flex; }
+
+  .tab-bar { padding:0; overflow-x:auto; scrollbar-width:none; top:52px; }
+  .tab-bar::-webkit-scrollbar { display:none; }
+  .tab-item { padding:10px 14px; font-size:12px; white-space:nowrap; }
+
+  .tab-panel { padding:10px 10px; }
+
+  .status-bar { overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; padding-bottom:4px; }
+  .status-bar::-webkit-scrollbar { display:none; }
+  .status-chip { padding:5px 10px; font-size:11px; white-space:nowrap; }
+
+  .summary-row { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .summary-card { min-width:0; padding:7px 10px; }
+  .s-value { font-size:15px; }
+  .s-label { font-size:9px; }
+
+  /* table → hide, cards → show */
+  .tbl-wrap { display:none; }
+  .inv-cards { display:flex; }
+
+  /* cost table keeps horizontal scroll */
+  .cost-tbl { min-width:560px; }
+}
+
+@media (min-width: 701px) {
+  .mob-menu-btn { display:none; }
+  .inv-cards { display:none !important; }
+  .tbl-wrap  { display:block; }
+}
 </style>
 </head>
 <body>
 
 <!-- ════ TOPBAR ════ -->
 <div class="topbar">
-  <div class="topbar-title">📊 庫存管理 Dashboard
+  <div class="topbar-title">📊 庫存管理
     <span class="topbar-sub" id="dataDate"></span>
   </div>
   <span class="upload-status" id="uploadStatus"></span>
   <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="loadExcel(this)">
-  <button class="btn btn-primary" onclick="document.getElementById('xlsxInput').click()">📂 上傳庫存 Excel</button>
-  <button class="btn btn-ghost" onclick="refreshData()">🔄 從 Sheets 載入</button>
-  <button class="btn btn-green" onclick="uploadAnalyzed()">☁️ 上傳分析結果</button>
-  <button class="btn btn-ghost" onclick="openConfig()">⚙️ 設定</button>
+  <button class="btn btn-primary" onclick="document.getElementById('xlsxInput').click()">📂 上傳 Excel</button>
+  <button class="btn btn-ghost topbar-hide-mobile" onclick="refreshData()">🔄 從 Sheets 載入</button>
+  <button class="btn btn-green topbar-hide-mobile" onclick="uploadAnalyzed()">☁️ 上傳分析</button>
+  <button class="btn btn-ghost topbar-hide-mobile" onclick="openConfig()">⚙️ 設定</button>
+  <button class="mob-menu-btn" onclick="openMobMenu()">☰</button>
+</div>
+
+<!-- ════ MOBILE SIDE MENU ════ -->
+<div class="mob-menu-overlay" id="mobMenuOverlay" onclick="closeMobMenu()">
+  <div class="mob-menu-panel" onclick="event.stopPropagation()">
+    <div class="mob-menu-btn-top">
+      <button onclick="closeMobMenu()" style="background:none;border:none;color:#c8d4ff;font-size:22px;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <div class="mob-menu-item" onclick="document.getElementById('xlsxInput').click();closeMobMenu()">📂 上傳庫存 Excel</div>
+    <div class="mob-menu-item" onclick="refreshData();closeMobMenu()">🔄 從 Google Sheets 載入</div>
+    <div class="mob-menu-divider"></div>
+    <div class="mob-menu-item" onclick="uploadAnalyzed();closeMobMenu()">☁️ 上傳分析結果</div>
+    <div class="mob-menu-divider"></div>
+    <div class="mob-menu-item" onclick="openConfig();closeMobMenu()">⚙️ 設定</div>
+  </div>
 </div>
 
 <!-- ════ TABS ════ -->
@@ -238,6 +332,7 @@ td.note-cell .save-indicator.show { display: block; }
     <div class="summary-card"><div class="s-label">總存貨成本</div><div class="s-value" id="s-cost">—</div></div>
     <div class="summary-card"><div class="s-label">已設定單價</div><div class="s-value green" id="s-priced">—</div></div>
   </div>
+  <!-- 桌面：表格 -->
   <div class="tbl-wrap">
     <table>
       <thead>
@@ -262,6 +357,8 @@ td.note-cell .save-indicator.show { display: block; }
       <tbody id="inv-body"></tbody>
     </table>
   </div>
+  <!-- 手機：卡片列表 -->
+  <div class="inv-cards" id="inv-cards"></div>
 </div>
 
 <!-- ════ COST TAB ════ -->
@@ -695,8 +792,66 @@ function renderInventory(){
 
   if(!rows.length){
     document.getElementById('inv-body').innerHTML = '<tr><td colspan="15" class="empty-msg">此類別暫無資料</td></tr>';
+    const cardsEl = document.getElementById('inv-cards');
+    if(cardsEl) cardsEl.innerHTML = '<div style="text-align:center;padding:40px;color:#aaa;">此類別暫無資料</div>';
     return;
   }
+
+  const isMobile = window.innerWidth <= 700;
+
+  // ── 桌面：表格模式 ──────────────────────────────────────────
+  if(!isMobile){
+    let grandQty = 0, grandCost = 0, html = '';
+    rows.forEach(r => {
+      grandQty  += r.qty;
+      grandCost += r.cost;
+      let daysCls = 'days-normal';
+      if     (r.status==='expired')            daysCls = 'days-expired';
+      else if(r.status==='soon')               daysCls = 'days-soon';
+      else if(r.status==='long')               daysCls = 'days-long';
+      else if(r.days !== null && r.days > 210) daysCls = 'days-green';
+      const daysDisp  = r.days !== null ? r.daysAbs : '—';
+      const priceDisp = r.price > 0 ? '$' + r.price.toLocaleString('zh-TW') : '<span style="color:#bbb">未設定</span>';
+      const scopeDisp = r.scope ? `<span class="scope-badge">${r.scope}</span>` : '<span style="color:#bbb">—</span>';
+      const costDisp  = r.cost > 0 ? '$' + Math.round(r.cost).toLocaleString('zh-TW') : '—';
+      const noteVal   = (notesMap[r._key] || '').replace(/"/g,'&quot;');
+      html += `<tr class="${ROW_CLS[r.status]||'row-normal'}">
+        <td>${r.category||'—'}</td>
+        <td style="text-align:center">${r.code||'—'}</td>
+        <td>${r.name||'—'}</td>
+        <td style="color:#666">${r.spec||'—'}</td>
+        <td style="text-align:right">${r.qty.toLocaleString('zh-TW')}</td>
+        <td style="text-align:center">${r.unit||'—'}</td>
+        <td>${r.warehouse||'—'}</td>
+        <td>${r.lot||'—'}</td>
+        <td style="text-align:center">${r.lotDate||'—'}</td>
+        <td style="text-align:center">${r.expDate||'—'}</td>
+        <td style="text-align:center" class="${daysCls}">${daysDisp}</td>
+        <td style="text-align:right">${priceDisp}</td>
+        <td style="text-align:center">${scopeDisp}</td>
+        <td style="text-align:right" class="${COST_CLS[r.status]||'cost-blue'}">${costDisp}</td>
+        <td class="note-cell">
+          <textarea data-key="${r._key}" onblur="saveNote(this)" placeholder="輸入備註…">${noteVal}</textarea>
+          <div class="save-indicator" id="si-${r._key.replace(/[^a-zA-Z0-9]/g,'_')}">已儲存 ✓</div>
+        </td>
+      </tr>`;
+    });
+    html += `<tr class="total-row">
+      <td colspan="4" style="text-align:right;padding-right:8px">合計</td>
+      <td style="text-align:right">${grandQty.toLocaleString('zh-TW')}</td>
+      <td colspan="7"></td>
+      <td style="text-align:right">${fmtMoney(grandCost)}</td>
+      <td colspan="2"></td>
+    </tr>`;
+    document.getElementById('inv-body').innerHTML = html;
+    return;
+  }
+
+  // ── 手機：卡片模式 ──────────────────────────────────────────
+  document.getElementById('inv-body').innerHTML = '';
+  const BADGE_LABEL = { normal:'正常', expired:'過期', soon:'即將到期', long:'長期在庫' };
+  const BADGE_CLS2  = { normal:'badge-normal', expired:'badge-expired', soon:'badge-soon', long:'badge-long' };
+  const DAYS_LABEL  = { all:'剩餘/在庫', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
 
   let grandQty = 0, grandCost = 0, html = '';
   rows.forEach(r => {
@@ -704,48 +859,55 @@ function renderInventory(){
     grandCost += r.cost;
 
     let daysCls = 'days-normal';
-    if     (r.status==='expired')             daysCls = 'days-expired';
-    else if(r.status==='soon')                daysCls = 'days-soon';
-    else if(r.status==='long')                daysCls = 'days-long';
-    else if(r.days !== null && r.days > 210)  daysCls = 'days-green';
+    if     (r.status==='expired')            daysCls = 'days-expired';
+    else if(r.status==='soon')               daysCls = 'days-soon';
+    else if(r.status==='long')               daysCls = 'days-long';
+    else if(r.days !== null && r.days > 210) daysCls = 'days-green';
 
-    const daysDisp = r.days !== null ? r.daysAbs : '—';
-    const priceDisp = r.price > 0 ? '$' + r.price.toLocaleString('zh-TW') : '<span style="color:#bbb">未設定</span>';
-    const scopeDisp = r.scope ? `<span class="scope-badge">${r.scope}</span>` : '<span style="color:#bbb">—</span>';
-    const costDisp  = r.cost > 0 ? '$' + Math.round(r.cost).toLocaleString('zh-TW') : '—';
-    const noteVal   = (notesMap[r._key] || '').replace(/"/g,'&quot;');
+    const costValCls = COST_CLS[r.status] || 'cost-blue';
+    const noteVal    = (notesMap[r._key] || '').replace(/"/g,'&quot;');
+    const daysText   = r.days !== null ? `${r.daysAbs} 天` : '—';
 
-    html += `<tr class="${ROW_CLS[r.status]||'row-normal'}">
-      <td>${r.category||'—'}</td>
-      <td style="text-align:center">${r.code||'—'}</td>
-      <td>${r.name||'—'}</td>
-      <td style="color:#666">${r.spec||'—'}</td>
-      <td style="text-align:right">${r.qty.toLocaleString('zh-TW')}</td>
-      <td style="text-align:center">${r.unit||'—'}</td>
-      <td>${r.warehouse||'—'}</td>
-      <td>${r.lot||'—'}</td>
-      <td style="text-align:center">${r.lotDate||'—'}</td>
-      <td style="text-align:center">${r.expDate||'—'}</td>
-      <td style="text-align:center" class="${daysCls}">${daysDisp}</td>
-      <td style="text-align:right">${priceDisp}</td>
-      <td style="text-align:center">${scopeDisp}</td>
-      <td style="text-align:right" class="${COST_CLS[r.status]||'cost-blue'}">${costDisp}</td>
-      <td class="note-cell">
-        <textarea data-key="${r._key}" onblur="saveNote(this)" placeholder="輸入備註…">${noteVal}</textarea>
-        <div class="save-indicator" id="si-${r._key.replace(/[^a-zA-Z0-9]/g,'_')}">已儲存 ✓</div>
-      </td>
-    </tr>`;
+    html += `<div class="inv-card card-${r.status}">
+      <div class="inv-card-top">
+        <div class="inv-card-name">${r.name||'—'}</div>
+        <span class="inv-card-badge ${BADGE_CLS2[r.status]||'badge-normal'}">${BADGE_LABEL[r.status]||r.status}</span>
+      </div>
+      <div class="inv-card-meta">
+        <span><span class="lbl">類別</span>${r.category||'—'}</span>
+        <span><span class="lbl">品號</span>${r.code||'—'}</span>
+        <span><span class="lbl">規格</span>${r.spec||'—'}</span>
+        <span><span class="lbl">數量</span>${r.qty.toLocaleString('zh-TW')} ${r.unit||''}</span>
+        <span><span class="lbl">倉庫</span>${r.warehouse||'—'}</span>
+        <span><span class="lbl">批號</span>${r.lot||'—'}</span>
+        <span><span class="lbl">入庫日</span>${r.lotDate||'—'}</span>
+        <span><span class="lbl">效期至</span>${r.expDate||'—'}</span>
+      </div>
+      <div class="inv-card-cost">
+        <div class="price-block">
+          <span class="lbl">單價</span>
+          <div class="val">${r.price > 0 ? '$'+r.price.toLocaleString('zh-TW') : '未設定'}</div>
+        </div>
+        <div class="price-block">
+          <span class="lbl">${DAYS_LABEL[invStatus]||'剩餘天數'}</span>
+          <div class="val inv-card-days ${daysCls}">${daysText}</div>
+        </div>
+        <div class="price-block">
+          <span class="lbl">存貨成本</span>
+          <div class="val ${costValCls}">${r.cost > 0 ? '$'+Math.round(r.cost).toLocaleString('zh-TW') : '—'}</div>
+        </div>
+      </div>
+      <textarea class="inv-card-note" data-key="${r._key}" onblur="saveNote(this)" placeholder="備註…">${noteVal}</textarea>
+    </div>`;
   });
 
-  html += `<tr class="total-row">
-    <td colspan="4" style="text-align:right;padding-right:8px">合計</td>
-    <td style="text-align:right">${grandQty.toLocaleString('zh-TW')}</td>
-    <td colspan="7"></td>
-    <td style="text-align:right">${fmtMoney(grandCost)}</td>
-    <td colspan="2"></td>
-  </tr>`;
+  html += `<div class="inv-card-total-row">
+    <span>合計 ${rows.length} 筆</span>
+    <span>${grandQty.toLocaleString('zh-TW')} 件</span>
+    <span>${fmtMoney(grandCost)}</span>
+  </div>`;
 
-  document.getElementById('inv-body').innerHTML = html;
+  document.getElementById('inv-cards').innerHTML = html;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1110,6 +1272,19 @@ function loadExcel(input){
   };
   reader.readAsArrayBuffer(file);
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  MOBILE MENU
+// ═══════════════════════════════════════════════════════════════
+function openMobMenu(){  document.getElementById('mobMenuOverlay').classList.add('open'); }
+function closeMobMenu(){ document.getElementById('mobMenuOverlay').classList.remove('open'); }
+
+// 視窗大小改變時重新渲染庫存（切換 table/card 模式）
+let _resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => { if(rawRows.length) renderInventory(); }, 200);
+});
 
 // ═══════════════════════════════════════════════════════════════
 //  INIT
