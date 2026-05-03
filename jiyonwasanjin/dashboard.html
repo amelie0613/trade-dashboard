@@ -438,22 +438,57 @@ td.note-cell .save-indicator.show { display: block; }
     <div class="summary-card"><div class="s-label">即將到期成本</div><div class="s-value orange" id="c-soon">—</div></div>
     <div class="summary-card"><div class="s-label">長期在庫成本</div><div class="s-value amber" id="c-long">—</div></div>
   </div>
-  <div class="tbl-wrap">
-    <table class="cost-tbl">
-      <thead>
-        <tr>
-          <th style="text-align:left;width:20%">核算範圍</th>
-          <th style="width:8%">品項數</th>
-          <th style="width:14%">正常成本</th>
-          <th style="width:14%">即將到期</th>
-          <th style="width:14%">過期品</th>
-          <th style="width:14%">長期在庫</th>
-          <th style="width:16%">合計成本</th>
-          <th style="width:14%">佔比</th>
-        </tr>
-      </thead>
-      <tbody id="cost-body"></tbody>
-    </table>
+  <!-- 按核算範圍匯總 -->
+  <div class="cost-section">
+    <h3>📊 核算範圍匯總</h3>
+    <div class="tbl-wrap">
+      <table class="cost-tbl">
+        <thead>
+          <tr>
+            <th style="text-align:left;width:20%">核算範圍</th>
+            <th style="width:8%">品項數</th>
+            <th style="width:14%">正常成本</th>
+            <th style="width:14%">即將到期</th>
+            <th style="width:14%">過期品</th>
+            <th style="width:14%">長期在庫</th>
+            <th style="width:16%">合計成本</th>
+            <th style="width:14%">佔比</th>
+          </tr>
+        </thead>
+        <tbody id="cost-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <!-- 每筆庫存明細 -->
+  <div class="cost-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+      <h3>📦 庫存明細成本</h3>
+      <label style="font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;color:var(--muted);">
+        <input type="checkbox" id="cost-show-zero" onchange="renderCost()" style="accent-color:var(--accent);width:14px;height:14px;">
+        顯示未設定單價
+      </label>
+    </div>
+    <div class="tbl-wrap">
+      <table class="cost-tbl" style="min-width:950px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;width:7%">類別</th>
+            <th style="width:5%">代碼</th>
+            <th style="text-align:left;width:15%">產品名稱</th>
+            <th style="width:7%">規格</th>
+            <th style="width:6%">數量</th>
+            <th style="width:4%">單位</th>
+            <th style="width:7%">倉庫</th>
+            <th style="width:7%">批號</th>
+            <th style="text-align:left;width:11%">核算範圍</th>
+            <th style="width:8%">單價</th>
+            <th style="width:10%">存貨成本</th>
+            <th style="width:7%">狀態</th>
+          </tr>
+        </thead>
+        <tbody id="cost-detail-body"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -893,7 +928,11 @@ function _rebuildDropdown(type){
 
   let html = `<div class="filter-dd-head">
     <span>${options.length} 個選項</span>
-    <a onclick="filterSelectAll('${type}');event.stopPropagation()">全選</a>
+    <span>
+      <a onclick="filterSelectAll('${type}');event.stopPropagation()">全選</a>
+      &nbsp;/&nbsp;
+      <a onclick="filterDeselectAll('${type}');event.stopPropagation()">取消全選</a>
+    </span>
   </div>`;
   options.forEach(opt => {
     const esc = opt.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
@@ -922,6 +961,17 @@ function filterSelectAll(type){
   set.clear();
   const fd = document.getElementById('fd-' + type);
   if(fd) fd.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
+  _syncFilterBtn(type);
+  updateFilterClearBtn();
+  renderInventory();
+}
+
+function filterDeselectAll(type){
+  const sets = { warehouse:filterWarehouses, scope:filterScopes, category:filterCategories };
+  const set = sets[type]; if(!set) return;
+  set.clear();
+  const fd = document.getElementById('fd-' + type);
+  if(fd) fd.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
   _syncFilterBtn(type);
   updateFilterClearBtn();
   renderInventory();
@@ -1203,6 +1253,70 @@ function renderCost(){
   </tr>`;
 
   document.getElementById('cost-body').innerHTML = html;
+
+  // ── 庫存明細成本表 ────────────────────────────────────────
+  const showZero = document.getElementById('cost-show-zero')?.checked || false;
+  const STATUS_LABEL = { normal:'正常', expired:'過期品', soon:'即將到期', long:'長期在庫' };
+  const STATUS_COLOR = { normal:'#059669', expired:'#DC2626', soon:'#EA580C', long:'#B45309' };
+
+  // 組成每筆明細，依成本由高到低排序
+  let detailRows = rawRows.map(r => {
+    const flags  = classify(r);
+    const st     = getStatus(flags);
+    const pd     = prices[priceKey(r)] || { price:0, scope:'' };
+    const qty    = parseFloat(r['庫存數量']) || 0;
+    const cost   = qty * pd.price;
+    const codeRaw = String(r['產品代碼']||'').trim();
+    return {
+      st, cost, qty,
+      category: r['產品類別']  || '',
+      code:     /^\d{1,3}$/.test(codeRaw) ? codeRaw.padStart(4,'0') : codeRaw,
+      name:     r['產品名稱']  || '',
+      spec:     r['產品規格']  || '',
+      unit:     r['基本單位名稱'] || '',
+      warehouse:r['倉庫名稱']  || '',
+      lot:      r['批號']      || '',
+      scope:    pd.scope       || '',
+      price:    pd.price,
+    };
+  });
+
+  if(!showZero) detailRows = detailRows.filter(r => r.price > 0);
+  detailRows.sort((a,b) => b.cost - a.cost);
+
+  if(!detailRows.length){
+    document.getElementById('cost-detail-body').innerHTML =
+      `<tr><td colspan="12" class="empty-msg">${showZero ? '無資料' : '無已設定單價的庫存（勾選「顯示未設定單價」可查看全部）'}</td></tr>`;
+  } else {
+    let dHtml = '';
+    let dTotal = 0;
+    detailRows.forEach(r => {
+      dTotal += r.cost;
+      const stColor = STATUS_COLOR[r.st] || '#059669';
+      const stLabel = STATUS_LABEL[r.st] || r.st;
+      dHtml += `<tr class="${ROW_CLS[r.st]||'row-normal'}">
+        <td>${r.category||'—'}</td>
+        <td style="text-align:center">${r.code||'—'}</td>
+        <td>${r.name||'—'}</td>
+        <td style="color:#666">${r.spec||'—'}</td>
+        <td style="text-align:right">${r.qty.toLocaleString('zh-TW')}</td>
+        <td style="text-align:center">${r.unit||'—'}</td>
+        <td>${r.warehouse||'—'}</td>
+        <td>${r.lot||'—'}</td>
+        <td>${r.scope ? `<span class="scope-badge">${r.scope}</span>` : '<span style="color:#bbb">—</span>'}</td>
+        <td style="text-align:right">${r.price > 0 ? '$'+r.price.toLocaleString('zh-TW') : '<span style="color:#ccc">未設定</span>'}</td>
+        <td style="text-align:right;font-weight:700;color:var(--accent)">${r.cost > 0 ? '$'+Math.round(r.cost).toLocaleString('zh-TW') : '—'}</td>
+        <td style="text-align:center;font-weight:700;font-size:11px;color:${stColor}">${stLabel}</td>
+      </tr>`;
+    });
+    dHtml += `<tr class="total-row">
+      <td colspan="4" style="text-align:right;padding-right:8px">合計 ${detailRows.length} 筆</td>
+      <td colspan="6"></td>
+      <td style="text-align:right">${fmtMoney(dTotal)}</td>
+      <td></td>
+    </tr>`;
+    document.getElementById('cost-detail-body').innerHTML = dHtml;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1217,9 +1331,27 @@ function switchDiff(f, el){
   renderDiff();
 }
 
+// 差異報告欄位別名：自動偵測試算表欄名
+function _diffCol(r, ...aliases){
+  for(const k of aliases){ const v = r[k]; if(v !== undefined && v !== '') return v; }
+  return '';
+}
+
 function renderDiff(){
+  // 從第一筆資料偵測「變化類型」的實際欄名
+  let chgKey = '變化類型';
+  if(diffRows.length){
+    const first = diffRows[0];
+    for(const k of ['變化類型','差異類型','異動類型','狀態','變動類型']){
+      if(first[k] !== undefined){ chgKey = k; break; }
+    }
+  }
+
   const cnts = { 新增:0, 消失:0, 增加:0, 減少:0, 不變:0 };
-  diffRows.forEach(r => { if(cnts[r['變化類型']]!==undefined) cnts[r['變化類型']]++; });
+  diffRows.forEach(r => {
+    const v = String(r[chgKey]||'').trim();
+    if(cnts[v] !== undefined) cnts[v]++;
+  });
   document.getElementById('d-cnt-all').textContent  = diffRows.length;
   document.getElementById('d-cnt-new').textContent  = cnts['新增'];
   document.getElementById('d-cnt-gone').textContent = cnts['消失'];
@@ -1227,32 +1359,53 @@ function renderDiff(){
   document.getElementById('d-cnt-down').textContent = cnts['減少'];
   document.getElementById('d-cnt-same').textContent = cnts['不變'];
 
-  let rows = diffFilter === 'all' ? diffRows : diffRows.filter(r => r['變化類型'] === diffFilter);
+  let rows = diffFilter === 'all'
+    ? diffRows
+    : diffRows.filter(r => String(r[chgKey]||'').trim() === diffFilter);
   document.getElementById('d-count').textContent = rows.length.toLocaleString() + ' 筆';
 
   if(!rows.length){
-    document.getElementById('diff-body').innerHTML = '<tr><td colspan="13" class="empty-msg">無差異報告資料。請先在 dodo6122 執行差異比較後上傳原始資料。</td></tr>';
+    const hint = diffRows.length === 0
+      ? '請確認 Google Sheets 中有「庫存差異比較」分頁，且已從 dodo6122 上傳差異資料。'
+      : `已載入 ${diffRows.length} 筆，但篩選後無結果。`;
+    document.getElementById('diff-body').innerHTML = `<tr><td colspan="13" class="empty-msg">📭 ${hint}</td></tr>`;
     return;
   }
 
   let html = '';
   rows.forEach(r => {
-    const chg = r['變化類型'] || '';
-    const bcls = BADGE_CLS[chg] || '';
+    const chg     = String(r[chgKey]||'').trim();
+    const bcls    = BADGE_CLS[chg] || '';
+    const cat     = _diffCol(r,'產品類別','類別') || '—';
+    const code    = _diffCol(r,'產品代碼','品號','存貨代碼') || '—';
+    const name    = _diffCol(r,'產品名稱','品名','存貨名稱') || '—';
+    const spec    = _diffCol(r,'產品規格','規格') || '—';
+    const lot     = _diffCol(r,'批號','批次') || '—';
+    const wh      = _diffCol(r,'倉庫','倉庫名稱') || '—';
+    const qtyA    = _diffCol(r,'本期數量','期末數量','結存數量','本期庫存');
+    const qtyB    = _diffCol(r,'上期數量','期初數量','上期庫存');
+    const qtyChg  = _diffCol(r,'數量變化','數量差異','差異數量');
+    const costA   = _diffCol(r,'本期成本','期末成本','本期存貨成本');
+    const costB   = _diffCol(r,'上期成本','期初成本','上期存貨成本');
+    const costChg = _diffCol(r,'成本變化','成本差異','差異成本');
+
+    const qtyChgN  = qtyChg  !== '' ? +qtyChg  : null;
+    const costChgN = costChg !== '' ? +costChg : null;
+
     html += `<tr>
-      <td style="text-align:center"><span class="chg-badge ${bcls}">${chg}</span></td>
-      <td>${r['產品類別']||'—'}</td>
-      <td style="text-align:center">${r['產品代碼']||'—'}</td>
-      <td>${r['產品名稱']||'—'}</td>
-      <td style="color:#666">${r['產品規格']||'—'}</td>
-      <td>${r['批號']||'—'}</td>
-      <td>${r['倉庫']||'—'}</td>
-      <td style="text-align:right">${r['本期數量']&&r['本期數量']!==''? fmtNum(r['本期數量']):'—'}</td>
-      <td style="text-align:right">${r['上期數量']&&r['上期數量']!==''? fmtNum(r['上期數量']):'—'}</td>
-      <td style="text-align:right;font-weight:700;color:${+r['數量變化']>0?'#3b82f6':+r['數量變化']<0?'var(--orange)':'#888'}">${r['數量變化']!==''?fmtDiff(r['數量變化']):'—'}</td>
-      <td style="text-align:right">${r['本期成本']&&r['本期成本']!==''?'$'+Math.round(+r['本期成本']).toLocaleString('zh-TW'):'—'}</td>
-      <td style="text-align:right">${r['上期成本']&&r['上期成本']!==''?'$'+Math.round(+r['上期成本']).toLocaleString('zh-TW'):'—'}</td>
-      <td style="text-align:right;font-weight:700;color:${+r['成本變化']>0?'#3b82f6':+r['成本變化']<0?'var(--orange)':'#888'}">${r['成本變化']!==''?fmtCostDiff(r['成本變化']):'—'}</td>
+      <td style="text-align:center"><span class="chg-badge ${bcls}">${chg||'—'}</span></td>
+      <td>${cat}</td>
+      <td style="text-align:center">${code}</td>
+      <td>${name}</td>
+      <td style="color:#666">${spec}</td>
+      <td>${lot}</td>
+      <td>${wh}</td>
+      <td style="text-align:right">${qtyA !== '' ? fmtNum(qtyA) : '—'}</td>
+      <td style="text-align:right">${qtyB !== '' ? fmtNum(qtyB) : '—'}</td>
+      <td style="text-align:right;font-weight:700;color:${qtyChgN!==null?(qtyChgN>0?'#3b82f6':qtyChgN<0?'var(--orange)':'#888'):'#888'}">${qtyChgN!==null?fmtDiff(qtyChgN):'—'}</td>
+      <td style="text-align:right">${costA !== '' ? '$'+Math.round(+costA).toLocaleString('zh-TW') : '—'}</td>
+      <td style="text-align:right">${costB !== '' ? '$'+Math.round(+costB).toLocaleString('zh-TW') : '—'}</td>
+      <td style="text-align:right;font-weight:700;color:${costChgN!==null?(costChgN>0?'#3b82f6':costChgN<0?'var(--orange)':'#888'):'#888'}">${costChgN!==null?fmtCostDiff(costChgN):'—'}</td>
     </tr>`;
   });
 
