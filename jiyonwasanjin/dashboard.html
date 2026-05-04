@@ -340,6 +340,7 @@ td.note-cell .save-indicator.show { display: block; }
   <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="loadExcel(this)">
   <button class="btn btn-primary" onclick="document.getElementById('xlsxInput').click()">📂 上傳 Excel</button>
   <button class="btn btn-ghost topbar-hide-mobile" onclick="refreshData()">🔄 從 Sheets 載入</button>
+  <button class="btn btn-blue topbar-hide-mobile" onclick="exportToExcel()">💾 匯出 Excel</button>
   <button class="btn btn-green topbar-hide-mobile" onclick="uploadAnalyzed()">☁️ 上傳分析</button>
   <button class="btn btn-ghost topbar-hide-mobile" onclick="openConfig()">⚙️ 設定</button>
   <button class="mob-menu-btn" onclick="openMobMenu()">☰</button>
@@ -353,6 +354,7 @@ td.note-cell .save-indicator.show { display: block; }
     </div>
     <div class="mob-menu-item" onclick="document.getElementById('xlsxInput').click();closeMobMenu()">📂 上傳庫存 Excel</div>
     <div class="mob-menu-item" onclick="refreshData();closeMobMenu()">🔄 從 Google Sheets 載入</div>
+    <div class="mob-menu-item" onclick="exportToExcel();closeMobMenu()">💾 匯出 Excel</div>
     <div class="mob-menu-divider"></div>
     <div class="mob-menu-item" onclick="uploadAnalyzed();closeMobMenu()">☁️ 上傳分析結果</div>
     <div class="mob-menu-divider"></div>
@@ -390,8 +392,14 @@ td.note-cell .save-indicator.show { display: block; }
       <button class="filter-btn" id="fbtn-category" onclick="toggleFDrop('category')">產品類別<span id="fc-category"></span> ▾</button>
       <div class="filter-dropdown" id="fd-category"></div>
     </div>
-    <input class="filter-input" type="text" placeholder="🔍 產品名稱" id="fi-name" oninput="onFilterText()">
-    <input class="filter-input" type="text" placeholder="🔍 批號" id="fi-lot" oninput="onFilterText()">
+    <input class="filter-input" type="text" placeholder="🔍 產品名稱" id="fi-name" oninput="onFilterText('name')">
+    <input class="filter-input" type="text" placeholder="🔍 批號" id="fi-lot" oninput="onFilterText('lot')">
+    <label style="font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;color:var(--muted);white-space:nowrap;">
+      <input type="checkbox" id="pivot-toggle" onchange="togglePivot()" style="accent-color:var(--accent);width:14px;height:14px;">
+      樞紐分組
+    </label>
+    <button class="btn btn-blue" style="padding:6px 14px;font-size:12px;white-space:nowrap;" onclick="applyFilters()">✓ 確認篩選</button>
+    <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px;white-space:nowrap;" onclick="cancelFilters()">✕ 取消</button>
     <button class="filter-clear-btn" id="filter-clear-btn" style="display:none" onclick="clearFilters()">✕ 清除篩選</button>
   </div>
   <div class="summary-row">
@@ -576,7 +584,7 @@ const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcHHwc6iAxt
 let CFG = {
   sheetId:   localStorage.getItem('dash_sheetId')   || DEFAULT_SHEET_ID,
   scriptUrl: localStorage.getItem('dash_scriptUrl') || DEFAULT_SCRIPT_URL,
-  invSheet:  localStorage.getItem('dash_invSheet')  || '原始庫存',
+  invSheet:  localStorage.getItem('dash_invSheet')  || '全部庫存',
   soonDays:  +(localStorage.getItem('dash_soonDays')  || 210),
   longYears: +(localStorage.getItem('dash_longYears') || 3),
 };
@@ -626,6 +634,15 @@ let filterScopes     = new Set();
 let filterCategories = new Set();
 let filterName       = '';
 let filterLot        = '';
+let pivotEnabled     = false;
+
+// ── 篩選備份（用於取消操作） ──
+let filterWarehousesBackup = new Set();
+let filterScopesBackup     = new Set();
+let filterCategoriesBackup = new Set();
+let filterNameBackup       = '';
+let filterLotBackup        = '';
+let pivotEnabledBackup     = false;
 
 // ═══════════════════════════════════════════════════════════════
 //  TAB SWITCH
@@ -805,6 +822,7 @@ async function refreshData(){
     renderInventory();
     renderCost();
     renderDiff();
+    saveFilterState();
     setUploadStatus('✅ 載入完成 ' + new Date().toLocaleTimeString('zh-TW'));
 
   } catch(err) {
@@ -878,6 +896,11 @@ function getInvRows(){
   if(filterName)                  rows = rows.filter(r => r.name.includes(filterName));
   if(filterLot)                   rows = rows.filter(r => r.lot.includes(filterLot));
 
+  // 樞紐分組
+  if(pivotEnabled){
+    rows = getPivotInvRows(rows);
+  }
+
   if(invSortCol){
     const dir = invSortDir === 'asc' ? 1 : -1;
     rows.sort((a,b) => {
@@ -887,6 +910,25 @@ function getInvRows(){
     });
   }
   return rows;
+}
+
+function getPivotInvRows(rows){
+  const grouped = {};
+  rows.forEach(r => {
+    const key = `${r.name}__${r.warehouse}`;
+    if(!grouped[key]) {
+      grouped[key] = {
+        ...r,
+        lot: '複合',
+        lotDate: '複合',
+      };
+    } else {
+      grouped[key].qty   += r.qty;
+      grouped[key].cost  += r.cost;
+      grouped[key].daysAbs = grouped[key].daysAbs !== null ? Math.min(grouped[key].daysAbs, r.daysAbs ?? Infinity) : r.daysAbs;
+    }
+  });
+  return Object.values(grouped);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -952,7 +994,6 @@ function onFilterCheck(type, cb){
   if(fd && +fd.dataset.optCount > 0 && set.size >= +fd.dataset.optCount) set.clear();
   _syncFilterBtn(type);
   updateFilterClearBtn();
-  renderInventory();
 }
 
 function filterSelectAll(type){
@@ -963,7 +1004,6 @@ function filterSelectAll(type){
   if(fd) fd.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = true);
   _syncFilterBtn(type);
   updateFilterClearBtn();
-  renderInventory();
 }
 
 function filterDeselectAll(type){
@@ -974,7 +1014,6 @@ function filterDeselectAll(type){
   if(fd) fd.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
   _syncFilterBtn(type);
   updateFilterClearBtn();
-  renderInventory();
 }
 
 function _syncFilterBtn(type){
@@ -986,15 +1025,14 @@ function _syncFilterBtn(type){
   if(fc)  fc.textContent = set.size > 0 ? ` (${set.size})` : '';
 }
 
-function onFilterText(){
-  filterName = document.getElementById('fi-name').value.trim();
-  filterLot  = document.getElementById('fi-lot').value.trim();
+function onFilterText(type){
+  if(type === 'name' || !type) filterName = document.getElementById('fi-name').value.trim();
+  if(type === 'lot'  || !type) filterLot  = document.getElementById('fi-lot').value.trim();
   const ni = document.getElementById('fi-name');
   const li = document.getElementById('fi-lot');
   if(ni) ni.classList.toggle('has-val', !!filterName);
   if(li) li.classList.toggle('has-val', !!filterLot);
   updateFilterClearBtn();
-  renderInventory();
 }
 
 function clearFilters(){
@@ -1004,13 +1042,55 @@ function clearFilters(){
   const li = document.getElementById('fi-lot');  if(li){ li.value = ''; li.classList.remove('has-val'); }
   ['warehouse','scope','category'].forEach(t => _syncFilterBtn(t));
   updateFilterClearBtn();
-  renderInventory();
+  applyFilters();
 }
 
 function updateFilterClearBtn(){
   const has = filterWarehouses.size > 0 || filterScopes.size > 0 || filterCategories.size > 0 || filterName || filterLot;
   const btn = document.getElementById('filter-clear-btn');
   if(btn) btn.style.display = has ? '' : 'none';
+}
+
+function saveFilterState(){
+  filterWareousesBackup = new Set(filterWarehouses);
+  filterScopesBackup     = new Set(filterScopes);
+  filterCategoriesBackup = new Set(filterCategories);
+  filterNameBackup       = filterName;
+  filterLotBackup        = filterLot;
+  pivotEnabledBackup     = pivotEnabled;
+}
+
+function applyFilters(){
+  saveFilterState();
+  document.querySelectorAll('.filter-dropdown.open').forEach(d => d.classList.remove('open'));
+  renderInventory();
+  toast('✓ 篩選已套用');
+}
+
+function cancelFilters(){
+  filterWarehouses = new Set(filterWareousesBackup);
+  filterScopes     = new Set(filterScopesBackup);
+  filterCategories = new Set(filterCategoriesBackup);
+  filterName       = filterNameBackup;
+  filterLot        = filterLotBackup;
+  pivotEnabled     = pivotEnabledBackup;
+
+  document.getElementById('fi-name').value = filterName;
+  document.getElementById('fi-lot').value  = filterLot;
+  document.getElementById('pivot-toggle').checked = pivotEnabled;
+
+  ['warehouse','scope','category'].forEach(t => {
+    _syncFilterBtn(t);
+    _rebuildDropdown(t);
+  });
+  document.querySelectorAll('.filter-dropdown.open').forEach(d => d.classList.remove('open'));
+  updateFilterClearBtn();
+  toast('✓ 篩選已取消');
+}
+
+function togglePivot(){
+  pivotEnabled = document.getElementById('pivot-toggle').checked;
+  updateFilterClearBtn();
 }
 
 function renderInventory(){
@@ -1410,6 +1490,72 @@ function renderDiff(){
   });
 
   document.getElementById('diff-body').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  EXPORT TO EXCEL
+// ═══════════════════════════════════════════════════════════════
+function exportToExcel(){
+  if(!rawRows.length){ toast('❌ 請先載入資料'); return; }
+
+  const rows = getInvRows();
+  if(!rows.length){ toast('❌ 無資料可匯出'); return; }
+
+  // 準備匯出數據
+  const exportData = rows.map(r => ({
+    '產品類別': r.category,
+    '產品代碼': r.code,
+    '產品名稱': r.name,
+    '規格': r.spec,
+    '數量': r.qty,
+    '單位': r.unit,
+    '倉庫': r.warehouse,
+    '批號': r.lot,
+    '入庫日期': r.lotDate,
+    '有效期至': r.expDate,
+    '剩餘/在庫天數': r.days !== null ? r.days : '—',
+    '單價': r.price > 0 ? r.price : '—',
+    '核算範圍': r.scope || '—',
+    '存貨成本': r.cost > 0 ? Math.round(r.cost) : '—',
+  }));
+
+  // 使用 XLSX 生成工作簿
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '庫存明細');
+
+  // 設置欄寬
+  ws['!cols'] = [
+    { wch: 8 },  // 產品類別
+    { wch: 10 }, // 產品代碼
+    { wch: 15 }, // 產品名稱
+    { wch: 12 }, // 規格
+    { wch: 8 },  // 數量
+    { wch: 6 },  // 單位
+    { wch: 10 }, // 倉庫
+    { wch: 12 }, // 批號
+    { wch: 12 }, // 入庫日期
+    { wch: 12 }, // 有效期至
+    { wch: 12 }, // 剩餘/在庫天數
+    { wch: 10 }, // 單價
+    { wch: 12 }, // 核算範圍
+    { wch: 12 }, // 存貨成本
+  ];
+
+  // 生成文件名
+  const now = new Date();
+  const dateStr = now.getFullYear() +
+    String(now.getMonth()+1).padStart(2,'0') +
+    String(now.getDate()).padStart(2,'0') +
+    '_' +
+    String(now.getHours()).padStart(2,'0') +
+    String(now.getMinutes()).padStart(2,'0') +
+    String(now.getSeconds()).padStart(2,'0');
+  const filename = `inventory_${dateStr}.xlsx`;
+
+  // 下載
+  XLSX.writeFile(wb, filename);
+  toast(`✅ 已匯出 ${rows.length} 筆資料到 ${filename}`);
 }
 
 // ═══════════════════════════════════════════════════════════════
