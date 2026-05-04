@@ -157,6 +157,33 @@ td.note-cell .save-indicator.show { display: block; }
 .cost-tbl td { text-align: right; }
 .cost-tbl td:first-child { text-align: left; font-weight: 700; }
 .cost-bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 3px; }
+
+/* ── SCOPE CARDS ── */
+.scope-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.scope-card { background: #fff; border: 1px solid var(--border); border-top: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px; box-shadow: 0 2px 6px rgba(104,120,192,.08); }
+.scope-card-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+.scope-card-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.3; }
+.scope-card-wh { font-size: 10px; color: #999; margin-top: 2px; }
+.scope-card-total { font-size: 15px; font-weight: 900; color: var(--accent); text-align: right; white-space: nowrap; }
+.scope-card-total-label { font-size: 9px; color: #999; text-align: right; }
+.scope-card-rows { display: flex; flex-direction: column; gap: 3px; }
+.scope-card-row { display: flex; justify-content: space-between; font-size: 11px; }
+.scope-card-row-label { color: #555; font-weight: 600; }
+.scope-card-row-value { font-weight: 700; color: var(--accent); }
+.scope-card-row-value.red    { color: var(--red); }
+.scope-card-row-value.orange { color: var(--orange); }
+.scope-card-row-value.muted  { color: #ccc; font-weight: 400; }
+@media (max-width: 900px) { .scope-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 500px) { .scope-grid { grid-template-columns: 1fr; } }
+
+/* ── WAREHOUSE TREE TABLE ── */
+.wh-expand-btn { cursor: pointer; user-select: none; font-weight: 700; color: var(--accent); margin-right: 4px; }
+.wh-expand-btn::before { content: '▼ '; }
+.wh-expand-btn.collapsed::before { content: '▶ '; }
+.wh-child-row.hidden { display: none; }
+tr.wh-parent-row td { background: #f0f4f9; font-weight: 700; color: var(--text); }
+tr.wh-child-row  td { background: #fafbfc; color: #444; }
+.cost-tbl .expired-val { color: var(--red) !important; font-weight: 700; }
 .cost-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
 
 /* ── LOADING / EMPTY ── */
@@ -399,7 +426,7 @@ td.note-cell .save-indicator.show { display: block; }
       樞紐分組
     </label>
     <button class="btn btn-blue" style="padding:6px 14px;font-size:12px;white-space:nowrap;" onclick="applyFilters()">✓ 確認篩選</button>
-    <button class="btn btn-ghost" style="padding:6px 14px;font-size:12px;white-space:nowrap;" onclick="cancelFilters()">✕ 取消</button>
+    <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;white-space:nowrap;background:#e06070;opacity:0.9;" onclick="cancelFilters()">✕ 取消</button>
     <button class="filter-clear-btn" id="filter-clear-btn" style="display:none" onclick="clearFilters()">✕ 清除篩選</button>
   </div>
   <div class="summary-row">
@@ -446,27 +473,33 @@ td.note-cell .save-indicator.show { display: block; }
     <div class="summary-card"><div class="s-label">即將到期成本</div><div class="s-value orange" id="c-soon">—</div></div>
     <div class="summary-card"><div class="s-label">長期在庫成本</div><div class="s-value amber" id="c-long">—</div></div>
   </div>
-  <!-- 按核算範圍匯總 -->
+
+  <!-- 核算範圍卡片 -->
   <div class="cost-section">
-    <h3>📊 核算範圍匯總</h3>
+    <h3>🗂️ 核算範圍總覽</h3>
+    <div class="scope-grid" id="cost-scope-grid"></div>
+  </div>
+
+  <!-- 按核算範圍＋倉庫展開樹狀表 -->
+  <div class="cost-section">
+    <h3>📊 按倉庫分類成本明細（可展開）</h3>
     <div class="tbl-wrap">
-      <table class="cost-tbl">
+      <table class="cost-tbl" style="min-width:700px;">
         <thead>
           <tr>
-            <th style="text-align:left;width:20%">核算範圍</th>
-            <th style="width:8%">品項數</th>
-            <th style="width:14%">正常成本</th>
-            <th style="width:14%">即將到期</th>
-            <th style="width:14%">過期品</th>
-            <th style="width:14%">長期在庫</th>
-            <th style="width:16%">合計成本</th>
-            <th style="width:14%">佔比</th>
+            <th style="text-align:left;width:28%">核算範圍 / 倉庫</th>
+            <th style="width:16%">全部成本</th>
+            <th style="width:14%">正常</th>
+            <th style="width:14%;background:#8B2020;color:#FFD0D0;">⚠ 過期品</th>
+            <th style="width:14%;background:#7A4A0A;color:#FFDCA0;">⏳ 長期在庫</th>
+            <th style="width:14%;background:#7A5500;color:#FFE899;">🔔 即將到期</th>
           </tr>
         </thead>
         <tbody id="cost-body"></tbody>
       </table>
     </div>
   </div>
+
   <!-- 每筆庫存明細 -->
   <div class="cost-section">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
@@ -761,13 +794,11 @@ async function refreshData(){
   setUploadStatus('🔄 載入資料中…');
 
   try {
-    // 平行抓三個 sheet，庫存使用設定的工作表名稱，找不到時自動退回「全部庫存」
-    const invSheetName = CFG.invSheet || '原始庫存';
-    const fallbackSheet = invSheetName === '全部庫存' ? '原始庫存' : '全部庫存';
+    // 讀取庫存工作表（預設「全部庫存」）
+    const invSheetName = CFG.invSheet || '全部庫存';
     let invRes = await scriptGet(invSheetName);
     if(invRes.error){
-      setUploadStatus(`⚠️ 找不到「${invSheetName}」，改讀「${fallbackSheet}」…`);
-      invRes = await scriptGet(fallbackSheet);
+      setUploadStatus(`❌ 找不到「${invSheetName}」工作表`);
     }
 
     const [priceRes, noteRes, diffRes] = await Promise.all([
@@ -792,8 +823,10 @@ async function refreshData(){
     rawRows = (invRes.rows || []).map(r => {
       r._expDate = parseDate(r['有效期至']);
       r._lotDate = parseLotDate(r['批號']);
-      // 欄位別名：相容「基本單位」/「基本單位名稱」、「倉庫」/「倉庫名稱」
+      // 欄位別名：相容「基本單位」/「基本單位名稱」/「計量單位」/「單位」、「倉庫」/「倉庫名稱」
       if(!r['基本單位名稱'] && r['基本單位']) r['基本單位名稱'] = r['基本單位'];
+      if(!r['基本單位名稱'] && r['計量單位']) r['基本單位名稱'] = r['計量單位'];
+      if(!r['基本單位名稱'] && r['單位']) r['基本單位名稱'] = r['單位'];
       if(!r['倉庫名稱']   && r['倉庫'])   r['倉庫名稱']   = r['倉庫'];
       // 從行內提取單價（期末優先 → 期初 → 單價欄）
       const endCost    = parseFloat(r['期末單位成本']);
@@ -1177,7 +1210,16 @@ function renderInventory(){
   const BADGE_CLS2  = { normal:'badge-normal', expired:'badge-expired', soon:'badge-soon', long:'badge-long' };
   const DAYS_LABEL  = { all:'剩餘/在庫', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
 
-  let grandQty = 0, grandCost = 0, html = '';
+  // 手機版排序菜單
+  let html = `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding:0 10px;">
+    <div style="font-size:11px;color:#999;align-self:center;white-space:nowrap;">排序：</div>
+    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('name')">名稱${invSortCol==='name'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('qty')">數量${invSortCol==='qty'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('days')">天數${invSortCol==='days'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('cost')">成本${invSortCol==='cost'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+  </div>`;
+
+  let grandQty = 0, grandCost = 0;
   rows.forEach(r => {
     grandQty  += r.qty;
     grandCost += r.cost;
@@ -1270,26 +1312,32 @@ function saveNote(textarea){
 //  COST RENDER
 // ═══════════════════════════════════════════════════════════════
 function renderCost(){
-  const scopeMap = {};
-  let grandTotal = 0;
+  // ── 建立按 scope → warehouse 的雙層分組結構 ──
+  const scopeMap = {};  // scope → { whMap: { wh → {normal,soon,expired,long,total} }, ...totals }
 
   rawRows.forEach(r => {
     const flags = classify(r);
     const st    = getStatus(flags);
     const pd    = prices[priceKey(r)] || { price:0, scope:'' };
     const sc    = pd.scope || '（未設定）';
+    const wh    = r['倉庫名稱'] || '—';
     const cost  = (parseFloat(r['庫存數量'])||0) * pd.price;
-    if(!scopeMap[sc]) scopeMap[sc] = { normal:0, soon:0, expired:0, long:0, total:0, qty:0 };
-    scopeMap[sc][st]  += cost;
-    scopeMap[sc].total += cost;
+
+    if(!scopeMap[sc]) scopeMap[sc] = { normal:0, soon:0, expired:0, long:0, total:0, qty:0, whMap:{} };
+    if(!scopeMap[sc].whMap[wh]) scopeMap[sc].whMap[wh] = { normal:0, soon:0, expired:0, long:0, total:0 };
+
+    scopeMap[sc][st]          += cost;
+    scopeMap[sc].total        += cost;
     scopeMap[sc].qty++;
-    grandTotal += cost;
+    scopeMap[sc].whMap[wh][st]    += cost;
+    scopeMap[sc].whMap[wh].total  += cost;
   });
 
-  const scopes = Object.entries(scopeMap).sort((a,b)=>b[1].total-a[1].total);
-  const expiredTotal = scopes.reduce((s,[,d])=>s+d.expired, 0);
-  const soonTotal    = scopes.reduce((s,[,d])=>s+d.soon, 0);
-  const longTotal    = scopes.reduce((s,[,d])=>s+d.long, 0);
+  const scopes = Object.entries(scopeMap).sort((a,b) => b[1].total - a[1].total);
+  const grandTotal   = scopes.reduce((s,[,d]) => s + d.total,   0);
+  const expiredTotal = scopes.reduce((s,[,d]) => s + d.expired, 0);
+  const soonTotal    = scopes.reduce((s,[,d]) => s + d.soon,    0);
+  const longTotal    = scopes.reduce((s,[,d]) => s + d.long,    0);
 
   document.getElementById('c-scopes').textContent  = scopes.length;
   document.getElementById('c-total').textContent   = fmtMoney(grandTotal);
@@ -1298,41 +1346,74 @@ function renderCost(){
   document.getElementById('c-long').textContent    = fmtMoney(longTotal);
 
   if(!scopes.length){
-    document.getElementById('cost-body').innerHTML = '<tr><td colspan="8" class="empty-msg">無成本資料（請先設定單價）</td></tr>';
-    return;
-  }
+    document.getElementById('cost-scope-grid').innerHTML = '';
+    document.getElementById('cost-body').innerHTML = '<tr><td colspan="6" class="empty-msg">無成本資料（請先設定單價）</td></tr>';
+  } else {
+    // ── 核算範圍卡片 ──
+    const CARD_COLORS = ['#6878C0','#1B5B9E','#2E6CB8','#3575C0','#4A6FA5','#3A5E8C'];
+    const fmtCard = v => v > 0 ? '$' + Math.round(v).toLocaleString() : '<span style="color:#ccc">—</span>';
+    let cardHtml = '';
+    scopes.forEach(([sc, d], i) => {
+      const color   = CARD_COLORS[i % CARD_COLORS.length];
+      const whCount = Object.keys(d.whMap).length;
+      cardHtml += `<div class="scope-card" style="border-top-color:${color}">
+        <div class="scope-card-header">
+          <div>
+            <div class="scope-card-name">${sc}</div>
+            <div class="scope-card-wh">${whCount} 個倉庫</div>
+          </div>
+          <div>
+            <div class="scope-card-total-label">總成本</div>
+            <div class="scope-card-total" style="color:${color}">${fmtCard(d.total)}</div>
+          </div>
+        </div>
+        <div class="scope-card-rows">
+          <div class="scope-card-row"><span class="scope-card-row-label">正常品</span><span class="scope-card-row-value">${fmtCard(d.normal)}</span></div>
+          <div class="scope-card-row"><span class="scope-card-row-label" style="color:var(--red)">過期品</span><span class="scope-card-row-value ${d.expired>0?'red':'muted'}">${fmtCard(d.expired)}</span></div>
+          <div class="scope-card-row"><span class="scope-card-row-label" style="color:var(--orange)">長期在庫</span><span class="scope-card-row-value ${d.long>0?'orange':'muted'}">${fmtCard(d.long)}</span></div>
+          <div class="scope-card-row"><span class="scope-card-row-label">即將到期</span><span class="scope-card-row-value ${d.soon>0?'':'muted'}">${fmtCard(d.soon)}</span></div>
+        </div>
+      </div>`;
+    });
+    document.getElementById('cost-scope-grid').innerHTML = cardHtml;
 
-  let html = '';
-  scopes.forEach(([sc, d]) => {
-    const pct    = grandTotal > 0 ? (d.total / grandTotal * 100).toFixed(1) : '0.0';
-    const barW   = grandTotal > 0 ? Math.round(d.total / grandTotal * 100) : 0;
-    html += `<tr>
-      <td>${sc}</td>
-      <td>${d.qty.toLocaleString()}</td>
-      <td>${fmtMoney(d.normal)}</td>
-      <td>${fmtMoney(d.soon)}</td>
-      <td>${fmtMoney(d.expired)}</td>
-      <td>${fmtMoney(d.long)}</td>
-      <td style="font-weight:800;color:var(--accent)">${fmtMoney(d.total)}</td>
-      <td>
-        <div style="font-size:11px;font-weight:700;margin-bottom:2px">${pct}%</div>
-        <div class="cost-bar"><div class="cost-bar-fill" style="width:${barW}%"></div></div>
-      </td>
+    // ── 倉庫展開樹狀表 ──
+    const fmtT = v => v > 0 ? '$' + Math.round(v).toLocaleString() : '<span style="color:#bbb">—</span>';
+    let html = '';
+    scopes.forEach(([sc, d]) => {
+      const whEntries = Object.entries(d.whMap).sort((a,b) => b[1].total - a[1].total);
+      const expCls = d.expired > 0 ? 'cost-tbl .expired-val' : '';
+      html += `<tr class="wh-parent-row">
+        <td><span class="wh-expand-btn" onclick="toggleWhChildren(this)"></span>${sc}
+          <span style="font-size:11px;color:#999;margin-left:4px">(${whEntries.length} 個倉庫)</span>
+        </td>
+        <td style="text-align:right;font-weight:800;color:var(--accent)">${fmtT(d.total)}</td>
+        <td style="text-align:right">${fmtT(d.normal)}</td>
+        <td style="text-align:right;${d.expired>0?'color:var(--red);font-weight:700':''}">${fmtT(d.expired)}</td>
+        <td style="text-align:right">${fmtT(d.long)}</td>
+        <td style="text-align:right">${fmtT(d.soon)}</td>
+      </tr>`;
+      whEntries.forEach(([wh, wd]) => {
+        html += `<tr class="wh-child-row hidden">
+          <td style="padding-left:28px">🏭 ${wh}</td>
+          <td style="text-align:right;font-weight:700;color:var(--accent)">${fmtT(wd.total)}</td>
+          <td style="text-align:right">${fmtT(wd.normal)}</td>
+          <td style="text-align:right;${wd.expired>0?'color:var(--red);font-weight:700':''}">${fmtT(wd.expired)}</td>
+          <td style="text-align:right">${fmtT(wd.long)}</td>
+          <td style="text-align:right">${fmtT(wd.soon)}</td>
+        </tr>`;
+      });
+    });
+    html += `<tr class="total-row">
+      <td>合計 ${scopes.length} 個核算範圍</td>
+      <td style="text-align:right">${fmtT(grandTotal)}</td>
+      <td style="text-align:right">${fmtT(scopes.reduce((s,[,d])=>s+d.normal,0))}</td>
+      <td style="text-align:right;${expiredTotal>0?'color:var(--red);font-weight:700':''}">${fmtT(expiredTotal)}</td>
+      <td style="text-align:right">${fmtT(longTotal)}</td>
+      <td style="text-align:right">${fmtT(soonTotal)}</td>
     </tr>`;
-  });
-
-  html += `<tr class="total-row">
-    <td>合計 ${scopes.length} 個範圍</td>
-    <td>${rawRows.length.toLocaleString()}</td>
-    <td>${fmtMoney(scopes.reduce((s,[,d])=>s+d.normal,0))}</td>
-    <td>${fmtMoney(soonTotal)}</td>
-    <td>${fmtMoney(expiredTotal)}</td>
-    <td>${fmtMoney(longTotal)}</td>
-    <td style="font-weight:800;color:var(--accent)">${fmtMoney(grandTotal)}</td>
-    <td>100%</td>
-  </tr>`;
-
-  document.getElementById('cost-body').innerHTML = html;
+    document.getElementById('cost-body').innerHTML = html;
+  }
 
   // ── 庫存明細成本表 ────────────────────────────────────────
   const showZero = document.getElementById('cost-show-zero')?.checked || false;
@@ -1415,6 +1496,15 @@ function switchDiff(f, el){
 function _diffCol(r, ...aliases){
   for(const k of aliases){ const v = r[k]; if(v !== undefined && v !== '') return v; }
   return '';
+}
+
+function toggleWhChildren(btn){
+  btn.classList.toggle('collapsed');
+  let row = btn.closest('tr').nextElementSibling;
+  while(row && row.classList.contains('wh-child-row')){
+    row.classList.toggle('hidden');
+    row = row.nextElementSibling;
+  }
 }
 
 function renderDiff(){
