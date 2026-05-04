@@ -835,10 +835,14 @@ async function refreshData(){
       const extracted  = (!isNaN(directPrice) && directPrice > 0) ? directPrice
                        : (!isNaN(endCost)    && endCost    > 0) ? endCost
                        : (!isNaN(startCost)  && startCost  > 0) ? startCost : 0;
-      if(extracted > 0){
-        const k = priceKey(r);
-        if(k !== '__' && !(prices[k] && prices[k].price > 0))
-          prices[k] = { price: extracted, scope: String(r['存貨核算範圍名稱']||'').trim() };
+      const rowScope = String(r['存貨核算範圍名稱']||'').trim();
+      const k = priceKey(r);
+      if(k !== '__'){
+        if(!prices[k]) prices[k] = { price: 0, scope: rowScope };
+        // 補 scope（若原本空白）
+        if(!prices[k].scope && rowScope) prices[k].scope = rowScope;
+        // 補 price（只有 > 0 才覆蓋）
+        if(extracted > 0 && !prices[k].price) prices[k].price = extracted;
       }
       return r;
     });
