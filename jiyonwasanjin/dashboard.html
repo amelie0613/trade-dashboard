@@ -584,9 +584,9 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
       <input type="text" id="cfg-scriptUrl" placeholder="https://script.google.com/macros/s/...">
     </div>
     <div class="form-group">
-      <label>庫存工作表名稱 <span style="font-size:11px;color:#888;">（預設：原始庫存）</span></label>
-      <input type="text" id="cfg-invSheet" placeholder="原始庫存">
-      <div style="font-size:11px;color:#888;margin-top:4px;">若找不到，會自動嘗試「全部庫存」</div>
+      <label>庫存工作表名稱 <span style="font-size:11px;color:#888;">（預設：全部庫存）</span></label>
+      <input type="text" id="cfg-invSheet" placeholder="全部庫存">
+      <div style="font-size:11px;color:#888;margin-top:4px;">請確認工作表名稱與試算表一致</div>
     </div>
     <div class="form-group">
       <label>即將到期天數（預設 210）</label>
@@ -634,7 +634,7 @@ function closeConfig(){ document.getElementById('config-modal').classList.remove
 function saveConfig(){
   CFG.sheetId   = document.getElementById('cfg-sheetId').value.trim();
   CFG.scriptUrl = document.getElementById('cfg-scriptUrl').value.trim();
-  CFG.invSheet  = document.getElementById('cfg-invSheet').value.trim() || '原始庫存';
+  CFG.invSheet  = document.getElementById('cfg-invSheet').value.trim() || '全部庫存';
   CFG.soonDays  = +document.getElementById('cfg-soonDays').value  || 210;
   CFG.longYears = +document.getElementById('cfg-longYears').value || 3;
   localStorage.setItem('dash_sheetId',   CFG.sheetId);
