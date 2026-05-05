@@ -207,6 +207,7 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 .cost-modal-title { font-size: 15px; font-weight: 900; color: var(--accent); }
 .cost-modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #aaa; padding: 0 4px; }
 .cost-modal-close:hover { color: var(--accent); }
+/* Table view (desktop) */
 .cost-modal-tbl-wrap { border-radius: 8px; border: 1px solid var(--border); overflow: hidden; }
 .cost-modal-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
 .cost-modal-tbl th { background: var(--accent); color: white; padding: 7px 10px; text-align: center; font-weight: 700; }
@@ -214,6 +215,28 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 .cost-modal-tbl tr:last-child td { border-bottom: none; }
 .cost-modal-tbl tr:nth-child(even) td { background: #f8f9ff; }
 .cost-modal-tbl .tbl-total td { background: #dce8f5 !important; font-weight: 700; }
+/* Card view (mobile) */
+.cost-modal-cards { display: none; flex-direction: column; gap: 10px; }
+.cost-wh-card { background: #fff; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.cost-wh-card.card-total { background: #dce8f5; border-color: #b0c8e0; }
+.cost-wh-card-name { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.cost-wh-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.cost-wh-stat { background: #f4f6ff; border-radius: 7px; padding: 7px 10px; }
+.cost-wh-stat.stat-expired { background: #fff0f0; }
+.cost-wh-stat.stat-soon    { background: #fff7ee; }
+.cost-wh-stat.stat-long    { background: #fefce8; }
+.cost-wh-stat-label { font-size: 10px; color: #888; font-weight: 600; margin-bottom: 2px; }
+.cost-wh-stat-val   { font-size: 14px; font-weight: 900; color: var(--accent); }
+.cost-wh-stat.stat-expired .cost-wh-stat-val { color: var(--red); }
+.cost-wh-stat.stat-soon    .cost-wh-stat-val { color: var(--orange); }
+.cost-wh-stat.stat-long    .cost-wh-stat-val { color: var(--amber); }
+/* Responsive switch */
+@media (max-width: 600px) {
+  .cost-modal-bg.open { align-items: flex-end; }
+  .cost-modal-box { border-radius: 18px 18px 0 0; padding: 18px 16px 28px; width: 100%; max-height: 88vh; }
+  .cost-modal-tbl-wrap { display: none; }
+  .cost-modal-cards { display: flex; }
+}
 
 /* ── LOADING / EMPTY ── */
 .loading-wrap { text-align: center; padding: 60px 20px; color: var(--muted); }
@@ -495,13 +518,6 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 
 <!-- ════ COST TAB ════ -->
 <div class="tab-panel" id="panel-cost">
-  <div class="summary-row">
-    <div class="summary-card"><div class="s-label">核算範圍數</div><div class="s-value" id="c-scopes">—</div></div>
-    <div class="summary-card"><div class="s-label">總存貨成本</div><div class="s-value" id="c-total">—</div></div>
-    <div class="summary-card"><div class="s-label">過期品成本</div><div class="s-value red" id="c-expired">—</div></div>
-    <div class="summary-card"><div class="s-label">即將到期成本</div><div class="s-value orange" id="c-soon">—</div></div>
-    <div class="summary-card"><div class="s-label">長期在庫成本</div><div class="s-value amber" id="c-long">—</div></div>
-  </div>
 
   <!-- 圓餅圖 -->
   <div class="cost-section cost-pie-section" id="cost-pie-section" style="display:none;">
@@ -603,6 +619,8 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
         <tbody id="costModalBody"></tbody>
       </table>
     </div>
+    <!-- 手機卡片版 -->
+    <div class="cost-modal-cards" id="costModalCards"></div>
   </div>
 </div>
 
@@ -1378,11 +1396,7 @@ function renderCost(){
   const soonTotal    = scopes.reduce((s,[,d]) => s + d.soon,    0);
   const longTotal    = scopes.reduce((s,[,d]) => s + d.long,    0);
 
-  document.getElementById('c-scopes').textContent  = scopes.length;
-  document.getElementById('c-total').textContent   = fmtMoney(grandTotal);
-  document.getElementById('c-expired').textContent = fmtMoney(expiredTotal);
-  document.getElementById('c-soon').textContent    = fmtMoney(soonTotal);
-  document.getElementById('c-long').textContent    = fmtMoney(longTotal);
+  // KPI 卡片已移除，不再更新
 
   // ── 圓餅圖 ──
   renderCostPie(scopes);
@@ -1472,48 +1486,87 @@ function renderCostPie(scopes) {
   section.style.display = '';
   _costPieScopes = scopes;
 
-  const labels = scopes.map(([sc]) => sc);
-  const values = scopes.map(([, d]) => d.total);
-  const colors = scopes.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]);
-  const totalSum = values.reduce((s, v) => s + v, 0);
+  // ── 外環：依核算範圍 ──
+  const outerLabels = scopes.map(([sc]) => sc);
+  const outerValues = scopes.map(([, d]) => d.total);
+  const outerColors = scopes.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]);
+  const totalSum    = outerValues.reduce((s, v) => s + v, 0);
 
-  // Legend
+  // ── 內環：依庫存狀態 ──
+  let sumNormal = 0, sumExpired = 0, sumSoon = 0, sumLong = 0;
+  scopes.forEach(([, d]) => {
+    sumNormal  += d.normal  || 0;
+    sumExpired += d.expired || 0;
+    sumSoon    += d.soon    || 0;
+    sumLong    += d.long    || 0;
+  });
+  const innerData = [
+    { label: '正常品',   value: sumNormal,  color: '#059669' },
+    { label: '過期品',   value: sumExpired, color: '#DC2626' },
+    { label: '即將到期', value: sumSoon,    color: '#EA580C' },
+    { label: '長期在庫', value: sumLong,    color: '#B45309' },
+  ].filter(d => d.value > 0);
+
+  // ── 圖例 ──
   const legend = document.getElementById('costPieLegend');
-  legend.innerHTML = scopes.map(([sc, d], i) => {
+  const outerLegend = scopes.map(([sc, d], i) => {
     const pct = totalSum > 0 ? ((d.total / totalSum) * 100).toFixed(1) : '0.0';
     return `<div class="cost-pie-legend-item" onclick="showCostScopeModal(${i})">
-      <div class="cost-pie-legend-dot" style="background:${colors[i]}"></div>
+      <div class="cost-pie-legend-dot" style="background:${outerColors[i]}"></div>
       <span class="cost-pie-legend-name" title="${sc}">${sc}</span>
       <span class="cost-pie-legend-val">$${Math.round(d.total).toLocaleString('zh-TW')} <span style="color:#aaa;font-weight:400">(${pct}%)</span></span>
     </div>`;
   }).join('');
+  const innerLegend = innerData.map(d => {
+    const pct = totalSum > 0 ? ((d.value / totalSum) * 100).toFixed(1) : '0.0';
+    return `<div class="cost-pie-legend-item" style="cursor:default;">
+      <div class="cost-pie-legend-dot" style="background:${d.color};border-radius:3px;"></div>
+      <span class="cost-pie-legend-name">${d.label}</span>
+      <span class="cost-pie-legend-val" style="color:${d.color};">$${Math.round(d.value).toLocaleString('zh-TW')} <span style="color:#aaa;font-weight:400">(${pct}%)</span></span>
+    </div>`;
+  }).join('');
+  legend.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin-bottom:3px;">◉ 外環・核算範圍（點擊看倉庫明細）</div>
+    ${outerLegend}
+    <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin:9px 0 3px;padding-top:8px;border-top:1px solid #e8edf5;">◎ 內環・庫存狀態</div>
+    ${innerLegend}`;
 
+  // ── Chart ──
   if (_costPieChart) { _costPieChart.destroy(); _costPieChart = null; }
-
   const ctx = document.getElementById('costPieChart').getContext('2d');
   _costPieChart = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels,
-      datasets: [{ data: values, backgroundColor: colors, borderColor: '#fff', borderWidth: 2, hoverOffset: 10 }],
+      datasets: [
+        { label:'核算範圍', data: outerValues, backgroundColor: outerColors, borderColor:'#fff', borderWidth:2, hoverOffset:10 },
+        { label:'庫存狀態', data: innerData.map(d=>d.value), backgroundColor: innerData.map(d=>d.color), borderColor:'#fff', borderWidth:2, hoverOffset:5 },
+      ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: true,
-      cutout: '55%',
+      cutout: '36%',
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => {
-              const v = ctx.parsed;
+            title: items => {
+              const it = items[0];
+              return it.datasetIndex === 0 ? outerLabels[it.dataIndex] : innerData[it.dataIndex]?.label || '';
+            },
+            label: it => {
+              const v = it.parsed;
               const pct = totalSum > 0 ? ((v / totalSum) * 100).toFixed(1) : '0';
-              return ` $${Math.round(v).toLocaleString('zh-TW')}  (${pct}%)`;
+              const ring = it.datasetIndex === 0 ? '核算範圍' : '庫存狀態';
+              return ` [${ring}]  $${Math.round(v).toLocaleString('zh-TW')}  (${pct}%)`;
             }
           }
         }
       },
-      onClick: (evt, elems) => { if (elems.length > 0) showCostScopeModal(elems[0].index); },
+      onClick: (evt, elems) => {
+        if (!elems.length) return;
+        if (elems[0].datasetIndex === 0) showCostScopeModal(elems[0].index);
+      },
     }
   });
 }
@@ -1527,13 +1580,18 @@ function showCostScopeModal(idx) {
   document.getElementById('costModalTitle').textContent = '📊 ' + sc + '　各倉庫成本明細';
 
   const whEntries = Object.entries(d.whMap).sort((a, b) => b[1].total - a[1].total);
-  let html = '';
+
   if (!whEntries.length) {
-    html = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">無子倉庫資料</td></tr>';
+    document.getElementById('costModalBody').innerHTML =
+      '<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">無子倉庫資料</td></tr>';
+    document.getElementById('costModalCards').innerHTML =
+      '<div style="text-align:center;padding:24px;color:#aaa;">無子倉庫資料</div>';
   } else {
+    // ── 桌機：表格 ──
+    let tblHtml = '';
     whEntries.forEach(([wh, wd]) => {
       const expStyle = wd.expired > 0 ? 'color:var(--red);font-weight:700' : 'color:var(--accent);font-weight:700';
-      html += `<tr>
+      tblHtml += `<tr>
         <td>🏭 ${wh}</td>
         <td style="text-align:right;color:var(--accent);font-weight:700">${fmtT(wd.total)}</td>
         <td style="text-align:right;color:var(--accent);font-weight:700">${fmtT(wd.normal)}</td>
@@ -1543,7 +1601,7 @@ function showCostScopeModal(idx) {
       </tr>`;
     });
     const expTotStyle = d.expired > 0 ? 'color:var(--red);font-weight:700' : 'color:var(--accent);font-weight:700';
-    html += `<tr class="tbl-total">
+    tblHtml += `<tr class="tbl-total">
       <td>合計 ${whEntries.length} 個倉庫</td>
       <td style="text-align:right;color:var(--accent)">${fmtT(d.total)}</td>
       <td style="text-align:right;color:var(--accent)">${fmtT(d.normal)}</td>
@@ -1551,8 +1609,65 @@ function showCostScopeModal(idx) {
       <td style="text-align:right;color:var(--accent)">${fmtT(d.long)}</td>
       <td style="text-align:right;color:var(--accent)">${fmtT(d.soon)}</td>
     </tr>`;
+    document.getElementById('costModalBody').innerHTML = tblHtml;
+
+    // ── 手機：卡片 ──
+    let cardHtml = '';
+    whEntries.forEach(([wh, wd]) => {
+      cardHtml += `<div class="cost-wh-card">
+        <div class="cost-wh-card-name">🏭 ${wh}</div>
+        <div class="cost-wh-card-grid">
+          <div class="cost-wh-stat" style="grid-column:1/-1">
+            <div class="cost-wh-stat-label">全部成本</div>
+            <div class="cost-wh-stat-val">${fmtT(wd.total)}</div>
+          </div>
+          <div class="cost-wh-stat">
+            <div class="cost-wh-stat-label">✅ 正常品</div>
+            <div class="cost-wh-stat-val">${fmtT(wd.normal)}</div>
+          </div>
+          <div class="cost-wh-stat ${wd.expired > 0 ? 'stat-expired' : ''}">
+            <div class="cost-wh-stat-label">⚠ 過期品</div>
+            <div class="cost-wh-stat-val">${fmtT(wd.expired)}</div>
+          </div>
+          <div class="cost-wh-stat ${wd.long > 0 ? 'stat-long' : ''}">
+            <div class="cost-wh-stat-label">⏳ 長期在庫</div>
+            <div class="cost-wh-stat-val">${fmtT(wd.long)}</div>
+          </div>
+          <div class="cost-wh-stat ${wd.soon > 0 ? 'stat-soon' : ''}">
+            <div class="cost-wh-stat-label">🔔 即將到期</div>
+            <div class="cost-wh-stat-val">${fmtT(wd.soon)}</div>
+          </div>
+        </div>
+      </div>`;
+    });
+    cardHtml += `<div class="cost-wh-card card-total">
+      <div class="cost-wh-card-name">合計 ${whEntries.length} 個倉庫</div>
+      <div class="cost-wh-card-grid">
+        <div class="cost-wh-stat" style="grid-column:1/-1;background:#c8ddf0;">
+          <div class="cost-wh-stat-label">全部成本</div>
+          <div class="cost-wh-stat-val">${fmtT(d.total)}</div>
+        </div>
+        <div class="cost-wh-stat" style="background:#e0f0e8;">
+          <div class="cost-wh-stat-label">✅ 正常品</div>
+          <div class="cost-wh-stat-val">${fmtT(d.normal)}</div>
+        </div>
+        <div class="cost-wh-stat ${d.expired > 0 ? 'stat-expired' : ''}" style="${d.expired > 0 ? '' : 'background:#f0f4f9;'}">
+          <div class="cost-wh-stat-label">⚠ 過期品</div>
+          <div class="cost-wh-stat-val">${fmtT(d.expired)}</div>
+        </div>
+        <div class="cost-wh-stat ${d.long > 0 ? 'stat-long' : ''}" style="${d.long > 0 ? '' : 'background:#f0f4f9;'}">
+          <div class="cost-wh-stat-label">⏳ 長期在庫</div>
+          <div class="cost-wh-stat-val">${fmtT(d.long)}</div>
+        </div>
+        <div class="cost-wh-stat ${d.soon > 0 ? 'stat-soon' : ''}" style="${d.soon > 0 ? '' : 'background:#f0f4f9;'}">
+          <div class="cost-wh-stat-label">🔔 即將到期</div>
+          <div class="cost-wh-stat-val">${fmtT(d.soon)}</div>
+        </div>
+      </div>
+    </div>`;
+    document.getElementById('costModalCards').innerHTML = cardHtml;
   }
-  document.getElementById('costModalBody').innerHTML = html;
+
   document.getElementById('costScopeModal').classList.add('open');
 }
 

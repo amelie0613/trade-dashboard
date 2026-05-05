@@ -268,6 +268,7 @@
       color: #aaa; line-height: 1; padding: 0 4px;
     }
     .modal-close:hover { color: #6878C0; }
+    /* Table (desktop) */
     .modal-tbl-wrap { border-radius: 8px; border: 1px solid #d0d9e8; overflow: hidden; }
     .modal-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
     .modal-tbl th {
@@ -278,6 +279,27 @@
     .modal-tbl tr:last-child td { border-bottom: none; }
     .modal-tbl tr:nth-child(even) td { background: #f8f9ff; }
     .modal-tbl .total-row td { background: #dce8f5 !important; font-weight: 700; }
+    /* Card (mobile) */
+    .modal-cards { display: none; flex-direction: column; gap: 10px; }
+    .m-wh-card { background: #fff; border: 1.5px solid #d0d9e8; border-radius: 10px; padding: 12px 14px; }
+    .m-wh-card.card-total { background: #dce8f5; border-color: #b0c8e0; }
+    .m-wh-card-name { font-size: 13px; font-weight: 800; color: #1a1a1a; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #d0d9e8; }
+    .m-wh-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .m-wh-stat { background: #f4f6ff; border-radius: 7px; padding: 7px 10px; }
+    .m-wh-stat.s-expired { background: #fff0f0; }
+    .m-wh-stat.s-soon    { background: #fff7ee; }
+    .m-wh-stat.s-long    { background: #fefce8; }
+    .m-wh-stat-lbl { font-size: 10px; color: #888; font-weight: 600; margin-bottom: 2px; }
+    .m-wh-stat-val { font-size: 14px; font-weight: 900; color: #6878C0; }
+    .m-wh-stat.s-expired .m-wh-stat-val { color: #DC2626; }
+    .m-wh-stat.s-soon    .m-wh-stat-val { color: #EA580C; }
+    .m-wh-stat.s-long    .m-wh-stat-val { color: #B45309; }
+    @media (max-width: 600px) {
+      .modal-bg.open { align-items: flex-end; }
+      .modal-box { border-radius: 18px 18px 0 0; padding: 18px 16px 28px; width: 100%; max-height: 88vh; }
+      .modal-tbl-wrap { display: none; }
+      .modal-cards { display: flex; }
+    }
 
     @page {
       size: A4 portrait;
@@ -365,6 +387,8 @@
           <tbody id="modalBody"></tbody>
         </table>
       </div>
+      <!-- 手機卡片版 -->
+      <div class="modal-cards" id="modalCards"></div>
     </div>
   </div>
 
@@ -423,56 +447,86 @@ function renderPieChart() {
   if (!costData.length) { section.style.display = 'none'; return; }
   section.style.display = '';
 
-  const labels = costData.map(d => d.name);
-  const values = costData.map(d => d.total);
-  const colors = costData.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]);
+  // ── 外環：依核算範圍 ──
+  const outerLabels = costData.map(d => d.name);
+  const outerValues = costData.map(d => d.total);
+  const outerColors = costData.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]);
+  const totalSum    = outerValues.reduce((s, v) => s + v, 0);
 
-  // Legend
+  // ── 內環：依庫存狀態（cost_analysis 使用 longterm 欄位）──
+  let sumNormal = 0, sumExpired = 0, sumSoon = 0, sumLong = 0;
+  costData.forEach(d => {
+    sumNormal  += d.normal   || 0;
+    sumExpired += d.expired  || 0;
+    sumSoon    += d.soon     || 0;
+    sumLong    += d.longterm || 0;
+  });
+  const innerData = [
+    { label: '正常品',   value: sumNormal,  color: '#059669' },
+    { label: '過期品',   value: sumExpired, color: '#DC2626' },
+    { label: '即將到期', value: sumSoon,    color: '#EA580C' },
+    { label: '長期在庫', value: sumLong,    color: '#B45309' },
+  ].filter(d => d.value > 0);
+
+  // ── 圖例 ──
   const legend = document.getElementById('pieLegend');
-  const totalSum = values.reduce((s, v) => s + v, 0);
-  legend.innerHTML = costData.map((d, i) => {
+  const outerLegend = costData.map((d, i) => {
     const pct = totalSum > 0 ? ((d.total / totalSum) * 100).toFixed(1) : '0.0';
     return `<div class="pie-legend-item" onclick="showScopeDetail(${i})">
-      <div class="pie-legend-dot" style="background:${colors[i]}"></div>
+      <div class="pie-legend-dot" style="background:${outerColors[i]}"></div>
       <span class="pie-legend-name">${d.name}</span>
       <span class="pie-legend-val">$${d.total.toLocaleString()} <span style="color:#aaa;font-weight:400">(${pct}%)</span></span>
     </div>`;
   }).join('');
+  const innerLegend = innerData.map(d => {
+    const pct = totalSum > 0 ? ((d.value / totalSum) * 100).toFixed(1) : '0.0';
+    return `<div class="pie-legend-item" style="cursor:default;">
+      <div class="pie-legend-dot" style="background:${d.color};border-radius:3px;"></div>
+      <span class="pie-legend-name">${d.label}</span>
+      <span class="pie-legend-val" style="color:${d.color};">$${d.value.toLocaleString()} <span style="color:#aaa;font-weight:400">(${pct}%)</span></span>
+    </div>`;
+  }).join('');
+  legend.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin-bottom:3px;">◉ 外環・核算範圍（點擊看倉庫明細）</div>
+    ${outerLegend}
+    <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin:9px 0 3px;padding-top:8px;border-top:1px solid #e8edf5;">◎ 內環・庫存狀態</div>
+    ${innerLegend}`;
 
-  // Destroy old chart
+  // ── Chart ──
   if (pieChartInst) { pieChartInst.destroy(); pieChartInst = null; }
-
   const ctx = document.getElementById('pieChart').getContext('2d');
   pieChartInst = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels,
-      datasets: [{
-        data: values,
-        backgroundColor: colors,
-        borderColor: '#fff',
-        borderWidth: 2,
-        hoverOffset: 12,
-      }],
+      datasets: [
+        { label:'核算範圍', data: outerValues, backgroundColor: outerColors, borderColor:'#fff', borderWidth:2, hoverOffset:12 },
+        { label:'庫存狀態', data: innerData.map(d=>d.value), backgroundColor: innerData.map(d=>d.color), borderColor:'#fff', borderWidth:2, hoverOffset:5 },
+      ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: true,
-      cutout: '55%',
+      cutout: '36%',
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: ctx => {
-              const v = ctx.parsed;
+            title: items => {
+              const it = items[0];
+              return it.datasetIndex === 0 ? outerLabels[it.dataIndex] : innerData[it.dataIndex]?.label || '';
+            },
+            label: it => {
+              const v = it.parsed;
               const pct = totalSum > 0 ? ((v / totalSum) * 100).toFixed(1) : '0';
-              return ` $${v.toLocaleString()}  (${pct}%)`;
+              const ring = it.datasetIndex === 0 ? '核算範圍' : '庫存狀態';
+              return ` [${ring}]  $${Math.round(v).toLocaleString()}  (${pct}%)`;
             }
           }
         }
       },
       onClick: (evt, elems) => {
-        if (elems.length > 0) showScopeDetail(elems[0].index);
+        if (!elems.length) return;
+        if (elems[0].datasetIndex === 0) showScopeDetail(elems[0].index);
       },
     }
   });
@@ -488,10 +542,14 @@ function showScopeDetail(idx) {
   if (!children.length) {
     document.getElementById('modalBody').innerHTML =
       `<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">此核算範圍無子倉庫資料</td></tr>`;
+    document.getElementById('modalCards').innerHTML =
+      '<div style="text-align:center;padding:24px;color:#aaa;">無子倉庫資料</div>';
   } else {
-    const sortedChildren = [...children].sort((a, b) => b.total - a.total);
+    const sorted = [...children].sort((a, b) => b.total - a.total);
+
+    // ── 桌機：表格 ──
     let html = '';
-    sortedChildren.forEach(ch => {
+    sorted.forEach(ch => {
       const expCls = ch.expired > 0 ? 'color:#DC2626;font-weight:700' : 'color:#6878C0;font-weight:700';
       html += `<tr>
         <td>&#127981; ${ch.name}</td>
@@ -504,7 +562,7 @@ function showScopeDetail(idx) {
     });
     const expTotCls = scope.expired > 0 ? 'color:#DC2626;font-weight:700' : 'color:#6878C0;font-weight:700';
     html += `<tr class="total-row">
-      <td>合計 ${sortedChildren.length} 個倉庫</td>
+      <td>合計 ${sorted.length} 個倉庫</td>
       <td style="text-align:right;color:#6878C0">${fmtPlain(scope.total)}</td>
       <td style="text-align:right;color:#6878C0">${fmtPlain(scope.normal)}</td>
       <td style="text-align:right;${expTotCls}">${fmtPlain(scope.expired)}</td>
@@ -512,6 +570,62 @@ function showScopeDetail(idx) {
       <td style="text-align:right;color:#6878C0">${fmtPlain(scope.soon)}</td>
     </tr>`;
     document.getElementById('modalBody').innerHTML = html;
+
+    // ── 手機：卡片 ──
+    let cardHtml = '';
+    sorted.forEach(ch => {
+      cardHtml += `<div class="m-wh-card">
+        <div class="m-wh-card-name">🏭 ${ch.name}</div>
+        <div class="m-wh-card-grid">
+          <div class="m-wh-stat" style="grid-column:1/-1">
+            <div class="m-wh-stat-lbl">全部成本</div>
+            <div class="m-wh-stat-val">${fmtPlain(ch.total)}</div>
+          </div>
+          <div class="m-wh-stat">
+            <div class="m-wh-stat-lbl">✅ 正常品</div>
+            <div class="m-wh-stat-val">${fmtPlain(ch.normal)}</div>
+          </div>
+          <div class="m-wh-stat ${ch.expired > 0 ? 's-expired' : ''}">
+            <div class="m-wh-stat-lbl">⚠ 過期品</div>
+            <div class="m-wh-stat-val">${fmtPlain(ch.expired)}</div>
+          </div>
+          <div class="m-wh-stat ${ch.longterm > 0 ? 's-long' : ''}">
+            <div class="m-wh-stat-lbl">⏳ 長期在庫</div>
+            <div class="m-wh-stat-val">${fmtPlain(ch.longterm)}</div>
+          </div>
+          <div class="m-wh-stat ${ch.soon > 0 ? 's-soon' : ''}">
+            <div class="m-wh-stat-lbl">🔔 即將到期</div>
+            <div class="m-wh-stat-val">${fmtPlain(ch.soon)}</div>
+          </div>
+        </div>
+      </div>`;
+    });
+    cardHtml += `<div class="m-wh-card card-total">
+      <div class="m-wh-card-name">合計 ${sorted.length} 個倉庫</div>
+      <div class="m-wh-card-grid">
+        <div class="m-wh-stat" style="grid-column:1/-1;background:#c8ddf0;">
+          <div class="m-wh-stat-lbl">全部成本</div>
+          <div class="m-wh-stat-val">${fmtPlain(scope.total)}</div>
+        </div>
+        <div class="m-wh-stat" style="background:#e0f0e8;">
+          <div class="m-wh-stat-lbl">✅ 正常品</div>
+          <div class="m-wh-stat-val">${fmtPlain(scope.normal)}</div>
+        </div>
+        <div class="m-wh-stat ${scope.expired > 0 ? 's-expired' : ''}" style="${scope.expired > 0 ? '' : 'background:#f0f4f9;'}">
+          <div class="m-wh-stat-lbl">⚠ 過期品</div>
+          <div class="m-wh-stat-val">${fmtPlain(scope.expired)}</div>
+        </div>
+        <div class="m-wh-stat ${scope.longterm > 0 ? 's-long' : ''}" style="${scope.longterm > 0 ? '' : 'background:#f0f4f9;'}">
+          <div class="m-wh-stat-lbl">⏳ 長期在庫</div>
+          <div class="m-wh-stat-val">${fmtPlain(scope.longterm)}</div>
+        </div>
+        <div class="m-wh-stat ${scope.soon > 0 ? 's-soon' : ''}" style="${scope.soon > 0 ? '' : 'background:#f0f4f9;'}">
+          <div class="m-wh-stat-lbl">🔔 即將到期</div>
+          <div class="m-wh-stat-val">${fmtPlain(scope.soon)}</div>
+        </div>
+      </div>
+    </div>`;
+    document.getElementById('modalCards').innerHTML = cardHtml;
   }
 
   document.getElementById('scopeModal').classList.add('open');
