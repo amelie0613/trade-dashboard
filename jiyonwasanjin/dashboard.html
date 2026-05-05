@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>庫存管理 Dashboard</title>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
 
@@ -185,6 +186,34 @@ tr.wh-parent-row td { background: #f0f4f9; font-weight: 700; color: var(--text);
 tr.wh-child-row  td { background: #fafbfc; color: #444; }
 .cost-tbl .expired-val { color: var(--red) !important; font-weight: 700; }
 .cost-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+
+/* ── PIE CHART ── */
+.cost-pie-section { margin-bottom: 16px; }
+.cost-pie-wrap { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; padding: 10px 0; }
+.cost-pie-canvas-wrap { position: relative; width: 220px; height: 220px; flex-shrink: 0; }
+.cost-pie-legend { display: flex; flex-direction: column; gap: 5px; min-width: 160px; max-width: 260px; }
+.cost-pie-legend-item { display: flex; align-items: center; gap: 7px; font-size: 12px; cursor: pointer; padding: 3px 7px; border-radius: 6px; transition: background .15s; }
+.cost-pie-legend-item:hover { background: #f0f4f9; }
+.cost-pie-legend-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.cost-pie-legend-name { flex: 1; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cost-pie-legend-val { font-weight: 700; color: var(--accent); white-space: nowrap; font-size: 11px; }
+.cost-pie-hint { font-size: 11px; color: #aaa; text-align: center; margin-top: 4px; }
+
+/* ── COST MODAL ── */
+.cost-modal-bg { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(26,37,64,.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+.cost-modal-bg.open { display: flex; }
+.cost-modal-box { background: white; border-radius: 14px; padding: 22px 26px; width: min(640px, 95vw); max-height: 78vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(104,120,192,.3); }
+.cost-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+.cost-modal-title { font-size: 15px; font-weight: 900; color: var(--accent); }
+.cost-modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #aaa; padding: 0 4px; }
+.cost-modal-close:hover { color: var(--accent); }
+.cost-modal-tbl-wrap { border-radius: 8px; border: 1px solid var(--border); overflow: hidden; }
+.cost-modal-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cost-modal-tbl th { background: var(--accent); color: white; padding: 7px 10px; text-align: center; font-weight: 700; }
+.cost-modal-tbl td { padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.cost-modal-tbl tr:last-child td { border-bottom: none; }
+.cost-modal-tbl tr:nth-child(even) td { background: #f8f9ff; }
+.cost-modal-tbl .tbl-total td { background: #dce8f5 !important; font-weight: 700; }
 
 /* ── LOADING / EMPTY ── */
 .loading-wrap { text-align: center; padding: 60px 20px; color: var(--muted); }
@@ -474,6 +503,18 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
     <div class="summary-card"><div class="s-label">長期在庫成本</div><div class="s-value amber" id="c-long">—</div></div>
   </div>
 
+  <!-- 圓餅圖 -->
+  <div class="cost-section cost-pie-section" id="cost-pie-section" style="display:none;">
+    <h3>🥧 存貨成本分布（依核算範圍）</h3>
+    <div class="cost-pie-wrap">
+      <div class="cost-pie-canvas-wrap">
+        <canvas id="costPieChart"></canvas>
+      </div>
+      <div class="cost-pie-legend" id="costPieLegend"></div>
+    </div>
+    <div class="cost-pie-hint">點擊圓餅圖或圖例可查看該核算範圍的各倉庫成本明細</div>
+  </div>
+
   <!-- 核算範圍卡片 -->
   <div class="cost-section">
     <h3>🗂️ 核算範圍總覽</h3>
@@ -537,6 +578,31 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
       </thead>
       <tbody id="diff-body"></tbody>
     </table>
+  </div>
+</div>
+
+<!-- ════ COST SCOPE MODAL ════ -->
+<div class="cost-modal-bg" id="costScopeModal" onclick="if(event.target===this)closeCostModal()">
+  <div class="cost-modal-box">
+    <div class="cost-modal-header">
+      <div class="cost-modal-title" id="costModalTitle">核算範圍明細</div>
+      <button class="cost-modal-close" onclick="closeCostModal()">&#10005;</button>
+    </div>
+    <div class="cost-modal-tbl-wrap">
+      <table class="cost-modal-tbl">
+        <thead>
+          <tr>
+            <th style="text-align:left;width:34%">倉庫</th>
+            <th style="width:16%">全部成本</th>
+            <th style="width:13%">正常</th>
+            <th style="width:13%;background:#8B2020;color:#FFD0D0;">⚠ 過期品</th>
+            <th style="width:13%;background:#7A4A0A;color:#FFDCA0;">⏳ 長期在庫</th>
+            <th style="width:13%;background:#7A5500;color:#FFE899;">🔔 即將到期</th>
+          </tr>
+        </thead>
+        <tbody id="costModalBody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -1318,6 +1384,9 @@ function renderCost(){
   document.getElementById('c-soon').textContent    = fmtMoney(soonTotal);
   document.getElementById('c-long').textContent    = fmtMoney(longTotal);
 
+  // ── 圓餅圖 ──
+  renderCostPie(scopes);
+
   if(!scopes.length){
     document.getElementById('cost-scope-grid').innerHTML = '';
     document.getElementById('cost-body').innerHTML = '<tr><td colspan="6" class="empty-msg">無成本資料（請先設定單價）</td></tr>';
@@ -1388,6 +1457,107 @@ function renderCost(){
     document.getElementById('cost-body').innerHTML = html;
   }
 
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COST PIE CHART
+// ═══════════════════════════════════════════════════════════════
+const PIE_COLORS = ['#6878C0','#1B5B9E','#2E7DD4','#3A9E6E','#B05A00','#8B2A8B','#1A7A8A','#C0506A','#5060B0','#2A8A50'];
+let _costPieChart = null;
+let _costPieScopes = [];  // cache for modal lookup
+
+function renderCostPie(scopes) {
+  const section = document.getElementById('cost-pie-section');
+  if (!scopes.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  _costPieScopes = scopes;
+
+  const labels = scopes.map(([sc]) => sc);
+  const values = scopes.map(([, d]) => d.total);
+  const colors = scopes.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]);
+  const totalSum = values.reduce((s, v) => s + v, 0);
+
+  // Legend
+  const legend = document.getElementById('costPieLegend');
+  legend.innerHTML = scopes.map(([sc, d], i) => {
+    const pct = totalSum > 0 ? ((d.total / totalSum) * 100).toFixed(1) : '0.0';
+    return `<div class="cost-pie-legend-item" onclick="showCostScopeModal(${i})">
+      <div class="cost-pie-legend-dot" style="background:${colors[i]}"></div>
+      <span class="cost-pie-legend-name" title="${sc}">${sc}</span>
+      <span class="cost-pie-legend-val">$${Math.round(d.total).toLocaleString('zh-TW')} <span style="color:#aaa;font-weight:400">(${pct}%)</span></span>
+    </div>`;
+  }).join('');
+
+  if (_costPieChart) { _costPieChart.destroy(); _costPieChart = null; }
+
+  const ctx = document.getElementById('costPieChart').getContext('2d');
+  _costPieChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderColor: '#fff', borderWidth: 2, hoverOffset: 10 }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '55%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed;
+              const pct = totalSum > 0 ? ((v / totalSum) * 100).toFixed(1) : '0';
+              return ` $${Math.round(v).toLocaleString('zh-TW')}  (${pct}%)`;
+            }
+          }
+        }
+      },
+      onClick: (evt, elems) => { if (elems.length > 0) showCostScopeModal(elems[0].index); },
+    }
+  });
+}
+
+function showCostScopeModal(idx) {
+  const entry = _costPieScopes[idx];
+  if (!entry) return;
+  const [sc, d] = entry;
+  const fmtT = v => v > 0 ? '$' + Math.round(v).toLocaleString('zh-TW') : '—';
+
+  document.getElementById('costModalTitle').textContent = '📊 ' + sc + '　各倉庫成本明細';
+
+  const whEntries = Object.entries(d.whMap).sort((a, b) => b[1].total - a[1].total);
+  let html = '';
+  if (!whEntries.length) {
+    html = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#aaa;">無子倉庫資料</td></tr>';
+  } else {
+    whEntries.forEach(([wh, wd]) => {
+      const expStyle = wd.expired > 0 ? 'color:var(--red);font-weight:700' : 'color:var(--accent);font-weight:700';
+      html += `<tr>
+        <td>🏭 ${wh}</td>
+        <td style="text-align:right;color:var(--accent);font-weight:700">${fmtT(wd.total)}</td>
+        <td style="text-align:right;color:var(--accent);font-weight:700">${fmtT(wd.normal)}</td>
+        <td style="text-align:right;${expStyle}">${fmtT(wd.expired)}</td>
+        <td style="text-align:right;color:var(--accent);font-weight:700">${fmtT(wd.long)}</td>
+        <td style="text-align:right;color:var(--accent);font-weight:700">${fmtT(wd.soon)}</td>
+      </tr>`;
+    });
+    const expTotStyle = d.expired > 0 ? 'color:var(--red);font-weight:700' : 'color:var(--accent);font-weight:700';
+    html += `<tr class="tbl-total">
+      <td>合計 ${whEntries.length} 個倉庫</td>
+      <td style="text-align:right;color:var(--accent)">${fmtT(d.total)}</td>
+      <td style="text-align:right;color:var(--accent)">${fmtT(d.normal)}</td>
+      <td style="text-align:right;${expTotStyle}">${fmtT(d.expired)}</td>
+      <td style="text-align:right;color:var(--accent)">${fmtT(d.long)}</td>
+      <td style="text-align:right;color:var(--accent)">${fmtT(d.soon)}</td>
+    </tr>`;
+  }
+  document.getElementById('costModalBody').innerHTML = html;
+  document.getElementById('costScopeModal').classList.add('open');
+}
+
+function closeCostModal() {
+  document.getElementById('costScopeModal').classList.remove('open');
 }
 
 // ═══════════════════════════════════════════════════════════════
