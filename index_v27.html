@@ -2463,72 +2463,54 @@ function renderMonthlySummary(calItems, yr, mo) {
     }).join('');
   }
 
-  // ── CSV 部門卡：貿易 / 船務，各一張，卡內左右二欄（應付淡綠 / 應收淡藍）──
-  function makeDeptCard(deptLabel, deptKey) {
-    var icon    = deptLabel === '船務' ? '🚢' : '📦';
-    var apRows  = fmtRows(sum[deptKey].apCur,  true);
-    var rcvRows = fmtRows(sum[deptKey].rcvCur, false);
-
+  // ── 通用卡片渲染（標題 / 應付 / 應收 maps）──
+  function makeCard(title, apMap, rcvMap, apLabel, rcvLabel) {
+    var apRows  = fmtRows(apMap,  true);
+    var rcvRows = fmtRows(rcvMap, false);
     var html = '<div style="background:#fff;border:0.5px solid var(--border);border-radius:12px;padding:16px;">';
-    html += '<div style="font-size:20px;color:var(--ink);font-weight:700;margin-bottom:12px;">'+icon+' '+deptLabel+'</div>';
-    
-    // ★ 左右二欄等寬佈局
+    html += '<div style="font-size:18px;color:var(--ink);font-weight:700;margin-bottom:12px;">'+title+'</div>';
     html += '<div style="display:flex;gap:12px;">';
-    
-    // 左欄：應付（淡橘）
     html += '<div style="flex:1;background:#fff7ed;border:0.5px solid #fed7aa;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    html += '<div style="font-size:16px;color:#ea580c;font-weight:700;margin-bottom:8px;">應付</div>';
+    html += '<div style="font-size:15px;color:#ea580c;font-weight:700;margin-bottom:8px;">'+(apLabel||'應付')+'</div>';
     html += '<div style="flex:1;">'+apRows+'</div>';
-    html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum[deptKey].apCur).length + '幣)</div>';
-    html += '</div>';
-    
-    // 右欄：應收（淡綠）
+    html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">('+sortedCurKeys(apMap).length+'幣)</div></div>';
     html += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    html += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應收</div>';
+    html += '<div style="font-size:15px;color:#16a34a;font-weight:700;margin-bottom:8px;">'+(rcvLabel||'應收')+'</div>';
     html += '<div style="flex:1;">'+rcvRows+'</div>';
-    html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum[deptKey].rcvCur).length + '幣)</div>';
-    html += '</div>';
-    
+    html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">('+sortedCurKeys(rcvMap).length+'幣)</div></div>';
     html += '</div></div>';
     return html;
   }
 
-  // ── Firebase 預估卡（粉橘底，左右二欄）──
-  function makeFcstCard() {
-    var apRows  = fmtRows(sum.fcst.apCur,  true);
-    var rcvRows = fmtRows(sum.fcst.rcvCur, false);
-
-    var html = '<div style="background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:16px;">';
-    html += '<div style="font-size:20px;color:var(--ink);font-weight:700;margin-bottom:12px;">📁 案件預估</div>';
-    
-    // ★ 左右二欄等寬佈局
-    html += '<div style="display:flex;gap:12px;">';
-    
-    // 左欄：應付預估（淡橘）
-    html += '<div style="flex:1;background:#fff7ed;border:0.5px solid #fed7aa;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    html += '<div style="font-size:16px;color:#ea580c;font-weight:700;margin-bottom:8px;">應付預估</div>';
-    html += '<div style="flex:1;">'+apRows+'</div>';
-    html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum.fcst.apCur).length + '幣)</div>';
-    html += '</div>';
-    
-    // 右欄：應收預估（淡綠）
-    html += '<div style="flex:1;background:#f0fdf4;border:0.5px solid #86efac;border-radius:8px;padding:12px;min-height:100px;display:flex;flex-direction:column;">';
-    html += '<div style="font-size:16px;color:#16a34a;font-weight:700;margin-bottom:8px;">應收預估</div>';
-    html += '<div style="flex:1;">'+rcvRows+'</div>';
-    html += '<div style="font-size:12px;color:#64748b;margin-top:auto;">(' + Object.keys(sum.fcst.rcvCur).length + '幣)</div>';
-    html += '</div>';
-    
-    html += '</div></div>';
-    return html;
+  // ── 合併多個 map ──
+  function mergeMaps() {
+    var apOut = {}, rcvOut = {};
+    var keys = Array.prototype.slice.call(arguments);
+    keys.forEach(function(pair) {
+      Object.keys(pair.ap).forEach(function(c){ apOut[c]  = (apOut[c] ||0)+pair.ap[c];  });
+      Object.keys(pair.rcv).forEach(function(c){ rcvOut[c] = (rcvOut[c]||0)+pair.rcv[c]; });
+    });
+    return { ap: apOut, rcv: rcvOut };
   }
 
-  // ── 3 張卡（貿易 / 船務 / 預估），由 CSS media query 控制欄數 ──
-  // ★ 移除 inline style，改由 CSS .msum-grid 的 @media query 控制
-  // el.style.gridTemplateColumns = 'repeat(3,1fr)';  // ❌ 已移除，讓 CSS 生效
-  el.innerHTML =
-    makeDeptCard('貿易', 'trade') +
-    makeDeptCard('船務', 'ship')  +
-    makeFcstCard();
+  var allOn = calendarFilter.ship && calendarFilter.trade && calendarFilter.forecast;
+
+  // 總計卡：合併 trade + ship + fcst
+  var total = mergeMaps(
+    { ap: sum.trade.apCur, rcv: sum.trade.rcvCur },
+    { ap: sum.ship.apCur,  rcv: sum.ship.rcvCur  },
+    { ap: sum.fcst.apCur,  rcv: sum.fcst.rcvCur  }
+  );
+  var html = makeCard('📊 總計', total.ap, total.rcv);
+
+  // 個別部門卡：只在非全選時顯示
+  if (!allOn) {
+    if (calendarFilter.trade)    html += makeCard('📦 貿易', sum.trade.apCur, sum.trade.rcvCur);
+    if (calendarFilter.ship)     html += makeCard('🚢 船務', sum.ship.apCur,  sum.ship.rcvCur);
+    if (calendarFilter.forecast) html += makeCard('📁 案件預估', sum.fcst.apCur, sum.fcst.rcvCur, '應付預估', '應收預估');
+  }
+
+  el.innerHTML = html;
 }
 
 // ── 日曆篩選狀態（支援多選）────────────────────────────
@@ -3666,11 +3648,26 @@ function doResendNotify(rowNum, action){
     formId:        formId,
     caseName:      caseName,
     staff:         staff,
-    type:          g(r,'type')||'',
-    supplier:      r['供應商（賣方）']||r.supplier||'',
-    buyer:         r['客戶（買方）']  ||r.buyer   ||'',
-    buyPay:        r['付款條件（採購）']||r.buyPay ||'',
-    sellPay:       r['收款條件（銷售）']||r.sellPay||'',
+    asst:          r['承辦業助']        || '',
+    type:          g(r,'type')          || '',
+    supplier:      r['供應商（賣方）']   || '',
+    buyer:         r['客戶（買方）']     || '',
+    buyPay:        r['付款條件（採購）'] || '',
+    sellPay:       r['收款條件（銷售）'] || '',
+    buyNote:       r['備註（採購）']     || '',
+    sellNote:      r['備註（銷售）']     || '',
+    buyCon:        r['賣方合約（採購）'] || '',
+    sellCon:       r['買方合約（銷售）'] || '',
+    trade:         r['貿易條件']         || '',
+    etd:           r['ETD 出貨日']       || '',
+    eta:           r['ETA 到貨日']       || '',
+    origin:        r['出貨地/發貨港口']  || '',
+    dest:          r['目的地/收貨港口']  || '',
+    freight:       r['運費']    || {amt:0,cur:'TWD'},
+    insure:        r['保險費']  || {amt:0,cur:'TWD'},
+    tax:           r['規費']    || {amt:0,cur:'TWD'},
+    comm:          r['佣金']    || {amt:0,cur:'TWD'},
+    extra:         r['其他費用']|| {amt:0,cur:'TWD'},
     buyPeriods:    buyPeriods,
     sellPeriods:   sellPeriods,
     transferEmail: transferEmail,
@@ -6119,6 +6116,7 @@ function saveManualPayment(data, cb) {
       .then(function(res) {
         if (res.error) throw new Error(res.error.message);
         invalidateCache('manual_payments');
+        backupActionToGAS(Object.assign({ action:'keyinSave', id: data._id }, payload));
         if (cb) cb(true, data._id);
       })
       .catch(function(e) { console.error('manual_payments 更新失敗：', e); if (cb) cb(false); });
@@ -6131,6 +6129,7 @@ function saveManualPayment(data, cb) {
         if (res.error) throw new Error(res.error.message);
         invalidateCache('manual_payments');
         var newId = res.data && res.data[0] ? res.data[0].id : null;
+        if (newId) backupActionToGAS(Object.assign({ action:'keyinSave', id: newId }, payload));
         if (cb) cb(true, newId);
       })
       .catch(function(e) { console.error('manual_payments 新增失敗：', e); if (cb) cb(false); });
@@ -6145,6 +6144,7 @@ function deleteManualPayment(id, cb) {
     .then(function(res) {
       if (res.error) throw new Error(res.error.message);
       invalidateCache('manual_payments');
+      backupActionToGAS({ action:'keyinDelete', id: id });
       if (cb) cb(true);
     })
     .catch(function(e) { console.error('manual_payments 刪除失敗：', e); if (cb) cb(false); });
