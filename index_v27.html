@@ -2701,33 +2701,35 @@ function renderDaily(){
           }
         });
 
+        var totalGroups = sortedCurKeys(fcApSum).length + sortedCurKeys(fcRcvSum).length
+                        + sortedCurKeys(manualRcvSum).length + sortedCurKeys(manualApSum).length;
         var shown = 0;
         // 1️⃣ Firebase 預估付款（黃底 + 橘點）
-        Object.keys(fcApSum).forEach(function(c){
+        sortedCurKeys(fcApSum).forEach(function(c){
           if(shown>=3) return;
-          cal += '<div class="p-forecast"><span class="dot-orange"></span>↓'+c+' '+fmtN(fcApSum[c])+'</div>';
+          cal += '<div class="p-forecast"><span style="font-size:8px;opacity:.75;">預估</span><span class="dot-orange"></span>↓'+c+' '+fmtN(fcApSum[c])+'</div>';
           shown++;
         });
         // 2️⃣ Firebase 預估收款（黃底 + 綠點）
-        Object.keys(fcRcvSum).forEach(function(c){
+        sortedCurKeys(fcRcvSum).forEach(function(c){
           if(shown>=3) return;
-          cal += '<div class="p-forecast"><span class="dot-green"></span>↑'+c+' '+fmtN(fcRcvSum[c])+'</div>';
+          cal += '<div class="p-forecast"><span style="font-size:8px;opacity:.75;">預估</span><span class="dot-green"></span>↑'+c+' '+fmtN(fcRcvSum[c])+'</div>';
           shown++;
         });
         // 3️⃣ 手動應收（藍底）
-        Object.keys(manualRcvSum).forEach(function(c){
+        sortedCurKeys(manualRcvSum).forEach(function(c){
           if(shown>=3) return;
           cal += '<div class="p-in">↑'+c+' '+fmtN(manualRcvSum[c])+'</div>';
           shown++;
         });
         // 4️⃣ 手動應付（紅底）
-        Object.keys(manualApSum).forEach(function(c){
+        sortedCurKeys(manualApSum).forEach(function(c){
           if(shown>=3) return;
           cal += '<div class="p-out">↓'+c+' '+fmtN(manualApSum[c])+'</div>';
           shown++;
         });
-        if(items.length>shown){
-          cal += '<div style="font-size:8px;color:var(--muted);margin-top:1px;">+'+(items.length-shown)+' 筆</div>';
+        if(totalGroups>shown){
+          cal += '<div style="font-size:8px;color:var(--muted);margin-top:1px;">+'+(totalGroups-shown)+' 筆</div>';
         }
         cal += '</td>';
       }
