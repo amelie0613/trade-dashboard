@@ -1629,77 +1629,74 @@ function processFillRow(row, fillId, banner){
     });
   } catch(e){}
 
-  // 顯示已填內容完整摘要
-  var refTitle  = fillPart==='銷售' ? '採購' : '銷售';
-  var refColor  = fillPart==='銷售' ? '#fef2f2' : '#f0fdf4';
-  var refBorder = fillPart==='銷售' ? '#fca5a5' : '#86efac';
+  // 顯示已填內容完整摘要（卡片版）
   var refTitleC = fillPart==='銷售' ? '#991b1b' : '#15803d';
+  var refAccent = fillPart==='銷售' ? '#dc2626' : '#16a34a';
+  var refBg     = fillPart==='銷售' ? '#fff5f5' : '#f0fdf4';
+  var refBorder = fillPart==='銷售' ? '#fca5a5' : '#86efac';
+  var refAmtC   = fillPart==='銷售' ? '#dc2626' : '#16a34a';
 
   var refBuyAmt  = fd.buyPeriods.length  ? fd.buyPeriods.reduce(function(s,p){return s+(parseFloat(p.amt)||0);},0) : 0;
   var refSellAmt = fd.sellPeriods.length ? fd.sellPeriods.reduce(function(s,p){return s+(parseFloat(p.amt)||0);},0) : 0;
 
-  function refItem(label, val){
-    if(!val) return '';
-    return '<div style="margin-bottom:6px;"><span style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.04em;">'+label+'</span><br>'
-      +'<span style="font-size:13px;font-weight:600;">'+val+'</span></div>';
+  // 單行 label + value
+  function rRow(label, val){
+    if(!val && val!==0) return '';
+    return '<div style="display:flex;align-items:baseline;padding:5px 0;border-bottom:1px solid #f1f5f9;">'
+      +'<span style="min-width:90px;font-size:11px;color:#94a3b8;font-weight:600;flex-shrink:0;">'+label+'</span>'
+      +'<span style="font-size:13px;color:#1e293b;font-weight:500;flex:1;word-break:break-all;">'+val+'</span>'
+      +'</div>';
   }
 
-  function makePeriodRef(periods){
+  // 分期明細列表
+  function makePeriodRef(periods, amtColor){
     if(!periods||!periods.length) return '';
-    return '<div style="margin-top:6px;border-top:0.5px solid rgba(0,0,0,0.15);padding-top:6px;">'
-      +'<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;font-weight:700;">分期明細</div>'
-      +periods.map(function(p,i){
-        return '<div style="padding:5px 8px;margin-bottom:4px;background:rgba(255,255,255,0.5);border-radius:6px;font-size:12px;">'
-          +'<b>'+(p.name||'第'+(i+1)+'期')+'</b>　'+(p.cur||'TWD')+' '+Math.round(parseFloat(p.amt)||0).toLocaleString()
-          +(p.date?'<div style="color:#64748b;font-size:11px;">預計日：'+p.date+'</div>':'')
-          +(p.note?'<div style="color:#64748b;font-size:11px;">備註：'+p.note+'</div>':'')
-          +'</div>';
-      }).join('')+'</div>';
+    var rows = periods.map(function(p,i){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#f8fafc;border-radius:6px;margin-bottom:4px;">'
+        +'<span style="font-size:12px;font-weight:700;color:#475569;min-width:60px;">'+(p.name||'第'+(i+1)+'期')+'</span>'
+        +'<span style="font-size:12px;font-family:\'DM Mono\',monospace;color:'+(amtColor||'#1e293b')+';font-weight:600;">'+(p.cur||'TWD')+' '+Math.round(parseFloat(p.amt)||0).toLocaleString()+'</span>'
+        +(p.date?'<span style="font-size:11px;color:#94a3b8;margin-left:auto;">'+p.date+'</span>':'')
+        +'</div>'
+        +(p.note?'<div style="font-size:11px;color:#64748b;padding:0 8px 4px;">備註：'+p.note+'</div>':'');
+    }).join('');
+    return '<div style="margin-top:8px;">'
+      +'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.06em;margin-bottom:5px;">分期明細</div>'
+      +rows+'</div>';
   }
 
-  // 案件基本資訊區
-  var refCaseBlock = '<div style="background:rgba(255,255,255,0.55);border-radius:8px;padding:10px 12px;margin-bottom:10px;">'
-    +'<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:7px;letter-spacing:.05em;">📋 案件資訊</div>'
-    +refItem('案件名稱', fd.caseName)
-    +refItem('業務名稱', fd.origStaff)
-    +(fd.asst?refItem('承辦業助', fd.asst):'')
-    +'</div>';
+  // 區塊分隔 header
+  function secHead(icon, label, color){
+    return '<div style="display:flex;align-items:center;gap:6px;margin:12px 0 7px;">'
+      +'<span style="font-size:11px;">'+icon+'</span>'
+      +'<span style="font-size:11px;font-weight:700;color:'+(color||'#64748b')+';letter-spacing:.05em;">'+label+'</span>'
+      +'<div style="flex:1;height:1px;background:#e2e8f0;margin-left:4px;"></div>'
+      +'</div>';
+  }
 
-  // 對方填寫的採購 or 銷售
-  var refCounterBlock = fillPart==='銷售'
-    ? '<div style="background:rgba(255,255,255,0.55);border-radius:8px;padding:10px 12px;margin-bottom:10px;">'
-        +'<div style="font-size:11px;font-weight:700;color:'+refTitleC+';margin-bottom:7px;letter-spacing:.05em;">🛒 採購資訊（對方已填）</div>'
-        +refItem('供應商', fd.supplier)
-        +'<div style="margin-bottom:6px;"><span style="font-size:10px;color:#94a3b8;font-weight:700;">採購總金額</span><br>'
-          +'<b style="color:#dc2626;font-size:15px;font-family:monospace;">'+fd.buyCur+' '+Math.round(refBuyAmt).toLocaleString()+'</b></div>'
-        +refItem('付款條件', fd.buyPay)
-        +(fd.buyNote?refItem('備註', fd.buyNote):'')
-        +makePeriodRef(fd.buyPeriods)
+  // 採購 or 銷售主資訊
+  var counterAmt = fillPart==='銷售'
+    ? '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:'+refBg+';border:1.5px solid '+refBorder+';border-radius:8px;margin:6px 0;">'
+        +'<span style="font-size:11px;color:#94a3b8;font-weight:600;">採購總金額</span>'
+        +'<span style="font-size:16px;font-weight:700;color:'+refAmtC+';font-family:\'DM Mono\',monospace;">'+fd.buyCur+' '+Math.round(refBuyAmt).toLocaleString()+'</span>'
       +'</div>'
-    : '<div style="background:rgba(255,255,255,0.55);border-radius:8px;padding:10px 12px;margin-bottom:10px;">'
-        +'<div style="font-size:11px;font-weight:700;color:'+refTitleC+';margin-bottom:7px;letter-spacing:.05em;">💰 銷售資訊（對方已填）</div>'
-        +refItem('客戶（買方）', fd.buyer)
-        +'<div style="margin-bottom:6px;"><span style="font-size:10px;color:#94a3b8;font-weight:700;">銷售總金額</span><br>'
-          +'<b style="color:#16a34a;font-size:15px;font-family:monospace;">'+fd.sellCur+' '+Math.round(refSellAmt).toLocaleString()+'</b></div>'
-        +refItem('收款條件', fd.sellPay)
-        +(fd.sellNote?refItem('備註', fd.sellNote):'')
-        +makePeriodRef(fd.sellPeriods)
+    : '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:'+refBg+';border:1.5px solid '+refBorder+';border-radius:8px;margin:6px 0;">'
+        +'<span style="font-size:11px;color:#94a3b8;font-weight:600;">銷售總金額</span>'
+        +'<span style="font-size:16px;font-weight:700;color:'+refAmtC+';font-family:\'DM Mono\',monospace;">'+fd.sellCur+' '+Math.round(refSellAmt).toLocaleString()+'</span>'
       +'</div>';
 
-  // 物流/交易細節（若有填寫）
+  var counterBlock = fillPart==='銷售'
+    ? rRow('供應商', fd.supplier)+counterAmt+rRow('付款條件', fd.buyPay)+(fd.buyNote?rRow('備註', fd.buyNote):'')+makePeriodRef(fd.buyPeriods, '#dc2626')
+    : rRow('客戶', fd.buyer)+counterAmt+rRow('收款條件', fd.sellPay)+(fd.sellNote?rRow('備註', fd.sellNote):'')+makePeriodRef(fd.sellPeriods, '#16a34a');
+
+  // 物流
   var hasLogistics = fd.trade||fd.etd||fd.eta||fd.origin||fd.dest;
-  var refLogisticsBlock = hasLogistics
-    ? '<div style="background:rgba(255,255,255,0.55);border-radius:8px;padding:10px 12px;margin-bottom:10px;">'
-        +'<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:7px;letter-spacing:.05em;">🚢 交易細節（已填）</div>'
-        +refItem('貿易條件', fd.trade)
-        +refItem('ETD 出貨日', fd.etd)
-        +refItem('ETA 到貨日', fd.eta)
-        +refItem('出貨地／發貨港口', fd.origin)
-        +refItem('目的地／收貨港口', fd.dest)
-      +'</div>'
+  var logisticsRows = hasLogistics
+    ? secHead('🚢','交易細節')
+      +rRow('貿易條件', fd.trade)+rRow('ETD 出貨日', fd.etd)+rRow('ETA 到貨日', fd.eta)
+      +rRow('出貨地', fd.origin)+rRow('目的地', fd.dest)
     : '';
 
-  // 費用（若有填寫）
+  // 費用
   var fees = row.fees || {};
   function feeDisplay(feeObj, oldVal){
     var amt = (feeObj&&feeObj.amt) ? feeObj.amt : (oldVal||0);
@@ -1712,21 +1709,33 @@ function processFillRow(row, fillId, banner){
   var fComm    = feeDisplay(fees.commission,row['佣金']);
   var fExtra   = feeDisplay(fees.other,    row['其他費用']);
   var hasAnyFee = fFreight||fInsure||fTax||fComm||fExtra;
-  var refFeesBlock = hasAnyFee
-    ? '<div style="background:rgba(255,255,255,0.55);border-radius:8px;padding:10px 12px;margin-bottom:4px;">'
-        +'<div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:7px;letter-spacing:.05em;">💸 費用（已填）</div>'
-        +(fFreight?refItem('運費', fFreight):'')
-        +(fInsure ?refItem('保險費', fInsure ):'')
-        +(fTax    ?refItem('規費', fTax    ):'')
-        +(fComm   ?refItem('佣金', fComm   ):'')
-        +(fExtra  ?refItem('其他費用', fExtra  ):'')
-      +'</div>'
+  var feesRows = hasAnyFee
+    ? secHead('💸','費用')
+      +(fFreight?rRow('運費', fFreight):'')+(fInsure?rRow('保險費', fInsure):'')
+      +(fTax?rRow('規費', fTax):'')+(fComm?rRow('佣金', fComm):'')+(fExtra?rRow('其他費用', fExtra):'')
     : '';
 
-  var infoDiv=document.createElement('div');
-  infoDiv.style.cssText='background:'+refColor+';border:1.5px solid '+refBorder+';border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:13px;';
-  infoDiv.innerHTML='<div style="font-weight:700;color:'+refTitleC+';margin-bottom:10px;font-size:14px;">📄 前一位已填內容（僅供參考）</div>'
-    +refCaseBlock+refCounterBlock+refLogisticsBlock+refFeesBlock;
+  var infoDiv = document.createElement('div');
+  infoDiv.style.cssText = 'background:#fff;border:1.5px solid '+refBorder+';border-radius:14px;overflow:hidden;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);';
+  infoDiv.innerHTML =
+    // 頭部色帶
+    '<div style="background:'+refTitleC+';padding:9px 16px;display:flex;align-items:center;gap:8px;">'
+      +'<span style="font-size:13px;color:#fff;font-weight:700;">前一位已填內容</span>'
+      +'<span style="font-size:11px;color:rgba(255,255,255,.7);margin-left:auto;">僅供參考，無法修改</span>'
+    +'</div>'
+    // 內容區
+    +'<div style="padding:12px 16px;">'
+      // 案件資訊
+      +secHead('📋','案件資訊')
+      +rRow('案件名稱', fd.caseName)
+      +rRow('業務名稱', fd.origStaff)
+      +(fd.asst ? rRow('承辦業助', fd.asst) : '')
+      // 採購/銷售
+      +secHead(fillPart==='銷售'?'🛒':'💰', fillPart==='銷售'?'採購資訊（對方已填）':'銷售資訊（對方已填）', refTitleC)
+      +counterBlock
+      // 物流 & 費用
+      +logisticsRows+feesRows
+    +'</div>';
 
   showPage(2);
   updateSections('採購+銷售(三角貿易)');
