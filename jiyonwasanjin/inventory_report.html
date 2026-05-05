@@ -86,7 +86,16 @@
 
     .table-wrapper { border-radius: 8px; border: 1px solid #dde6ef; overflow: auto; }
 
-    table { width: 100%; table-layout: fixed; border-collapse: collapse; min-width: 1100px; }
+    table { width: 100%; table-layout: fixed; border-collapse: collapse; min-width: 1200px; }
+
+    .status-badge {
+      display: inline-block; border-radius: 5px;
+      font-size: 10px; font-weight: 700; padding: 1px 6px; white-space: nowrap;
+    }
+    .status-badge.normal  { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; }
+    .status-badge.expired { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+    .status-badge.soon    { background:#ffedd5; color:#9a3412; border:1px solid #fdba74; }
+    .status-badge.long    { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
 
     th {
       background: #6878C0; color: white; padding: 8px 4px;
@@ -241,17 +250,18 @@
         <table>
           <thead>
             <tr>
-              <th style="width:6%;"  onclick="sortDetailBy('category')">類別<span class="sort-icon" id="si-d-category">&#8645;</span></th>
+              <th style="width:5%;"  onclick="sortDetailBy('category')">類別<span class="sort-icon" id="si-d-category">&#8645;</span></th>
               <th style="width:5%;"  onclick="sortDetailBy('code')">產品代碼<span class="sort-icon" id="si-d-code">&#8645;</span></th>
-              <th style="width:13%;" onclick="sortDetailBy('name')">產品名稱<span class="sort-icon" id="si-d-name">&#8645;</span></th>
+              <th style="width:11%;" onclick="sortDetailBy('name')">產品名稱<span class="sort-icon" id="si-d-name">&#8645;</span></th>
               <th style="width:7%;"  onclick="sortDetailBy('spec')">規格<span class="sort-icon" id="si-d-spec">&#8645;</span></th>
               <th style="width:6%;"  onclick="sortDetailBy('qty')">庫存數量<span class="sort-icon" id="si-d-qty">&#8645;</span></th>
               <th style="width:4%;"  onclick="sortDetailBy('unit')">單位<span class="sort-icon" id="si-d-unit">&#8645;</span></th>
               <th style="width:7%;"  onclick="sortDetailBy('warehouse')">倉庫<span class="sort-icon" id="si-d-warehouse">&#8645;</span></th>
-              <th style="width:9%;"  onclick="sortDetailBy('lot')">批號<span class="sort-icon" id="si-d-lot">&#8645;</span></th>
-              <th style="width:7%;"  onclick="sortDetailBy('lotDate')">入庫日期<span class="sort-icon" id="si-d-lotDate">&#8645;</span></th>
+              <th style="width:8%;"  onclick="sortDetailBy('lot')">批號<span class="sort-icon" id="si-d-lot">&#8645;</span></th>
+              <th style="width:6%;"  onclick="sortDetailBy('lotDate')">入庫日期<span class="sort-icon" id="si-d-lotDate">&#8645;</span></th>
               <th style="width:7%;"  onclick="sortDetailBy('expDate')">有效期至<span class="sort-icon" id="si-d-expDate">&#8645;</span></th>
               <th style="width:6%;"  onclick="sortDetailBy('daysNum')" id="thDays">剩餘天數<span class="sort-icon" id="si-d-daysNum">&#8645;</span></th>
+              <th style="width:5%;"  onclick="sortDetailBy('status')">庫存狀態<span class="sort-icon" id="si-d-status">&#8645;</span></th>
               <th style="width:7%;"  onclick="sortDetailBy('price')">單價<span class="sort-icon" id="si-d-price">&#8645;</span></th>
               <th style="width:7%;"  onclick="sortDetailBy('scope')">核算範圍<span class="sort-icon" id="si-d-scope">&#8645;</span></th>
               <th style="width:9%;"  onclick="sortDetailBy('cost')">存貨成本<span class="sort-icon" id="si-d-cost">&#8645;</span></th>
@@ -305,6 +315,8 @@ const COST_CLS        = { normal:'cost-blue', expired:'cost-red', soon:'cost-ora
 const ROW_CLS         = { normal:'row-normal', expired:'row-expired', soon:'row-soon', long:'row-long' };
 const STATUS_PRIORITY = ['expired','long','soon','normal'];
 const STATUS_ORDER    = { expired:0, long:1, soon:2, normal:3 };
+const STATUS_LABEL    = { normal:'正常', expired:'過期', soon:'即將到期', long:'長期在庫' };
+const DETAIL_SORT_COLS = ['category','code','name','spec','qty','unit','warehouse','lot','lotDate','expDate','daysNum','status','price','scope','cost'];
 
 function worstStatus(statuses) {
   for (const s of STATUS_PRIORITY) if (statuses.has(s)) return s;
@@ -320,7 +332,7 @@ function fmtMoney(n) { return n > 0 ? '$' + Math.round(n).toLocaleString() : '�
 function sortDetailBy(col) {
   sdDir = sdCol === col && sdDir === 'asc' ? 'desc' : 'asc';
   sdCol = col;
-  updateSortIcons('d', col, sdDir, ['category','code','name','spec','qty','unit','warehouse','lot','lotDate','expDate','daysNum','price','scope','cost']);
+  updateSortIcons('d', col, sdDir, DETAIL_SORT_COLS);
   render();
 }
 
@@ -330,6 +342,11 @@ function applySortDetail(rows) {
   const dir = sdDir === 'asc' ? 1 : -1;
   return [...rows].sort((a, b) => {
     let va = a[sdCol], vb = b[sdCol];
+    if (sdCol === 'status') {
+      va = STATUS_ORDER[va] ?? 4;
+      vb = STATUS_ORDER[vb] ?? 4;
+      return (va - vb) * dir;
+    }
     if (numCols.has(sdCol)) { va = va ?? -Infinity; vb = vb ?? -Infinity; return (va - vb) * dir; }
     va = String(va || ''); vb = String(vb || '');
     return va.localeCompare(vb, 'zh-TW') * dir;
@@ -434,6 +451,8 @@ function renderDetail(rows) {
     const priceDisp = r.price > 0 ? '$' + r.price.toLocaleString() : '<span style="color:#bbb;">未設定</span>';
     const scopeDisp = r.scope ? '<span class="scope-badge">' + r.scope + '</span>' : '<span style="color:#bbb;">—</span>';
 
+    const statusDisp = '<span class="status-badge ' + (r.status || 'normal') + '">' + (STATUS_LABEL[r.status] || r.status || '—') + '</span>';
+
     html += '<tr class="' + (ROW_CLS[r.status] || 'row-normal') + '">'
       + '<td>' + (r.category || '—') + '</td>'
       + '<td style="text-align:center;">' + (r.code || '—') + '</td>'
@@ -446,6 +465,7 @@ function renderDetail(rows) {
       + '<td style="text-align:center;">' + (r.lotDate || '—') + '</td>'
       + '<td style="text-align:center;">' + (r.expDate || '—') + '</td>'
       + '<td style="text-align:center;" class="' + daysCls + '">' + (r.daysText || '—') + '</td>'
+      + '<td style="text-align:center;">' + statusDisp + '</td>'
       + '<td style="text-align:right;">' + priceDisp + '</td>'
       + '<td style="text-align:center;">' + scopeDisp + '</td>'
       + '<td style="text-align:right;" class="' + (COST_CLS[r.status] || 'cost-blue') + '">' + (r.cost > 0 ? '$' + Math.round(r.cost).toLocaleString() : '—') + '</td>'
@@ -455,9 +475,9 @@ function renderDetail(rows) {
   html += '<tr class="total-row">'
     + '<td colspan="4" style="text-align:right;padding-right:8px;">合計</td>'
     + '<td style="text-align:right;">' + grandQty.toLocaleString() + '</td>'
-    + '<td colspan="7"></td>'
+    + '<td colspan="9"></td>'
     + '<td style="text-align:right;">' + fmtMoney(grandCost) + '</td>'
-    + '<td></td></tr>';
+    + '</tr>';
 
   tbody.innerHTML = html;
 }
@@ -589,6 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.textContent = v;
   });
 
+  updateSortIcons('d', sdCol || '', sdDir, DETAIL_SORT_COLS);
   updateSortIcons('p', spCol, spDir, ['category','name','warehouse','qty','unit','lots','avgPrice','scope','cost','statusOrder']);
   render();
 });

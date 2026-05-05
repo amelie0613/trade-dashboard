@@ -500,37 +500,6 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
     </div>
   </div>
 
-  <!-- 每筆庫存明細 -->
-  <div class="cost-section">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
-      <h3>📦 庫存明細成本</h3>
-      <label style="font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;color:var(--muted);">
-        <input type="checkbox" id="cost-show-zero" onchange="renderCost()" style="accent-color:var(--accent);width:14px;height:14px;">
-        顯示未設定單價
-      </label>
-    </div>
-    <div class="tbl-wrap">
-      <table class="cost-tbl" style="min-width:950px;">
-        <thead>
-          <tr>
-            <th style="text-align:left;width:7%">類別</th>
-            <th style="width:5%">代碼</th>
-            <th style="text-align:left;width:15%">產品名稱</th>
-            <th style="width:7%">規格</th>
-            <th style="width:6%">數量</th>
-            <th style="width:4%">單位</th>
-            <th style="width:7%">倉庫</th>
-            <th style="width:7%">批號</th>
-            <th style="text-align:left;width:11%">核算範圍</th>
-            <th style="width:8%">單價</th>
-            <th style="width:10%">存貨成本</th>
-            <th style="width:7%">狀態</th>
-          </tr>
-        </thead>
-        <tbody id="cost-detail-body"></tbody>
-      </table>
-    </div>
-  </div>
 </div>
 
 <!-- ════ DIFF TAB ════ -->
@@ -804,7 +773,7 @@ async function refreshData(){
     const [priceRes, noteRes, diffRes] = await Promise.all([
       scriptGet('單價設定').catch(() => ({ rows: [] })),
       fetchNotes(),
-      scriptGet('庫存差異比較').catch(() => ({ rows: [] })),
+      scriptGet('Ot庫存狀況表').catch(() => scriptGet('庫存差異比較').catch(() => ({ rows: [] }))),
     ]);
 
     if(invRes.error) throw new Error(invRes.error);
@@ -1419,69 +1388,6 @@ function renderCost(){
     document.getElementById('cost-body').innerHTML = html;
   }
 
-  // ── 庫存明細成本表 ────────────────────────────────────────
-  const showZero = document.getElementById('cost-show-zero')?.checked || false;
-  const STATUS_LABEL = { normal:'正常', expired:'過期品', soon:'即將到期', long:'長期在庫' };
-  const STATUS_COLOR = { normal:'#059669', expired:'#DC2626', soon:'#EA580C', long:'#B45309' };
-
-  // 組成每筆明細，依成本由高到低排序
-  let detailRows = rawRows.map(r => {
-    const flags  = classify(r);
-    const st     = getStatus(flags);
-    const pd     = prices[priceKey(r)] || { price:0, scope:'' };
-    const qty    = parseFloat(r['庫存數量']) || 0;
-    const cost   = qty * pd.price;
-    const codeRaw = String(r['產品代碼']||'').trim();
-    return {
-      st, cost, qty,
-      category: r['產品類別']  || '',
-      code:     /^\d{1,3}$/.test(codeRaw) ? codeRaw.padStart(4,'0') : codeRaw,
-      name:     r['產品名稱']  || '',
-      spec:     r['產品規格']  || '',
-      unit:     r['基本單位名稱'] || '',
-      warehouse:r['倉庫名稱']  || '',
-      lot:      r['批號']      || '',
-      scope:    pd.scope       || '',
-      price:    pd.price,
-    };
-  });
-
-  if(!showZero) detailRows = detailRows.filter(r => r.price > 0);
-  detailRows.sort((a,b) => b.cost - a.cost);
-
-  if(!detailRows.length){
-    document.getElementById('cost-detail-body').innerHTML =
-      `<tr><td colspan="12" class="empty-msg">${showZero ? '無資料' : '無已設定單價的庫存（勾選「顯示未設定單價」可查看全部）'}</td></tr>`;
-  } else {
-    let dHtml = '';
-    let dTotal = 0;
-    detailRows.forEach(r => {
-      dTotal += r.cost;
-      const stColor = STATUS_COLOR[r.st] || '#059669';
-      const stLabel = STATUS_LABEL[r.st] || r.st;
-      dHtml += `<tr class="${ROW_CLS[r.st]||'row-normal'}">
-        <td>${r.category||'—'}</td>
-        <td style="text-align:center">${r.code||'—'}</td>
-        <td>${r.name||'—'}</td>
-        <td style="color:#666">${r.spec||'—'}</td>
-        <td style="text-align:right">${r.qty.toLocaleString('zh-TW')}</td>
-        <td style="text-align:center">${r.unit||'—'}</td>
-        <td>${r.warehouse||'—'}</td>
-        <td>${r.lot||'—'}</td>
-        <td>${r.scope ? `<span class="scope-badge">${r.scope}</span>` : '<span style="color:#bbb">—</span>'}</td>
-        <td style="text-align:right">${r.price > 0 ? '$'+r.price.toLocaleString('zh-TW') : '<span style="color:#ccc">未設定</span>'}</td>
-        <td style="text-align:right;font-weight:700;color:var(--accent)">${r.cost > 0 ? '$'+Math.round(r.cost).toLocaleString('zh-TW') : '—'}</td>
-        <td style="text-align:center;font-weight:700;font-size:11px;color:${stColor}">${stLabel}</td>
-      </tr>`;
-    });
-    dHtml += `<tr class="total-row">
-      <td colspan="4" style="text-align:right;padding-right:8px">合計 ${detailRows.length} 筆</td>
-      <td colspan="6"></td>
-      <td style="text-align:right">${fmtMoney(dTotal)}</td>
-      <td></td>
-    </tr>`;
-    document.getElementById('cost-detail-body').innerHTML = dHtml;
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -140,35 +140,55 @@ body {
   color: var(--muted);
   font-weight: 600;
   margin-bottom: 8px;
+  display: flex; align-items: center; gap: 10px;
 }
-.tbl-scroll { overflow-x: auto; border-radius: 10px; border: 1.5px solid var(--border); }
+.tbl-scroll {
+  overflow-x: auto;
+  border-radius: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+}
 
+/* Spreadsheet-style table */
 table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  table-layout: fixed;
+  min-width: 1100px;
 }
 thead th {
   background: var(--primary);
   color: white;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 9px 10px;
+  padding: 8px 8px;
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
   position: sticky;
   top: 0;
+  border: 1px solid rgba(255,255,255,0.25);
+  text-align: center;
+  overflow: hidden;
 }
 thead th:hover { background: var(--primary-dark); }
-thead th .sort-icon { margin-left: 4px; opacity: 0.6; font-style: normal; font-size: 11px; }
+thead th .sort-icon { margin-left: 3px; opacity: 0.6; font-style: normal; font-size: 10px; }
+thead th.col-freeze { background: var(--primary-mid); }
 
-tbody tr:nth-child(even) { background: var(--accent); }
-tbody tr:hover { background: var(--primary-light); }
+/* Alternating rows like spreadsheet */
+tbody tr td { border: 1px solid #dde6ef; }
+tbody tr:nth-child(odd)  td { background: #ffffff; }
+tbody tr:nth-child(even) td { background: #f4f6fd; }
+tbody tr:hover td { background: var(--primary-light) !important; }
+tbody tr.row-total td { background: #dce8f5 !important; font-weight: 700; border-top: 2px solid var(--primary); }
 td {
-  padding: 7px 10px;
+  padding: 6px 8px;
   font-size: 12px;
   vertical-align: middle;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* ── BADGES ── */
@@ -394,39 +414,59 @@ function sortIcon(col){
   return '<i class="sort-icon">' + (sortDir === 'asc' ? '&#9650;' : '&#9660;') + '</i>';
 }
 
+function _pick(r, ...keys){
+  for(const k of keys){ const v = r[k]; if(v !== undefined && v !== null && v !== '') return v; }
+  return null;
+}
+
 function renderTable(){
   const rows = getRows();
-  document.getElementById('table-count').textContent = rows.length + ' 筆';
   const hasPrices = payload.hasPrices;
   const container = document.getElementById('table-container');
+  const countEl   = document.getElementById('table-count');
 
   if(!rows.length){
+    countEl.textContent = '0 筆';
     container.innerHTML = '<div class="empty-state"><div class="icon">&#128202;</div><p>無符合條件的差異資料</p></div>';
     return;
   }
 
   const cols = [
-    { key: '_changeType', label: '變化',    w: '72px',  align: 'center' },
-    { key: '產品類別',    label: '類別',    w: '80px',  align: 'center' },
-    { key: '產品代碼',    label: '產品代碼', w: '90px',  align: 'left'   },
-    { key: '產品名稱',    label: '產品名稱', w: '160px', align: 'left'   },
-    { key: '產品規格',    label: '規格',    w: '90px',  align: 'left'   },
-    { key: '倉庫',        label: '倉庫',    w: '90px',  align: 'left'   },
-    { key: '批號',        label: '批號',    w: '90px',  align: 'left'   },
-    { key: '基本單位',    label: '單位',    w: '55px',  align: 'center' },
-    { key: '_qtyA',       label: '本期(A)', w: '80px',  align: 'right'  },
-    { key: '_qtyB',       label: '上期(B)', w: '80px',  align: 'right'  },
-    { key: '_diff',       label: '差異(A-B)',w:'90px',  align: 'right'  },
+    { key: '_changeType', label: '變化',     w: '6%',   align: 'center' },
+    { key: '產品類別',    label: '類別',     w: '6%',   align: 'center' },
+    { key: '產品代碼',    label: '代碼',     w: '6%',   align: 'center' },
+    { key: '產品名稱',    label: '產品名稱', w: '14%',  align: 'left'   },
+    { key: '產品規格',    label: '規格',     w: '7%',   align: 'left'   },
+    { key: '倉庫',        label: '倉庫',     w: '8%',   align: 'left'   },
+    { key: '批號',        label: '批號',     w: '8%',   align: 'left'   },
+    { key: '基本單位',    label: '單位',     w: '4%',   align: 'center' },
+    { key: '_qtyA',       label: '本期數量', w: '7%',   align: 'right'  },
+    { key: '_qtyB',       label: '上期數量', w: '7%',   align: 'right'  },
+    { key: '_diff',       label: '差異(A-B)',w: '7%',   align: 'right'  },
   ];
   if(hasPrices){
     cols.push(
-      { key: '_unitPrice', label: '單價',   w: '80px',  align: 'right' },
-      { key: '_costA',     label: '本期成本',w: '100px', align: 'right' },
-      { key: '_costB',     label: '上期成本',w: '100px', align: 'right' },
-      { key: '_costDiff',  label: '成本差異',w: '100px', align: 'right' },
-      { key: '_scope',     label: '核算範圍',w: '90px',  align: 'left'  },
+      { key: '_unitPrice', label: '單價',    w: '6%',   align: 'right' },
+      { key: '_costA',     label: '本期成本',w: '8%',   align: 'right' },
+      { key: '_costB',     label: '上期成本',w: '8%',   align: 'right' },
+      { key: '_costDiff',  label: '成本差異',w: '8%',   align: 'right' },
     );
   }
+
+  // Totals for the footer row
+  let totQtyA = 0, totQtyB = 0, totQtyD = 0, totCostA = 0, totCostB = 0, totCostD = 0;
+  rows.forEach(r => {
+    if(r._qtyA != null) totQtyA += +r._qtyA || 0;
+    if(r._qtyB != null) totQtyB += +r._qtyB || 0;
+    if(r._diff != null) totQtyD += +r._diff  || 0;
+    if(hasPrices){
+      if(r._costA != null) totCostA += +r._costA || 0;
+      if(r._costB != null) totCostB += +r._costB || 0;
+      if(r._costDiff != null) totCostD += +r._costDiff || 0;
+    }
+  });
+
+  countEl.innerHTML = `<span>${rows.length.toLocaleString('zh-TW')} 筆</span>`;
 
   let html = `<table><thead><tr>`;
   cols.forEach(c => {
@@ -436,45 +476,73 @@ function renderTable(){
 
   rows.forEach(r => {
     const ct = r._changeType;
-    html += `<tr class="${ROW_CLS[ct]||''}">`;
+    // Support both internal keys (_changeType from diff_report) and direct Ot sheet columns
+    const cat  = _pick(r, '產品類別', '類別', '存貨類別') || '—';
+    const code = _pick(r, '產品代碼', '品號', '存貨代碼') || '—';
+    const name = _pick(r, '產品名稱', '品名', '存貨名稱') || '—';
+    const spec = _pick(r, '產品規格', '規格') || '—';
+    const wh   = _pick(r, '倉庫', '倉庫名稱', '倉別') || '—';
+    const lot  = _pick(r, '批號', '批次') || '—';
+    const unit = _pick(r, '基本單位', '基本單位名稱', '單位') || '—';
 
+    html += `<tr>`;
     cols.forEach(c => {
-      let val = '';
-      if(c.key === '_changeType'){
-        val = `<span class="badge ${BADGE_CLS[ct]}">${CHG_LABEL[ct]||ct}</span>`;
-      } else if(c.key === '產品類別'){
-        val = `<span class="badge badge-cat">${r['產品類別']||'—'}</span>`;
-      } else if(c.key === '_qtyA'){
-        val = ct === 'gone' ? '<span style="color:var(--muted)">—</span>' : fmt(r._qtyA);
-      } else if(c.key === '_qtyB'){
-        val = ct === 'new'  ? '<span style="color:var(--muted)">—</span>' : fmt(r._qtyB);
-      } else if(c.key === '_diff'){
-        const d = r._diff;
-        const style = d > 0 ? 'color:#1a7a3c;font-weight:700' : d < 0 ? 'color:#b02020;font-weight:700' : 'color:var(--muted)';
-        val = `<span style="${style}">${fmtDiff(d)}</span>`;
-      } else if(c.key === '_unitPrice'){
-        val = r._unitPrice != null ? fmt(r._unitPrice) : '—';
-      } else if(c.key === '_costA'){
-        val = r._costA != null ? fmtCost(r._costA) : '—';
-      } else if(c.key === '_costB'){
-        val = r._costB != null ? fmtCost(r._costB) : '—';
-      } else if(c.key === '_costDiff'){
-        const cd = r._costDiff;
-        if(cd == null){ val = '—'; }
-        else {
-          const style = cd > 0 ? 'color:#1a7a3c;font-weight:700' : cd < 0 ? 'color:#b02020;font-weight:700' : 'color:var(--muted)';
-          val = `<span style="${style}">${fmtCostDiff(cd)}</span>`;
+      let val = '', style = `text-align:${c.align}`;
+      switch(c.key){
+        case '_changeType':
+          val = ct ? `<span class="badge ${BADGE_CLS[ct]||'badge-same'}">${CHG_LABEL[ct]||ct}</span>` : '—';
+          break;
+        case '產品類別':
+          val = `<span class="badge badge-cat">${cat}</span>`; break;
+        case '產品代碼': val = `<code style="font-size:11px">${code}</code>`; break;
+        case '產品名稱': val = name; style += ';font-weight:600'; break;
+        case '產品規格': val = spec; style += ';color:#555'; break;
+        case '倉庫': val = wh; break;
+        case '批號': val = lot; style += ';font-family:monospace;font-size:11px'; break;
+        case '基本單位': val = unit; break;
+        case '_qtyA':
+          val = ct === 'gone' ? '<span style="color:var(--muted)">—</span>' : fmt(r._qtyA);
+          style += ';font-weight:700'; break;
+        case '_qtyB':
+          val = ct === 'new' ? '<span style="color:var(--muted)">—</span>' : fmt(r._qtyB);
+          style += ';font-weight:700'; break;
+        case '_diff':{
+          const d = r._diff;
+          const cls = d > 0 ? 'color:var(--green)' : d < 0 ? 'color:var(--red)' : 'color:var(--muted)';
+          val = `<span style="${cls};font-weight:700">${fmtDiff(d)}</span>`; break;
         }
-      } else {
-        val = r[c.key] || '—';
+        case '_unitPrice': val = r._unitPrice != null ? fmt(r._unitPrice) : '—'; break;
+        case '_costA': val = r._costA != null ? fmtCost(r._costA) : '—'; style += ';font-weight:700'; break;
+        case '_costB': val = r._costB != null ? fmtCost(r._costB) : '—'; style += ';font-weight:700'; break;
+        case '_costDiff':{
+          const cd = r._costDiff;
+          const cls2 = cd > 0 ? 'color:var(--green)' : cd < 0 ? 'color:var(--red)' : 'color:var(--muted)';
+          val = cd != null ? `<span style="${cls2};font-weight:700">${fmtCostDiff(cd)}</span>` : '—'; break;
+        }
+        default: val = r[c.key] || '—';
       }
-      html += `<td style="text-align:${c.align}">${val}</td>`;
+      html += `<td style="${style}">${val}</td>`;
     });
-
     html += `</tr>`;
   });
 
-  html += `</tbody></table>`;
+  // Total row
+  html += `<tr class="row-total">`;
+  cols.forEach(c => {
+    let val = '', style = `text-align:${c.align}`;
+    switch(c.key){
+      case '_changeType': val = `合計 ${rows.length.toLocaleString('zh-TW')} 筆`; style = 'text-align:center;font-size:11px'; break;
+      case '_qtyA':   val = totQtyA ? fmt(totQtyA) : '—'; style += ';color:var(--blue-mid)'; break;
+      case '_qtyB':   val = totQtyB ? fmt(totQtyB) : '—'; style += ';color:var(--blue-mid)'; break;
+      case '_diff':   val = `<span style="${totQtyD>0?'color:var(--green)':totQtyD<0?'color:var(--red)':'color:var(--muted)'}">${fmtDiff(totQtyD)}</span>`; break;
+      case '_costA':  val = totCostA ? fmtCost(totCostA) : '—'; style += ';color:var(--blue-mid)'; break;
+      case '_costB':  val = totCostB ? fmtCost(totCostB) : '—'; style += ';color:var(--blue-mid)'; break;
+      case '_costDiff':val = `<span style="${totCostD>0?'color:var(--green)':totCostD<0?'color:var(--red)':'color:var(--muted)'}">${fmtCostDiff(totCostD)}</span>`; break;
+      default: val = '';
+    }
+    html += `<td style="${style}">${val}</td>`;
+  });
+  html += `</tr></tbody></table>`;
   container.innerHTML = html;
 }
 </script>
