@@ -1479,6 +1479,7 @@ function renderCost(){
 const PIE_COLORS = ['#6878C0','#1B5B9E','#2E7DD4','#3A9E6E','#B05A00','#8B2A8B','#1A7A8A','#C0506A','#5060B0','#2A8A50'];
 let _costPieChart = null;
 let _costPieScopes = [];  // cache for modal lookup
+let _innerStatusMap = []; // inner ring index → { key, label } mapping
 
 function renderCostPie(scopes) {
   const section = document.getElementById('cost-pie-section');
@@ -1501,11 +1502,12 @@ function renderCostPie(scopes) {
     sumLong    += d.long    || 0;
   });
   const innerData = [
-    { label: '正常品',   value: sumNormal,  color: '#059669' },
-    { label: '過期品',   value: sumExpired, color: '#DC2626' },
-    { label: '即將到期', value: sumSoon,    color: '#EA580C' },
-    { label: '長期在庫', value: sumLong,    color: '#B45309' },
+    { key: 'normal',  label: '正常品',   value: sumNormal,  color: '#059669' },
+    { key: 'expired', label: '過期品',   value: sumExpired, color: '#DC2626' },
+    { key: 'soon',    label: '即將到期', value: sumSoon,    color: '#EA580C' },
+    { key: 'long',    label: '長期在庫', value: sumLong,    color: '#B45309' },
   ].filter(d => d.value > 0);
+  _innerStatusMap = innerData; // save for click handler
 
   // ── 圖例 ──
   const legend = document.getElementById('costPieLegend');
@@ -1517,9 +1519,9 @@ function renderCostPie(scopes) {
       <span class="cost-pie-legend-val">$${Math.round(d.total).toLocaleString('zh-TW')} <span style="color:#aaa;font-weight:400">(${pct}%)</span></span>
     </div>`;
   }).join('');
-  const innerLegend = innerData.map(d => {
+  const innerLegend = innerData.map((d, i) => {
     const pct = totalSum > 0 ? ((d.value / totalSum) * 100).toFixed(1) : '0.0';
-    return `<div class="cost-pie-legend-item" style="cursor:default;">
+    return `<div class="cost-pie-legend-item" onclick="navigateToStatusInventory('${d.key}','${d.label}')" style="cursor:pointer;" title="點擊跳轉至庫存明細・${d.label}">
       <div class="cost-pie-legend-dot" style="background:${d.color};border-radius:3px;"></div>
       <span class="cost-pie-legend-name">${d.label}</span>
       <span class="cost-pie-legend-val" style="color:${d.color};">$${Math.round(d.value).toLocaleString('zh-TW')} <span style="color:#aaa;font-weight:400">(${pct}%)</span></span>
@@ -1528,7 +1530,7 @@ function renderCostPie(scopes) {
   legend.innerHTML = `
     <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin-bottom:3px;">◉ 外環・核算範圍（點擊看倉庫明細）</div>
     ${outerLegend}
-    <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin:9px 0 3px;padding-top:8px;border-top:1px solid #e8edf5;">◎ 內環・庫存狀態</div>
+    <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin:9px 0 3px;padding-top:8px;border-top:1px solid #e8edf5;">◎ 內環・庫存狀態（點擊跳轉明細）</div>
     ${innerLegend}`;
 
   // ── Chart ──
@@ -1565,7 +1567,13 @@ function renderCostPie(scopes) {
       },
       onClick: (evt, elems) => {
         if (!elems.length) return;
-        if (elems[0].datasetIndex === 0) showCostScopeModal(elems[0].index);
+        const { datasetIndex, index } = elems[0];
+        if (datasetIndex === 0) {
+          showCostScopeModal(index);
+        } else {
+          const st = _innerStatusMap[index];
+          if (st) navigateToStatusInventory(st.key, st.label);
+        }
       },
     }
   });
@@ -1673,6 +1681,19 @@ function showCostScopeModal(idx) {
 
 function closeCostModal() {
   document.getElementById('costScopeModal').classList.remove('open');
+}
+
+function navigateToStatusInventory(statusKey, label) {
+  // Close any open cost modal
+  document.getElementById('costScopeModal').classList.remove('open');
+  // Switch to inventory tab
+  const tabEl = document.querySelector('.tab-item[data-tab="inventory"]');
+  if (tabEl) switchTab('inventory', tabEl);
+  // Activate the matching status chip
+  const chipEl = document.querySelector('.status-chip[data-s="' + statusKey + '"]');
+  if (chipEl) switchStatus(statusKey, chipEl);
+  // Notify user
+  toast('📋 已跳轉至庫存明細・' + label);
 }
 
 // ═══════════════════════════════════════════════════════════════

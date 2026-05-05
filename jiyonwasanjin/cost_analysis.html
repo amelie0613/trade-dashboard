@@ -426,6 +426,7 @@
 <script>
 let costData = [];
 let pieChartInst = null;
+let _caInnerStatusMap = []; // inner ring index → { key, label, field, color } mapping
 
 const PIE_COLORS = [
   '#6878C0','#1B5B9E','#2E7DD4','#3A9E6E','#B05A00','#8B2A8B',
@@ -462,11 +463,12 @@ function renderPieChart() {
     sumLong    += d.longterm || 0;
   });
   const innerData = [
-    { label: '正常品',   value: sumNormal,  color: '#059669' },
-    { label: '過期品',   value: sumExpired, color: '#DC2626' },
-    { label: '即將到期', value: sumSoon,    color: '#EA580C' },
-    { label: '長期在庫', value: sumLong,    color: '#B45309' },
+    { key: 'normal',   field: 'normal',   label: '正常品',   value: sumNormal,  color: '#059669' },
+    { key: 'expired',  field: 'expired',  label: '過期品',   value: sumExpired, color: '#DC2626' },
+    { key: 'soon',     field: 'soon',     label: '即將到期', value: sumSoon,    color: '#EA580C' },
+    { key: 'longterm', field: 'longterm', label: '長期在庫', value: sumLong,    color: '#B45309' },
   ].filter(d => d.value > 0);
+  _caInnerStatusMap = innerData; // save for click handler
 
   // ── 圖例 ──
   const legend = document.getElementById('pieLegend');
@@ -478,9 +480,9 @@ function renderPieChart() {
       <span class="pie-legend-val">$${d.total.toLocaleString()} <span style="color:#aaa;font-weight:400">(${pct}%)</span></span>
     </div>`;
   }).join('');
-  const innerLegend = innerData.map(d => {
+  const innerLegend = innerData.map((d, i) => {
     const pct = totalSum > 0 ? ((d.value / totalSum) * 100).toFixed(1) : '0.0';
-    return `<div class="pie-legend-item" style="cursor:default;">
+    return `<div class="pie-legend-item" onclick="showStatusCostDetail(${i})" style="cursor:pointer;" title="點擊查看各核算範圍・${d.label}成本">
       <div class="pie-legend-dot" style="background:${d.color};border-radius:3px;"></div>
       <span class="pie-legend-name">${d.label}</span>
       <span class="pie-legend-val" style="color:${d.color};">$${d.value.toLocaleString()} <span style="color:#aaa;font-weight:400">(${pct}%)</span></span>
@@ -489,7 +491,7 @@ function renderPieChart() {
   legend.innerHTML = `
     <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin-bottom:3px;">◉ 外環・核算範圍（點擊看倉庫明細）</div>
     ${outerLegend}
-    <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin:9px 0 3px;padding-top:8px;border-top:1px solid #e8edf5;">◎ 內環・庫存狀態</div>
+    <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin:9px 0 3px;padding-top:8px;border-top:1px solid #e8edf5;">◎ 內環・庫存狀態（點擊看各範圍分佈）</div>
     ${innerLegend}`;
 
   // ── Chart ──
@@ -526,7 +528,12 @@ function renderPieChart() {
       },
       onClick: (evt, elems) => {
         if (!elems.length) return;
-        if (elems[0].datasetIndex === 0) showScopeDetail(elems[0].index);
+        const { datasetIndex, index } = elems[0];
+        if (datasetIndex === 0) {
+          showScopeDetail(index);
+        } else {
+          showStatusCostDetail(index);
+        }
       },
     }
   });
@@ -535,6 +542,15 @@ function renderPieChart() {
 function showScopeDetail(idx) {
   const scope = costData[idx];
   if (!scope) return;
+
+  // Restore original thead (in case showStatusCostDetail changed it)
+  document.getElementById('modalTable').querySelector('thead tr').innerHTML = `
+    <th style="text-align:left;width:35%">倉庫</th>
+    <th style="width:17%">全部成本</th>
+    <th style="width:13%">正常</th>
+    <th style="width:13%;background:#8B2020;color:#FFD0D0;">過期品</th>
+    <th style="width:13%;background:#7A4A0A;color:#FFDCA0;">長期在庫</th>
+    <th style="width:13%;background:#7A5500;color:#FFE899;">即將到期</th>`;
 
   document.getElementById('modalTitle').textContent = '📊 ' + scope.name + '　各倉庫成本明細';
 
@@ -633,6 +649,91 @@ function showScopeDetail(idx) {
 
 function closeModal() {
   document.getElementById('scopeModal').classList.remove('open');
+}
+
+// ── 內環點擊：顯示各核算範圍在該庫存狀態的成本分佈 ──
+function showStatusCostDetail(idx) {
+  const st = _caInnerStatusMap[idx];
+  if (!st) return;
+
+  const statusTotal = st.value;
+  const fmtV = v => v > 0 ? '$' + Math.round(v).toLocaleString() : '—';
+
+  // ── 動態更新 thead ──
+  document.getElementById('modalTable').querySelector('thead tr').innerHTML = `
+    <th style="text-align:left;width:40%">核算範圍</th>
+    <th style="width:30%">${st.label}成本</th>
+    <th style="width:30%">佔比</th>`;
+
+  // ── 標題 ──
+  document.getElementById('modalTitle').textContent = '📊 ' + st.label + '　各核算範圍成本分佈';
+
+  // 依該狀態成本降冪排序
+  const sorted = [...costData]
+    .map(d => ({ name: d.name, val: d[st.field] || 0 }))
+    .filter(d => d.val > 0)
+    .sort((a, b) => b.val - a.val);
+
+  if (!sorted.length) {
+    document.getElementById('modalBody').innerHTML =
+      `<tr><td colspan="3" style="text-align:center;padding:20px;color:#aaa;">此狀態無成本資料</td></tr>`;
+    document.getElementById('modalCards').innerHTML =
+      '<div style="text-align:center;padding:24px;color:#aaa;">此狀態無成本資料</div>';
+    document.getElementById('scopeModal').classList.add('open');
+    return;
+  }
+
+  // ── 桌機：表格 ──
+  let html = '';
+  sorted.forEach(d => {
+    const pct = statusTotal > 0 ? ((d.val / statusTotal) * 100).toFixed(1) : '0.0';
+    html += `<tr>
+      <td>📦 ${d.name}</td>
+      <td style="text-align:right;color:${st.color};font-weight:700">${fmtV(d.val)}</td>
+      <td style="text-align:right;color:#555">${pct}%</td>
+    </tr>`;
+  });
+  html += `<tr class="total-row">
+    <td>合計 ${sorted.length} 個核算範圍</td>
+    <td style="text-align:right;color:${st.color};font-weight:700">${fmtV(statusTotal)}</td>
+    <td style="text-align:right;color:#555">100%</td>
+  </tr>`;
+  document.getElementById('modalBody').innerHTML = html;
+
+  // ── 手機：卡片 ──
+  let cardHtml = '';
+  sorted.forEach(d => {
+    const pct = statusTotal > 0 ? ((d.val / statusTotal) * 100).toFixed(1) : '0.0';
+    cardHtml += `<div class="m-wh-card">
+      <div class="m-wh-card-name">📦 ${d.name}</div>
+      <div class="m-wh-card-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="m-wh-stat" style="background:${st.color}18;">
+          <div class="m-wh-stat-lbl">${st.label}成本</div>
+          <div class="m-wh-stat-val" style="color:${st.color};">${fmtV(d.val)}</div>
+        </div>
+        <div class="m-wh-stat">
+          <div class="m-wh-stat-lbl">佔比</div>
+          <div class="m-wh-stat-val">${pct}%</div>
+        </div>
+      </div>
+    </div>`;
+  });
+  cardHtml += `<div class="m-wh-card card-total">
+    <div class="m-wh-card-name">合計 ${sorted.length} 個核算範圍</div>
+    <div class="m-wh-card-grid" style="grid-template-columns:1fr 1fr;">
+      <div class="m-wh-stat" style="background:${st.color}30;">
+        <div class="m-wh-stat-lbl">${st.label}合計</div>
+        <div class="m-wh-stat-val" style="color:${st.color};">${fmtV(statusTotal)}</div>
+      </div>
+      <div class="m-wh-stat">
+        <div class="m-wh-stat-lbl">佔比</div>
+        <div class="m-wh-stat-val">100%</div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('modalCards').innerHTML = cardHtml;
+
+  document.getElementById('scopeModal').classList.add('open');
 }
 
 function renderTable() {
