@@ -4981,7 +4981,6 @@ function openEditAccountModal(id){
     modal.className = 'modal-bg';
     modal.style.zIndex = '700';
     modal.innerHTML = '<div class="modal-box" style="max-width:440px;"></div>';
-    modal.addEventListener('click', function(e){ if(e.target===this) this.classList.remove('open'); });
     document.body.appendChild(modal);
   }
   modal.querySelector('.modal-box').innerHTML = html;
@@ -5013,7 +5012,8 @@ function saveEditAccount(id){
       var idx=CLOUD_ACCOUNTS.findIndex(function(u){return u.id===id;});
       if(idx>=0) CLOUD_ACCOUNTS[idx]=acc; else CLOUD_ACCOUNTS.push(acc);
     }
-    closeD();
+    var m = document.getElementById('EditAccM');
+    if(m) m.classList.remove('open');
     toast('✅ 帳號已更新','#16a34a');
     renderAccountsTab(CLOUD_ACCOUNTS);
     backupActionToGAS({action:'updateAccount',id:id,name:name,pwd:pwd,email:acc.email,staffName:acc.staffName,role:acc.role});
