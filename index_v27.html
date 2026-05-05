@@ -3913,20 +3913,24 @@ function doResendNotify(rowNum, action){
   var sellPeriods = (r.sales&&r.sales.periods&&r.sales.periods.length)
     ? r.sales.periods.map(function(p){return{name:p.name||'',cur:p.currency||p.cur||'TWD',amt:parseFloat(p.amount||p.amt)||0,date:p.expectedDate||p.date||'',note:p.note||''}; })
     : (function(){ var a=[]; for(var i=1;i<=3;i++){var v=parseFloat(r['銷售期'+i+'金額'])||0;if(v||r['銷售期'+i+'預計日'])a.push({name:r['銷售期'+i+'名稱']||('第'+i+'期'),cur:r['銷售期'+i+'幣別']||'TWD',amt:v,date:r['銷售期'+i+'預計日']||'',note:r['銷售期'+i+'備註']||''});} return a; })();
+  var transferEmail = (r.transfer && r.transfer.transferEmail) || r['轉交信箱'] || '';
+  var transferTo    = (r.transfer && r.transfer.transferTo)    || r['轉交銷售業務'] || '';
   backupActionToGAS({
-    action:       action,
-    formId:       formId,
-    caseName:     caseName,
-    staff:        staff,
-    type:         g(r,'type')||'',
-    supplier:     r['供應商（賣方）']||r.supplier||'',
-    buyer:        r['客戶（買方）']  ||r.buyer   ||'',
-    buyPay:       r['付款條件（採購）']||r.buyPay ||'',
-    sellPay:      r['收款條件（銷售）']||r.sellPay||'',
-    buyPeriods:   buyPeriods,
-    sellPeriods:  sellPeriods,
-    resent:       true,
-    resentBy:     curUser ? curUser.name : '',
+    action:        action,
+    formId:        formId,
+    caseName:      caseName,
+    staff:         staff,
+    type:          g(r,'type')||'',
+    supplier:      r['供應商（賣方）']||r.supplier||'',
+    buyer:         r['客戶（買方）']  ||r.buyer   ||'',
+    buyPay:        r['付款條件（採購）']||r.buyPay ||'',
+    sellPay:       r['收款條件（銷售）']||r.sellPay||'',
+    buyPeriods:    buyPeriods,
+    sellPeriods:   sellPeriods,
+    transferEmail: transferEmail,
+    transferTo:    transferTo,
+    resent:        true,
+    resentBy:      curUser ? curUser.name : '',
   });
   var label = action==='resendApproval' ? '審核通知' : '補填通知';
   toast('↩ '+label+'已重新發送','#0369a1');
