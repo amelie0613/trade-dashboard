@@ -511,6 +511,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
       <button id="cf-ship" class="cal-filter-btn on" onclick="setCalFilter('ship',this)">船務</button>
       <button id="cf-trade" class="cal-filter-btn on" onclick="setCalFilter('trade',this)">貿易</button>
       <button id="cf-forecast" class="cal-filter-btn on" onclick="setCalFilter('forecast',this)">預估</button>
+      <button id="cf-none" class="cal-filter-btn" onclick="setCalFilter('none',this)" style="color:#94a3b8;border-color:#e2e8f0;">取消全部</button>
       </div>
       <div style="display:flex;gap:6px;align-items:center;">
         <button id="cal-refresh-btn" onclick="forceRefreshCSV()" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;font-size:11px;font-weight:700;cursor:pointer;">
@@ -2456,9 +2457,9 @@ function renderMonthlySummary(calItems, yr, mo) {
     if (!keys.length) return '<div style="color:#94a3b8;font-size:13px;">—</div>';
     return keys.map(function(c) {
       var color = isAp ? '#ea580c' : '#16a34a';
-      return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;">'
-        + '<span style="width:6px;height:6px;border-radius:50%;background:'+color+';"></span>'
-        + '<span style="font-size:14px;font-weight:700;color:'+color+';font-family:\'DM Mono\',monospace;">'+formatCurrency(c, map[c])+'</span>'
+      return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;white-space:nowrap;">'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:'+color+';flex-shrink:0;"></span>'
+        + '<span style="font-size:13px;font-weight:700;color:'+color+';font-family:\'DM Mono\',monospace;white-space:nowrap;">'+formatCurrency(c, map[c])+'</span>'
         + '</div>';
     }).join('');
   }
@@ -2520,18 +2521,27 @@ var _dayDetailTab  = 'all';
 
 function setCalFilter(type, el) {
   if (type === 'all') {
-    // 全部 = 全開
     calendarFilter.ship = true;
     calendarFilter.trade = true;
     calendarFilter.forecast = true;
     document.querySelectorAll('.cal-filter-btn').forEach(function(b) { b.classList.add('on'); });
+    var noneBtn = document.getElementById('cf-none');
+    if (noneBtn) noneBtn.classList.remove('on');
+  } else if (type === 'none') {
+    calendarFilter.ship = false;
+    calendarFilter.trade = false;
+    calendarFilter.forecast = false;
+    document.querySelectorAll('.cal-filter-btn').forEach(function(b) { b.classList.remove('on'); });
+    if (el) el.classList.add('on');
   } else {
     calendarFilter[type] = !calendarFilter[type];
     if (el) el.classList.toggle('on', calendarFilter[type]);
-    // 更新「全部」按鈕狀態
     var allOn = calendarFilter.ship && calendarFilter.trade && calendarFilter.forecast;
     var allBtn = document.getElementById('cf-all');
     if (allBtn) allBtn.classList.toggle('on', allOn);
+    var noneOn = !calendarFilter.ship && !calendarFilter.trade && !calendarFilter.forecast;
+    var noneBtn2 = document.getElementById('cf-none');
+    if (noneBtn2) noneBtn2.classList.toggle('on', noneOn);
   }
   renderDaily();
 }
