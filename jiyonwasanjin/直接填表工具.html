@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FDA 日申報工具</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --accent: #1C4E3C;
+  --accent-light: #E8F2EE;
+  --bg: #F7F5F0;
+  --border: #E0DDD6;
+  --text: #1A1916;
+  --text-muted: #6B6860;
+  --success: #0F6E56;
+  --success-light: #E1F5EE;
+  --danger: #C0392B;
+  --danger-light: #FDF0EE;
+  --warn: #B85C00;
+  --warn-light: #FEF5E7;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+.container { max-width: 800px; margin: 0 auto; }
+.header { text-align: center; margin-bottom: 28px; }
+.header h1 { font-size: 24px; margin-bottom: 6px; }
+.header p { color: var(--text-muted); font-size: 13px; }
+
+/* Card */
+.card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+.card-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: var(--accent); }
+
+/* Company tabs */
+.company-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.company-tab { padding: 8px 16px; border: 1px solid var(--border); border-radius: 20px; cursor: pointer; font-size: 13px; background: white; transition: all .15s; }
+.company-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+.company-tab:hover:not(.active) { background: var(--bg); }
+
+/* Form */
+.form-row { display: grid; gap: 12px; margin-bottom: 12px; }
+.form-row.col-2 { grid-template-columns: 1fr 1fr; }
+.form-row.col-3 { grid-template-columns: 1fr 1fr 1fr; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+.req { color: var(--danger); }
+input[type=text], input[type=number], input[type=date], input[type=password], select, textarea {
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 13px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: white;
+  width: 100%;
+  transition: border .15s;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+textarea { resize: vertical; min-height: 60px; }
+
+/* Checkboxes */
+.check-group { display: flex; flex-wrap: wrap; gap: 16px; padding: 8px 0; }
+.check-item { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
+.check-item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+
+/* Divider */
+.pair-label { font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 5px; }
+.pair-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pair-sep { display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted); padding: 0 4px; }
+
+/* Buttons */
+.btn-row { display: flex; gap: 8px; margin-top: 16px; }
+.btn { padding: 9px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: 'Noto Sans TC', sans-serif; transition: all .15s; }
+.btn-primary { background: var(--accent); color: white; flex: 1; }
+.btn-primary:hover { opacity: .9; }
+.btn-secondary { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-danger { background: var(--danger-light); color: var(--danger); border: 1px solid #f0b8b2; }
+.btn-danger:hover { background: #f8d4d0; }
+.btn-success { background: var(--success); color: white; }
+.btn-success:hover { opacity: .9; }
+.btn-success:disabled { opacity: .45; cursor: not-allowed; }
+
+/* List items */
+.list { display: flex; flex-direction: column; gap: 8px; }
+.list-item { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
+.list-item-num { font-size: 12px; font-weight: 700; color: var(--text-muted); min-width: 24px; }
+.list-item-info { flex: 1; }
+.list-item-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.list-item-detail { font-size: 11px; color: var(--text-muted); }
+.list-item-del { background: none; border: none; cursor: pointer; font-size: 16px; color: var(--text-muted); padding: 4px; line-height: 1; }
+.list-item-del:hover { color: var(--danger); }
+.list-item.done { border-color: var(--success); }
+.list-item.done .list-item-name { color: var(--success); }
+.list-item.failed { border-color: var(--danger); }
+.list-item.failed .list-item-name { color: var(--danger); }
+
+/* Badge */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; margin-left: 6px; }
+.badge-success { background: var(--success-light); color: var(--success); }
+.badge-danger { background: var(--danger-light); color: var(--danger); }
+.badge-warn { background: var(--warn-light); color: var(--warn); }
+
+/* Notice */
+.notice { padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; border-left: 3px solid; }
+.notice-info { background: var(--accent-light); border-color: var(--accent); color: var(--text); }
+.notice-warn { background: var(--warn-light); border-color: var(--warn); color: var(--warn); }
+
+/* Status */
+.status { font-size: 12px; margin-top: 10px; }
+.status.ok { color: var(--success); }
+.status.err { color: var(--danger); }
+
+/* Progress */
+.progress-bar { width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+.progress-fill { height: 100%; background: var(--accent); transition: width .3s; }
+
+@media (max-width: 600px) {
+  .form-row.col-2, .form-row.col-3 { grid-template-columns: 1fr; }
+  .pair-inputs { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>🚀 FDA 日申報工具</h1>
+    <p>填寫多筆資料 → 選公司 → 一鍵批量提交</p>
+  </div>
+
+  <!-- ① 公司 & API 設定 -->
+  <div class="card">
+    <div class="card-title">⚙️ 公司 API 設定</div>
+    <div class="company-tabs" id="company-tabs">
+      <button class="company-tab active" onclick="selectCompany(0)">公司 A</button>
+      <button class="company-tab" onclick="selectCompany(1)">公司 B</button>
+      <button class="company-tab" onclick="selectCompany(2)">公司 C</button>
+    </div>
+
+    <div id="company-form">
+      <div class="form-row col-3">
+        <div class="form-group">
+          <label>公司名稱</label>
+          <input type="text" id="cfg-name" placeholder="例：海之實企業" oninput="saveCfg()" />
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="text" id="cfg-api" placeholder="API Key" oninput="saveCfg()" />
+        </div>
+        <div class="form-group">
+          <label>Secure Key</label>
+          <input type="text" id="cfg-sec" placeholder="Secure Key" oninput="saveCfg()" />
+        </div>
+      </div>
+    </div>
+    <div class="status ok" id="cfg-status"></div>
+  </div>
+
+  <!-- ② 申報表單 -->
+  <div class="card">
+    <div class="card-title">✏️ 填寫申報資料</div>
+
+    <!-- 申報方式 + 日期 -->
+    <div class="form-row col-2">
+      <div class="form-group">
+        <label>申報方式 <span class="req">*</span></label>
+        <select id="f-type">
+          <option value="">-- 請選擇 --</option>
+          <option value="1">月申報</option>
+          <option value="2">日申報</option>
+          <option value="3">本月無交貨</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>申報日期 <span class="req">*</span></label>
+        <input type="date" id="f-date" />
+      </div>
+    </div>
+
+    <!-- 通知號碼 / 報單號碼 -->
+    <div style="margin-bottom:12px">
+      <div class="pair-label">通知號碼 / 報單號碼 <span class="req">*</span> 擇一填入</div>
+      <div class="pair-inputs">
+        <input type="text" id="f-notify" placeholder="通知號碼 例：IFT15FJ0037807" />
+        <input type="text" id="f-bill" placeholder="報單號碼 例：BD 15036F0071" />
+      </div>
+    </div>
+
+    <!-- 淨重 + 物流 -->
+    <div class="form-row col-2">
+      <div class="form-group">
+        <label>交貨淨重(kg) <span class="req">*</span></label>
+        <input type="number" id="f-weight" placeholder="例：228" min="0" step="0.01" />
+      </div>
+      <div class="form-group">
+        <label>物流業者 <span class="req">*</span></label>
+        <input type="text" id="f-logistics" placeholder="運輸公司名稱" />
+      </div>
+    </div>
+
+    <!-- 備註 -->
+    <div class="form-group" style="margin-bottom:16px">
+      <label>交貨備註</label>
+      <input type="text" id="f-note" placeholder="備註說明（選填）" />
+    </div>
+
+    <!-- 下游業者 / 用途 擇一 -->
+    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:4px">
+      <!-- 切換按鈕 -->
+      <div style="display:flex">
+        <button type="button" id="tab-buyer" onclick="switchMode('buyer')"
+          style="flex:1;padding:10px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:var(--accent);color:white;border-radius:0;transition:all .15s">
+          🏢 下游業者
+        </button>
+        <button type="button" id="tab-usage" onclick="switchMode('usage')"
+          style="flex:1;padding:10px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:var(--bg);color:var(--text-muted);border-radius:0;transition:all .15s">
+          📋 用途（其他）
+        </button>
+      </div>
+
+      <!-- 下游業者欄位 -->
+      <div id="panel-buyer" style="padding:14px">
+        <div class="form-group">
+          <label>下游業者名稱 <span class="req">*</span></label>
+          <input type="text" id="f-buyer" placeholder="買受人名稱" />
+        </div>
+      </div>
+
+      <!-- 用途勾選欄位 -->
+      <div id="panel-usage" style="padding:14px;display:none">
+        <div class="form-group">
+          <label>用途（至少勾選一項）<span class="req">*</span></label>
+          <div class="check-group" style="margin-top:6px">
+            <label class="check-item"><input type="checkbox" id="f-direct" /><span>直接販售至消費者</span></label>
+            <label class="check-item"><input type="checkbox" id="f-self" /><span>自用</span></label>
+            <label class="check-item"><input type="checkbox" id="f-factory" /><span>工廠自用</span></label>
+            <label class="check-item"><input type="checkbox" id="f-discard" /><span>報廢</span></label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="clearForm()">清除</button>
+      <button class="btn btn-primary" onclick="addItem()">➕ 加入清單</button>
+    </div>
+    <div class="status" id="form-status"></div>
+  </div>
+
+  <!-- ③ 待申報清單 -->
+  <div class="card" id="list-card" style="display:none">
+    <div class="card-title">📋 待申報清單（<span id="list-count">0</span> 筆）</div>
+    <div id="list" class="list"></div>
+
+    <div style="margin-top:16px; border-top:1px solid var(--border); padding-top:16px;">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>選擇提交的公司</label>
+        <select id="submit-company">
+          <option value="0">請選擇…</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="clearList()">清除清單</button>
+        <button class="btn btn-success" id="submit-btn" onclick="submitAll()">🚀 批量提交申報</button>
+      </div>
+      <div class="progress-bar" id="progress-bar" style="display:none">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+      <div class="status" id="submit-status"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── 公司設定 ──────────────────────────────────────────────
+let companies = [{name:'',api:'',sec:''},{name:'',api:'',sec:''},{name:'',api:'',sec:''}];
+let currentCo = 0;
+let itemList = [];
+let isSubmitting = false;
+
+function loadCfg() {
+  const saved = localStorage.getItem('fda_companies');
+  if (saved) companies = JSON.parse(saved);
+  updateCompanyTabs();
+  selectCompany(0);
+}
+
+function saveCfg() {
+  companies[currentCo].name = document.getElementById('cfg-name').value.trim();
+  companies[currentCo].api  = document.getElementById('cfg-api').value.trim();
+  companies[currentCo].sec  = document.getElementById('cfg-sec').value.trim();
+  localStorage.setItem('fda_companies', JSON.stringify(companies));
+  updateCompanyTabs();
+  setStatus('cfg-status', '✓ 已儲存', 'ok');
+}
+
+function selectCompany(idx) {
+  currentCo = idx;
+  document.querySelectorAll('.company-tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+  document.getElementById('cfg-name').value = companies[idx].name || '';
+  document.getElementById('cfg-api').value  = companies[idx].api  || '';
+  document.getElementById('cfg-sec').value  = companies[idx].sec  || '';
+  setStatus('cfg-status', '', '');
+}
+
+function updateCompanyTabs() {
+  document.querySelectorAll('.company-tab').forEach((tab, i) => {
+    tab.textContent = companies[i].name || `公司 ${['A','B','C'][i]}`;
+  });
+  const sel = document.getElementById('submit-company');
+  sel.innerHTML = '';
+  companies.forEach((co, i) => {
+    if (co.api && co.sec) {
+      sel.innerHTML += `<option value="${i}">${co.name || '公司 '+['A','B','C'][i]}</option>`;
+    }
+  });
+  if (sel.innerHTML === '') sel.innerHTML = '<option value="">尚未設定 API</option>';
+}
+
+// ── 表單 ──────────────────────────────────────────────────
+let currentMode = 'buyer';
+
+function switchMode(mode) {
+  currentMode = mode;
+  const isBuyer = mode === 'buyer';
+  document.getElementById('panel-buyer').style.display = isBuyer ? 'block' : 'none';
+  document.getElementById('panel-usage').style.display = isBuyer ? 'none' : 'block';
+  document.getElementById('tab-buyer').style.background = isBuyer ? 'var(--accent)' : 'var(--bg)';
+  document.getElementById('tab-buyer').style.color = isBuyer ? 'white' : 'var(--text-muted)';
+  document.getElementById('tab-usage').style.background = isBuyer ? 'var(--bg)' : 'var(--accent)';
+  document.getElementById('tab-usage').style.color = isBuyer ? 'var(--text-muted)' : 'white';
+}
+
+function clearForm() {
+  ['f-type','f-notify','f-bill','f-weight','f-logistics','f-buyer','f-note'].forEach(id => document.getElementById(id).value = '');
+  ['f-direct','f-self','f-factory','f-discard'].forEach(id => document.getElementById(id).checked = false);
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  switchMode('buyer');
+  setStatus('form-status','','');
+}
+
+function addItem() {
+  const type     = document.getElementById('f-type').value;
+  const date     = document.getElementById('f-date').value;
+  const notify   = document.getElementById('f-notify').value.trim();
+  const bill     = document.getElementById('f-bill').value.trim();
+  const weight   = document.getElementById('f-weight').value.trim();
+  const logistics= document.getElementById('f-logistics').value.trim();
+  const note     = document.getElementById('f-note').value.trim();
+
+  const buyer  = currentMode === 'buyer' ? document.getElementById('f-buyer').value.trim() : '';
+  const direct = currentMode === 'usage' ? document.getElementById('f-direct').checked : false;
+  const selfUse= currentMode === 'usage' ? document.getElementById('f-self').checked : false;
+  const factory= currentMode === 'usage' ? document.getElementById('f-factory').checked : false;
+  const discard= currentMode === 'usage' ? document.getElementById('f-discard').checked : false;
+
+  if (!type || !date || (!notify && !bill) || !weight || !logistics) {
+    setStatus('form-status', '⚠️ 請填寫：申報方式、日期、號碼（擇一）、淨重、物流', 'err');
+    return;
+  }
+  if (currentMode === 'buyer' && !buyer) {
+    setStatus('form-status', '⚠️ 請填寫下游業者名稱', 'err');
+    return;
+  }
+  if (currentMode === 'usage' && !direct && !selfUse && !factory && !discard) {
+    setStatus('form-status', '⚠️ 請至少勾選一項用途', 'err');
+    return;
+  }
+
+  const item = { id: Date.now(), mode: currentMode, type, date, notify, bill, weight, logistics, buyer, note, direct, selfUse, factory, discard, status: 'pending' };
+  itemList.push(item);
+  renderList();
+  clearForm();
+  setStatus('form-status', `✓ 已加入（共 ${itemList.length} 筆）`, 'ok');
+}
+
+// ── 清單渲染 ──────────────────────────────────────────────
+function renderList() {
+  const listDiv = document.getElementById('list');
+  listDiv.innerHTML = '';
+
+  itemList.forEach((item, idx) => {
+    const typeLabel = {'1':'月申報','2':'日申報','3':'本月無交貨'}[item.type] || item.type;
+    const numCode = item.notify || item.bill;
+    const target = item.mode === 'buyer'
+      ? item.buyer
+      : [item.direct && '販售', item.selfUse && '自用', item.factory && '工廠', item.discard && '報廢'].filter(Boolean).join('／');
+
+    let badge = '';
+    if (item.status === 'done')   badge = '<span class="badge badge-success">✓ 成功</span>';
+    if (item.status === 'failed') badge = '<span class="badge badge-danger">✗ 失敗</span>';
+    if (item.status === 'loading') badge = '<span class="badge badge-warn">⏳ 提交中</span>';
+
+    const div = document.createElement('div');
+    div.className = 'list-item' + (item.status === 'done' ? ' done' : item.status === 'failed' ? ' failed' : '');
+    div.innerHTML = `
+      <div class="list-item-num">#${idx+1}</div>
+      <div class="list-item-info">
+        <div class="list-item-name">${target}${badge}</div>
+        <div class="list-item-detail">${typeLabel} · ${item.date} · ${numCode} · ${item.weight}kg</div>
+        ${item.errorMsg ? `<div style="font-size:11px;color:var(--danger);margin-top:2px">${item.errorMsg}</div>` : ''}
+      </div>
+      ${item.status === 'pending' ? `<button class="list-item-del" onclick="removeItem(${item.id})">✕</button>` : ''}
+    `;
+    listDiv.appendChild(div);
+  });
+
+  document.getElementById('list-count').textContent = itemList.length;
+  document.getElementById('list-card').style.display = itemList.length > 0 ? 'block' : 'none';
+}
+
+function removeItem(id) {
+  itemList = itemList.filter(i => i.id !== id);
+  renderList();
+}
+
+function clearList() {
+  itemList = [];
+  renderList();
+}
+
+// ── 批量提交 ──────────────────────────────────────────────
+async function submitAll() {
+  if (isSubmitting) return;
+
+  const coIdx = parseInt(document.getElementById('submit-company').value);
+  if (isNaN(coIdx) || !companies[coIdx]?.api || !companies[coIdx]?.sec) {
+    setStatus('submit-status', '⚠️ 請先設定好公司的 API Key 和 Secure Key', 'err');
+    return;
+  }
+
+  const pending = itemList.filter(i => i.status === 'pending');
+  if (pending.length === 0) {
+    setStatus('submit-status', '⚠️ 沒有待申報的資料', 'err');
+    return;
+  }
+
+  isSubmitting = true;
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('progress-bar').style.display = 'block';
+
+  const co = companies[coIdx];
+  let done = 0;
+
+  for (const item of pending) {
+    item.status = 'loading';
+    renderList();
+
+    const payload = buildPayload(item);
+
+    try {
+      const res = await fetch('https://ftraceindustry.fda.gov.tw/api/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'APIKey': co.api,
+          'SecureKey': co.sec
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        item.status = 'done';
+      } else {
+        const txt = await res.text().catch(() => '');
+        item.status = 'failed';
+        item.errorMsg = `HTTP ${res.status}${txt ? ': ' + txt.slice(0, 80) : ''}`;
+      }
+    } catch (err) {
+      item.status = 'failed';
+      item.errorMsg = `網路錯誤：${err.message}`;
+    }
+
+    done++;
+    document.getElementById('progress-fill').style.width = (done / pending.length * 100) + '%';
+    renderList();
+    await sleep(300);
+  }
+
+  isSubmitting = false;
+  document.getElementById('submit-btn').disabled = false;
+
+  const success = itemList.filter(i => i.status === 'done').length;
+  const failed  = itemList.filter(i => i.status === 'failed').length;
+  setStatus('submit-status', `完成：✅ 成功 ${success} 筆 | ❌ 失敗 ${failed} 筆`, failed > 0 ? 'err' : 'ok');
+}
+
+function buildPayload(item) {
+  return {
+    type: 'delivery',
+    applyCaseType: item.type,
+    applyDate: item.date,
+    notifyCode: item.notify || '',
+    billNum: item.bill || '',
+    netWeight: parseFloat(item.weight) || 0,
+    logisticsName: item.logistics,
+    buyerName: item.buyer,
+    deliveryNote: item.note,
+    directSale: item.direct,
+    selfUse: item.selfUse,
+    factoryUse: item.factory,
+    discard: item.discard
+  };
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function setStatus(id, txt, type) {
+  const el = document.getElementById(id);
+  el.textContent = txt;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+
+// ── 初始化 ────────────────────────────────────────────────
+loadCfg();
+document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+</script>
+
+</body>
+</html>
