@@ -2542,14 +2542,17 @@ function setCalFilter(type, el) {
     document.querySelectorAll('.cal-filter-btn').forEach(function(b) { b.classList.remove('on'); });
     if (el) el.classList.add('on');
   } else {
-    calendarFilter[type] = !calendarFilter[type];
-    if (el) el.classList.toggle('on', calendarFilter[type]);
-    var allOn = calendarFilter.ship && calendarFilter.trade && calendarFilter.forecast;
+    // 獨佔選取：單點某一類 → 只開那一類，其餘全關
+    calendarFilter.ship     = (type === 'ship');
+    calendarFilter.trade    = (type === 'trade');
+    calendarFilter.forecast = (type === 'forecast');
+    // 更新所有按鈕視覺
+    document.querySelectorAll('.cal-filter-btn').forEach(function(b) { b.classList.remove('on'); });
+    if (el) el.classList.add('on');
     var allBtn = document.getElementById('cf-all');
-    if (allBtn) allBtn.classList.toggle('on', allOn);
-    var noneOn = !calendarFilter.ship && !calendarFilter.trade && !calendarFilter.forecast;
+    if (allBtn) allBtn.classList.remove('on');
     var noneBtn2 = document.getElementById('cf-none');
-    if (noneBtn2) noneBtn2.classList.toggle('on', noneOn);
+    if (noneBtn2) noneBtn2.classList.remove('on');
   }
   renderDaily();
 }
