@@ -6215,9 +6215,9 @@ function renderKeyin() {
       if (cur !== cf.cur) return false;
       var dd2 = m.dueDate ? new Date(m.dueDate) : null;
       var isOv2 = !m.isPaid && dd2 && dd2 < today;
-      if (cf.cardType === 'recv') return m.direction === 'receivable' && !m.isPaid && !isOv2;
-      if (cf.cardType === 'pay')  return m.direction === 'payable'    && !m.isPaid && !isOv2;
-      if (cf.cardType === 'over') return !m.isPaid && dd2 && dd2 < today;
+      if (cf.cardType === 'recv') return m.direction === 'receivable' && !m.isPaid;
+      if (cf.cardType === 'pay')  return m.direction === 'payable'    && !m.isPaid;
+      if (cf.cardType === 'over') return !m.isPaid && !!isOv2;
       if (cf.cardType === 'done') return !!m.isPaid;
       return true;
     });
@@ -6352,13 +6352,19 @@ function renderKeyinStats(items, today) {
     var dd  = m.dueDate ? new Date(m.dueDate) : null;
     var isOv = !m.isPaid && dd && dd < today;
     if (m.isPaid) {
+      // 已完成
       done[cur] = (done[cur] || 0) + amt;
-    } else if (isOv) {
-      over[cur] = (over[cur] || 0) + amt;
-    } else if (m.direction === 'receivable') {
-      recv[cur] = (recv[cur] || 0) + amt;
     } else {
-      pay[cur] = (pay[cur] || 0) + amt;
+      // 待收 / 待付：依「方向」分類（包含逾期未付者）
+      if (m.direction === 'receivable') {
+        recv[cur] = (recv[cur] || 0) + amt;
+      } else {
+        pay[cur] = (pay[cur] || 0) + amt;
+      }
+      // 逾期：依「狀態」獨立計算（可與待收/待付重疊）
+      if (isOv) {
+        over[cur] = (over[cur] || 0) + amt;
+      }
     }
   });
   var cardDefs = [
