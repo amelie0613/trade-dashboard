@@ -6,6 +6,7 @@
 <title>貿易大漁｜管理系統 v27</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root{--ink:#0b1d35;--sea:#0369a1;--wave:#0ea5e9;--gold:#d97706;--gold2:#fbbf24;--jade:#16a34a;--coral:#dc2626;--pay:#ea580c;--pay-bg:#fff7ed;--pay-border:#fed7aa;--paper:#f0f6fc;--card:#fff;--muted:#64748b;--border:#e2e8f0;}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -623,6 +624,7 @@ body{background:var(--paper);font-family:'Noto Sans TC',sans-serif;color:var(--i
     <div style="display:flex;gap:8px;align-items:center;">
       <input type="text" id="keyin-search" placeholder="🔍 搜尋對象／案件／備註..." oninput="renderKeyin()" style="flex:1;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;outline:none;font-family:inherit;">
       <button onclick="document.getElementById('keyin-search').value='';renderKeyin();" style="padding:8px 14px;border-radius:8px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">清除</button>
+      <button id="keyin-export-btn" onclick="exportKeyinExcel()" style="display:none;padding:8px 14px;border-radius:8px;background:#dcfce7;color:#15803d;border:0.5px solid #86efac;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">📤 匯出 Excel</button>
     </div>
   </div>
   <!-- 列表 -->
@@ -6095,6 +6097,10 @@ try{var sv=localStorage.getItem('tl');if(sv)logs=JSON.parse(sv);}catch(e){}
 // ── 全域狀態 ───────────────────────────────────────────
 var allKeyinItems  = [];   // Firebase manual_payments 快取
 var _keyinFilter   = 'all';
+var _keyinCardFilter = null; // { cardType:'recv'|'pay'|'over'|'done', cur:'TWD'|... }
+var _keyinSort = { col: null, dir: 1 }; // col: null|'dueDate'|'amount'|'dept'|'status'
+var _keyinColFilters = {}; // e.g. { source:['手動'], dept:['貿易'], ... }
+var _keyinDisplayItems = []; // 目前顯示中的資料（供匯出使用）
 var _keyinPage     = 1;
 var KEYIN_PAGE_SIZE = 15;
 
@@ -6182,6 +6188,10 @@ function renderKeyin() {
   var kw = (document.getElementById('keyin-search') ? document.getElementById('keyin-search').value : '').trim().toLowerCase();
   var f  = _keyinFilter;
 
+  // 顯示/隱藏匯出按鈕
+  var expBtn = document.getElementById('keyin-export-btn');
+  if (expBtn) expBtn.style.display = (curUser && (curUser.role==='admin'||curUser.role==='finance'||curUser.role==='boss')) ? '' : 'none';
+
   var items = allKeyinItems.filter(function(m) {
     var dd = m.dueDate ? new Date(m.dueDate) : null;
     var isOverdue = !m.isPaid && dd && dd < today;
@@ -6197,7 +6207,88 @@ function renderKeyin() {
     return true;
   });
 
-  renderKeyinStats(items, today);
+  // ── 卡片篩選（Card filter）────────────────────────────
+  if (_keyinCardFilter) {
+    var cf = _keyinCardFilter;
+    items = items.filter(function(m) {
+      var cur = (m.currency||'TWD').toUpperCase();
+      if (cur !== cf.cur) return false;
+      var dd2 = m.dueDate ? new Date(m.dueDate) : null;
+      var isOv2 = !m.isPaid && dd2 && dd2 < today;
+      if (cf.cardType === 'recv') return m.direction === 'receivable' && !m.isPaid && !isOv2;
+      if (cf.cardType === 'pay')  return m.direction === 'payable'    && !m.isPaid && !isOv2;
+      if (cf.cardType === 'over') return !m.isPaid && dd2 && dd2 < today;
+      if (cf.cardType === 'done') return !!m.isPaid;
+      return true;
+    });
+  }
+
+  // ── 欄位篩選（Column filters）────────────────────────
+  if (_keyinColFilters.source && _keyinColFilters.source.length) {
+    items = items.filter(function(m) {
+      var src = m.fromTransfer ? '轉入' : '手動';
+      return _keyinColFilters.source.indexOf(src) >= 0;
+    });
+  }
+  if (_keyinColFilters.dept && _keyinColFilters.dept.length) {
+    items = items.filter(function(m) { return _keyinColFilters.dept.indexOf(m.dept||'') >= 0; });
+  }
+  if (_keyinColFilters.direction && _keyinColFilters.direction.length) {
+    items = items.filter(function(m) { return _keyinColFilters.direction.indexOf(m.direction) >= 0; });
+  }
+  if (_keyinColFilters.category && _keyinColFilters.category.length) {
+    items = items.filter(function(m) { return _keyinColFilters.category.indexOf(m.category||'') >= 0; });
+  }
+  if (_keyinColFilters.status && _keyinColFilters.status.length) {
+    items = items.filter(function(m) {
+      var dd3 = m.dueDate ? new Date(m.dueDate) : null;
+      var isOv3 = !m.isPaid && dd3 && dd3 < today;
+      var st = m.isPaid ? 'done' : isOv3 ? 'overdue' : 'unpaid';
+      return _keyinColFilters.status.indexOf(st) >= 0;
+    });
+  }
+  if (_keyinColFilters.currency && _keyinColFilters.currency.length) {
+    items = items.filter(function(m) { return _keyinColFilters.currency.indexOf((m.currency||'TWD').toUpperCase()) >= 0; });
+  }
+  if (_keyinColFilters.amtMin !== undefined && _keyinColFilters.amtMin !== '') {
+    var mn = parseFloat(_keyinColFilters.amtMin);
+    if (!isNaN(mn)) items = items.filter(function(m) { return parseFloat(m.amount) >= mn; });
+  }
+  if (_keyinColFilters.amtMax !== undefined && _keyinColFilters.amtMax !== '') {
+    var mx = parseFloat(_keyinColFilters.amtMax);
+    if (!isNaN(mx)) items = items.filter(function(m) { return parseFloat(m.amount) <= mx; });
+  }
+  if (_keyinColFilters.dateFrom) {
+    items = items.filter(function(m) { return (m.dueDate||'') >= _keyinColFilters.dateFrom; });
+  }
+  if (_keyinColFilters.dateTo) {
+    items = items.filter(function(m) { return (m.dueDate||'') <= _keyinColFilters.dateTo; });
+  }
+
+  // ── 排序（Sort）────────────────────────────────────────
+  if (_keyinSort.col) {
+    items = items.slice().sort(function(a, b) {
+      var av, bv;
+      var getSt = function(m) {
+        var dd4 = m.dueDate ? new Date(m.dueDate) : null;
+        var isOv4 = !m.isPaid && dd4 && dd4 < today;
+        return m.isPaid ? 'done' : isOv4 ? 'overdue' : 'unpaid';
+      };
+      var stMap = { overdue: 0, unpaid: 1, done: 3 };
+      if (_keyinSort.col === 'dueDate') { av = a.dueDate||''; bv = b.dueDate||''; }
+      else if (_keyinSort.col === 'amount') { av = parseFloat(a.amount)||0; bv = parseFloat(b.amount)||0; }
+      else if (_keyinSort.col === 'dept') { av = a.dept||''; bv = b.dept||''; }
+      else if (_keyinSort.col === 'status') { av = stMap[getSt(a)]||0; bv = stMap[getSt(b)]||0; }
+      if (av < bv) return -1 * _keyinSort.dir;
+      if (av > bv) return  1 * _keyinSort.dir;
+      return 0;
+    });
+  }
+
+  // ── 儲存目前顯示資料（供匯出使用）─────────────────────
+  _keyinDisplayItems = items.slice();
+
+  renderKeyinStats(allKeyinItems, today);
 
   var total = items.length;
   var pages = Math.max(1, Math.ceil(total / KEYIN_PAGE_SIZE));
@@ -6212,10 +6303,7 @@ function renderKeyin() {
     return;
   }
 
-  var html = '<div class="twrap"><table class="tbl"><thead><tr>'
-    + '<th>來源</th><th>部門</th><th>方向</th><th>對象</th><th>類別</th>'
-    + '<th>幣別金額</th><th>預計日</th><th>狀態</th><th>操作</th>'
-    + '</tr></thead><tbody>';
+  var html = '<div class="twrap"><table class="tbl">' + buildKeyinHeader(today) + '<tbody>';
 
   pageData.forEach(function(m) {
     var dd = m.dueDate ? new Date(m.dueDate) : null;
@@ -6273,23 +6361,29 @@ function renderKeyinStats(items, today) {
       pay[cur] = (pay[cur] || 0) + amt;
     }
   });
-  function fmtStat(obj) {
-    var keys = Object.keys(obj);
-    if (!keys.length) return '<span style="color:var(--muted);">—</span>';
-    return keys.map(function(c) { return '<span style="font-family:\'DM Mono\',monospace;font-weight:700;">'+formatCurrency(c,obj[c])+'</span>'; }).join('<br>');
-  }
-  var cards = [
-    { label:'待收', color:'var(--jade)',  icon:'↑', data: recv },
-    { label:'待付', color:'var(--pay)',   icon:'↓', data: pay  },
-    { label:'逾期', color:'#dc2626',      icon:'⚠️', data: over },
-    { label:'已完成', color:'var(--muted)', icon:'✅', data: done }
+  var cardDefs = [
+    { type:'recv', label:'待收',   color:'var(--jade)',  icon:'↑', data: recv },
+    { type:'pay',  label:'待付',   color:'var(--pay)',   icon:'↓', data: pay  },
+    { type:'over', label:'逾期',   color:'#dc2626',      icon:'⚠️', data: over },
+    { type:'done', label:'已完成', color:'var(--muted)', icon:'✅', data: done }
   ];
+  function fmtStatClickable(obj, cardType, cardColor) {
+    var keys = sortedCurKeys ? sortedCurKeys(obj) : Object.keys(obj);
+    if (!keys.length) return '<span style="color:var(--muted);">—</span>';
+    return keys.map(function(c) {
+      var isSelected = _keyinCardFilter && _keyinCardFilter.cardType === cardType && _keyinCardFilter.cur === c;
+      var bg = isSelected ? 'background:#e0f2fe;border-radius:6px;' : '';
+      return '<div onclick="clickKeyinCard(\''+cardType+'\',\''+c+'\',this)" style="cursor:pointer;padding:2px 6px;border-radius:6px;'+bg+'">'
+        + '<span style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+cardColor+';">'+formatCurrency(c,obj[c])+'</span>'
+        + '</div>';
+    }).join('');
+  }
   var html = '';
-  cards.forEach(function(c) {
+  cardDefs.forEach(function(c) {
     html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;position:relative;overflow:hidden;">'
       + '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:'+c.color+';border-radius:3px 3px 0 0;"></div>'
       + '<div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;">'+c.icon+' '+c.label+'</div>'
-      + '<div style="font-size:13px;line-height:1.6;color:'+c.color+';">'+fmtStat(c.data)+'</div>'
+      + '<div style="font-size:13px;line-height:1.6;">'+fmtStatClickable(c.data, c.type, c.color)+'</div>'
       + '</div>';
   });
   document.getElementById('keyin-stats').innerHTML = html;
@@ -6432,6 +6526,7 @@ function keyinMarkPaid(id, paid) {
 function keyinFilter(f, el) {
   _keyinFilter = f;
   _keyinPage   = 1;
+  if (f === 'all') _keyinCardFilter = null;
   document.querySelectorAll('.keyin-fbtn').forEach(function(b) { b.classList.remove('on'); });
   if (el) el.classList.add('on');
   renderKeyin();
@@ -6476,6 +6571,316 @@ function createManualPaymentFromTransfer(p) {
     }
   });
 }
+
+// ══════════════════════════════════════════════════════
+// 收單記錄 — 新增功能函數
+// ══════════════════════════════════════════════════════
+
+// ── 建立可排序/篩選的表頭 ─────────────────────────────
+function buildKeyinHeader(today) {
+  function sortIcon(col) {
+    if (_keyinSort.col !== col) return '<span style="opacity:.4;font-size:10px;margin-left:3px;">⇅</span>';
+    return _keyinSort.dir === 1
+      ? '<span style="font-size:10px;margin-left:3px;color:var(--sea);">↑</span>'
+      : '<span style="font-size:10px;margin-left:3px;color:var(--sea);">↓</span>';
+  }
+  function filterDot(col) {
+    var has = false;
+    if (col === 'source'    && _keyinColFilters.source    && _keyinColFilters.source.length)    has = true;
+    if (col === 'dept'      && _keyinColFilters.dept      && _keyinColFilters.dept.length)      has = true;
+    if (col === 'direction' && _keyinColFilters.direction && _keyinColFilters.direction.length) has = true;
+    if (col === 'category'  && _keyinColFilters.category  && _keyinColFilters.category.length)  has = true;
+    if (col === 'status'    && _keyinColFilters.status    && _keyinColFilters.status.length)    has = true;
+    if (col === 'currency'  && _keyinColFilters.currency  && _keyinColFilters.currency.length)  has = true;
+    if (col === 'amount'    && (_keyinColFilters.amtMin||_keyinColFilters.amtMax))              has = true;
+    if (col === 'dueDate'   && (_keyinColFilters.dateFrom||_keyinColFilters.dateTo))           has = true;
+    return has ? '<span style="color:var(--coral);font-size:9px;margin-left:2px;">●</span>' : '';
+  }
+  function thSort(col, label) {
+    return '<th style="cursor:pointer;white-space:nowrap;" onclick="keyinSortBy(\''+col+'\')">'
+      + label + sortIcon(col) + '</th>';
+  }
+  function thFilter(col, label) {
+    return '<th style="white-space:nowrap;">'
+      + label
+      + filterDot(col)
+      + '<button onclick="openKeyinColFilter(\''+col+'\',this);event.stopPropagation();" '
+      + 'style="background:none;border:none;cursor:pointer;padding:0 2px;font-size:11px;opacity:.6;vertical-align:middle;" title="篩選">▽</button>'
+      + '</th>';
+  }
+  function thSortFilter(col, label) {
+    return '<th style="cursor:pointer;white-space:nowrap;" onclick="keyinSortBy(\''+col+'\')">'
+      + label + sortIcon(col) + filterDot(col)
+      + '<button onclick="openKeyinColFilter(\''+col+'\',this);event.stopPropagation();" '
+      + 'style="background:none;border:none;cursor:pointer;padding:0 2px;font-size:11px;opacity:.6;vertical-align:middle;" title="篩選">▽</button>'
+      + '</th>';
+  }
+  return '<thead><tr>'
+    + thFilter('source',    '來源')
+    + thSortFilter('dept',  '部門')
+    + thFilter('direction', '方向')
+    + '<th>對象</th>'
+    + thFilter('category',  '類別')
+    + thSortFilter('currency', '幣別金額')
+    + thSortFilter('dueDate',  '預計日')
+    + thSortFilter('status',   '狀態')
+    + '<th>操作</th>'
+    + '</tr></thead>';
+}
+
+// ── 切換排序欄 ─────────────────────────────────────────
+function keyinSortBy(col) {
+  if (_keyinSort.col === col) {
+    _keyinSort.dir = _keyinSort.dir === 1 ? -1 : 1;
+  } else {
+    _keyinSort.col = col;
+    _keyinSort.dir = 1;
+  }
+  _keyinPage = 1;
+  renderKeyin();
+}
+
+// ── 卡片點擊篩選 ──────────────────────────────────────
+function clickKeyinCard(cardType, cur, el) {
+  // 同一個再點一次 → 取消
+  if (_keyinCardFilter && _keyinCardFilter.cardType === cardType && _keyinCardFilter.cur === cur) {
+    _keyinCardFilter = null;
+    // 重設 button bar 回到 _keyinFilter
+    document.querySelectorAll('.keyin-fbtn').forEach(function(b) { b.classList.remove('on'); });
+    var btnMap = { all:'全部', receivable:'↑ 應收', payable:'↓ 應付', unpaid:'待收付', overdue:'逾期', done:'已完成' };
+    document.querySelectorAll('.keyin-fbtn').forEach(function(b) {
+      if (b.textContent.trim() === (btnMap[_keyinFilter]||'全部')) b.classList.add('on');
+    });
+    renderKeyin();
+    return;
+  }
+  _keyinCardFilter = { cardType: cardType, cur: cur };
+  // 同步 button filter
+  var fMap = { recv:'receivable', pay:'payable', over:'overdue', done:'done' };
+  var newF = fMap[cardType] || 'all';
+  _keyinFilter = newF;
+  _keyinPage = 1;
+  document.querySelectorAll('.keyin-fbtn').forEach(function(b) { b.classList.remove('on'); });
+  // 找對應的 button 並高亮
+  var fBtnMap = { receivable:'↑ 應收', payable:'↓ 應付', overdue:'逾期', done:'已完成', all:'全部' };
+  document.querySelectorAll('.keyin-fbtn').forEach(function(b) {
+    if (b.textContent.trim() === (fBtnMap[newF]||'全部')) b.classList.add('on');
+  });
+  renderKeyin();
+}
+
+// ── 開啟欄位篩選浮動面板 ──────────────────────────────
+function openKeyinColFilter(col, btn) {
+  var popup = document.getElementById('keyin-col-filter-popup');
+  if (!popup) return;
+  // 若點的是同一個且已開啟 → 關閉
+  if (popup.style.display === 'flex' && popup.dataset.col === col) {
+    popup.style.display = 'none';
+    return;
+  }
+  popup.dataset.col = col;
+
+  // 取得所有選項
+  var today = new Date(); today.setHours(0,0,0,0);
+  var opts = [];
+  var current = [];
+  if (col === 'source') {
+    opts = ['手動','轉入'];
+    current = (_keyinColFilters.source||[]).slice();
+  } else if (col === 'dept') {
+    var dMap = {};
+    allKeyinItems.forEach(function(m) { dMap[m.dept||''] = 1; });
+    opts = Object.keys(dMap).sort();
+    current = (_keyinColFilters.dept||[]).slice();
+  } else if (col === 'direction') {
+    opts = ['receivable','payable'];
+    current = (_keyinColFilters.direction||[]).slice();
+    // 顯示用
+  } else if (col === 'category') {
+    var cMap = {};
+    allKeyinItems.forEach(function(m) { cMap[m.category||''] = 1; });
+    opts = Object.keys(cMap).sort();
+    current = (_keyinColFilters.category||[]).slice();
+  } else if (col === 'status') {
+    opts = ['unpaid','overdue','done'];
+    current = (_keyinColFilters.status||[]).slice();
+  } else if (col === 'currency') {
+    var curMap = {};
+    allKeyinItems.forEach(function(m) { curMap[(m.currency||'TWD').toUpperCase()] = 1; });
+    opts = sortedCurKeys ? sortedCurKeys(curMap) : Object.keys(curMap).sort();
+    current = (_keyinColFilters.currency||[]).slice();
+  } else if (col === 'amount') {
+    // 數值範圍輸入
+    popup.innerHTML = '<div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--ink);">金額範圍篩選</div>'
+      + '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">'
+      + '<input id="kcf-amtMin" type="number" placeholder="最小" value="'+((_keyinColFilters.amtMin!==undefined)?_keyinColFilters.amtMin:'')+'" style="width:80px;padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;">'
+      + '<span style="color:var(--muted);">—</span>'
+      + '<input id="kcf-amtMax" type="number" placeholder="最大" value="'+((_keyinColFilters.amtMax!==undefined)?_keyinColFilters.amtMax:'')+'" style="width:80px;padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;">'
+      + '</div>'
+      + '<div style="display:flex;gap:8px;">'
+      + '<button onclick="applyKeyinColFilterRange(\'amount\')" style="flex:1;padding:6px;border-radius:6px;background:var(--sea);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;">套用</button>'
+      + '<button onclick="clearKeyinColFilter(\'amount\')" style="flex:1;padding:6px;border-radius:6px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">清除</button>'
+      + '</div>';
+    positionKeyinPopup(btn);
+    popup.style.display = 'flex';
+    return;
+  } else if (col === 'dueDate') {
+    popup.innerHTML = '<div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--ink);">日期範圍篩選</div>'
+      + '<div style="margin-bottom:6px;"><label style="font-size:11px;color:var(--muted);">從</label><input id="kcf-dateFrom" type="date" value="'+(_keyinColFilters.dateFrom||'')+'" style="width:100%;padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-top:2px;"></div>'
+      + '<div style="margin-bottom:8px;"><label style="font-size:11px;color:var(--muted);">到</label><input id="kcf-dateTo" type="date" value="'+(_keyinColFilters.dateTo||'')+'" style="width:100%;padding:5px;border:1px solid var(--border);border-radius:6px;font-size:12px;margin-top:2px;"></div>'
+      + '<div style="display:flex;gap:8px;">'
+      + '<button onclick="applyKeyinColFilterRange(\'dueDate\')" style="flex:1;padding:6px;border-radius:6px;background:var(--sea);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;">套用</button>'
+      + '<button onclick="clearKeyinColFilter(\'dueDate\')" style="flex:1;padding:6px;border-radius:6px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">清除</button>'
+      + '</div>';
+    positionKeyinPopup(btn);
+    popup.style.display = 'flex';
+    return;
+  }
+
+  // 複選 checkbox
+  var labelMap = { receivable:'↑ 應收', payable:'↓ 應付', unpaid:'⏳ 待收付', overdue:'⚠️ 逾期', done:'✅ 已完成' };
+  var html = '<div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--ink);">篩選：'
+    + { source:'來源', dept:'部門', direction:'方向', category:'類別', status:'狀態', currency:'幣別' }[col]
+    + '</div>';
+  opts.forEach(function(v) {
+    var checked = current.indexOf(v) >= 0 ? 'checked' : '';
+    var label = labelMap[v] || v;
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:4px 2px;cursor:pointer;font-size:13px;">'
+      + '<input type="checkbox" value="'+v+'" '+checked+' style="width:15px;height:15px;cursor:pointer;" onchange="toggleKeyinColFilterOpt(\''+col+'\',this.value,this.checked)">'
+      + label + '</label>';
+  });
+  html += '<div style="display:flex;gap:8px;margin-top:10px;">'
+    + '<button onclick="clearKeyinColFilter(\''+col+'\')" style="flex:1;padding:6px;border-radius:6px;background:#f1f5f9;color:var(--muted);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;">清除</button>'
+    + '<button onclick="document.getElementById(\'keyin-col-filter-popup\').style.display=\'none\'" style="flex:1;padding:6px;border-radius:6px;background:var(--sea);color:#fff;border:none;font-size:12px;font-weight:700;cursor:pointer;">關閉</button>'
+    + '</div>';
+  popup.innerHTML = html;
+  positionKeyinPopup(btn);
+  popup.style.display = 'flex';
+}
+
+function positionKeyinPopup(btn) {
+  var popup = document.getElementById('keyin-col-filter-popup');
+  if (!popup || !btn) return;
+  var rect = btn.getBoundingClientRect();
+  var top = rect.bottom + 4;
+  var left = rect.left;
+  // 超出右邊界時往左
+  if (left + 220 > window.innerWidth) left = window.innerWidth - 224;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+}
+
+function toggleKeyinColFilterOpt(col, val, checked) {
+  if (!_keyinColFilters[col]) _keyinColFilters[col] = [];
+  var arr = _keyinColFilters[col];
+  if (checked) {
+    if (arr.indexOf(val) < 0) arr.push(val);
+  } else {
+    var idx = arr.indexOf(val);
+    if (idx >= 0) arr.splice(idx, 1);
+  }
+  _keyinPage = 1;
+  renderKeyin();
+}
+
+function applyKeyinColFilterRange(col) {
+  if (col === 'amount') {
+    _keyinColFilters.amtMin = document.getElementById('kcf-amtMin') ? document.getElementById('kcf-amtMin').value : '';
+    _keyinColFilters.amtMax = document.getElementById('kcf-amtMax') ? document.getElementById('kcf-amtMax').value : '';
+  } else if (col === 'dueDate') {
+    _keyinColFilters.dateFrom = document.getElementById('kcf-dateFrom') ? document.getElementById('kcf-dateFrom').value : '';
+    _keyinColFilters.dateTo   = document.getElementById('kcf-dateTo')   ? document.getElementById('kcf-dateTo').value   : '';
+  }
+  _keyinPage = 1;
+  document.getElementById('keyin-col-filter-popup').style.display = 'none';
+  renderKeyin();
+}
+
+function clearKeyinColFilter(col) {
+  if (col === 'amount') {
+    delete _keyinColFilters.amtMin;
+    delete _keyinColFilters.amtMax;
+  } else if (col === 'dueDate') {
+    delete _keyinColFilters.dateFrom;
+    delete _keyinColFilters.dateTo;
+  } else {
+    delete _keyinColFilters[col];
+  }
+  _keyinPage = 1;
+  document.getElementById('keyin-col-filter-popup').style.display = 'none';
+  renderKeyin();
+}
+
+// 點擊頁面其他地方時關閉 popup
+document.addEventListener('click', function() {
+  var popup = document.getElementById('keyin-col-filter-popup');
+  if (popup) popup.style.display = 'none';
+});
+
+// ── 匯出 Excel ────────────────────────────────────────
+function exportKeyinExcel() {
+  if (!window.XLSX) { alert('XLSX 函式庫未載入，請重新整理頁面'); return; }
+  var items = _keyinDisplayItems;
+  if (!items || !items.length) { alert('目前無資料可匯出'); return; }
+  var today = new Date();
+  var todayStr = today.toISOString().slice(0,10);
+  var today0 = new Date(); today0.setHours(0,0,0,0);
+
+  // 格式依 AP_demo.xlsx：
+  // Row1: A1=付款統計表
+  // Row2: A2=拋出日：  B2=YYYY-MM-DD
+  // Row3: 部門 | 狀態 | 付款日 | 類別 | 備註 | NTD | USD | JPY | EUR | ZAR
+  // Row4+: 資料，幣別金額拆至對應欄，其餘留空
+
+  var rows = [
+    ['付款統計表'],
+    ['拋出日：', todayStr],
+    ['部門','狀態','付款日','類別','備註','NTD','USD','JPY','EUR','ZAR']
+  ];
+
+  items.forEach(function(m) {
+    var dd  = m.dueDate ? new Date(m.dueDate) : null;
+    var isOv = !m.isPaid && dd && dd < today0;
+    var st  = m.isPaid ? '已完成' : isOv ? '逾期' : ('待'+(m.direction==='receivable'?'收':'付'));
+    var cur = (m.currency || 'TWD').toUpperCase();
+    // NTD/TWD 都對應第 F 欄（index 5）
+    var curMap = { NTD:5, TWD:5, USD:6, JPY:7, EUR:8, ZAR:9 };
+    var dataRow = [m.dept||'', st, m.dueDate||'', m.category||'', m.note||'', null, null, null, null, null];
+    var colIdx = curMap[cur];
+    if (colIdx !== undefined) dataRow[colIdx] = parseFloat(m.amount) || 0;
+    // 付款日欄位設為 Date 物件，Excel 可辨識為日期型別
+    if (m.dueDate) {
+      dataRow[2] = new Date(m.dueDate + 'T00:00:00');
+    }
+    rows.push(dataRow);
+  });
+
+  var ws = XLSX.utils.aoa_to_sheet(rows, { cellDates: true });
+
+  // 日期格式（C欄，0-based col=2，從 Row4 起）
+  var range = XLSX.utils.decode_range(ws['!ref']);
+  for (var r = 3; r <= range.e.r; r++) {
+    var cellAddr = XLSX.utils.encode_cell({ r: r, c: 2 });
+    if (ws[cellAddr] && ws[cellAddr].t === 'd') {
+      ws[cellAddr].z = 'YYYY-MM-DD';
+    }
+  }
+
+  // 欄寬
+  ws['!cols'] = [
+    {wch:10},{wch:10},{wch:12},{wch:10},{wch:28},
+    {wch:14},{wch:14},{wch:14},{wch:14},{wch:14}
+  ];
+  // Row1 標題橫跨 A~J
+  ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:9} }];
+
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '收單記錄');
+  var fname = '收單記錄_' + todayStr.replace(/-/g,'') + '.xlsx';
+  XLSX.writeFile(wb, fname);
+}
 </script>
+<!-- 收單記錄 欄位篩選浮動面板 -->
+<div id="keyin-col-filter-popup" onclick="event.stopPropagation()" style="position:fixed;z-index:9999;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:200px;max-height:320px;display:none;flex-direction:column;gap:8px;overflow-y:auto;"></div>
 </body>
 </html>
