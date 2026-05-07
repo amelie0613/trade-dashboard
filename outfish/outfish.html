@@ -14,13 +14,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSystemFont,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:15px;color:#1c1c1e}
+html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSystemFont,'PingFang TC','Microsoft JhengHei',sans-serif;font-size:17px;color:#1c1c1e}
 .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
 .header{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:12px 16px}
 .sticky-top{position:sticky;top:0;z-index:200;background:#fff}
 .header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.header-title{font-size:17px;font-weight:600;letter-spacing:-0.3px}
-.badge{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;background:#e1f5ee;color:#0f6e56}
+.header-title{font-size:20px;font-weight:600;letter-spacing:-0.3px}
+.badge{padding:3px 10px;border-radius:12px;font-size:14px;font-weight:600;background:#e1f5ee;color:#0f6e56}
 .summary-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .summary-scroll::-webkit-scrollbar{display:none}
 .sum-card{background:#f2f2f7;border-radius:10px;padding:9px 14px;flex-shrink:0;min-width:130px}
@@ -28,27 +28,27 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
 .sum-value{font-size:20px;font-weight:600;color:#1c1c1e;white-space:nowrap}
 .sum-unit{font-size:11px;color:#8e8e93;font-weight:400;margin-left:2px}
 .tab-bar{display:flex;background:#fff;border-bottom:0.5px solid #d1d1d6;position:sticky;top:0;z-index:190}
-.tab{flex:1;padding:11px 4px;text-align:center;font-size:13px;cursor:pointer;color:#8e8e93;border-bottom:2.5px solid transparent;transition:color .15s,border-color .15s;font-weight:500}
+.tab{flex:1;padding:11px 4px;text-align:center;font-size:15px;cursor:pointer;color:#8e8e93;border-bottom:2.5px solid transparent;transition:color .15s,border-color .15s;font-weight:500}
 .tab.active{color:#1d9e75;border-bottom-color:#1d9e75}
 .filter-bar{background:#fff;border-bottom:0.5px solid #d1d1d6;padding:10px 16px;display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .filter-bar::-webkit-scrollbar{display:none}
 .chip{border:1px solid #d1d1d6;border-radius:20px;padding:5px 13px;font-size:13px;cursor:pointer;white-space:nowrap;background:#fff;color:#3a3a3c;transition:all .15s;-webkit-user-select:none;user-select:none}
 .chip.active{background:#1d9e75;border-color:#1d9e75;color:#fff;font-weight:600}
 .search-wrap{padding:10px 16px;background:#fff;border-bottom:0.5px solid #d1d1d6}
-.search-input{width:100%;border:1px solid #d1d1d6;border-radius:10px;padding:8px 14px;font-size:15px;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none}
+.search-input{width:100%;border:1px solid #d1d1d6;border-radius:10px;padding:9px 14px;font-size:17px;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none}
 .search-input:focus{border-color:#1d9e75}
-.group-header{font-size:12px;font-weight:600;color:#0f6e56;background:#e8f7f1;padding:6px 16px;border-bottom:0.5px solid #c3e8d8;letter-spacing:.2px}
-.item-row{background:#fff;border-bottom:0.5px solid #f2f2f7;padding:11px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-user-select:none;user-select:none;transition:background .1s}
+.group-header{font-size:14px;font-weight:600;color:#0f6e56;background:#e8f7f1;padding:6px 16px;border-bottom:0.5px solid #c3e8d8;letter-spacing:.2px}
+.item-row{background:#fff;border-bottom:0.5px solid #f2f2f7;padding:13px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;-webkit-user-select:none;user-select:none;transition:background .1s}
 .item-row:active{background:#f2f2f7}
-.check-box{width:24px;height:24px;border-radius:7px;border:2px solid #c7c7cc;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:14px;color:#fff}
+.check-box{width:28px;height:28px;border-radius:8px;border:2px solid #c7c7cc;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:16px;color:#fff}
 .check-box.on{background:#1d9e75;border-color:#1d9e75}
 .item-body{flex:1;min-width:0}
-.item-name{font-size:14px;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1c1c1e}
-.item-meta{font-size:12px;color:#8e8e93;display:flex;gap:10px;flex-wrap:wrap}
+.item-name{font-size:16px;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1c1c1e}
+.item-meta{font-size:14px;color:#8e8e93;display:flex;gap:10px;flex-wrap:wrap}
 .item-meta span{white-space:nowrap}
 .item-right{text-align:right;flex-shrink:0}
-.item-qty{font-size:16px;font-weight:700;color:#1d9e75}
-.item-unit{font-size:11px;color:#8e8e93}
+.item-qty{font-size:19px;font-weight:700;color:#1d9e75}
+.item-unit{font-size:13px;color:#8e8e93}
 .empty{text-align:center;padding:48px 16px;color:#8e8e93;font-size:14px}
 .sec-title{padding:12px 16px 6px;font-size:12px;color:#8e8e93;letter-spacing:.4px;text-transform:uppercase;font-weight:500}
 .settings-block{background:#fff;border-top:0.5px solid #d1d1d6;border-bottom:0.5px solid #d1d1d6}
@@ -109,9 +109,9 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
 .planned-col-remain{font-size:11px;color:#8e8e93;font-weight:500;text-align:center}
 .planned-rows{display:flex;flex-direction:column;gap:5px}
 .planned-row{display:grid;grid-template-columns:1fr 130px 110px;gap:8px;align-items:center}
-.planned-label{font-size:13px;font-weight:600;color:#1c1c1e;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.planned-label{font-size:15px;font-weight:600;color:#1c1c1e;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .planned-input-wrap{display:flex;align-items:center;gap:4px}
-.planned-input{flex:1;min-width:0;border:1.5px solid #d1d1d6;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:600;text-align:right;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none}
+.planned-input{flex:1;min-width:0;border:1.5px solid #d1d1d6;border-radius:8px;padding:6px 10px;font-size:16px;font-weight:600;text-align:right;background:#f2f2f7;color:#1c1c1e;outline:none;-webkit-appearance:none}
 .planned-input:focus{border-color:#1d9e75;background:#fff}
 .planned-unit{font-size:11px;color:#8e8e93;white-space:nowrap}
 .remain-cell{display:flex;align-items:center;gap:4px;justify-content:center}
@@ -199,7 +199,7 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
   </div><!-- end sticky-top -->
   <div id="view-list">
     <div class="search-wrap">
-      <input class="search-input" type="search" placeholder="搜尋產品、批號、儲位…" id="search-input" oninput="renderList()">
+      <input class="search-input" type="search" inputmode="numeric" placeholder="搜尋產品、批號、儲位…" id="search-input" oninput="renderList()">
     </div>
     <div id="list-area" style="padding-bottom:80px"></div>
   </div>
@@ -249,8 +249,6 @@ html,body{height:100%;background:#f2f2f7;font-family:-apple-system,BlinkMacSyste
 </div>
 
 <div class="bottom-bar" id="bottom-bar" style="display:none">
-  <button class="btn" onclick="clearAll()">清除選取</button>
-  <button class="btn" onclick="selectAll()">全選目前</button>
   <button class="btn green" onclick="saveAndBackup()">💾 儲存</button>
 </div>
 
@@ -504,7 +502,20 @@ function renderList(){
   });
   el.innerHTML=html; updateSummary();
 }
-function toggleCheck(id){ checked.has(id)?checked.delete(id):checked.add(id); renderList(); }
+function toggleCheck(id){ checked.has(id)?checked.delete(id):checked.add(id); renderList(); autoBackup(); }
+async function autoBackup(){
+  if(!gdToken||!checked.size) return;
+  try{
+    const payload={...buildExportPayload(),plannedQty};
+    const existing=await gdFindFile(ORDER_FILENAME);
+    await gdWriteFile(ORDER_FILENAME,payload,existing?.id);
+    const toast=document.createElement('div');
+    toast.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1d9e75;color:#fff;padding:8px 20px;border-radius:20px;font-size:14px;font-weight:600;z-index:999;box-shadow:0 2px 12px rgba(0,0,0,.18)';
+    toast.textContent='✅ 已自動備份';
+    document.body.appendChild(toast);
+    setTimeout(()=>toast.remove(),1800);
+  }catch(e){}
+}
 function clearAll(){ checked.clear(); renderList(); }
 function selectAll(){ getFiltered().forEach(r=>checked.add(r._id)); renderList(); }
 
