@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>發票查詢工具 v5.1 - 貿易大漁</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -38,19 +38,10 @@
     .status { font-size: .7rem; color: #b09090; margin-left: auto; white-space: nowrap; }
     .sbadge { background: #f7d96b; color: #7a4a00; padding: .12rem .45rem; border-radius: 4px; font-size: .66rem; font-weight: 700; margin-left: .25rem; }
     .sbadge.ok { background: #c8e6c9; color: #1b5e20; }
-    .sbadge.uploading { background: #fff9c4; color: #f57f17; }
 
     /* ── 上傳區域 ── */
-    .upload-area {
-      position: relative;
-      margin-bottom: 1.2rem;
-    }
-    .file-input {
-      display: none;
-    }
-    .file-label {
-      display: inline-block;
-    }
+    .file-input { display: none; }
+    .file-label { display: inline-block; }
 
     /* ── 發票標題列 ── */
     .inv-title {
@@ -93,21 +84,17 @@
     .src-ref  { color: #5a7aaa; font-size: .76rem; font-family: monospace; }
     .none-val { color: #ccc; font-size: .72rem; }
 
-    /* 無結果 */
     .no-result { text-align: center; padding: 2.5rem; color: #c0a0a0;
       background: #fff; border-radius: 12px; border: 1px dashed #e8d0d0; }
 
-    /* 訊息 */
     .message { padding: 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: .8rem; }
     .message.success { background: #e8f5e9; color: #2e7d32; border-left: 3px solid #81c784; }
     .message.error { background: #ffebee; color: #c62828; border-left: 3px solid #ef5350; }
     .message.info { background: #e3f2fd; color: #1565c0; border-left: 3px solid #64b5f6; }
 
-    /* 進度條 */
     .progress { width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; margin-bottom: 1rem; }
     .progress-bar { height: 100%; background: linear-gradient(90deg, #f2a7c3, #e8836a); width: 0%; transition: width .3s; }
 
-    /* 工具列 */
     .toolbar { margin-bottom: 1.2rem; display: flex; gap: .5rem; flex-wrap: wrap; }
     .toolbar button { font-size: .75rem; padding: .3rem .6rem; }
   </style>
@@ -133,8 +120,8 @@
   </div>
 
   <!-- 上傳 Excel 區 -->
-  <div class="upload-area">
-    <div style="display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem;">
+  <div style="margin-bottom: 1.2rem;">
+    <div style="display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;">
       <label class="btn btn-secondary file-label">
         📁 上傳 Excel
         <input type="file" id="excelFile" accept=".xlsx,.xlsm" class="file-input" onchange="handleExcelUpload(event)">
@@ -163,7 +150,6 @@
 </div>
 
 <script>
-// ── 全域狀態 ──
 let MONTH = '202604';
 let INDEX = {};
 
@@ -190,7 +176,6 @@ const SAMPLE = {
   }
 };
 
-// ── 初始化 ──
 window.addEventListener('load', () => {
   loadFromCache();
   if (Object.keys(INDEX).length === 0) {
@@ -202,7 +187,6 @@ window.addEventListener('load', () => {
   }
 });
 
-// ── 快取管理 ──
 function saveToCache() {
   const key = `invoice_v51_${MONTH}`;
   localStorage.setItem(key, JSON.stringify(INDEX));
@@ -243,7 +227,6 @@ function updateStatusBadge() {
   }
 }
 
-// ── 月份載入 ──
 async function loadMonth() {
   const m = document.getElementById('monthInput').value.trim();
   if (!/^\d{6}$/.test(m)) { 
@@ -270,10 +253,14 @@ async function loadMonth() {
   document.getElementById('toolbarArea').style.display = 'flex';
 }
 
-// ── Excel 轉換 ──
 function handleExcelUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
+
+  if (typeof XLSX === 'undefined') {
+    showMessage('❌ SheetJS 庫尚未載入，請稍候…', 'error');
+    return;
+  }
 
   document.getElementById('uploadStatus').textContent = '處理中…';
   document.getElementById('progressArea').style.display = 'block';
@@ -322,10 +309,8 @@ function handleExcelUpload(event) {
 function convertExcelToJSON(workbook) {
   INDEX = {};
   const sheetNames = workbook.SheetNames;
-  let totalProcessed = 0;
 
   sheetNames.forEach((sheetName) => {
-    // 跳過目錄表
     if (sheetName.includes('NEW') || sheetName === '返回目錄') return;
 
     try {
@@ -334,7 +319,6 @@ function convertExcelToJSON(workbook) {
       
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-      // 找表頭（包含「來源」的行）
       let headerRow = -1;
       for (let i = 0; i < Math.min(10, rows.length); i++) {
         const firstCell = rows[i] && rows[i][0];
@@ -345,12 +329,10 @@ function convertExcelToJSON(workbook) {
       }
       if (headerRow === -1) return;
 
-      // 解析資料列
       for (let i = headerRow + 1; i < rows.length; i++) {
         const row = rows[i];
         if (!row || !row[0]) continue;
 
-        // 提取每個欄位
         const source_type = String(row[0] || '').trim();
         const unit_no = row[1];
         const invoice_no = row[2];
@@ -362,19 +344,16 @@ function convertExcelToJSON(workbook) {
         const total_price = parseFloat(row[8]) || 0;
         const notes = (row[14] || '').toString().trim();
 
-        // 篩選：只要銷項發票 + 有發票號或客戶
         if (!source_type.includes('銷項')) continue;
         if (!invoice_no && !customer) continue;
 
         const inv_key = String(invoice_no || customer).trim();
         if (!inv_key) continue;
 
-        // 初始化發票
         if (!INDEX[inv_key]) {
           INDEX[inv_key] = { invoice_no: inv_key, details: [] };
         }
 
-        // 添加明細
         INDEX[inv_key].details.push({
           sale_type: '銷售發票',
           date: formatDate(unit_no),
@@ -387,8 +366,6 @@ function convertExcelToJSON(workbook) {
           notes: notes || (customer || '').toString().trim(),
           source: null
         });
-
-        totalProcessed++;
       }
     } catch (err) {
       console.error(`Sheet ${sheetName} 處理失敗:`, err);
@@ -425,7 +402,6 @@ function showMessage(msg, type = 'info') {
   setTimeout(() => { msgDiv.innerHTML = ''; }, 5000);
 }
 
-// ── 搜尋 ──
 function search() {
   const q = document.getElementById('invInput').value.trim().toUpperCase();
   const out = document.getElementById('results');
@@ -490,7 +466,6 @@ function renderInvoice(inv) {
 function fmt(n) { return n != null ? Number(n).toLocaleString() : ''; }
 function dash(v) { return v ? v : '<span class="none-val">—</span>'; }
 
-// ── 導出 ──
 function downloadJSON() {
   const json = JSON.stringify(INDEX, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
@@ -526,7 +501,6 @@ function clearAllData() {
   }
 }
 
-// ── 事件監聽 ──
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('invInput').addEventListener('keydown', e => { 
     if (e.key === 'Enter') search(); 
