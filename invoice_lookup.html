@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>發票查詢工具 v5.2 - 貿易大漁</title>
+  <title>發票查詢工具 v5.3 - 貿易大漁</title>
   <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -97,8 +97,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🐟 發票查詢工具 v5.2</h1>
-  <p class="subtitle">銷售發票 + 進項來源 / 供應商 / 批號 | Excel 轉換 + 本機快取</p>
+  <h1>🐟 發票查詢工具 v5.3</h1>
+  <p class="subtitle">銷售發票 + 進項報單關聯 | 報單號 + 批號 | Excel 轉換</p>
 
   <div class="search-bar">
     <label>月份</label>
@@ -145,6 +145,7 @@
 <script>
 let MONTH = '202604';
 let INDEX = {};
+let IMPORT_RECORDS = {};  // 進項報單索引
 
 const SAMPLE = {
   "ZF08444613": {
@@ -169,12 +170,12 @@ window.addEventListener('load', () => {
 });
 
 function saveToCache() {
-  const key = `invoice_v52_${MONTH}`;
+  const key = `invoice_v53_${MONTH}`;
   localStorage.setItem(key, JSON.stringify(INDEX));
 }
 
 function loadFromCache() {
-  const key = `invoice_v52_${MONTH}`;
+  const key = `invoice_v53_${MONTH}`;
   const cached = localStorage.getItem(key);
   if (cached) {
     try {
@@ -188,7 +189,7 @@ function loadFromCache() {
 function updateStatusBadge() {
   const count = Object.keys(INDEX).length;
   const isSample = count === 1 && INDEX['ZF08444613'];
-  const isCached = localStorage.getItem(`invoice_v52_${MONTH}`);
+  const isCached = localStorage.getItem(`invoice_v53_${MONTH}`);
   
   let text = `${MONTH} `;
   if (isSample) {
@@ -256,7 +257,6 @@ function handleExcelUpload(event) {
   };
   
   reader.onload = (e) => {
-    // 延遲執行，讓 UI 更新
     setTimeout(() => {
       try {
         const data = new Uint8Array(e.target.result);
@@ -265,7 +265,6 @@ function handleExcelUpload(event) {
         setProgress(10);
         updateProgress('解析 Excel 中…');
         
-        // 異步轉換，避免阻塞 UI
         setTimeout(() => {
           convertExcelToJSONAsync(workbook, () => {
             setProgress(100);
@@ -300,21 +299,20 @@ function handleExcelUpload(event) {
 
 function convertExcelToJSONAsync(workbook, callback) {
   INDEX = {};
+  IMPORT_RECORDS = {};
   const sheetNames = workbook.SheetNames;
-  let processedSheets = 0;
 
-  // 逐 Sheet 處理（避免一次全部卡住）
   function processNextSheet(sheetIndex) {
     if (sheetIndex >= sheetNames.length) {
+      linkSourceToDetails();  // 第二步：關聯進項到銷項
       callback();
       return;
     }
 
     const sheetName = sheetNames[sheetIndex];
     updateProgress(`處理 ${sheetIndex + 1}/${sheetNames.length}: ${sheetName}`);
-    setProgress(Math.round((sheetIndex / sheetNames.length) * 90) + 10);
+    setProgress(Math.round((sheetIndex / sheetNames.length) * 80) + 10);
 
-    // 延遲處理下一個 Sheet，讓瀏覽器有機會更新 UI
     setTimeout(() => {
       processSheet(sheetName);
       processNextSheet(sheetIndex + 1);
@@ -340,7 +338,6 @@ function convertExcelToJSONAsync(workbook, callback) {
       }
       if (headerRow === -1) return;
 
-      // 只處理前 500 行（避免超大檔案）
       const maxRows = Math.min(rows.length, headerRow + 501);
       for (let i = headerRow + 1; i < maxRows; i++) {
         const row = rows[i];
@@ -349,19 +346,33 @@ function convertExcelToJSONAsync(workbook, callback) {
         try {
           const source_type = String(row[0] || '').trim();
           const unit_no = row[1];
-          const invoice_no = row[2];
+          const ref_no = row[2];
           const customer = row[3];
           const product = row[4];
           const qty = parseFloat(row[5]) || 0;
           const unit = (String(row[6] || 'KG').replace(/\s+/g, '').trim()) || 'KG';
           const price = parseFloat(row[7]) || 0;
           const total_price = parseFloat(row[8]) || 0;
-          const notes = (row[14] || '').toString().trim();
+          const batch_info = (row[14] || '').toString().trim();
 
+          // 第一步：先記錄所有進項報單
+          if (source_type.includes('進口報單') || source_type.includes('進項')) {
+            const batch = extractBatch(batch_info);
+            IMPORT_RECORDS[ref_no] = {
+              ref_no: ref_no,
+              product: product,
+              qty: qty,
+              batch: batch,
+              supplier: customer
+            };
+            continue;
+          }
+
+          // 只處理銷項發票
           if (!source_type.includes('銷項')) continue;
-          if (!invoice_no && !customer) continue;
+          if (!ref_no && !customer) continue;
 
-          const inv_key = String(invoice_no || customer).trim();
+          const inv_key = String(ref_no || customer).trim();
           if (!inv_key) continue;
 
           if (!INDEX[inv_key]) {
@@ -377,8 +388,9 @@ function convertExcelToJSONAsync(workbook, callback) {
             unit: unit,
             price: price,
             total_price: total_price,
-            notes: notes || (customer || '').toString().trim(),
-            source: null
+            notes: (customer || '').toString().trim(),
+            source: null,
+            _ref_no: ref_no  // 臨時欄位，用於關聯
           });
         } catch (e) {
           console.warn(`行 ${i} 解析失敗:`, e);
@@ -389,7 +401,32 @@ function convertExcelToJSONAsync(workbook, callback) {
     }
   }
 
+  // 第二步：把進項報單關聯到銷項發票
+  function linkSourceToDetails() {
+    Object.values(INDEX).forEach(invoice => {
+      invoice.details.forEach(detail => {
+        if (detail._ref_no && IMPORT_RECORDS[detail._ref_no]) {
+          const imp = IMPORT_RECORDS[detail._ref_no];
+          detail.source = {
+            type: '進口報單',
+            ref_no: detail._ref_no,
+            supplier: imp.supplier,
+            batch: imp.batch
+          };
+        }
+        delete detail._ref_no;  // 清掉臨時欄位
+      });
+    });
+  }
+
   processNextSheet(0);
+}
+
+function extractBatch(text) {
+  if (!text) return null;
+  // 從 "入大漁 20240308-002" 提取批號 "20240308-002"
+  const match = text.match(/(\d{8}-\d{3})/);
+  return match ? match[1] : text;
 }
 
 function formatDate(val) {
@@ -515,7 +552,7 @@ function copyJSON() {
 function clearAllData() {
   if (confirm('確定要清除此月份的所有資料嗎？')) {
     INDEX = {};
-    localStorage.removeItem(`invoice_v52_${MONTH}`);
+    localStorage.removeItem(`invoice_v53_${MONTH}`);
     document.getElementById('results').innerHTML = '';
     document.getElementById('messages').innerHTML = '';
     document.getElementById('uploadStatus').textContent = '';
