@@ -419,7 +419,7 @@ async function importAndUpload(e){
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
       if(!rows.length){ hideLoading(); alert('Excel 沒有資料'); return; }
-      data=rows.map((r,i)=>({核算組織名稱:r['核算組織名稱']||'',產品類別:r['產品類別']||'',產品代碼:String(r['產品代碼']||''),產品名稱:r['產品名稱']||'',產品規格:r['產品規格']||'',庫存數量:Number(r['庫存數量'])||0,基本單位名稱:r['基本單位名稱']||'',倉庫名稱:r['倉庫名稱']||'',批號:String(r['批號']||''),儲位名稱:String(r['儲位名稱']||''),_id:i}));
+      data=rows.map((r,i)=>({核算組織名稱:r['核算組織名稱']||'',產品類別:r['產品類別']||'',產品代碼:String(r['產品代碼']||''),產品名稱:r['產品名稱']||'',產品規格:r['產品規格']||'',庫存數量:Number(r['庫存數量'])||0,基本單位名稱:r['基本單位名稱']||r['基本單位']||'',倉庫名稱:r['倉庫名稱']||r['倉庫']||'',批號:String(r['批號']||''),儲位名稱:String(r['儲位名稱']||r['儲位']||''),_id:i}));
       document.getElementById('loading-text').textContent='上傳庫存到雲端…';
       const existing=await gdFindFile(INVENTORY_FILENAME);
       await gdWriteFile(INVENTORY_FILENAME,data,existing?.id);
@@ -688,7 +688,7 @@ function importXLSX(e,fromWelcome){
     try{
       const wb=XLSX.read(ev.target.result,{type:'binary'}); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
       if(!rows.length){ hideLoading(); alert('Excel 沒有資料'); return; }
-      data=rows.map((r,i)=>({核算組織名稱:r['核算組織名稱']||'',產品類別:r['產品類別']||'',產品代碼:String(r['產品代碼']||''),產品名稱:r['產品名稱']||'',產品規格:r['產品規格']||'',庫存數量:Number(r['庫存數量'])||0,基本單位名稱:r['基本單位名稱']||'',倉庫名稱:r['倉庫名稱']||'',批號:String(r['批號']||''),儲位名稱:String(r['儲位名稱']||''),_id:i}));
+      data=rows.map((r,i)=>({核算組織名稱:r['核算組織名稱']||'',產品類別:r['產品類別']||'',產品代碼:String(r['產品代碼']||''),產品名稱:r['產品名稱']||'',產品規格:r['產品規格']||'',庫存數量:Number(r['庫存數量'])||0,基本單位名稱:r['基本單位名稱']||r['基本單位']||'',倉庫名稱:r['倉庫名稱']||r['倉庫']||'',批號:String(r['批號']||''),儲位名稱:String(r['儲位名稱']||r['儲位']||''),_id:i}));
       checked.clear(); resetPlannedRows(); renderList(); hideLoading(); enterApp();
       if(!fromWelcome) alert('✅ 匯入完成，共 '+rows.length+' 筆');
     }catch(err){ hideLoading(); alert('讀取失敗：'+err.message); }
