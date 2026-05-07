@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>發票查詢工具 - 貿易大漁</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+            background: linear-gradient(135deg, rgba(242, 167, 195, 0.05) 0%, rgba(126, 200, 227, 0.05) 100%);
+            padding: 2rem 1rem;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .page-title {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #2D2D2D;
+        }
+        
+        .page-title h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .page-title p {
+            font-size: 14px;
+            color: #999;
+        }
+        
+        .header-section {
+            background: white;
+            border: 0.5px solid #E8836A;
+            border-radius: 18px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        
+        .month-selector {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+        }
+        
+        .month-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2D2D2D;
+            min-width: 80px;
+        }
+        
+        .month-input {
+            padding: 0.6rem 1rem;
+            border: 0.5px solid #D3D1C7;
+            border-radius: 8px;
+            font-size: 14px;
+            width: 140px;
+            transition: all 0.2s;
+        }
+        
+        .month-input:focus {
+            outline: none;
+            border-color: #E8836A;
+            box-shadow: 0 0 0 3px rgba(232, 131, 106, 0.1);
+        }
+        
+        .search-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2D2D2D;
+            margin-bottom: 0.5rem;
+            display: block;
+            margin-top: 1rem;
+        }
+        
+        .search-input-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 0.5px solid #D3D1C7;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+            transition: all 0.2s;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #E8836A;
+            box-shadow: 0 0 0 3px rgba(232, 131, 106, 0.1);
+        }
+        
+        button {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #F2A7C3 0%, #E8836A 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(232, 131, 106, 0.3);
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        .info-text {
+            font-size: 13px;
+            color: #999;
+            margin-top: 0.75rem;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            background: #F7D96B;
+            color: #633806;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+        
+        .results-section {
+            display: none;
+        }
+        
+        .results-section.active {
+            display: block;
+        }
+        
+        .result-card {
+            background: white;
+            border: 0.5px solid #E5E2D9;
+            border-radius: 18px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+        
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 0.5px solid #E5E2D9;
+        }
+        
+        .invoice-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2D2D2D;
+        }
+        
+        .invoice-meta {
+            font-size: 13px;
+            color: #999;
+            margin-top: 0.25rem;
+        }
+        
+        .record-count {
+            background: linear-gradient(135deg, #F2A7C3, #E8836A);
+            color: white;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.75rem;
+            font-size: 13px;
+        }
+        
+        .details-table th {
+            background: linear-gradient(135deg, rgba(242, 167, 195, 0.1) 0%, rgba(126, 200, 227, 0.1) 100%);
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            color: #6B5B95;
+            border-bottom: 0.5px solid #E5E2D9;
+        }
+        
+        .details-table td {
+            padding: 0.75rem;
+            border-bottom: 0.5px solid #E5E2D9;
+            color: #2D2D2D;
+        }
+        
+        .details-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .source-badge {
+            display: inline-block;
+            background: #F7D96B;
+            color: #633806;
+            padding: 0.3rem 0.6rem;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .qty-cell {
+            font-weight: 600;
+            color: #E8836A;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 2rem;
+            color: #999;
+        }
+        
+        .no-results-icon {
+            font-size: 32px;
+            margin-bottom: 0.75rem;
+            opacity: 0.5;
+        }
+        
+        .summary-row {
+            background: linear-gradient(135deg, rgba(242, 167, 195, 0.06) 0%, rgba(126, 200, 227, 0.06) 100%);
+            font-weight: 600;
+            border-top: 1px solid #D3D1C7 !important;
+        }
+        
+        .footer-text {
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            margin-top: 2rem;
+            padding: 1rem;
+            border-top: 0.5px solid #E5E2D9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-title">
+            <h1>🔍 發票查詢工具</h1>
+            <p>快速查找庫存表中的發票明細</p>
+        </div>
+        
+        <div class="header-section">
+            <div class="month-selector">
+                <label class="month-label" for="month-input">📅 選擇月份</label>
+                <input 
+                    type="text" 
+                    id="month-input" 
+                    class="month-input"
+                    placeholder="202605"
+                    value="202604"
+                    maxlength="6"
+                />
+                <button onclick="loadMonthIndex()">載入</button>
+            </div>
+            
+            <label class="search-label" for="invoice-input">🔍 輸入發票號碼</label>
+            <div class="search-input-group">
+                <input 
+                    type="text" 
+                    id="invoice-input" 
+                    placeholder="例: ZF08444613"
+                    autocomplete="off"
+                />
+                <button onclick="searchInvoice()">查詢</button>
+            </div>
+            
+            <div class="info-text">
+                💡 支援模糊搜尋 · 輸入發票號碼的一部分即可
+                <span class="status-badge" id="status-badge">準備就緒</span>
+            </div>
+        </div>
+        
+        <div class="results-section" id="results-section">
+            <div id="results-content"></div>
+        </div>
+        
+        <div class="footer-text">
+            貿易大漁 © 2026 | 每月自動更新
+        </div>
+    </div>
+
+    <script>
+        let currentIndex = null;
+        
+        // 內置樣本數據（202604）
+        const sampleData = {
+            "ZF08444613": {
+                "invoice_no": "ZF08444613",
+                "details": [
+                    {
+                        "sheet": "黃鰭鮪碎肉",
+                        "row": 37,
+                        "source": "銷售發票",
+                        "product": "冷凍黃鰭鮪碎肉",
+                        "qty": -2000,
+                        "unit": "KG",
+                        "price": 86,
+                        "total_price": -172000,
+                        "notes": "菄海115/03"
+                    },
+                    {
+                        "sheet": "黃鰭鮪碎肉",
+                        "row": 46,
+                        "source": "銷售發票",
+                        "product": "冷凍黃鰭鮪碎肉",
+                        "qty": -1000,
+                        "unit": "KG",
+                        "price": 86,
+                        "total_price": -86000,
+                        "notes": "菄海115/03"
+                    },
+                    {
+                        "sheet": "黃鰭鮪碎肉",
+                        "row": 49,
+                        "source": "銷售發票",
+                        "product": "冷凍黃鰭鮪碎肉",
+                        "qty": -1200,
+                        "unit": "KG",
+                        "price": 86,
+                        "total_price": -103200,
+                        "notes": "菄海115/03"
+                    }
+                ]
+            }
+        };
+        
+        async function loadMonthIndex() {
+            const month = document.getElementById('month-input').value.trim();
+            
+            if (!month || month.length !== 6 || isNaN(month)) {
+                alert('請輸入有效的月份 (格式: YYYYMM，例: 202605)');
+                return;
+            }
+            
+            const badge = document.getElementById('status-badge');
+            badge.textContent = '載入中...';
+            
+            try {
+                // 嘗試載入指定月份的 JSON
+                const filename = `inventory_data/${month}/invoice_index_${month}.json`;
+                const response = await fetch(filename);
+                
+                if (!response.ok) {
+                    // 如果找不到文件，使用樣本數據
+                    if (month === '202604') {
+                        currentIndex = sampleData;
+                        badge.textContent = `✅ 202604 (樣本)`;
+                    } else {
+                        badge.textContent = `⚠️ 無此月份數據`;
+                        alert(`未找到 ${month} 月份的索引檔案\n\n確保文件路徑: inventory_data/${month}/invoice_index_${month}.json`);
+                        currentIndex = null;
+                        return;
+                    }
+                } else {
+                    currentIndex = await response.json();
+                    badge.textContent = `✅ ${month} 已載入 (${Object.keys(currentIndex).length} 發票)`;
+                }
+                
+                document.getElementById('invoice-input').focus();
+                clearResults();
+                
+            } catch (error) {
+                console.error('載入錯誤:', error);
+                if (month === '202604') {
+                    currentIndex = sampleData;
+                    badge.textContent = `✅ 202604 (樣本)`;
+                } else {
+                    badge.textContent = '❌ 載入失敗';
+                }
+            }
+        }
+        
+        function searchInvoice() {
+            if (!currentIndex) {
+                alert('請先選擇並載入月份');
+                return;
+            }
+            
+            const input = document.getElementById('invoice-input').value.trim().toUpperCase();
+            
+            if (!input) {
+                alert('請輸入發票號碼');
+                return;
+            }
+            
+            const resultsSection = document.getElementById('results-section');
+            const resultsContent = document.getElementById('results-content');
+            
+            // 模糊搜尋
+            const results = Object.values(currentIndex).filter(inv => 
+                inv.invoice_no.toUpperCase().includes(input)
+            );
+            
+            if (results.length === 0) {
+                resultsContent.innerHTML = `
+                    <div class="result-card">
+                        <div class="no-results">
+                            <div class="no-results-icon">🔍</div>
+                            <p>未找到發票號: <strong>${input}</strong></p>
+                            <p style="margin-top: 0.5rem; font-size: 12px;">檢查輸入或嘗試其他月份</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                let html = '';
+                
+                results.forEach(invoice => {
+                    const details = invoice.details || [];
+                    const totalQty = details.reduce((sum, d) => sum + (d.qty || 0), 0);
+                    const totalAmount = details.reduce((sum, d) => sum + (d.total_price || 0), 0);
+                    
+                    html += `
+                        <div class="result-card">
+                            <div class="result-header">
+                                <div>
+                                    <div class="invoice-title">發票 ${invoice.invoice_no}</div>
+                                    <div class="invoice-meta">${details.length} 筆明細記錄</div>
+                                </div>
+                                <span class="record-count">${details.length}</span>
+                            </div>
+                            
+                            <table class="details-table">
+                                <thead>
+                                    <tr>
+                                        <th>商品名稱</th>
+                                        <th>數量</th>
+                                        <th>單位</th>
+                                        <th>單價</th>
+                                        <th>來源</th>
+                                        <th>備註</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${details.map(d => `
+                                        <tr>
+                                            <td>${d.product || '-'}</td>
+                                            <td class="qty-cell">${(d.qty || 0).toLocaleString()}</td>
+                                            <td>${d.unit || '-'}</td>
+                                            <td>${d.price ? 'NT$' + d.price.toLocaleString() : '-'}</td>
+                                            <td><span class="source-badge">${d.source || '未分類'}</span></td>
+                                            <td><strong>${d.notes || '無'}</strong></td>
+                                        </tr>
+                                    `).join('')}
+                                    <tr class="summary-row">
+                                        <td colspan="2"><strong>合計</strong></td>
+                                        <td><strong>${totalQty.toLocaleString()} ${details[0]?.unit || 'KG'}</strong></td>
+                                        <td colspan="3"><strong>NT$${totalAmount.toLocaleString()}</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                });
+                
+                resultsContent.innerHTML = html;
+            }
+            
+            resultsSection.classList.add('active');
+        }
+        
+        function clearResults() {
+            document.getElementById('results-section').classList.remove('active');
+            document.getElementById('results-content').innerHTML = '';
+        }
+        
+        // 頁面載入時初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            currentIndex = sampleData;
+            document.getElementById('status-badge').textContent = '✅ 202604 (樣本)';
+            
+            document.getElementById('invoice-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') searchInvoice();
+            });
+            
+            document.getElementById('month-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') loadMonthIndex();
+            });
+        });
+    </script>
+</body>
+</html>
