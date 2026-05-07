@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>發票查詢工具 v5.1 - 貿易大漁</title>
+  <title>發票查詢工具 v5.2 - 貿易大漁</title>
   <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -16,7 +16,6 @@
     h1 { font-size: 1.15rem; font-weight: 700; color: #3a1f1f; text-align: center; margin-bottom: .2rem; }
     .subtitle { text-align: center; font-size: .72rem; color: #a07070; margin-bottom: 1.2rem; }
 
-    /* ── 搜尋列 ── */
     .search-bar {
       display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
       background: #fff; border: 1.5px solid #f2a7c3; border-radius: 12px;
@@ -39,11 +38,9 @@
     .sbadge { background: #f7d96b; color: #7a4a00; padding: .12rem .45rem; border-radius: 4px; font-size: .66rem; font-weight: 700; margin-left: .25rem; }
     .sbadge.ok { background: #c8e6c9; color: #1b5e20; }
 
-    /* ── 上傳區域 ── */
     .file-input { display: none; }
     .file-label { display: inline-block; }
 
-    /* ── 發票標題列 ── */
     .inv-title {
       display: flex; align-items: center; gap: .55rem;
       padding: .4rem .1rem; border-bottom: 2px solid #f2a7c3;
@@ -56,7 +53,6 @@
       background: linear-gradient(135deg, #f2a7c3, #e8836a); color: #fff;
       border-radius: 20px; padding: .15rem .55rem; margin-left: auto; }
 
-    /* ── 表格 ── */
     table { width: 100%; border-collapse: collapse; background: #fff;
       border-radius: 10px; overflow: hidden; box-shadow: 0 1px 8px rgba(107,91,149,.07); }
 
@@ -66,7 +62,6 @@
       color: #6b5b95; white-space: nowrap; position: sticky; top: 0;
     }
     tbody tr { border-bottom: 1px solid #f3eeff; transition: background .1s; }
-    tbody tr:last-child { border-bottom: none; }
     tbody tr:hover { background: #fdf8ff; }
     tbody td { padding: .52rem .65rem; vertical-align: middle; }
 
@@ -76,12 +71,11 @@
       color: #3a1f1f; border-top: 2px solid #e8d0f8;
     }
 
-    /* ── 欄位樣式 ── */
-    .ref-no  { font-family: 'Courier New', monospace; font-size: .78rem; letter-spacing: .02em; }
+    .ref-no  { font-family: 'Courier New', monospace; font-size: .78rem; }
     .qty-neg { color: #e8836a; font-weight: 700; }
     .supplier { color: #4a7a6a; font-size: .78rem; }
-    .batch    { color: #6b5b95; font-weight: 600; font-size: .78rem; font-family: monospace; }
-    .src-ref  { color: #5a7aaa; font-size: .76rem; font-family: monospace; }
+    .batch    { color: #6b5b95; font-weight: 600; font-size: .78rem; }
+    .src-ref  { color: #5a7aaa; font-size: .76rem; }
     .none-val { color: #ccc; font-size: .72rem; }
 
     .no-result { text-align: center; padding: 2.5rem; color: #c0a0a0;
@@ -91,9 +85,11 @@
     .message.success { background: #e8f5e9; color: #2e7d32; border-left: 3px solid #81c784; }
     .message.error { background: #ffebee; color: #c62828; border-left: 3px solid #ef5350; }
     .message.info { background: #e3f2fd; color: #1565c0; border-left: 3px solid #64b5f6; }
+    .message.processing { background: #fff3e0; color: #e65100; border-left: 3px solid #ffb74d; }
 
-    .progress { width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; margin-bottom: 1rem; }
+    .progress { width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
     .progress-bar { height: 100%; background: linear-gradient(90deg, #f2a7c3, #e8836a); width: 0%; transition: width .3s; }
+    .progress-text { font-size: .7rem; color: #999; margin-bottom: 1rem; }
 
     .toolbar { margin-bottom: 1.2rem; display: flex; gap: .5rem; flex-wrap: wrap; }
     .toolbar button { font-size: .75rem; padding: .3rem .6rem; }
@@ -101,10 +97,9 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🐟 發票查詢工具 v5.1</h1>
+  <h1>🐟 發票查詢工具 v5.2</h1>
   <p class="subtitle">銷售發票 + 進項來源 / 供應商 / 批號 | Excel 轉換 + 本機快取</p>
 
-  <!-- 主搜尋列 -->
   <div class="search-bar">
     <label>月份</label>
     <input type="text" id="monthInput" value="202604" maxlength="6" placeholder="YYYYMM">
@@ -119,7 +114,6 @@
     </div>
   </div>
 
-  <!-- 上傳 Excel 區 -->
   <div style="margin-bottom: 1.2rem;">
     <div style="display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;">
       <label class="btn btn-secondary file-label">
@@ -130,18 +124,17 @@
     </div>
   </div>
 
-  <!-- 進度和訊息 -->
   <div id="messages"></div>
+  
   <div id="progressArea" style="display: none;">
     <div class="progress">
       <div class="progress-bar" id="progressBar"></div>
     </div>
+    <div class="progress-text" id="progressText">準備中…</div>
   </div>
 
-  <!-- 結果區 -->
   <div id="results"></div>
 
-  <!-- 工具列 -->
   <div id="toolbarArea" class="toolbar" style="display: none;">
     <button class="btn btn-secondary" onclick="downloadJSON()">⬇️ 下載 JSON</button>
     <button class="btn btn-secondary" onclick="copyJSON()">📋 複製</button>
@@ -157,21 +150,9 @@ const SAMPLE = {
   "ZF08444613": {
     "invoice_no": "ZF08444613",
     "details": [
-      {
-        "sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉",
-        "qty":-2000,"unit":"KG","price":86,"total_price":-172000,"notes":"菄海115/03",
-        "source":{"type":"進項發票","ref_no":"QX38261603","supplier":"環宇水產有限公司","batch":null}
-      },
-      {
-        "sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉",
-        "qty":-1000,"unit":"KG","price":86,"total_price":-86000,"notes":"菄海115/03",
-        "source":{"type":"進口報單","ref_no":"BD 14 036 F0224","supplier":null,"batch":"20251117-001"}
-      },
-      {
-        "sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉",
-        "qty":-1200,"unit":"KG","price":86,"total_price":-103200,"notes":"菄海115/03",
-        "source":{"type":"進口報單","ref_no":"BD 15 036 F0050","supplier":null,"batch":"20260309-001"}
-      }
+      {"sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉","qty":-2000,"unit":"KG","price":86,"total_price":-172000,"notes":"菄海115/03","source":{"type":"進項發票","ref_no":"QX38261603","supplier":"環宇水產有限公司","batch":null}},
+      {"sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉","qty":-1000,"unit":"KG","price":86,"total_price":-86000,"notes":"菄海115/03","source":{"type":"進口報單","ref_no":"BD 14 036 F0224","supplier":null,"batch":"20251117-001"}},
+      {"sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉","qty":-1200,"unit":"KG","price":86,"total_price":-103200,"notes":"菄海115/03","source":{"type":"進口報單","ref_no":"BD 15 036 F0050","supplier":null,"batch":"20260309-001"}}
     ]
   }
 };
@@ -188,12 +169,12 @@ window.addEventListener('load', () => {
 });
 
 function saveToCache() {
-  const key = `invoice_v51_${MONTH}`;
+  const key = `invoice_v52_${MONTH}`;
   localStorage.setItem(key, JSON.stringify(INDEX));
 }
 
 function loadFromCache() {
-  const key = `invoice_v51_${MONTH}`;
+  const key = `invoice_v52_${MONTH}`;
   const cached = localStorage.getItem(key);
   if (cached) {
     try {
@@ -207,7 +188,7 @@ function loadFromCache() {
 function updateStatusBadge() {
   const count = Object.keys(INDEX).length;
   const isSample = count === 1 && INDEX['ZF08444613'];
-  const isCached = localStorage.getItem(`invoice_v51_${MONTH}`);
+  const isCached = localStorage.getItem(`invoice_v52_${MONTH}`);
   
   let text = `${MONTH} `;
   if (isSample) {
@@ -262,9 +243,10 @@ function handleExcelUpload(event) {
     return;
   }
 
-  document.getElementById('uploadStatus').textContent = '處理中…';
+  document.getElementById('uploadStatus').textContent = '開始處理…';
   document.getElementById('progressArea').style.display = 'block';
   setProgress(0);
+  showMessage('處理中（請勿關閉此頁面）…', 'processing');
 
   const reader = new FileReader();
   reader.onerror = () => {
@@ -274,43 +256,72 @@ function handleExcelUpload(event) {
   };
   
   reader.onload = (e) => {
-    try {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      
-      setProgress(30);
-      convertExcelToJSON(workbook);
-      setProgress(100);
-      
-      const count = Object.keys(INDEX).length;
-      if (count === 0) {
-        showMessage('❌ 檔案中找不到銷項發票資料', 'error');
-        document.getElementById('uploadStatus').textContent = '❌ 無有效資料';
-      } else {
+    // 延遲執行，讓 UI 更新
+    setTimeout(() => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        setProgress(10);
+        updateProgress('解析 Excel 中…');
+        
+        // 異步轉換，避免阻塞 UI
         setTimeout(() => {
-          showMessage(`✓ Excel 轉換成功！共 ${count} 筆發票`, 'success');
-          document.getElementById('uploadStatus').textContent = `✓ ${file.name}`;
-          saveToCache();
-          updateStatusBadge();
-          document.getElementById('progressArea').style.display = 'none';
-          document.getElementById('toolbarArea').style.display = 'flex';
-        }, 500);
+          convertExcelToJSONAsync(workbook, () => {
+            setProgress(100);
+            updateProgress('完成！');
+            
+            const count = Object.keys(INDEX).length;
+            if (count === 0) {
+              showMessage('❌ 檔案中找不到銷項發票資料', 'error');
+              document.getElementById('uploadStatus').textContent = '❌ 無有效資料';
+            } else {
+              setTimeout(() => {
+                showMessage(`✓ Excel 轉換成功！共 ${count} 筆發票`, 'success');
+                document.getElementById('uploadStatus').textContent = `✓ ${file.name}`;
+                saveToCache();
+                updateStatusBadge();
+                document.getElementById('progressArea').style.display = 'none';
+                document.getElementById('toolbarArea').style.display = 'flex';
+              }, 500);
+            }
+          });
+        }, 100);
+      } catch (err) {
+        console.error('轉換錯誤:', err);
+        showMessage('❌ ' + err.message, 'error');
+        document.getElementById('uploadStatus').textContent = '❌ 處理失敗';
+        document.getElementById('progressArea').style.display = 'none';
       }
-    } catch (err) {
-      console.error('轉換錯誤:', err);
-      showMessage('檔案處理失敗: ' + err.message, 'error');
-      document.getElementById('uploadStatus').textContent = '❌ 處理失敗';
-      document.getElementById('progressArea').style.display = 'none';
-    }
+    }, 100);
   };
   reader.readAsArrayBuffer(file);
 }
 
-function convertExcelToJSON(workbook) {
+function convertExcelToJSONAsync(workbook, callback) {
   INDEX = {};
   const sheetNames = workbook.SheetNames;
+  let processedSheets = 0;
 
-  sheetNames.forEach((sheetName) => {
+  // 逐 Sheet 處理（避免一次全部卡住）
+  function processNextSheet(sheetIndex) {
+    if (sheetIndex >= sheetNames.length) {
+      callback();
+      return;
+    }
+
+    const sheetName = sheetNames[sheetIndex];
+    updateProgress(`處理 ${sheetIndex + 1}/${sheetNames.length}: ${sheetName}`);
+    setProgress(Math.round((sheetIndex / sheetNames.length) * 90) + 10);
+
+    // 延遲處理下一個 Sheet，讓瀏覽器有機會更新 UI
+    setTimeout(() => {
+      processSheet(sheetName);
+      processNextSheet(sheetIndex + 1);
+    }, 10);
+  }
+
+  function processSheet(sheetName) {
     if (sheetName.includes('NEW') || sheetName === '返回目錄') return;
 
     try {
@@ -329,55 +340,63 @@ function convertExcelToJSON(workbook) {
       }
       if (headerRow === -1) return;
 
-      for (let i = headerRow + 1; i < rows.length; i++) {
+      // 只處理前 500 行（避免超大檔案）
+      const maxRows = Math.min(rows.length, headerRow + 501);
+      for (let i = headerRow + 1; i < maxRows; i++) {
         const row = rows[i];
         if (!row || !row[0]) continue;
 
-        const source_type = String(row[0] || '').trim();
-        const unit_no = row[1];
-        const invoice_no = row[2];
-        const customer = row[3];
-        const product = row[4];
-        const qty = parseFloat(row[5]) || 0;
-        const unit = (String(row[6] || 'KG').replace(/\s+/g, '').trim()) || 'KG';
-        const price = parseFloat(row[7]) || 0;
-        const total_price = parseFloat(row[8]) || 0;
-        const notes = (row[14] || '').toString().trim();
+        try {
+          const source_type = String(row[0] || '').trim();
+          const unit_no = row[1];
+          const invoice_no = row[2];
+          const customer = row[3];
+          const product = row[4];
+          const qty = parseFloat(row[5]) || 0;
+          const unit = (String(row[6] || 'KG').replace(/\s+/g, '').trim()) || 'KG';
+          const price = parseFloat(row[7]) || 0;
+          const total_price = parseFloat(row[8]) || 0;
+          const notes = (row[14] || '').toString().trim();
 
-        if (!source_type.includes('銷項')) continue;
-        if (!invoice_no && !customer) continue;
+          if (!source_type.includes('銷項')) continue;
+          if (!invoice_no && !customer) continue;
 
-        const inv_key = String(invoice_no || customer).trim();
-        if (!inv_key) continue;
+          const inv_key = String(invoice_no || customer).trim();
+          if (!inv_key) continue;
 
-        if (!INDEX[inv_key]) {
-          INDEX[inv_key] = { invoice_no: inv_key, details: [] };
+          if (!INDEX[inv_key]) {
+            INDEX[inv_key] = { invoice_no: inv_key, details: [] };
+          }
+
+          INDEX[inv_key].details.push({
+            sale_type: '銷售發票',
+            date: formatDate(unit_no),
+            invoice_no: inv_key,
+            product: (product || '未知').toString().trim(),
+            qty: qty,
+            unit: unit,
+            price: price,
+            total_price: total_price,
+            notes: notes || (customer || '').toString().trim(),
+            source: null
+          });
+        } catch (e) {
+          console.warn(`行 ${i} 解析失敗:`, e);
         }
-
-        INDEX[inv_key].details.push({
-          sale_type: '銷售發票',
-          date: formatDate(unit_no),
-          invoice_no: inv_key,
-          product: (product || '未知').toString().trim(),
-          qty: qty,
-          unit: unit,
-          price: price,
-          total_price: total_price,
-          notes: notes || (customer || '').toString().trim(),
-          source: null
-        });
       }
     } catch (err) {
       console.error(`Sheet ${sheetName} 處理失敗:`, err);
     }
-  });
+  }
+
+  processNextSheet(0);
 }
 
 function formatDate(val) {
   if (!val) return '';
   const str = String(val);
   if (str.includes('/')) return str;
-  if (!isNaN(val)) {
+  if (!isNaN(val) && val > 0) {
     try {
       const date = new Date((val - 25569) * 86400 * 1000);
       const y = date.getFullYear();
@@ -395,11 +414,17 @@ function setProgress(pct) {
   document.getElementById('progressBar').style.width = pct + '%';
 }
 
+function updateProgress(text) {
+  document.getElementById('progressText').textContent = text;
+}
+
 function showMessage(msg, type = 'info') {
   const msgDiv = document.getElementById('messages');
   const html = `<div class="message ${type}">${msg}</div>`;
   msgDiv.innerHTML = html;
-  setTimeout(() => { msgDiv.innerHTML = ''; }, 5000);
+  if (type !== 'processing') {
+    setTimeout(() => { msgDiv.innerHTML = ''; }, 5000);
+  }
 }
 
 function search() {
@@ -490,7 +515,7 @@ function copyJSON() {
 function clearAllData() {
   if (confirm('確定要清除此月份的所有資料嗎？')) {
     INDEX = {};
-    localStorage.removeItem(`invoice_v51_${MONTH}`);
+    localStorage.removeItem(`invoice_v52_${MONTH}`);
     document.getElementById('results').innerHTML = '';
     document.getElementById('messages').innerHTML = '';
     document.getElementById('uploadStatus').textContent = '';
