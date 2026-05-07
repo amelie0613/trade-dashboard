@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>發票查詢工具 v5.3 - 貿易大漁</title>
+  <title>發票查詢工具 v5.5 - 貿易大漁</title>
   <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -12,93 +12,58 @@
       background: #fdf6f0; padding: 1.5rem 1rem 3rem; color: #2d2020; font-size: 13px;
     }
     .wrap { max-width: 1200px; margin: 0 auto; }
-
     h1 { font-size: 1.15rem; font-weight: 700; color: #3a1f1f; text-align: center; margin-bottom: .2rem; }
     .subtitle { text-align: center; font-size: .72rem; color: #a07070; margin-bottom: 1.2rem; }
-
-    .search-bar {
-      display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
-      background: #fff; border: 1.5px solid #f2a7c3; border-radius: 12px;
-      padding: .75rem 1rem; box-shadow: 0 3px 12px rgba(242,167,195,.13); margin-bottom: 1.2rem;
-    }
+    .search-bar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; background: #fff; border: 1.5px solid #f2a7c3; border-radius: 12px; padding: .75rem 1rem; box-shadow: 0 3px 12px rgba(242,167,195,.13); margin-bottom: 1.2rem; }
     .search-bar label { font-size: .76rem; font-weight: 600; color: #6b5b95; white-space: nowrap; }
-    .search-bar input {
-      padding: .42rem .72rem; border: 1.5px solid #e0d4f0; border-radius: 7px;
-      font-size: .88rem; background: #fdf6ff; transition: border-color .2s;
-    }
+    .search-bar input { padding: .42rem .72rem; border: 1.5px solid #e0d4f0; border-radius: 7px; font-size: .88rem; background: #fdf6ff; transition: border-color .2s; }
     .search-bar input:focus { outline: none; border-color: #c9a8e0; }
     #monthInput { width: 88px; }
-    #invInput   { flex: 1; min-width: 180px; }
+    #invInput { flex: 1; min-width: 180px; }
     .btn { padding: .42rem .95rem; border: none; border-radius: 7px; font-size: .81rem; font-weight: 600; cursor: pointer; transition: all .2s; }
-    .btn-ghost   { background: #f5f0ff; color: #6b5b95; }
+    .btn-ghost { background: #f5f0ff; color: #6b5b95; }
     .btn-primary { background: linear-gradient(135deg, #f2a7c3, #e8836a); color: #fff; box-shadow: 0 2px 8px rgba(232,131,106,.22); }
     .btn-primary:hover { transform: translateY(-1px); }
     .btn-secondary { background: #fff; color: #6b5b95; border: 1.5px solid #c9a8e0; }
     .status { font-size: .7rem; color: #b09090; margin-left: auto; white-space: nowrap; }
     .sbadge { background: #f7d96b; color: #7a4a00; padding: .12rem .45rem; border-radius: 4px; font-size: .66rem; font-weight: 700; margin-left: .25rem; }
     .sbadge.ok { background: #c8e6c9; color: #1b5e20; }
-
     .file-input { display: none; }
     .file-label { display: inline-block; }
-
-    .inv-title {
-      display: flex; align-items: center; gap: .55rem;
-      padding: .4rem .1rem; border-bottom: 2px solid #f2a7c3;
-      margin-bottom: .3rem; margin-top: 1.2rem;
-    }
+    .inv-title { display: flex; align-items: center; gap: .55rem; padding: .4rem .1rem; border-bottom: 2px solid #f2a7c3; margin-bottom: .3rem; margin-top: 1.2rem; }
     .inv-title:first-child { margin-top: 0; }
-    .inv-no   { font-size: .92rem; font-weight: 700; color: #3a1f1f; }
+    .inv-no { font-size: .92rem; font-weight: 700; color: #3a1f1f; }
     .inv-meta { font-size: .7rem; color: #a07070; }
-    .inv-count { font-size: .65rem; font-weight: 700;
-      background: linear-gradient(135deg, #f2a7c3, #e8836a); color: #fff;
-      border-radius: 20px; padding: .15rem .55rem; margin-left: auto; }
-
-    table { width: 100%; border-collapse: collapse; background: #fff;
-      border-radius: 10px; overflow: hidden; box-shadow: 0 1px 8px rgba(107,91,149,.07); }
-
-    thead th {
-      background: linear-gradient(135deg, rgba(242,167,195,.12), rgba(126,200,227,.12));
-      padding: .48rem .65rem; text-align: left; font-size: .7rem; font-weight: 700;
-      color: #6b5b95; white-space: nowrap; position: sticky; top: 0;
-    }
+    .inv-count { font-size: .65rem; font-weight: 700; background: linear-gradient(135deg, #f2a7c3, #e8836a); color: #fff; border-radius: 20px; padding: .15rem .55rem; margin-left: auto; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 8px rgba(107,91,149,.07); }
+    thead th { background: linear-gradient(135deg, rgba(242,167,195,.12), rgba(126,200,227,.12)); padding: .48rem .65rem; text-align: left; font-size: .7rem; font-weight: 700; color: #6b5b95; white-space: nowrap; position: sticky; top: 0; }
     tbody tr { border-bottom: 1px solid #f3eeff; transition: background .1s; }
     tbody tr:hover { background: #fdf8ff; }
     tbody td { padding: .52rem .65rem; vertical-align: middle; }
-
-    tfoot td {
-      background: linear-gradient(135deg, rgba(242,167,195,.08), rgba(126,200,227,.08));
-      font-weight: 700; font-size: .8rem; padding: .48rem .65rem;
-      color: #3a1f1f; border-top: 2px solid #e8d0f8;
-    }
-
-    .ref-no  { font-family: 'Courier New', monospace; font-size: .78rem; }
+    tfoot td { background: linear-gradient(135deg, rgba(242,167,195,.08), rgba(126,200,227,.08)); font-weight: 700; font-size: .8rem; padding: .48rem .65rem; color: #3a1f1f; border-top: 2px solid #e8d0f8; }
+    .ref-no { font-family: 'Courier New', monospace; font-size: .78rem; }
     .qty-neg { color: #e8836a; font-weight: 700; }
     .supplier { color: #4a7a6a; font-size: .78rem; }
-    .batch    { color: #6b5b95; font-weight: 600; font-size: .78rem; }
-    .src-ref  { color: #5a7aaa; font-size: .76rem; }
+    .batch { color: #6b5b95; font-weight: 600; font-size: .78rem; }
+    .src-ref { color: #5a7aaa; font-size: .76rem; }
     .none-val { color: #ccc; font-size: .72rem; }
-
-    .no-result { text-align: center; padding: 2.5rem; color: #c0a0a0;
-      background: #fff; border-radius: 12px; border: 1px dashed #e8d0d0; }
-
+    .no-result { text-align: center; padding: 2.5rem; color: #c0a0a0; background: #fff; border-radius: 12px; border: 1px dashed #e8d0d0; }
     .message { padding: 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: .8rem; }
     .message.success { background: #e8f5e9; color: #2e7d32; border-left: 3px solid #81c784; }
     .message.error { background: #ffebee; color: #c62828; border-left: 3px solid #ef5350; }
     .message.info { background: #e3f2fd; color: #1565c0; border-left: 3px solid #64b5f6; }
     .message.processing { background: #fff3e0; color: #e65100; border-left: 3px solid #ffb74d; }
-
     .progress { width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
     .progress-bar { height: 100%; background: linear-gradient(90deg, #f2a7c3, #e8836a); width: 0%; transition: width .3s; }
     .progress-text { font-size: .7rem; color: #999; margin-bottom: 1rem; }
-
     .toolbar { margin-bottom: 1.2rem; display: flex; gap: .5rem; flex-wrap: wrap; }
     .toolbar button { font-size: .75rem; padding: .3rem .6rem; }
   </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>🐟 發票查詢工具 v5.3</h1>
-  <p class="subtitle">銷售發票 + 進項報單關聯 | 報單號 + 批號 | Excel 轉換</p>
+  <h1>🐟 發票查詢工具 v5.5</h1>
+  <p class="subtitle">銷售發票 + 進項報單自動關聯 | 批號追蹤 | Excel 轉換</p>
 
   <div class="search-bar">
     <label>月份</label>
@@ -145,7 +110,6 @@
 <script>
 let MONTH = '202604';
 let INDEX = {};
-let IMPORT_RECORDS = {};  // 進項報單索引
 
 const SAMPLE = {
   "ZF08444613": {
@@ -170,12 +134,12 @@ window.addEventListener('load', () => {
 });
 
 function saveToCache() {
-  const key = `invoice_v53_${MONTH}`;
+  const key = `invoice_v55_${MONTH}`;
   localStorage.setItem(key, JSON.stringify(INDEX));
 }
 
 function loadFromCache() {
-  const key = `invoice_v53_${MONTH}`;
+  const key = `invoice_v55_${MONTH}`;
   const cached = localStorage.getItem(key);
   if (cached) {
     try {
@@ -189,7 +153,7 @@ function loadFromCache() {
 function updateStatusBadge() {
   const count = Object.keys(INDEX).length;
   const isSample = count === 1 && INDEX['ZF08444613'];
-  const isCached = localStorage.getItem(`invoice_v53_${MONTH}`);
+  const isCached = localStorage.getItem(`invoice_v55_${MONTH}`);
   
   let text = `${MONTH} `;
   if (isSample) {
@@ -299,12 +263,12 @@ function handleExcelUpload(event) {
 
 function convertExcelToJSONAsync(workbook, callback) {
   INDEX = {};
-  IMPORT_RECORDS = {};
   const sheetNames = workbook.SheetNames;
+  let batchCounter = 0;
+  const batchRegistry = {};  // 記錄每個進項報單的資訊
 
   function processNextSheet(sheetIndex) {
     if (sheetIndex >= sheetNames.length) {
-      linkSourceToDetails();  // 第二步：關聯進項到銷項
       callback();
       return;
     }
@@ -338,6 +302,8 @@ function convertExcelToJSONAsync(workbook, callback) {
       }
       if (headerRow === -1) return;
 
+      let currentBatch = null;  // 目前正在處理的進項區塊
+
       const maxRows = Math.min(rows.length, headerRow + 501);
       for (let i = headerRow + 1; i < maxRows; i++) {
         const row = rows[i];
@@ -346,52 +312,78 @@ function convertExcelToJSONAsync(workbook, callback) {
         try {
           const source_type = String(row[0] || '').trim();
           const unit_no = row[1];
-          const ref_no = row[2];
-          const customer = row[3];
-          const product = row[4];
+          const ref_no = String(row[2] || '').trim();
+          const customer = String(row[3] || '').trim();
+          const product = String(row[4] || '').trim();
           const qty = parseFloat(row[5]) || 0;
           const unit = (String(row[6] || 'KG').replace(/\s+/g, '').trim()) || 'KG';
           const price = parseFloat(row[7]) || 0;
           const total_price = parseFloat(row[8]) || 0;
           const batch_info = (row[14] || '').toString().trim();
 
-          // 第一步：先記錄所有進項報單
+          // === 進項報單：開新區塊 ===
           if (source_type.includes('進口報單') || source_type.includes('進項')) {
+            batchCounter++;
+            const batchId = `batch_${sheetName}_${batchCounter}`;
+            
             const batch = extractBatch(batch_info);
-            IMPORT_RECORDS[ref_no] = {
+            currentBatch = {
+              id: batchId,
               ref_no: ref_no,
               product: product,
               qty: qty,
               batch: batch,
-              supplier: customer
+              supplier: customer,
+              sales: []  // 這個進項的銷項清單
             };
+            
+            batchRegistry[batchId] = currentBatch;
             continue;
           }
 
-          // 只處理銷項發票
-          if (!source_type.includes('銷項')) continue;
-          if (!ref_no && !customer) continue;
+          // === 銷項發票：加到目前的進項區塊 ===
+          if (source_type.includes('銷項')) {
+            if (!ref_no && !customer) continue;
 
-          const inv_key = String(ref_no || customer).trim();
-          if (!inv_key) continue;
+            const inv_key = ref_no || customer;
+            
+            if (!INDEX[inv_key]) {
+              INDEX[inv_key] = { invoice_no: inv_key, details: [] };
+            }
 
-          if (!INDEX[inv_key]) {
-            INDEX[inv_key] = { invoice_no: inv_key, details: [] };
+            const detail = {
+              sale_type: '銷售發票',
+              date: formatDate(unit_no),
+              invoice_no: inv_key,
+              product: product || '未知',
+              qty: qty,
+              unit: unit,
+              price: price,
+              total_price: total_price,
+              notes: customer || '',
+              source: null
+            };
+
+            // 如果有對應的進項區塊，關聯進項資訊
+            if (currentBatch) {
+              detail.source = {
+                type: '進口報單',
+                ref_no: currentBatch.ref_no,
+                supplier: currentBatch.supplier,
+                batch: currentBatch.batch
+              };
+              currentBatch.sales.push(detail);
+            }
+
+            INDEX[inv_key].details.push(detail);
+            continue;
           }
 
-          INDEX[inv_key].details.push({
-            sale_type: '銷售發票',
-            date: formatDate(unit_no),
-            invoice_no: inv_key,
-            product: (product || '未知').toString().trim(),
-            qty: qty,
-            unit: unit,
-            price: price,
-            total_price: total_price,
-            notes: (customer || '').toString().trim(),
-            source: null,
-            _ref_no: ref_no  // 臨時欄位，用於關聯
-          });
+          // === 遇到小計或其他標記，區塊結束 ===
+          if (source_type.includes('小計') || (source_type && !source_type.includes('進項') && !source_type.includes('銷項'))) {
+            currentBatch = null;
+          }
+
         } catch (e) {
           console.warn(`行 ${i} 解析失敗:`, e);
         }
@@ -401,32 +393,18 @@ function convertExcelToJSONAsync(workbook, callback) {
     }
   }
 
-  // 第二步：把進項報單關聯到銷項發票
-  function linkSourceToDetails() {
-    Object.values(INDEX).forEach(invoice => {
-      invoice.details.forEach(detail => {
-        if (detail._ref_no && IMPORT_RECORDS[detail._ref_no]) {
-          const imp = IMPORT_RECORDS[detail._ref_no];
-          detail.source = {
-            type: '進口報單',
-            ref_no: detail._ref_no,
-            supplier: imp.supplier,
-            batch: imp.batch
-          };
-        }
-        delete detail._ref_no;  // 清掉臨時欄位
-      });
-    });
-  }
-
   processNextSheet(0);
 }
 
 function extractBatch(text) {
   if (!text) return null;
-  // 從 "入大漁 20240308-002" 提取批號 "20240308-002"
+  // 從 "入大漁 20240308-002" 提取 "20240308-002"
   const match = text.match(/(\d{8}-\d{3})/);
-  return match ? match[1] : text;
+  if (match) return match[1];
+  // 或 "20240308-002" 這種格式
+  const match2 = text.match(/\d{8}-\d+/);
+  if (match2) return match2[0];
+  return text || null;
 }
 
 function formatDate(val) {
@@ -552,7 +530,7 @@ function copyJSON() {
 function clearAllData() {
   if (confirm('確定要清除此月份的所有資料嗎？')) {
     INDEX = {};
-    localStorage.removeItem(`invoice_v53_${MONTH}`);
+    localStorage.removeItem(`invoice_v55_${MONTH}`);
     document.getElementById('results').innerHTML = '';
     document.getElementById('messages').innerHTML = '';
     document.getElementById('uploadStatus').textContent = '';
