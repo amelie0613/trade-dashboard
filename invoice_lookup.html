@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>發票查詢工具 v5 - 貿易大漁</title>
+  <title>發票查詢工具 v5.1 - 貿易大漁</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -29,12 +30,27 @@
     .search-bar input:focus { outline: none; border-color: #c9a8e0; }
     #monthInput { width: 88px; }
     #invInput   { flex: 1; min-width: 180px; }
-    .btn { padding: .42rem .95rem; border: none; border-radius: 7px; font-size: .81rem; font-weight: 600; cursor: pointer; }
+    .btn { padding: .42rem .95rem; border: none; border-radius: 7px; font-size: .81rem; font-weight: 600; cursor: pointer; transition: all .2s; }
     .btn-ghost   { background: #f5f0ff; color: #6b5b95; }
     .btn-primary { background: linear-gradient(135deg, #f2a7c3, #e8836a); color: #fff; box-shadow: 0 2px 8px rgba(232,131,106,.22); }
     .btn-primary:hover { transform: translateY(-1px); }
+    .btn-secondary { background: #fff; color: #6b5b95; border: 1.5px solid #c9a8e0; }
     .status { font-size: .7rem; color: #b09090; margin-left: auto; white-space: nowrap; }
     .sbadge { background: #f7d96b; color: #7a4a00; padding: .12rem .45rem; border-radius: 4px; font-size: .66rem; font-weight: 700; margin-left: .25rem; }
+    .sbadge.ok { background: #c8e6c9; color: #1b5e20; }
+    .sbadge.uploading { background: #fff9c4; color: #f57f17; }
+
+    /* ── 上傳區域 ── */
+    .upload-area {
+      position: relative;
+      margin-bottom: 1.2rem;
+    }
+    .file-input {
+      display: none;
+    }
+    .file-label {
+      display: inline-block;
+    }
 
     /* ── 發票標題列 ── */
     .inv-title {
@@ -80,28 +96,86 @@
     /* 無結果 */
     .no-result { text-align: center; padding: 2.5rem; color: #c0a0a0;
       background: #fff; border-radius: 12px; border: 1px dashed #e8d0d0; }
+
+    /* 訊息 */
+    .message { padding: 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: .8rem; }
+    .message.success { background: #e8f5e9; color: #2e7d32; border-left: 3px solid #81c784; }
+    .message.error { background: #ffebee; color: #c62828; border-left: 3px solid #ef5350; }
+    .message.info { background: #e3f2fd; color: #1565c0; border-left: 3px solid #64b5f6; }
+
+    /* 進度條 */
+    .progress { width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; margin-bottom: 1rem; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #f2a7c3, #e8836a); width: 0%; transition: width .3s; }
+
+    /* 工具列 */
+    .toolbar { margin-bottom: 1.2rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+    .toolbar button { font-size: .75rem; padding: .3rem .6rem; }
   </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>🐟 發票查詢工具</h1>
-  <p class="subtitle">銷售發票 + 進項來源 / 供應商 / 批號</p>
+  <h1>🐟 發票查詢工具 v5.1</h1>
+  <p class="subtitle">銷售發票 + 進項來源 / 供應商 / 批號 | Excel 轉換 + 本機快取</p>
 
+  <!-- 主搜尋列 -->
   <div class="search-bar">
     <label>月份</label>
     <input type="text" id="monthInput" value="202604" maxlength="6" placeholder="YYYYMM">
     <button class="btn btn-ghost" onclick="loadMonth()">載入</button>
+
     <label style="margin-left:.4rem">發票號碼</label>
     <input type="text" id="invInput" placeholder="例：ZF08444613" autocomplete="off">
     <button class="btn btn-primary" onclick="search()">查詢</button>
-    <div class="status">月份：<span class="sbadge" id="statusBadge">202604 (樣本)</span></div>
+
+    <div class="status">
+      月份：<span class="sbadge" id="statusBadge">202604 (樣本)</span>
+    </div>
   </div>
 
+  <!-- 上傳 Excel 區 -->
+  <div class="upload-area">
+    <div style="display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem;">
+      <label class="btn btn-secondary file-label">
+        📁 上傳 Excel
+        <input type="file" id="excelFile" accept=".xlsx,.xlsm" class="file-input" onchange="handleExcelUpload(event)">
+      </label>
+      <span id="uploadStatus" style="font-size: .75rem; color: #999;"></span>
+    </div>
+  </div>
+
+  <!-- 進度和訊息 -->
+  <div id="messages"></div>
+  <div id="progressArea" style="display: none;">
+    <div class="progress">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
+
+  <!-- 結果區 -->
   <div id="results"></div>
+
+  <!-- 工具列 -->
+  <div id="toolbarArea" class="toolbar" style="display: none;">
+    <button class="btn btn-secondary" onclick="downloadJSON()">⬇️ 下載 JSON</button>
+    <button class="btn btn-secondary" onclick="copyJSON()">📋 複製</button>
+    <button class="btn btn-secondary" onclick="clearAllData()">🗑️ 清除資料</button>
+  </div>
+</div>
+
+<!-- JSON 預覽 Modal -->
+<div id="jsonModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); z-index: 1000; align-items: center; justify-content: center;">
+  <div style="background: #fff; border-radius: 12px; padding: 1.5rem; max-width: 600px; max-height: 80vh; overflow: auto; width: 90%;">
+    <h3 style="margin-bottom: 1rem;">JSON 預覽</h3>
+    <pre id="jsonPreviewContent" style="background: #f5f5f5; padding: 1rem; border-radius: 8px; overflow: auto; max-height: 400px; font-size: .7rem;"></pre>
+    <button class="btn btn-secondary" onclick="document.getElementById('jsonModal').style.display='none'" style="margin-top: 1rem;">關閉</button>
+  </div>
 </div>
 
 <script>
-// ── 樣本資料（202604 ZF08444613）──
+// ── 全域狀態 ──
+let MONTH = '202604';
+let INDEX = {};
+
 const SAMPLE = {
   "ZF08444613": {
     "invoice_no": "ZF08444613",
@@ -125,30 +199,219 @@ const SAMPLE = {
   }
 };
 
-let INDEX = SAMPLE;
-
-// ── 載入月份 JSON ──
-async function loadMonth() {
-  const m = document.getElementById('monthInput').value.trim();
-  if (!/^\d{6}$/.test(m)) { alert('格式：YYYYMM'); return; }
-  document.getElementById('statusBadge').textContent = '載入中…';
-  try {
-    const r = await fetch(`invoice_index_v5_${m}.json`);
-    if (!r.ok) throw new Error();
-    INDEX = await r.json();
-    document.getElementById('statusBadge').textContent = `${m} ✅ ${Object.keys(INDEX).length}筆`;
-  } catch {
-    INDEX = m === '202604' ? SAMPLE : null;
-    document.getElementById('statusBadge').textContent =
-      m === '202604' ? '202604 (樣本)' : `${m} ❌`;
+// ── 初始化 ──
+window.addEventListener('load', () => {
+  loadFromCache();
+  if (Object.keys(INDEX).length === 0) {
+    INDEX = JSON.parse(JSON.stringify(SAMPLE));
   }
-  document.getElementById('results').innerHTML = '';
+  updateStatusBadge();
+  if (Object.keys(INDEX).length > 0) {
+    document.getElementById('toolbarArea').style.display = 'flex';
+  }
+});
+
+// ── 快取管理 ──
+function saveToCache() {
+  const key = `invoice_v51_${MONTH}`;
+  localStorage.setItem(key, JSON.stringify(INDEX));
 }
 
-function fmt(n) { return n != null ? Number(n).toLocaleString() : ''; }
-function dash(v) { return v ? v : '<span class="none-val">—</span>'; }
+function loadFromCache() {
+  const key = `invoice_v51_${MONTH}`;
+  const cached = localStorage.getItem(key);
+  if (cached) {
+    INDEX = JSON.parse(cached);
+  }
+}
 
-// ── 渲染一張發票 ──
+function updateStatusBadge() {
+  const count = Object.keys(INDEX).length;
+  const isSample = count === 1 && INDEX['ZF08444613'];
+  const isCached = localStorage.getItem(`invoice_v51_${MONTH}`);
+  
+  let text = `${MONTH} `;
+  if (isSample) {
+    text += '(樣本)';
+  } else if (isCached) {
+    text += `✓ ${count} 筆`;
+  } else {
+    text += `${count} 筆`;
+  }
+  
+  const badge = document.getElementById('statusBadge');
+  badge.textContent = text;
+  if (isCached && !isSample) {
+    badge.classList.add('ok');
+  } else {
+    badge.classList.remove('ok');
+  }
+}
+
+// ── 月份載入 ──
+async function loadMonth() {
+  const m = document.getElementById('monthInput').value.trim();
+  if (!/^\d{6}$/.test(m)) { 
+    showMessage('格式錯誤，請輸入 YYYYMM', 'error');
+    return; 
+  }
+  
+  MONTH = m;
+  document.getElementById('statusBadge').textContent = '載入中…';
+  
+  try {
+    const r = await fetch(`invoice_index_v5_${m}.json`);
+    if (!r.ok) throw new Error('檔案不存在');
+    INDEX = await r.json();
+    saveToCache();
+    showMessage(`✓ 已載入月份 ${m}，共 ${Object.keys(INDEX).length} 筆發票`, 'success');
+  } catch (err) {
+    INDEX = JSON.parse(JSON.stringify(SAMPLE));
+    showMessage(`未找到 ${m} 的資料，已載入樣本`, 'info');
+  }
+  
+  updateStatusBadge();
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('toolbarArea').style.display = 'flex';
+}
+
+// ── Excel 轉換 ──
+function handleExcelUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  document.getElementById('uploadStatus').textContent = '處理中…';
+  document.getElementById('progressArea').style.display = 'block';
+  setProgress(0);
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      setProgress(30);
+      convertExcelToJSON(workbook);
+      setProgress(100);
+      
+      setTimeout(() => {
+        showMessage(`✓ Excel 轉換成功！共 ${Object.keys(INDEX).length} 筆發票`, 'success');
+        document.getElementById('uploadStatus').textContent = `✓ ${file.name}`;
+        saveToCache();
+        updateStatusBadge();
+        document.getElementById('progressArea').style.display = 'none';
+        document.getElementById('toolbarArea').style.display = 'flex';
+      }, 500);
+    } catch (err) {
+      showMessage('檔案讀取失敗: ' + err.message, 'error');
+      document.getElementById('uploadStatus').textContent = '❌ 失敗';
+      document.getElementById('progressArea').style.display = 'none';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function convertExcelToJSON(workbook) {
+  INDEX = {};
+  const sheetNames = workbook.SheetNames;
+
+  sheetNames.forEach((sheetName) => {
+    // 跳過目錄表
+    if (sheetName.includes('NEW') || sheetName === '返回目錄') return;
+
+    const ws = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+    // 找表頭
+    let headerRow = -1;
+    for (let i = 0; i < Math.min(10, rows.length); i++) {
+      if (rows[i][0] === '來源') {
+        headerRow = i;
+        break;
+      }
+    }
+    if (headerRow === -1) return;
+
+    // 解析資料
+    for (let i = headerRow + 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || !row[0]) continue;
+
+      const source_type = String(row[0]).trim();
+      const unit_no = row[1];
+      const invoice_no = row[2];
+      const customer = row[3];
+      const product = row[4];
+      const qty = parseFloat(row[5]) || 0;
+      const unit = row[6] || 'KG';
+      const price = parseFloat(row[7]) || 0;
+      const total_price = parseFloat(row[8]) || 0;
+      const notes = row[14] || '';
+
+      // 只處理銷項發票
+      if (!source_type.includes('銷項')) continue;
+      if (!invoice_no && !customer) continue;
+
+      const inv_key = String(invoice_no || customer).trim();
+      if (!inv_key) continue;
+
+      if (!INDEX[inv_key]) {
+        INDEX[inv_key] = { invoice_no: inv_key, details: [] };
+      }
+
+      INDEX[inv_key].details.push({
+        sale_type: '銷售發票',
+        date: formatDate(unit_no),
+        invoice_no: inv_key,
+        product: product || '未知',
+        qty: qty,
+        unit: unit,
+        price: price,
+        total_price: total_price,
+        notes: notes || customer || '',
+        source: null
+      });
+    }
+  });
+}
+
+function formatDate(val) {
+  if (!val) return '';
+  const str = String(val);
+  if (str.includes('/')) return str;
+  if (!isNaN(val)) {
+    const date = new Date((val - 25569) * 86400 * 1000);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}/${m}/${d}`;
+  }
+  return '';
+}
+
+function setProgress(pct) {
+  document.getElementById('progressBar').style.width = pct + '%';
+}
+
+function showMessage(msg, type = 'info') {
+  const msgDiv = document.getElementById('messages');
+  const html = `<div class="message ${type}">${msg}</div>`;
+  msgDiv.innerHTML = html;
+  setTimeout(() => { msgDiv.innerHTML = ''; }, 4000);
+}
+
+// ── 搜尋 ──
+function search() {
+  const q = document.getElementById('invInput').value.trim().toUpperCase();
+  const out = document.getElementById('results');
+  if (!INDEX || !q) { out.innerHTML = ''; return; }
+
+  const hits = Object.values(INDEX).filter(v => v.invoice_no.toUpperCase().includes(q));
+  out.innerHTML = hits.length
+    ? hits.map(renderInvoice).join('')
+    : `<div class="no-result">找不到「${q}」<br><small>確認月份或嘗試部分號碼</small></div>`;
+}
+
 function renderInvoice(inv) {
   const d = inv.details || [];
   const totalQty = d.reduce((s, r) => s + (r.qty || 0), 0);
@@ -199,21 +462,49 @@ function renderInvoice(inv) {
     </table>`;
 }
 
-// ── 搜尋 ──
-function search() {
-  const q = document.getElementById('invInput').value.trim().toUpperCase();
-  const out = document.getElementById('results');
-  if (!INDEX || !q) { out.innerHTML = ''; return; }
+function fmt(n) { return n != null ? Number(n).toLocaleString() : ''; }
+function dash(v) { return v ? v : '<span class="none-val">—</span>'; }
 
-  const hits = Object.values(INDEX).filter(v => v.invoice_no.toUpperCase().includes(q));
-  out.innerHTML = hits.length
-    ? hits.map(renderInvoice).join('')
-    : `<div class="no-result">找不到「${q}」<br><small>確認月份或嘗試部分號碼</small></div>`;
+// ── 導出 ──
+function downloadJSON() {
+  const json = JSON.stringify(INDEX, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `invoice_index_v5_${MONTH}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
+function copyJSON() {
+  const json = JSON.stringify(INDEX, null, 2);
+  navigator.clipboard.writeText(json).then(() => {
+    showMessage('✓ JSON 已複製到剪貼簿', 'success');
+  });
+}
+
+function clearAllData() {
+  if (confirm('確定要清除此月份的所有資料嗎？')) {
+    INDEX = {};
+    localStorage.removeItem(`invoice_v51_${MONTH}`);
+    document.getElementById('results').innerHTML = '';
+    document.getElementById('messages').innerHTML = '';
+    document.getElementById('uploadStatus').textContent = '';
+    document.getElementById('invInput').value = '';
+    updateStatusBadge();
+    showMessage('✓ 資料已清除', 'success');
+  }
+}
+
+// ── 事件監聽 ──
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('invInput').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
-  document.getElementById('monthInput').addEventListener('keydown', e => { if (e.key === 'Enter') loadMonth(); });
+  document.getElementById('invInput').addEventListener('keydown', e => { 
+    if (e.key === 'Enter') search(); 
+  });
+  document.getElementById('monthInput').addEventListener('keydown', e => { 
+    if (e.key === 'Enter') loadMonth(); 
+  });
 });
 </script>
 </body>
