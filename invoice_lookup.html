@@ -162,15 +162,6 @@
   </div>
 </div>
 
-<!-- JSON 預覽 Modal -->
-<div id="jsonModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); z-index: 1000; align-items: center; justify-content: center;">
-  <div style="background: #fff; border-radius: 12px; padding: 1.5rem; max-width: 600px; max-height: 80vh; overflow: auto; width: 90%;">
-    <h3 style="margin-bottom: 1rem;">JSON 預覽</h3>
-    <pre id="jsonPreviewContent" style="background: #f5f5f5; padding: 1rem; border-radius: 8px; overflow: auto; max-height: 400px; font-size: .7rem;"></pre>
-    <button class="btn btn-secondary" onclick="document.getElementById('jsonModal').style.display='none'" style="margin-top: 1rem;">關閉</button>
-  </div>
-</div>
-
 <script>
 // ── 全域狀態 ──
 let MONTH = '202604';
@@ -221,7 +212,11 @@ function loadFromCache() {
   const key = `invoice_v51_${MONTH}`;
   const cached = localStorage.getItem(key);
   if (cached) {
-    INDEX = JSON.parse(cached);
+    try {
+      INDEX = JSON.parse(cached);
+    } catch (e) {
+      console.error('快取解析失敗:', e);
+    }
   }
 }
 
@@ -285,6 +280,12 @@ function handleExcelUpload(event) {
   setProgress(0);
 
   const reader = new FileReader();
+  reader.onerror = () => {
+    showMessage('檔案讀取錯誤', 'error');
+    document.getElementById('uploadStatus').textContent = '❌ 讀取失敗';
+    document.getElementById('progressArea').style.display = 'none';
+  };
+  
   reader.onload = (e) => {
     try {
       const data = new Uint8Array(e.target.result);
@@ -294,17 +295,24 @@ function handleExcelUpload(event) {
       convertExcelToJSON(workbook);
       setProgress(100);
       
-      setTimeout(() => {
-        showMessage(`✓ Excel 轉換成功！共 ${Object.keys(INDEX).length} 筆發票`, 'success');
-        document.getElementById('uploadStatus').textContent = `✓ ${file.name}`;
-        saveToCache();
-        updateStatusBadge();
-        document.getElementById('progressArea').style.display = 'none';
-        document.getElementById('toolbarArea').style.display = 'flex';
-      }, 500);
+      const count = Object.keys(INDEX).length;
+      if (count === 0) {
+        showMessage('❌ 檔案中找不到銷項發票資料', 'error');
+        document.getElementById('uploadStatus').textContent = '❌ 無有效資料';
+      } else {
+        setTimeout(() => {
+          showMessage(`✓ Excel 轉換成功！共 ${count} 筆發票`, 'success');
+          document.getElementById('uploadStatus').textContent = `✓ ${file.name}`;
+          saveToCache();
+          updateStatusBadge();
+          document.getElementById('progressArea').style.display = 'none';
+          document.getElementById('toolbarArea').style.display = 'flex';
+        }, 500);
+      }
     } catch (err) {
-      showMessage('檔案讀取失敗: ' + err.message, 'error');
-      document.getElementById('uploadStatus').textContent = '❌ 失敗';
+      console.error('轉換錯誤:', err);
+      showMessage('檔案處理失敗: ' + err.message, 'error');
+      document.getElementById('uploadStatus').textContent = '❌ 處理失敗';
       document.getElementById('progressArea').style.display = 'none';
     }
   };
@@ -314,63 +322,76 @@ function handleExcelUpload(event) {
 function convertExcelToJSON(workbook) {
   INDEX = {};
   const sheetNames = workbook.SheetNames;
+  let totalProcessed = 0;
 
   sheetNames.forEach((sheetName) => {
     // 跳過目錄表
     if (sheetName.includes('NEW') || sheetName === '返回目錄') return;
 
-    const ws = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    try {
+      const ws = workbook.Sheets[sheetName];
+      if (!ws) return;
+      
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-    // 找表頭
-    let headerRow = -1;
-    for (let i = 0; i < Math.min(10, rows.length); i++) {
-      if (rows[i][0] === '來源') {
-        headerRow = i;
-        break;
+      // 找表頭（包含「來源」的行）
+      let headerRow = -1;
+      for (let i = 0; i < Math.min(10, rows.length); i++) {
+        const firstCell = rows[i] && rows[i][0];
+        if (firstCell && String(firstCell).includes('來源')) {
+          headerRow = i;
+          break;
+        }
       }
-    }
-    if (headerRow === -1) return;
+      if (headerRow === -1) return;
 
-    // 解析資料
-    for (let i = headerRow + 1; i < rows.length; i++) {
-      const row = rows[i];
-      if (!row || !row[0]) continue;
+      // 解析資料列
+      for (let i = headerRow + 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[0]) continue;
 
-      const source_type = String(row[0]).trim();
-      const unit_no = row[1];
-      const invoice_no = row[2];
-      const customer = row[3];
-      const product = row[4];
-      const qty = parseFloat(row[5]) || 0;
-      const unit = row[6] || 'KG';
-      const price = parseFloat(row[7]) || 0;
-      const total_price = parseFloat(row[8]) || 0;
-      const notes = row[14] || '';
+        // 提取每個欄位
+        const source_type = String(row[0] || '').trim();
+        const unit_no = row[1];
+        const invoice_no = row[2];
+        const customer = row[3];
+        const product = row[4];
+        const qty = parseFloat(row[5]) || 0;
+        const unit = (String(row[6] || 'KG').replace(/\s+/g, '').trim()) || 'KG';
+        const price = parseFloat(row[7]) || 0;
+        const total_price = parseFloat(row[8]) || 0;
+        const notes = (row[14] || '').toString().trim();
 
-      // 只處理銷項發票
-      if (!source_type.includes('銷項')) continue;
-      if (!invoice_no && !customer) continue;
+        // 篩選：只要銷項發票 + 有發票號或客戶
+        if (!source_type.includes('銷項')) continue;
+        if (!invoice_no && !customer) continue;
 
-      const inv_key = String(invoice_no || customer).trim();
-      if (!inv_key) continue;
+        const inv_key = String(invoice_no || customer).trim();
+        if (!inv_key) continue;
 
-      if (!INDEX[inv_key]) {
-        INDEX[inv_key] = { invoice_no: inv_key, details: [] };
+        // 初始化發票
+        if (!INDEX[inv_key]) {
+          INDEX[inv_key] = { invoice_no: inv_key, details: [] };
+        }
+
+        // 添加明細
+        INDEX[inv_key].details.push({
+          sale_type: '銷售發票',
+          date: formatDate(unit_no),
+          invoice_no: inv_key,
+          product: (product || '未知').toString().trim(),
+          qty: qty,
+          unit: unit,
+          price: price,
+          total_price: total_price,
+          notes: notes || (customer || '').toString().trim(),
+          source: null
+        });
+
+        totalProcessed++;
       }
-
-      INDEX[inv_key].details.push({
-        sale_type: '銷售發票',
-        date: formatDate(unit_no),
-        invoice_no: inv_key,
-        product: product || '未知',
-        qty: qty,
-        unit: unit,
-        price: price,
-        total_price: total_price,
-        notes: notes || customer || '',
-        source: null
-      });
+    } catch (err) {
+      console.error(`Sheet ${sheetName} 處理失敗:`, err);
     }
   });
 }
@@ -380,11 +401,15 @@ function formatDate(val) {
   const str = String(val);
   if (str.includes('/')) return str;
   if (!isNaN(val)) {
-    const date = new Date((val - 25569) * 86400 * 1000);
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}/${m}/${d}`;
+    try {
+      const date = new Date((val - 25569) * 86400 * 1000);
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}/${m}/${d}`;
+    } catch (e) {
+      return '';
+    }
   }
   return '';
 }
@@ -397,7 +422,7 @@ function showMessage(msg, type = 'info') {
   const msgDiv = document.getElementById('messages');
   const html = `<div class="message ${type}">${msg}</div>`;
   msgDiv.innerHTML = html;
-  setTimeout(() => { msgDiv.innerHTML = ''; }, 4000);
+  setTimeout(() => { msgDiv.innerHTML = ''; }, 5000);
 }
 
 // ── 搜尋 ──
@@ -475,12 +500,15 @@ function downloadJSON() {
   a.download = `invoice_index_v5_${MONTH}.json`;
   a.click();
   URL.revokeObjectURL(url);
+  showMessage('✓ JSON 已下載', 'success');
 }
 
 function copyJSON() {
   const json = JSON.stringify(INDEX, null, 2);
   navigator.clipboard.writeText(json).then(() => {
     showMessage('✓ JSON 已複製到剪貼簿', 'success');
+  }).catch(() => {
+    showMessage('複製失敗', 'error');
   });
 }
 
@@ -494,6 +522,7 @@ function clearAllData() {
     document.getElementById('invInput').value = '';
     updateStatusBadge();
     showMessage('✓ 資料已清除', 'success');
+    document.getElementById('toolbarArea').style.display = 'none';
   }
 }
 
