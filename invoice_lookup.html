@@ -3,95 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>發票查詢工具 v4 - 貿易大漁</title>
+  <title>發票查詢工具 v5 - 貿易大漁</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
       background: #fdf6f0; padding: 1.5rem 1rem 3rem; color: #2d2020; font-size: 13px;
     }
-    .wrap { max-width: 1100px; margin: 0 auto; }
+    .wrap { max-width: 1200px; margin: 0 auto; }
 
-    h1 { font-size: 1.2rem; font-weight: 700; color: #3a1f1f; text-align:center; margin-bottom:.2rem; }
-    .subtitle { text-align:center; font-size:.75rem; color:#a07070; margin-bottom:1.2rem; }
+    h1 { font-size: 1.15rem; font-weight: 700; color: #3a1f1f; text-align: center; margin-bottom: .2rem; }
+    .subtitle { text-align: center; font-size: .72rem; color: #a07070; margin-bottom: 1.2rem; }
 
+    /* ── 搜尋列 ── */
     .search-bar {
-      display:flex; flex-wrap:wrap; gap:.5rem; align-items:center;
-      background:#fff; border:1.5px solid #f2a7c3; border-radius:12px;
-      padding:.8rem 1rem; box-shadow:0 3px 12px rgba(242,167,195,.13); margin-bottom:1.2rem;
+      display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+      background: #fff; border: 1.5px solid #f2a7c3; border-radius: 12px;
+      padding: .75rem 1rem; box-shadow: 0 3px 12px rgba(242,167,195,.13); margin-bottom: 1.2rem;
     }
-    .search-bar label { font-size:.78rem; font-weight:600; color:#6b5b95; white-space:nowrap; }
+    .search-bar label { font-size: .76rem; font-weight: 600; color: #6b5b95; white-space: nowrap; }
     .search-bar input {
-      padding:.45rem .75rem; border:1.5px solid #e0d4f0; border-radius:7px;
-      font-size:.88rem; background:#fdf6ff; transition:border-color .2s;
+      padding: .42rem .72rem; border: 1.5px solid #e0d4f0; border-radius: 7px;
+      font-size: .88rem; background: #fdf6ff; transition: border-color .2s;
     }
-    .search-bar input:focus { outline:none; border-color:#c9a8e0; }
-    #monthInput { width:90px; }
-    #invInput   { flex:1; min-width:180px; }
-    .btn { padding:.45rem 1rem; border:none; border-radius:7px; font-size:.82rem; font-weight:600; cursor:pointer; }
-    .btn-ghost   { background:#f5f0ff; color:#6b5b95; }
-    .btn-primary { background:linear-gradient(135deg,#f2a7c3,#e8836a); color:#fff; box-shadow:0 2px 8px rgba(232,131,106,.22); }
-    .btn-primary:hover { transform:translateY(-1px); }
-    .status { font-size:.72rem; color:#b09090; margin-left:auto; white-space:nowrap; }
-    .sbadge { background:#f7d96b; color:#7a4a00; padding:.15rem .5rem; border-radius:5px; font-size:.68rem; font-weight:700; margin-left:.3rem; }
+    .search-bar input:focus { outline: none; border-color: #c9a8e0; }
+    #monthInput { width: 88px; }
+    #invInput   { flex: 1; min-width: 180px; }
+    .btn { padding: .42rem .95rem; border: none; border-radius: 7px; font-size: .81rem; font-weight: 600; cursor: pointer; }
+    .btn-ghost   { background: #f5f0ff; color: #6b5b95; }
+    .btn-primary { background: linear-gradient(135deg, #f2a7c3, #e8836a); color: #fff; box-shadow: 0 2px 8px rgba(232,131,106,.22); }
+    .btn-primary:hover { transform: translateY(-1px); }
+    .status { font-size: .7rem; color: #b09090; margin-left: auto; white-space: nowrap; }
+    .sbadge { background: #f7d96b; color: #7a4a00; padding: .12rem .45rem; border-radius: 4px; font-size: .66rem; font-weight: 700; margin-left: .25rem; }
 
-    /* 發票標題列 */
+    /* ── 發票標題列 ── */
     .inv-title {
-      display:flex; align-items:center; gap:.6rem;
-      padding:.45rem .1rem; border-bottom:2px solid #f2a7c3; margin-bottom:.35rem; margin-top:1.2rem;
+      display: flex; align-items: center; gap: .55rem;
+      padding: .4rem .1rem; border-bottom: 2px solid #f2a7c3;
+      margin-bottom: .3rem; margin-top: 1.2rem;
     }
-    .inv-title:first-child { margin-top:0; }
-    .inv-no   { font-size:.95rem; font-weight:700; color:#3a1f1f; }
-    .inv-meta { font-size:.73rem; color:#a07070; }
-    .inv-count { font-size:.68rem; font-weight:700;
-      background:linear-gradient(135deg,#f2a7c3,#e8836a); color:#fff;
-      border-radius:20px; padding:.18rem .6rem; margin-left:auto; }
+    .inv-title:first-child { margin-top: 0; }
+    .inv-no   { font-size: .92rem; font-weight: 700; color: #3a1f1f; }
+    .inv-meta { font-size: .7rem; color: #a07070; }
+    .inv-count { font-size: .65rem; font-weight: 700;
+      background: linear-gradient(135deg, #f2a7c3, #e8836a); color: #fff;
+      border-radius: 20px; padding: .15rem .55rem; margin-left: auto; }
 
-    /* 主表格 */
-    table { width:100%; border-collapse:collapse; background:#fff;
-      border-radius:10px; overflow:hidden; box-shadow:0 1px 8px rgba(107,91,149,.07); }
+    /* ── 表格 ── */
+    table { width: 100%; border-collapse: collapse; background: #fff;
+      border-radius: 10px; overflow: hidden; box-shadow: 0 1px 8px rgba(107,91,149,.07); }
 
     thead th {
-      background:linear-gradient(135deg,rgba(242,167,195,.12),rgba(126,200,227,.12));
-      padding:.5rem .65rem; text-align:left; font-size:.72rem; font-weight:700;
-      color:#6b5b95; white-space:nowrap; position:sticky; top:0;
+      background: linear-gradient(135deg, rgba(242,167,195,.12), rgba(126,200,227,.12));
+      padding: .48rem .65rem; text-align: left; font-size: .7rem; font-weight: 700;
+      color: #6b5b95; white-space: nowrap; position: sticky; top: 0;
     }
+    tbody tr { border-bottom: 1px solid #f3eeff; transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #fdf8ff; }
+    tbody td { padding: .52rem .65rem; vertical-align: middle; }
 
-    tbody tr { border-bottom:1px solid #f3eeff; }
-    tbody tr:last-child { border-bottom:none; }
-    tbody tr:hover { background:#fdf8ff; }
-    tbody td { padding:.55rem .65rem; vertical-align:middle; }
-
-    /* 合計行 */
     tfoot td {
-      background:linear-gradient(135deg,rgba(242,167,195,.08),rgba(126,200,227,.08));
-      font-weight:700; font-size:.82rem; padding:.5rem .65rem;
-      color:#3a1f1f; border-top:2px solid #e8d0f8;
+      background: linear-gradient(135deg, rgba(242,167,195,.08), rgba(126,200,227,.08));
+      font-weight: 700; font-size: .8rem; padding: .48rem .65rem;
+      color: #3a1f1f; border-top: 2px solid #e8d0f8;
     }
 
-    /* 標籤 */
-    .tag { display:inline-block; padding:.12rem .45rem; border-radius:4px; font-size:.65rem; font-weight:700; white-space:nowrap; margin-right:.25rem; }
-    .t-import  { background:#e0f2ff; color:#1a5f8a; }
-    .t-receive { background:#e8f5e9; color:#2e7d32; }
-    .t-sale-d  { background:#fce4ec; color:#b71c1c; }
-    .t-sale    { background:#fff3e0; color:#e65100; }
+    /* ── 欄位樣式 ── */
+    .ref-no  { font-family: 'Courier New', monospace; font-size: .78rem; letter-spacing: .02em; }
+    .qty-neg { color: #e8836a; font-weight: 700; }
+    .supplier { color: #4a7a6a; font-size: .78rem; }
+    .batch    { color: #6b5b95; font-weight: 600; font-size: .78rem; font-family: monospace; }
+    .src-ref  { color: #5a7aaa; font-size: .76rem; font-family: monospace; }
+    .none-val { color: #ccc; font-size: .72rem; }
 
-    /* 來源資訊（inline，灰色） */
-    .src-inline { color:#888; font-size:.75rem; margin-left:.4rem; }
-    .src-batch  { color:#c97a40; font-weight:600; }
-    .sep        { color:#d0c0d0; margin:0 .25rem; }
-
-    .qty-neg { color:#e8836a; font-weight:700; }
-    .ref-no  { font-family:monospace; font-size:.78rem; }
-
-    .no-result { text-align:center; padding:2.5rem; color:#c0a0a0;
-      background:#fff; border-radius:12px; border:1px dashed #e8d0d0; }
+    /* 無結果 */
+    .no-result { text-align: center; padding: 2.5rem; color: #c0a0a0;
+      background: #fff; border-radius: 12px; border: 1px dashed #e8d0d0; }
   </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🐟 發票查詢工具</h1>
-  <p class="subtitle">銷售明細 + 來源（進項 / 進口報單）單行顯示</p>
+  <p class="subtitle">銷售發票 + 進項來源 / 供應商 / 批號</p>
 
   <div class="search-bar">
     <label>月份</label>
@@ -107,6 +101,7 @@
 </div>
 
 <script>
+// ── 樣本資料（202604 ZF08444613）──
 const SAMPLE = {
   "ZF08444613": {
     "invoice_no": "ZF08444613",
@@ -114,17 +109,17 @@ const SAMPLE = {
       {
         "sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉",
         "qty":-2000,"unit":"KG","price":86,"total_price":-172000,"notes":"菄海115/03",
-        "source":{"type":"進項發票","ref_no":"QX38261603","notes":"環宇水產有限公司"}
+        "source":{"type":"進項發票","ref_no":"QX38261603","supplier":"環宇水產有限公司","batch":null}
       },
       {
         "sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉",
         "qty":-1000,"unit":"KG","price":86,"total_price":-86000,"notes":"菄海115/03",
-        "source":{"type":"銷項發票","ref_no":"ZF08444614","notes":"湧鮮115/03"}
+        "source":{"type":"進口報單","ref_no":"BD 14 036 F0224","supplier":null,"batch":"20251117-001"}
       },
       {
         "sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉",
         "qty":-1200,"unit":"KG","price":86,"total_price":-103200,"notes":"菄海115/03",
-        "source":{"type":"進口報單","ref_no":"BD 15 036 F0050","notes":"入順昌20260309-001 THING HUNG"}
+        "source":{"type":"進口報單","ref_no":"BD 15 036 F0050","supplier":null,"batch":"20260309-001"}
       }
     ]
   }
@@ -132,67 +127,66 @@ const SAMPLE = {
 
 let INDEX = SAMPLE;
 
+// ── 載入月份 JSON ──
 async function loadMonth() {
   const m = document.getElementById('monthInput').value.trim();
-  if (!/^\d{6}$/.test(m)) { alert('請輸入 YYYYMM'); return; }
+  if (!/^\d{6}$/.test(m)) { alert('格式：YYYYMM'); return; }
   document.getElementById('statusBadge').textContent = '載入中…';
   try {
-    const r = await fetch(`invoice_index_${m}.json`);
+    const r = await fetch(`invoice_index_v5_${m}.json`);
     if (!r.ok) throw new Error();
     INDEX = await r.json();
     document.getElementById('statusBadge').textContent = `${m} ✅ ${Object.keys(INDEX).length}筆`;
   } catch {
     INDEX = m === '202604' ? SAMPLE : null;
-    document.getElementById('statusBadge').textContent = m === '202604' ? '202604 (樣本)' : `${m} ❌ 找不到`;
+    document.getElementById('statusBadge').textContent =
+      m === '202604' ? '202604 (樣本)' : `${m} ❌`;
   }
   document.getElementById('results').innerHTML = '';
 }
 
-function typeTag(t) {
-  if (!t) return '';
-  if (t.includes('進口')) return `<span class="tag t-import">${t}</span>`;
-  if (t.includes('進項')) return `<span class="tag t-receive">${t}</span>`;
-  if (t.includes('銷售')) return `<span class="tag t-sale">${t}</span>`;
-  return `<span class="tag t-sale-d">${t}</span>`;
-}
+function fmt(n) { return n != null ? Number(n).toLocaleString() : ''; }
+function dash(v) { return v ? v : '<span class="none-val">—</span>'; }
 
-function srcInline(src) {
-  if (!src) return '<span class="src-inline">—</span>';
-  const tag = typeTag(src.type);
-  const ref = src.ref_no ? `<span class="ref-no">${src.ref_no}</span>` : '';
-  const batch = src.notes ? `<span class="src-batch">${src.notes}</span>` : '';
-  const sep = '<span class="sep">·</span>';
-  return `<span class="src-inline">+${tag}${ref}${ref && batch ? sep : ''}${batch}</span>`;
-}
-
-function fmt(n) { return n != null ? Number(n).toLocaleString() : '-'; }
-
+// ── 渲染一張發票 ──
 function renderInvoice(inv) {
   const d = inv.details || [];
-  const totalQty = d.reduce((s,r)=>s+(r.qty||0), 0);
-  const totalAmt = d.reduce((s,r)=>s+(r.total_price||0), 0);
+  const totalQty = d.reduce((s, r) => s + (r.qty || 0), 0);
+  const totalAmt = d.reduce((s, r) => s + (r.total_price || 0), 0);
   const unit = d[0]?.unit || 'KG';
 
-  const rows = d.map(r => `
-    <tr>
-      <td>${typeTag(r.sale_type)}<span class="ref-no">${inv.invoice_no}</span></td>
-      <td>${r.date||'-'}</td>
-      <td>${r.product||'-'}</td>
-      <td class="qty-neg">${fmt(r.qty)} ${r.unit||''}</td>
-      <td>${r.price!=null?'NT$'+r.price:'-'}</td>
-      <td>${r.notes||''}${srcInline(r.source)}</td>
-    </tr>`).join('');
+  const rows = d.map(r => {
+    const src = r.source || {};
+    return `<tr>
+      <td class="ref-no">${inv.invoice_no}</td>
+      <td>${r.date || '—'}</td>
+      <td>${r.product || '—'}</td>
+      <td class="qty-neg">${fmt(r.qty)} ${r.unit || ''}</td>
+      <td>${r.price != null ? 'NT$' + r.price : '—'}</td>
+      <td>${r.notes || '—'}</td>
+      <td class="src-ref">${dash(src.ref_no)}</td>
+      <td class="supplier">${dash(src.supplier)}</td>
+      <td class="batch">${dash(src.batch)}</td>
+    </tr>`;
+  }).join('');
 
   return `
     <div class="inv-title">
       <span class="inv-no">發票 ${inv.invoice_no}</span>
-      <span class="inv-meta">${d[0]?.date||''} · ${d[0]?.sale_type||''}</span>
+      <span class="inv-meta">${d[0]?.date || ''} · ${d[0]?.sale_type || ''}</span>
       <span class="inv-count">${d.length} 筆</span>
     </div>
     <table>
       <thead><tr>
-        <th>類型 / 發票號</th><th>日期</th><th>品名</th>
-        <th>數量</th><th>單價</th><th>備註 / 批號　+來源</th>
+        <th>銷售發票</th>
+        <th>日期</th>
+        <th>品名</th>
+        <th>數量</th>
+        <th>單價</th>
+        <th>備註</th>
+        <th>進項來源</th>
+        <th>供應商</th>
+        <th>批號</th>
       </tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr>
@@ -200,14 +194,17 @@ function renderInvoice(inv) {
         <td class="qty-neg">${fmt(totalQty)} ${unit}</td>
         <td>—</td>
         <td>NT$ ${fmt(totalAmt)}</td>
+        <td colspan="3"></td>
       </tr></tfoot>
     </table>`;
 }
 
+// ── 搜尋 ──
 function search() {
   const q = document.getElementById('invInput').value.trim().toUpperCase();
   const out = document.getElementById('results');
-  if (!INDEX || !q) { out.innerHTML=''; return; }
+  if (!INDEX || !q) { out.innerHTML = ''; return; }
+
   const hits = Object.values(INDEX).filter(v => v.invoice_no.toUpperCase().includes(q));
   out.innerHTML = hits.length
     ? hits.map(renderInvoice).join('')
@@ -215,8 +212,8 @@ function search() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('invInput').addEventListener('keydown', e => { if(e.key==='Enter') search(); });
-  document.getElementById('monthInput').addEventListener('keydown', e => { if(e.key==='Enter') loadMonth(); });
+  document.getElementById('invInput').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+  document.getElementById('monthInput').addEventListener('keydown', e => { if (e.key === 'Enter') loadMonth(); });
 });
 </script>
 </body>
