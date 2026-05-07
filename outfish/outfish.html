@@ -258,7 +258,7 @@ const GD_SCOPE           = 'https://www.googleapis.com/auth/drive.file';
 const INVENTORY_FILENAME = '出庫計算機_庫存.json';
 const ORDER_FILENAME     = '出庫計算機_出庫單.json';
 
-let data=[], checked=new Set(), dragSrc=null;
+let data=[], checked=new Set(), checkedOrder=[], dragSrc=null;
 let plannedQty={}; // productName -> planned number
 let gdToken=null, gdUserName='';
 
@@ -460,10 +460,10 @@ async function gdLoadOrder(){
     if(!file){ hideLoading(); setGdStatus('err','雲端尚無出庫清單'); return; }
     const obj=await gdReadFile(file.id);
     const items=obj.items||obj;
-    checked.clear();
+    checked.clear(); checkedOrder=[];
     items.forEach(item=>{
       const idx=data.findIndex(r=>r['批號']===item['批號']&&r['儲位名稱']===item['儲位名稱']&&r['產品名稱']===item['產品名稱']);
-      if(idx>=0) checked.add(data[idx]._id);
+      if(idx>=0){ checked.add(data[idx]._id); checkedOrder.push(data[idx]._id); }
     });
     hideLoading(); setGdStatus('ok','✅ 已還原 '+checked.size+' 筆勾選');
     renderList(); switchTab('list');
@@ -502,7 +502,11 @@ function renderList(){
   });
   el.innerHTML=html; updateSummary();
 }
-function toggleCheck(id){ checked.has(id)?checked.delete(id):checked.add(id); renderList(); autoBackup(); }
+function toggleCheck(id){
+  if(checked.has(id)){ checked.delete(id); checkedOrder=checkedOrder.filter(x=>x!==id); }
+  else { checked.add(id); checkedOrder.push(id); }
+  renderList(); autoBackup();
+}
 async function autoBackup(){
   if(!gdToken||!checked.size) return;
   try{
@@ -516,7 +520,7 @@ async function autoBackup(){
     setTimeout(()=>toast.remove(),1800);
   }catch(e){}
 }
-function clearAll(){ checked.clear(); renderList(); }
+function clearAll(){ checked.clear(); checkedOrder=[]; renderList(); }
 function selectAll(){ getFiltered().forEach(r=>checked.add(r._id)); renderList(); }
 
 function saveContainerCapacity(val){
@@ -635,7 +639,7 @@ function dragOver(e){ e.preventDefault(); }
 function dragDrop(e,i){ e.preventDefault(); if(dragSrc===null||dragSrc===i)return; const m=colSettings.splice(dragSrc,1)[0]; colSettings.splice(i,0,m); dragSrc=null; renderColSettings(); }
 function saveColSettings(){ renderList(); switchTab('list'); }
 
-function getSelectedData(){ return data.filter(r=>checked.has(r._id)); }
+function getSelectedData(){ return checkedOrder.map(id=>data.find(r=>r._id===id)).filter(Boolean); }
 function buildExportPayload(){
   const sel=getSelectedData(); const byProduct={};
   sel.forEach(r=>{ const n=r['產品名稱']; if(!byProduct[n])byProduct[n]={qty:0,unit:r['基本單位名稱']}; byProduct[n].qty+=(r['庫存數量']||0); });
@@ -646,7 +650,7 @@ function renderExportPreview(){
   if(!sel.length){ card.style.display='none'; return; }
   card.style.display='';
   document.getElementById('preview-title').textContent='已選清單預覽（'+sel.length+' 筆）';
-  document.getElementById('preview-body').innerHTML='<table class="preview-table"><tr><th>產品名稱</th><th>儲位</th><th>批號</th><th>數量</th><th>單位</th></tr>'+sel.map(r=>'<tr><td>'+r['產品名稱']+'</td><td>'+r['儲位名稱']+'</td><td>'+r['批號']+'</td><td style="text-align:right;font-weight:600;color:#1d9e75">'+((r['庫存數量']||0).toLocaleString())+'</td><td>'+r['基本單位名稱']+'</td></tr>').join('')+'</table>';
+  document.getElementById('preview-body').innerHTML='<table class="preview-table"><tr><th>#</th><th>產品名稱</th><th>儲位</th><th>批號</th><th>數量</th><th>單位</th></tr>'+sel.map((r,i)=>'<tr><td style="color:#8e8e93;font-weight:600;text-align:center">'+(i+1)+'</td><td>'+r['產品名稱']+'</td><td>'+r['儲位名稱']+'</td><td>'+r['批號']+'</td><td style="text-align:right;font-weight:600;color:#1d9e75">'+((r['庫存數量']||0).toLocaleString())+'</td><td>'+r['基本單位名稱']+'</td></tr>').join('')+'</table>';
 }
 function downloadXLSX(){
   const sel=getSelectedData(); if(!sel.length){ alert('請先勾選要出庫的項目'); return; }
@@ -661,8 +665,8 @@ function downloadXLSX(){
     summaryData.push([name,v.unit,planned,v.qty,remain]);
   });
   // Build detail sheet
-  const detailData=[['產品名稱','產品規格','批號','儲位名稱','倉庫名稱','庫存數量','基本單位名稱']];
-  sel.forEach(r=>detailData.push([r['產品名稱'],r['產品規格'],r['批號'],r['儲位名稱'],r['倉庫名稱'],r['庫存數量'],r['基本單位名稱']]));
+  const detailData=[['序號','產品名稱','產品規格','批號','儲位名稱','倉庫名稱','庫存數量','基本單位名稱']];
+  sel.forEach((r,i)=>detailData.push([i+1,r['產品名稱'],r['產品規格'],r['批號'],r['儲位名稱'],r['倉庫名稱'],r['庫存數量'],r['基本單位名稱']]));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summaryData),'出貨彙總');
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(detailData),'出庫明細');
