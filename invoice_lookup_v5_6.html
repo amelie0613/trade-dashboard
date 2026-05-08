@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>發票查詢工具 v5.6 - 貿易大漁</title>
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: #fdf6f0; padding: 1.5rem 1rem 3rem; color: #2d2020; font-size: 13px; }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    h1 { font-size: 1.15rem; font-weight: 700; color: #3a1f1f; text-align: center; margin-bottom: .2rem; }
+    .subtitle { text-align: center; font-size: .72rem; color: #a07070; margin-bottom: 1.2rem; }
+
+    /* 搜尋列 */
+    .search-card { background: #fff; border: 1.5px solid #f2a7c3; border-radius: 12px; padding: .85rem 1rem; box-shadow: 0 3px 12px rgba(242,167,195,.13); margin-bottom: 1rem; }
+    .search-row1 { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .6rem; }
+    .search-row2 { display: flex; gap: .5rem; align-items: flex-start; }
+    .search-card label { font-size: .76rem; font-weight: 600; color: #6b5b95; white-space: nowrap; }
+    .search-card input[type="text"] { padding: .42rem .72rem; border: 1.5px solid #e0d4f0; border-radius: 7px; font-size: .88rem; background: #fdf6ff; transition: border-color .2s; }
+    .search-card input[type="text"]:focus { outline: none; border-color: #c9a8e0; }
+    #monthInput { width: 88px; }
+    #invInput { flex: 1; min-width: 220px; font-size: .82rem; }
+
+    /* 多筆輸入區 */
+    .multi-input-wrap { flex: 1; position: relative; }
+    #invInput { width: 100%; padding: .42rem .72rem; border: 1.5px solid #e0d4f0; border-radius: 7px; font-size: .82rem; background: #fdf6ff; resize: none; line-height: 1.6; }
+    #invInput:focus { outline: none; border-color: #c9a8e0; }
+    .input-hint { font-size: .68rem; color: #b09090; margin-top: .25rem; }
+
+    /* 標籤區 */
+    #tagArea { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; min-height: 24px; }
+    .inv-tag { background: #f0e8ff; color: #6b5b95; border: 1px solid #c9a8e0; border-radius: 20px; padding: .12rem .55rem .12rem .45rem; font-size: .72rem; font-weight: 600; display: flex; align-items: center; gap: .25rem; }
+    .inv-tag .rm { cursor: pointer; color: #a07090; font-size: .8rem; line-height: 1; }
+    .inv-tag .rm:hover { color: #c62828; }
+
+    .btn { padding: .42rem .95rem; border: none; border-radius: 7px; font-size: .81rem; font-weight: 600; cursor: pointer; transition: all .2s; white-space: nowrap; }
+    .btn-ghost { background: #f5f0ff; color: #6b5b95; }
+    .btn-primary { background: linear-gradient(135deg, #f2a7c3, #e8836a); color: #fff; box-shadow: 0 2px 8px rgba(232,131,106,.22); }
+    .btn-primary:hover { transform: translateY(-1px); }
+    .btn-secondary { background: #fff; color: #6b5b95; border: 1.5px solid #c9a8e0; }
+    .status { font-size: .7rem; color: #b09090; margin-left: auto; white-space: nowrap; }
+    .sbadge { background: #f7d96b; color: #7a4a00; padding: .12rem .45rem; border-radius: 4px; font-size: .66rem; font-weight: 700; margin-left: .25rem; }
+    .sbadge.ok { background: #c8e6c9; color: #1b5e20; }
+
+    /* 上傳 */
+    .file-input { display: none; }
+    .file-label { display: inline-block; }
+
+    /* 勾選控制列 */
+    .check-controls { margin-bottom: 1rem; display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+    .check-controls button { font-size: .75rem; padding: .3rem .6rem; }
+    #checkedCount { font-size: .75rem; color: #6b5b95; font-weight: 600; background: #f0e8ff; padding: .15rem .5rem; border-radius: 4px; }
+
+    /* 發票結果 */
+    .inv-title { display: flex; align-items: center; gap: .55rem; padding: .4rem .1rem; border-bottom: 2px solid #f2a7c3; margin-bottom: .3rem; margin-top: 1.2rem; }
+    .inv-title:first-child { margin-top: 0; }
+    .inv-no { font-size: .92rem; font-weight: 700; color: #3a1f1f; }
+    .inv-meta { font-size: .7rem; color: #a07070; }
+    .inv-count { font-size: .65rem; font-weight: 700; background: linear-gradient(135deg, #f2a7c3, #e8836a); color: #fff; border-radius: 20px; padding: .15rem .55rem; margin-left: auto; }
+
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 8px rgba(107,91,149,.07); }
+    thead th { background: linear-gradient(135deg, rgba(242,167,195,.12), rgba(126,200,227,.12)); padding: .48rem .65rem; text-align: left; font-size: .7rem; font-weight: 700; color: #6b5b95; white-space: nowrap; position: sticky; top: 0; }
+    tbody tr { border-bottom: 1px solid #f3eeff; transition: background .1s; }
+    tbody tr:hover { background: #fdf8ff; }
+    tbody tr.checked { background: #eef6ff; }
+    tbody tr.is-return { background: #fff0f0 !important; }
+    tbody tr.is-return.checked { background: #ffe0e0 !important; }
+    tbody tr.is-return td { color: #c62828; }
+    .return-badge { background: #c62828; color: #fff; font-size: .62rem; font-weight: 700; border-radius: 3px; padding: .06rem .3rem; margin-left: .3rem; vertical-align: middle; }
+    tbody td { padding: .52rem .65rem; vertical-align: middle; }
+    tfoot td { background: linear-gradient(135deg, rgba(242,167,195,.08), rgba(126,200,227,.08)); font-weight: 700; font-size: .8rem; padding: .48rem .65rem; color: #3a1f1f; border-top: 2px solid #e8d0f8; }
+    .ref-no { font-family: 'Courier New', monospace; font-size: .78rem; }
+    .qty-neg { color: #e8836a; font-weight: 700; }
+    .supplier { color: #4a7a6a; font-size: .78rem; }
+    .batch { color: #6b5b95; font-weight: 600; font-size: .78rem; }
+    .src-ref { color: #5a7aaa; font-size: .76rem; }
+    .none-val { color: #ccc; font-size: .72rem; }
+    .no-result { text-align: center; padding: 2.5rem; color: #c0a0a0; background: #fff; border-radius: 12px; border: 1px dashed #e8d0d0; }
+
+    .message { padding: 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: .8rem; }
+    .message.success { background: #e8f5e9; color: #2e7d32; border-left: 3px solid #81c784; }
+    .message.error { background: #ffebee; color: #c62828; border-left: 3px solid #ef5350; }
+    .message.info { background: #e3f2fd; color: #1565c0; border-left: 3px solid #64b5f6; }
+    .message.processing { background: #fff3e0; color: #e65100; border-left: 3px solid #ffb74d; }
+    .progress { width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin-bottom: .5rem; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #f2a7c3, #e8836a); width: 0%; transition: width .3s; }
+    .progress-text { font-size: .7rem; color: #999; margin-bottom: 1rem; }
+    .toolbar { margin-bottom: 1.2rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+    .toolbar button { font-size: .75rem; padding: .3rem .6rem; }
+
+    input[type="checkbox"] { cursor: pointer; accent-color: #6b5b95; width: 14px; height: 14px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🐟 發票查詢工具 v5.6</h1>
+  <p class="subtitle">銷售發票 + 進項報單自動關聯 | 批號追蹤 | 多筆查詢 | 勾選匯出</p>
+
+  <!-- 搜尋卡片 -->
+  <div class="search-card">
+    <!-- 第一列：月份 + 狀態 -->
+    <div class="search-row1">
+      <label>月份</label>
+      <input type="text" id="monthInput" value="202604" maxlength="6" placeholder="YYYYMM">
+      <button class="btn btn-ghost" onclick="loadMonth()">載入</button>
+      <div class="status">月份：<span class="sbadge" id="statusBadge">202604 (樣本)</span></div>
+    </div>
+
+    <!-- 第二列：發票輸入 + 查詢 -->
+    <div class="search-row2">
+      <label style="padding-top:.45rem">發票號碼</label>
+      <div class="multi-input-wrap">
+        <textarea id="invInput" rows="2" placeholder="輸入發票號碼，多筆用空格、逗號或換行分隔&#10;例：ZF08444613 ZF08444614 ZF08444615"></textarea>
+        <div class="input-hint">支援多筆：空格 / 逗號 / 換行 分隔</div>
+        <div id="tagArea"></div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:.1rem" onclick="search()">查詢</button>
+    </div>
+  </div>
+
+  <!-- 上傳列 -->
+  <div style="margin-bottom: 1rem; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;">
+    <label class="btn btn-secondary file-label">
+      📁 上傳 Excel
+      <input type="file" id="excelFile" accept=".xlsx,.xlsm" class="file-input" onchange="handleExcelUpload(event)">
+    </label>
+    <span id="uploadStatus" style="font-size: .75rem; color: #999;"></span>
+  </div>
+
+  <div id="messages"></div>
+  <div id="progressArea" style="display: none;">
+    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="progress-text" id="progressText">準備中…</div>
+  </div>
+
+  <!-- 勾選控制列 -->
+  <div id="checkControls" class="check-controls" style="display: none;">
+    <button class="btn btn-secondary" onclick="checkAll()">✅ 全選</button>
+    <button class="btn btn-secondary" onclick="uncheckAll()">⬜ 取消全選</button>
+    <button class="btn btn-primary" onclick="exportChecked()">📊 匯出勾選</button>
+    <span id="checkedCount"></span>
+  </div>
+
+  <div id="results"></div>
+
+  <!-- 工具列 -->
+  <div id="toolbarArea" class="toolbar" style="display: none;">
+    <button class="btn btn-secondary" onclick="downloadJSON()">⬇️ 下載 JSON</button>
+    <button class="btn btn-secondary" onclick="copyJSON()">📋 複製</button>
+    <button class="btn btn-secondary" onclick="clearAllData()">🗑️ 清除資料</button>
+  </div>
+</div>
+
+<script>
+let MONTH = '202604';
+let INDEX = {};
+let SELECTIONS = {};
+
+const SAMPLE = {
+  "ZF08444613": { "invoice_no": "ZF08444613", "details": [
+    {"sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉","qty":-2000,"unit":"KG","price":86,"total_price":-172000,"notes":"菄海115/03","source":{"type":"進口報單","ref_no":"QX38261603","supplier":"環宇水產","batch":null}},
+    {"sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉","qty":-1000,"unit":"KG","price":86,"total_price":-86000,"notes":"菄海115/03","source":{"type":"進口報單","ref_no":"BD 14 036 F0224","supplier":null,"batch":"20251117-001"}},
+    {"sale_type":"銷售發票","date":"2026/04/10","product":"冷凍黃鰭鮪碎肉","qty":-1200,"unit":"KG","price":86,"total_price":-103200,"notes":"菄海115/03","source":{"type":"進口報單","ref_no":"BD 15 036 F0050","supplier":null,"batch":"20260309-001"}}
+  ]}
+};
+
+// ── 初始化 ──
+window.addEventListener('load', () => {
+  loadFromCache();
+  loadSelectionsFromCache();
+  if (Object.keys(INDEX).length === 0) INDEX = JSON.parse(JSON.stringify(SAMPLE));
+  updateStatusBadge();
+  updateCheckedCount();
+  if (Object.keys(INDEX).length > 0) {
+    document.getElementById('toolbarArea').style.display = 'flex';
+    document.getElementById('checkControls').style.display = 'flex';
+  }
+});
+
+// ── 快取 ──
+function saveToCache() { localStorage.setItem(`invoice_v56_${MONTH}`, JSON.stringify(INDEX)); }
+function loadFromCache() {
+  const d = localStorage.getItem(`invoice_v56_${MONTH}`);
+  if (d) { try { INDEX = JSON.parse(d); } catch(e){} }
+}
+function saveSelectionsToCache() { localStorage.setItem(`sel_v56_${MONTH}`, JSON.stringify(SELECTIONS)); }
+function loadSelectionsFromCache() {
+  const d = localStorage.getItem(`sel_v56_${MONTH}`);
+  if (d) { try { SELECTIONS = JSON.parse(d); } catch(e){} }
+}
+
+function updateStatusBadge() {
+  const count = Object.keys(INDEX).length;
+  const isSample = count === 1 && INDEX['ZF08444613'];
+  const isCached = localStorage.getItem(`invoice_v56_${MONTH}`);
+  const badge = document.getElementById('statusBadge');
+  badge.textContent = `${MONTH} ${isSample ? '(樣本)' : isCached ? `✓ ${count} 筆` : `${count} 筆`}`;
+  badge.classList.toggle('ok', !isSample && !!isCached);
+}
+
+// ── 勾選 ──
+function toggleCheck(detailId) {
+  SELECTIONS[detailId] = !SELECTIONS[detailId];
+  saveSelectionsToCache();
+  updateCheckedCount();
+  const row = document.querySelector(`[data-detail-id="${detailId}"]`);
+  if (row) row.classList.toggle('checked', SELECTIONS[detailId]);
+}
+function checkAll() {
+  Object.keys(SELECTIONS).forEach(id => SELECTIONS[id] = true);
+  saveSelectionsToCache(); updateCheckedCount();
+  document.querySelectorAll('tbody input[type="checkbox"]').forEach(cb => cb.checked = true);
+  document.querySelectorAll('tbody tr[data-detail-id]').forEach(tr => tr.classList.add('checked'));
+}
+function uncheckAll() {
+  Object.keys(SELECTIONS).forEach(id => SELECTIONS[id] = false);
+  saveSelectionsToCache(); updateCheckedCount();
+  document.querySelectorAll('tbody input[type="checkbox"]').forEach(cb => cb.checked = false);
+  document.querySelectorAll('tbody tr[data-detail-id]').forEach(tr => tr.classList.remove('checked'));
+}
+function updateCheckedCount() {
+  const checked = Object.values(SELECTIONS).filter(Boolean).length;
+  const el = document.getElementById('checkedCount');
+  el.textContent = checked > 0 ? `已勾選 ${checked} 筆` : '';
+}
+function initializeSelections() {
+  Object.values(INDEX).forEach(inv => {
+    inv.details.forEach((_, idx) => {
+      const id = `${inv.invoice_no}_${idx}`;
+      if (!(id in SELECTIONS)) SELECTIONS[id] = false;
+    });
+  });
+  saveSelectionsToCache();
+}
+
+// ── 解析多筆發票號碼 ──
+function parseInvInput() {
+  const raw = document.getElementById('invInput').value;
+  // 用空格、逗號、頓號、換行分隔
+  const tokens = raw.split(/[\s,，、\n]+/).map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+  return [...new Set(tokens)]; // 去重
+}
+
+function renderTags(tokens) {
+  const area = document.getElementById('tagArea');
+  if (tokens.length <= 1) { area.innerHTML = ''; return; }
+  area.innerHTML = tokens.map(t =>
+    `<span class="inv-tag">${t} <span class="rm" onclick="removeTag('${t}')">✕</span></span>`
+  ).join('');
+}
+
+function removeTag(token) {
+  const textarea = document.getElementById('invInput');
+  const tokens = parseInvInput().filter(t => t !== token);
+  textarea.value = tokens.join('\n');
+  renderTags(tokens);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('invInput').addEventListener('input', () => {
+    renderTags(parseInvInput());
+  });
+  document.getElementById('invInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); search(); }
+  });
+  document.getElementById('monthInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') loadMonth();
+  });
+});
+
+// ── 查詢 ──
+function search() {
+  const tokens = parseInvInput();
+  renderTags(tokens);
+  const out = document.getElementById('results');
+  if (!INDEX || tokens.length === 0) { out.innerHTML = ''; return; }
+
+  const hits = [];
+  const notFound = [];
+
+  tokens.forEach(q => {
+    const matched = Object.values(INDEX).filter(v => v.invoice_no.toUpperCase().includes(q));
+    if (matched.length > 0) {
+      matched.forEach(m => { if (!hits.find(h => h.invoice_no === m.invoice_no)) hits.push(m); });
+    } else {
+      notFound.push(q);
+    }
+  });
+
+  let html = '';
+  if (hits.length > 0) html += hits.map(renderInvoice).join('');
+  if (notFound.length > 0) {
+    html += `<div class="no-result" style="margin-top:1rem">找不到：<strong>${notFound.join('、')}</strong><br><small>確認月份或發票號碼是否正確</small></div>`;
+  }
+  out.innerHTML = html || `<div class="no-result">沒有符合的記錄</div>`;
+}
+
+// ── 月份載入 ──
+async function loadMonth() {
+  const m = document.getElementById('monthInput').value.trim();
+  if (!/^\d{6}$/.test(m)) { showMessage('格式錯誤，請輸入 YYYYMM', 'error'); return; }
+  MONTH = m;
+  document.getElementById('statusBadge').textContent = '載入中…';
+  try {
+    const r = await fetch(`invoice_index_v5_${m}.json`);
+    if (!r.ok) throw new Error();
+    INDEX = await r.json();
+    saveToCache();
+    showMessage(`✓ 已載入 ${m}，共 ${Object.keys(INDEX).length} 筆`, 'success');
+  } catch {
+    INDEX = JSON.parse(JSON.stringify(SAMPLE));
+    showMessage(`未找到 ${m}，已載入樣本`, 'info');
+  }
+  loadSelectionsFromCache();
+  updateStatusBadge();
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('toolbarArea').style.display = 'flex';
+  document.getElementById('checkControls').style.display = 'flex';
+  updateCheckedCount();
+}
+
+// ── Excel 上傳 ──
+function handleExcelUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (typeof XLSX === 'undefined') { showMessage('❌ SheetJS 庫尚未載入', 'error'); return; }
+
+  document.getElementById('uploadStatus').textContent = '開始處理…';
+  document.getElementById('progressArea').style.display = 'block';
+  setProgress(0);
+  showMessage('處理中（請勿關閉此頁面）…', 'processing');
+
+  const reader = new FileReader();
+  reader.onerror = () => {
+    showMessage('檔案讀取錯誤', 'error');
+    document.getElementById('uploadStatus').textContent = '❌ 讀取失敗';
+    document.getElementById('progressArea').style.display = 'none';
+  };
+  reader.onload = (e) => {
+    setTimeout(() => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        setProgress(10); updateProgress('解析 Excel 中…');
+        setTimeout(() => {
+          convertExcelAsync(workbook, () => {
+            setProgress(100); updateProgress('完成！');
+            const count = Object.keys(INDEX).length;
+            if (count === 0) {
+              showMessage('❌ 找不到銷項發票資料', 'error');
+              document.getElementById('uploadStatus').textContent = '❌ 無有效資料';
+            } else {
+              setTimeout(() => {
+                showMessage(`✓ 轉換成功！共 ${count} 筆發票`, 'success');
+                document.getElementById('uploadStatus').textContent = `✓ ${file.name}`;
+                saveToCache(); initializeSelections(); loadSelectionsFromCache();
+                updateStatusBadge(); updateCheckedCount();
+                document.getElementById('progressArea').style.display = 'none';
+                document.getElementById('toolbarArea').style.display = 'flex';
+                document.getElementById('checkControls').style.display = 'flex';
+              }, 500);
+            }
+          });
+        }, 100);
+      } catch (err) {
+        showMessage('❌ ' + err.message, 'error');
+        document.getElementById('uploadStatus').textContent = '❌ 處理失敗';
+        document.getElementById('progressArea').style.display = 'none';
+      }
+    }, 100);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function convertExcelAsync(workbook, callback) {
+  INDEX = {};
+  const sheetNames = workbook.SheetNames;
+  let batchCounter = 0;
+
+  function processNextSheet(idx) {
+    if (idx >= sheetNames.length) { callback(); return; }
+    const name = sheetNames[idx];
+    updateProgress(`處理 ${idx + 1}/${sheetNames.length}: ${name}`);
+    setProgress(Math.round((idx / sheetNames.length) * 80) + 10);
+    setTimeout(() => { processSheet(name); processNextSheet(idx + 1); }, 10);
+  }
+
+  function processSheet(sheetName) {
+    if (sheetName.includes('NEW') || sheetName === '返回目錄') return;
+    try {
+      const ws = workbook.Sheets[sheetName];
+      if (!ws) return;
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      let headerRow = -1;
+      for (let i = 0; i < Math.min(10, rows.length); i++) {
+        if (rows[i][0] && String(rows[i][0]).includes('來源')) { headerRow = i; break; }
+      }
+      if (headerRow === -1) return;
+
+      let currentBatch = null;
+      const maxRows = Math.min(rows.length, headerRow + 501);
+
+      for (let i = headerRow + 1; i < maxRows; i++) {
+        const row = rows[i];
+        if (!row || !row[0]) continue;
+        try {
+          const src = String(row[0] || '').trim();
+          const unit_no = row[1];
+          const ref_no = String(row[2] || '').trim();
+          const customer = String(row[3] || '').trim();
+          const product = String(row[4] || '').trim();
+          const qty = parseFloat(row[5]) || 0;
+          const unit = (String(row[6] || 'KG').replace(/\s+/g, '') || 'KG');
+          const price = parseFloat(row[7]) || 0;
+          const total_price = parseFloat(row[8]) || 0;
+          const batch_info = String(row[14] || '').trim();
+
+          // ── 分類判斷（依照業務定義）──
+          const isSales = ['銷項發票','銷項發票(二聯)','銷售發票','二聯發票','二聯式發票','電子發票'].some(k => src.includes(k));
+          const isReturn = ['銷貨退回','進項退出'].some(k => src.includes(k));
+          const isImport = ['進口報單','進項發票'].some(k => src.includes(k));
+          const isImportOther = ['高雄計價單','小港估價單','高雄估價單','小港計價單','魚市場計價單','漁民收據','高雄計價單(負數計價單)','1/1高雄計價單','2/16高雄計價單','2/18高雄計價單'].some(k => src.includes(k));
+          const isExport = ['出口報單','加工','加工單'].some(k => src.includes(k));
+
+          // 進項：開新區塊
+          if (isImport || isImportOther) {
+            batchCounter++;
+            currentBatch = {
+              ref_no: ref_no,
+              batch: extractBatch(batch_info),
+              supplier: customer
+            };
+            continue;
+          }
+
+          // 銷項 + 退貨：加入資料
+          if (isSales || isReturn || isExport) {
+            if (!ref_no && !customer) continue;
+            const key = ref_no || customer;
+            if (!INDEX[key]) INDEX[key] = { invoice_no: key, details: [] };
+            const notes_o = String(row[14] || '').trim();  // O欄
+            const notes_p = String(row[15] || '').trim();  // P欄
+            const notes = [notes_o, notes_p].filter(Boolean).join(' / ');
+            INDEX[key].details.push({
+              sale_type: isReturn ? '退貨' : '銷售發票',
+              is_return: isReturn,
+              date: formatDate(unit_no),
+              invoice_no: key,
+              product: product || '未知',
+              qty, unit, price, total_price,
+              notes: notes || customer || '',
+              source: currentBatch ? { type: '進口報單', ref_no: currentBatch.ref_no, supplier: currentBatch.supplier, batch: currentBatch.batch } : null
+            });
+            continue;
+          }
+
+          // 小計：區塊結束
+          if (src.includes('小計')) currentBatch = null;
+
+        } catch(e) { console.warn(`行 ${i}:`, e); }
+      }
+    } catch(err) { console.error(`Sheet ${sheetName}:`, err); }
+  }
+
+  processNextSheet(0);
+}
+
+function extractBatch(text) {
+  if (!text) return null;
+  const m1 = text.match(/(\d{8}-\d{3})/);  if (m1) return m1[1];
+  const m2 = text.match(/\d{8}-\d+/);       if (m2) return m2[0];
+  return text || null;
+}
+
+function formatDate(val) {
+  if (!val) return '';
+  const s = String(val);
+  if (s.includes('/')) return s;
+  if (!isNaN(val) && val > 0) {
+    const d = new Date((val - 25569) * 86400000);
+    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  }
+  return '';
+}
+
+function setProgress(p) { document.getElementById('progressBar').style.width = p + '%'; }
+function updateProgress(t) { document.getElementById('progressText').textContent = t; }
+
+function showMessage(msg, type = 'info') {
+  document.getElementById('messages').innerHTML = `<div class="message ${type}">${msg}</div>`;
+  if (type !== 'processing') setTimeout(() => { document.getElementById('messages').innerHTML = ''; }, 5000);
+}
+
+// ── 渲染發票 ──
+function renderInvoice(inv) {
+  const d = inv.details || [];
+  const totalQty = d.reduce((s, r) => s + (r.qty || 0), 0);
+  const totalAmt = d.reduce((s, r) => s + (r.total_price || 0), 0);
+  const unit = d[0]?.unit || 'KG';
+
+  const rows = d.map((r, idx) => {
+    const id = `${inv.invoice_no}_${idx}`;
+    const chk = SELECTIONS[id] || false;
+    const src = r.source || {};
+    const isRet = r.is_return;
+    const trClass = [isRet ? 'is-return' : '', chk ? 'checked' : ''].filter(Boolean).join(' ');
+    const retBadge = isRet ? '<span class="return-badge">退貨</span>' : '';
+    return `<tr data-detail-id="${id}" class="${trClass}">
+      <td><input type="checkbox" ${chk ? 'checked' : ''} onchange="toggleCheck('${id}')"></td>
+      <td class="ref-no">${inv.invoice_no}${retBadge}</td>
+      <td>${r.date || '—'}</td>
+      <td>${r.product || '—'}</td>
+      <td class="qty-neg">${fmt(r.qty)} ${r.unit || ''}</td>
+      <td>${r.price != null ? 'NT$' + r.price : '—'}</td>
+      <td>${r.notes || '—'}</td>
+      <td class="src-ref">${dash(src.ref_no)}</td>
+      <td class="supplier">${dash(src.supplier)}</td>
+      <td class="batch">${dash(src.batch)}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="inv-title">
+      <span class="inv-no">發票 ${inv.invoice_no}</span>
+      <span class="inv-meta">${d[0]?.date || ''} · ${d[0]?.sale_type || ''}</span>
+      <span class="inv-count">${d.length} 筆</span>
+    </div>
+    <table>
+      <thead><tr>
+        <th>✓</th><th>銷售發票</th><th>日期</th><th>品名</th>
+        <th>數量</th><th>單價</th><th>備註</th>
+        <th>進項來源</th><th>供應商</th><th>批號</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td colspan="3" style="text-align:right">合計</td>
+        <td class="qty-neg">${fmt(totalQty)} ${unit}</td>
+        <td>—</td>
+        <td>NT$ ${fmt(totalAmt)}</td>
+        <td colspan="4"></td>
+      </tr></tfoot>
+    </table>`;
+}
+
+function fmt(n) { return n != null ? Number(n).toLocaleString() : ''; }
+function dash(v) { return v ? v : '<span class="none-val">—</span>'; }
+
+// ── 匯出 Excel ──
+function exportChecked() {
+  const checkedIds = Object.entries(SELECTIONS).filter(([,v]) => v).map(([k]) => k);
+  if (checkedIds.length === 0) { showMessage('❌ 請先勾選要匯出的記錄', 'error'); return; }
+
+  const rows = [['發票號碼','類型','日期','品名','數量','單位','單價','合計','備註','進項報單','供應商','批號']];
+  Object.values(INDEX).forEach(inv => {
+    inv.details.forEach((d, idx) => {
+      if (!SELECTIONS[`${inv.invoice_no}_${idx}`]) return;
+      const s = d.source || {};
+      rows.push([inv.invoice_no, d.is_return ? '退貨' : '銷售', d.date||'', d.product||'', d.qty, d.unit||'', d.price||'', d.total_price||'', d.notes||'', s.ref_no||'', s.supplier||'', s.batch||'']);
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // 設定欄寬
+  ws['!cols'] = [14,8,12,20,10,6,10,12,16,18,16,14].map(w => ({ wch: w }));
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '發票明細');
+  XLSX.writeFile(wb, `invoice_export_${MONTH}.xlsx`);
+  showMessage(`✓ 已匯出 ${checkedIds.length} 筆`, 'success');
+}
+
+// ── JSON 下載 / 複製 / 清除 ──
+function downloadJSON() {
+  const blob = new Blob([JSON.stringify(INDEX, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `invoice_index_v5_${MONTH}.json` });
+  a.click(); URL.revokeObjectURL(a.href);
+  showMessage('✓ JSON 已下載', 'success');
+}
+function copyJSON() {
+  navigator.clipboard.writeText(JSON.stringify(INDEX, null, 2))
+    .then(() => showMessage('✓ JSON 已複製', 'success'))
+    .catch(() => showMessage('複製失敗', 'error'));
+}
+function clearAllData() {
+  if (!confirm('確定清除此月份所有資料？')) return;
+  INDEX = {}; SELECTIONS = {};
+  localStorage.removeItem(`invoice_v56_${MONTH}`);
+  localStorage.removeItem(`sel_v56_${MONTH}`);
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('uploadStatus').textContent = '';
+  document.getElementById('invInput').value = '';
+  document.getElementById('tagArea').innerHTML = '';
+  updateStatusBadge(); updateCheckedCount();
+  showMessage('✓ 資料已清除', 'success');
+  document.getElementById('toolbarArea').style.display = 'none';
+  document.getElementById('checkControls').style.display = 'none';
+}
+</script>
+</body>
+</html>
