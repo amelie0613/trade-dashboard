@@ -138,7 +138,8 @@
   <div id="checkControls" class="check-controls" style="display: none;">
     <button class="btn btn-secondary" onclick="checkAll()">✅ 全選</button>
     <button class="btn btn-secondary" onclick="uncheckAll()">⬜ 取消全選</button>
-    <button class="btn btn-primary" onclick="exportChecked()">📊 匯出勾選</button>
+    <button class="btn btn-primary" onclick="exportChecked()">📊 匯出 Excel</button>
+    <button class="btn btn-primary" onclick="exportApply()">🔧 申報匯出</button>
     <span id="checkedCount"></span>
   </div>
 
@@ -570,6 +571,50 @@ function exportChecked() {
   XLSX.utils.book_append_sheet(wb, ws, '發票明細');
   XLSX.writeFile(wb, `invoice_export_${MONTH}.xlsx`);
   showMessage(`✓ 已匯出 ${checkedIds.length} 筆`, 'success');
+}
+
+// ── 申報匯出（勾選項目 → JSON）──
+function exportApply() {
+  const checkedIds = Object.entries(SELECTIONS).filter(([,v]) => v).map(([k]) => k);
+  if (checkedIds.length === 0) { showMessage('❌ 請先勾選要申報的記錄', 'error'); return; }
+
+  const items = [];
+  Object.values(INDEX).forEach(inv => {
+    inv.details.forEach((d, idx) => {
+      if (!SELECTIONS[`${inv.invoice_no}_${idx}`]) return;
+      const s = d.source || {};
+      items.push({
+        invoice_no: inv.invoice_no,
+        product: d.product,
+        qty: d.qty,
+        unit: d.unit,
+        price: d.price,
+        total_price: d.total_price,
+        notes: d.notes,
+        source: {
+          ref_no: s.ref_no,
+          supplier: s.supplier,
+          batch: s.batch
+        }
+      });
+    });
+  });
+
+  const applyData = {
+    export_date: new Date().toISOString().split('T')[0],
+    export_type: '申報用',
+    month: MONTH,
+    item_count: items.length,
+    items: items
+  };
+
+  const blob = new Blob([JSON.stringify(applyData, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `apply_${MONTH}_${new Date().getTime()}.json`
+  });
+  a.click(); URL.revokeObjectURL(a.href);
+  showMessage(`✓ 申報資料已匯出（${items.length} 筆）`, 'success');
 }
 
 // ── JSON 下載 / 複製 / 清除 ──
