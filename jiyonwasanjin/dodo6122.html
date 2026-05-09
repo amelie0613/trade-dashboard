@@ -2717,13 +2717,20 @@ function loadPriceFile(input){
       raw.forEach(r => {
         const name  = String(r['產品名稱']||'').trim();
         const lot   = String(r['批號']||'').trim();
-        // 期末優先，無值時用期初
         const endCost   = parseFloat(r['期末單位成本']);
         const startCost = parseFloat(r['期初單位成本']);
-        const price = !isNaN(endCost) && endCost > 0 ? endCost
+        const inCost    = parseFloat(r['收入單位成本']);
+        const outCost   = parseFloat(r['發出單位成本']);
+        const price = !isNaN(endCost)   && endCost   > 0 ? endCost
                     : !isNaN(startCost) && startCost > 0 ? startCost
+                    : !isNaN(inCost)    && inCost    > 0 ? inCost
+                    : !isNaN(outCost)   && outCost   > 0 ? outCost
                     : 0;
-        const priceSource = (!isNaN(endCost) && endCost > 0) ? '期末' : '期初';
+        const priceSource = !isNaN(endCost)   && endCost   > 0 ? '期末'
+                          : !isNaN(startCost) && startCost > 0 ? '期初'
+                          : !isNaN(inCost)    && inCost    > 0 ? '收入'
+                          : !isNaN(outCost)   && outCost   > 0 ? '發出'
+                          : '';
         const scope = String(r['存貨核算範圍名稱']||r['存貨核算範圍']||r['核算範圍']||'').trim();
         if(name && lot){
           prices[`${name}__${lot}`] = { price, priceSource, scope };
