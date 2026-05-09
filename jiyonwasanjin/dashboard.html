@@ -1306,15 +1306,17 @@ function renderInventory(){
 
   // 手機版排序菜單
   const mergeBtnStyle = pivotEnabled ? `background:var(--accent);color:white;border-color:var(--accent);` : '';
-  let html = `<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;padding:0 10px;align-items:center;">
-    <div style="font-size:11px;color:#999;align-self:center;white-space:nowrap;">排序：</div>
-    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('name')">名稱${invSortCol==='name'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('qty')">數量${invSortCol==='qty'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('days')">天數${invSortCol==='days'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('cost')">成本${invSortCol==='cost'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('warehouse')">倉庫${invSortCol==='warehouse'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('scope')">核算範圍${invSortCol==='scope'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-    <button class="merge-btn filter-btn" onclick="clickMerge()" style="font-size:11px;padding:5px 10px;font-weight:800;transition:all .15s;${mergeBtnStyle}">⊞ 合併明細</button>
+  let html = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 10px;">
+    <div style="display:flex;align-items:center;gap:6px;flex:1;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;">
+      <div style="font-size:11px;color:#999;white-space:nowrap;flex-shrink:0;">排序：</div>
+      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('name')">名稱${invSortCol==='name'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('qty')">數量${invSortCol==='qty'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('days')">天數${invSortCol==='days'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('cost')">成本${invSortCol==='cost'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('warehouse')">倉庫${invSortCol==='warehouse'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('scope')">核算範圍${invSortCol==='scope'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+    </div>
+    <button class="merge-btn filter-btn" onclick="clickMerge()" style="font-size:11px;padding:5px 10px;font-weight:800;flex-shrink:0;transition:all .15s;${mergeBtnStyle}">⊞ 合併明細</button>
   </div>`;
 
   let grandQty = 0, grandCost = 0;
