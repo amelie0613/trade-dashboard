@@ -441,27 +441,29 @@ table.data-tbl .row-long    td{background:#fff8f0!important;}
 table.data-tbl .row-caution td{background:#fffef0!important;}
 
 /* ══ RESULT TABLE (租金計算明細) ═════════════════════════════════ */
-#resultTable{
+#resultTable,#ledgerDetailTable{
   border-collapse:collapse;
   font-size:12px;
-  min-width:2400px;
   font-family:'Noto Sans TC',sans-serif;
 }
-#resultTable th,#resultTable td{
+#resultTable{ min-width:2400px; }
+#resultTable th,#resultTable td,
+#ledgerDetailTable th,#ledgerDetailTable td{
   white-space:nowrap;
   vertical-align:middle;
 }
-#resultTable th{
+#resultTable th,#ledgerDetailTable th{
   position:sticky;top:0;z-index:2;
   background:var(--accent);
   color:#fff;font-weight:700;
   border:1px solid #4a5a9f;
   padding:7px 10px;
   text-align:center;
-  cursor:pointer;
+  cursor:default;
   user-select:none;
-  font-size:12px;
+  font-size:11px;
 }
+#resultTable th{ cursor:pointer; }
 #resultTable th.col-num   { text-align:right;  }
 #resultTable th.col-text  { text-align:left;   }
 #resultTable th.col-date  { text-align:center; }
@@ -477,7 +479,7 @@ table.data-tbl th{ position:relative; }
 .col-resize-handle.resizing{
   background:rgba(255,255,255,0.35);
 }
-#resultTable td{
+#resultTable td,#ledgerDetailTable td{
   padding:5px 10px;
   border:1px solid #dde6ef;
   font-size:11px;
@@ -5008,9 +5010,7 @@ window.doUploadLedger = async function() {
 
         await saveLedgerRows(rows);
         await refreshLedgerStatus();
-        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆，同步中...</span>`;
-        await syncToGitHub();
-        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆，已同步到 Supabase</span>`;
+        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆（執行月結算後再備份到 Supabase）</span>`;
 
         // 自動顯示總帳
         await viewLedger();
@@ -5797,7 +5797,7 @@ async function viewLedger() {
         if (rows.length === 0) { resultsEl.innerHTML = '<p style="color:#999; text-align:center; padding:2rem;">總帳尚無資料</p>'; return; }
 
         // 只顯示月租金結餘 > 0 的
-        const activeRows = rows.filter(r => (r.月租金結餘 ?? r.前期結餘 ?? 0) > 0);
+        const activeRows = rows.filter(r => (r.月租金結餘 || r.前期結餘 || 0) > 0);
 
         // 採購部門小計
         const deptMap = {};
@@ -5870,6 +5870,7 @@ async function viewLedger() {
         }).join('');
 
         // ── 資料列 HTML ──────────────────────────────────────────────
+        window._ledgerViewRows = sorted; // 供右鍵公式使用
         const tdBase = `border:1px solid #dde6ef;font-size:11px;padding:5px 10px;white-space:nowrap;`;
         let tableRows = '';
         sorted.forEach((r, idx) => {
@@ -5883,9 +5884,13 @@ async function viewLedger() {
                     tableRows += `<td style="${tdBase}${hlColor}font-size:10px;color:#8a6a7a;min-width:140px;white-space:normal;">${history||'-'}</td>`;
                 } else if (c.key === '產品名稱') {
                     tableRows += `<td style="${tdBase}padding:0;"><input type="text" value="${r.產品名稱||''}" data-ledger-key="${rowKey}" data-field="產品名稱" onchange="onLedgerEdit(this)" style="width:100%;border:none;padding:4px 10px;background:transparent;font-family:inherit;font-size:11px;outline:none;cursor:pointer;border-bottom:1.5px solid transparent;" onfocus="this.style.borderBottomColor='#f2a7c3';this.style.background='#fff8fc';" onblur="this.style.borderBottomColor='transparent';this.style.background='transparent';"/></td>`;
+                } else if (c.key === '分攤單價') {
+                    const v = parseFloat(r[c.key])||0;
+                    const disp = v ? v.toFixed(5) : '-';
+                    tableRows += `<td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;cursor:context-menu;" oncontextmenu="showAllocPriceDetail(event,${idx});return false;" title="右鍵查看計算公式">${disp}</td>`;
                 } else if (c.align === 'num') {
                     const v = parseFloat(r[c.key])||0;
-                    const disp = c.key==='分攤單價' ? (v?v.toFixed(5):'-') : (v?v.toLocaleString():'-');
+                    const disp = v ? v.toLocaleString() : '-';
                     tableRows += `<td style="${tdBase}${hlColor}text-align:right;font-variant-numeric:tabular-nums;">${disp}</td>`;
                 } else {
                     tableRows += `<td style="${tdBase}${hlColor}">${r[c.key]||''}</td>`;
@@ -5918,7 +5923,7 @@ async function viewLedger() {
 
             <!-- 明細表格 -->
             <div class="overflow-auto" style="max-height:calc(100vh - 300px);overflow-y:auto;">
-                <table id="resultTable" style="min-width:1600px;">
+                <table id="ledgerDetailTable" style="min-width:1600px;border-collapse:collapse;font-size:12px;font-family:'Noto Sans TC',sans-serif;width:100%;">
                     <thead>
                         <tr>${sumRow}</tr>
                         <tr>${thRow}</tr>
@@ -6903,6 +6908,70 @@ function onLedgerEdit(input) {
         alert('更新失敗：' + e.message);
         input.value = input.defaultValue;
     }
+}
+
+function showAllocPriceDetail(event, idx) {
+    const r = (window._ledgerViewRows || [])[idx];
+    if (!r) return;
+
+    const existing = document.getElementById('allocPriceModal');
+    if (existing) existing.remove();
+
+    const 前期結餘    = parseFloat(r['前期結餘'])    || 0;
+    const 上半期      = parseFloat(r['上半期租金'])  || 0;
+    const 下半期      = parseFloat(r['下半期租金'])  || 0;
+    const 租金總計    = parseFloat(r['租金總計'])    || 0;
+    const 上期結存    = parseFloat(r['上期結存'])    || 0;
+    const 本期入庫    = parseFloat(r['本期入庫'])    || 0;
+    const 本期出庫    = parseFloat(r['本期出庫'])    || 0;
+    const 分攤單價    = parseFloat(r['分攤單價'])    || 0;
+    const 月租金出庫  = parseFloat(r['月租金出庫'])  || 0;
+    const 月租金結餘  = parseFloat(r['月租金結餘'])  || 0;
+
+    const 除數Label = 上期結存 > 0 ? '上期結存' : '本期入庫';
+    const 除數值    = 上期結存 > 0 ? 上期結存   : 本期入庫;
+
+    const cardStyle = `background:#f8f4ff;border:1px solid #d8c8f0;border-radius:8px;padding:10px 14px;margin-bottom:8px;`;
+    const labelStyle = `font-size:10px;font-weight:800;color:#8a5aa0;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;`;
+    const lineStyle = `font-size:12px;color:#444;margin:3px 0;font-variant-numeric:tabular-nums;`;
+    const totalStyle = `font-size:13px;font-weight:800;color:#8a5aa0;margin-top:6px;padding-top:6px;border-top:1.5px solid #d8c8f0;font-variant-numeric:tabular-nums;`;
+
+    const html = `
+    <div style="${cardStyle}">
+        <div style="${labelStyle}">① 租金總計</div>
+        <div style="${lineStyle}">前期結餘：${前期結餘.toLocaleString()}</div>
+        <div style="${lineStyle}">本月上半：${上半期.toLocaleString()}</div>
+        <div style="${lineStyle}">本月下半：${下半期.toLocaleString()}</div>
+        <div style="${totalStyle}">合計：${前期結餘.toLocaleString()} + ${上半期.toLocaleString()} + ${下半期.toLocaleString()} = ${租金總計.toLocaleString()}</div>
+    </div>
+    <div style="${cardStyle}">
+        <div style="${labelStyle}">② 分攤單價</div>
+        <div style="${lineStyle}">${除數Label > 0 || 上期結存 > 0 ? '' : '<span style="color:#e8836a;font-size:10px;">⚠️ 上期結存=0，改用本期入庫</span><br>'}租金總計 ÷ ${除數Label} = ${租金總計.toLocaleString()} ÷ ${除數值.toLocaleString()}</div>
+        <div style="${totalStyle}">= ${分攤單價.toFixed(5)}</div>
+    </div>
+    <div style="${cardStyle}">
+        <div style="${labelStyle}">③ 月租金出庫 & 結餘</div>
+        <div style="${lineStyle}">分攤單價 × 本期出庫 = ${分攤單價.toFixed(5)} × ${本期出庫.toLocaleString()} = ${月租金出庫.toLocaleString()}</div>
+        <div style="${totalStyle}">月租金結餘 = ${租金總計.toLocaleString()} − ${月租金出庫.toLocaleString()} = ${月租金結餘.toLocaleString()}</div>
+    </div>`;
+
+    const modal = document.createElement('div');
+    modal.id = 'allocPriceModal';
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const mw = 320;
+    const left = Math.min(event.clientX, vw - mw - 12);
+    const top  = Math.min(event.clientY, vh - 320);
+    modal.style.cssText = `position:fixed;z-index:9999;background:#fff;border:1.5px solid #d8c8f0;border-radius:12px;
+        box-shadow:0 6px 24px rgba(0,0,0,0.15);padding:14px;width:${mw}px;left:${left}px;top:${top}px;`;
+    modal.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-size:12px;font-weight:800;color:#764ba2;">📐 分攤單價計算公式</div>
+            <div style="font-size:11px;color:#999;">${r['產品名稱']||''} / ${r['批號']||''}</div>
+        </div>
+        ${html}`;
+    document.body.appendChild(modal);
+    const close = e => { if (!modal.contains(e.target)) { modal.remove(); document.removeEventListener('mousedown', close); } };
+    setTimeout(() => document.addEventListener('mousedown', close), 0);
 }
 
 function showRowDeleteMenu(event, rowIdx) {
