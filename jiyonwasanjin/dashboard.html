@@ -424,8 +424,52 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 .filter-days-chip:hover { background:#fed7aa; }
 @media (max-width:700px) {
   .filter-bar { gap:5px; }
-  .filter-input { width:auto; }
-  .filter-btn { font-size:11px; padding:5px 9px; }
+  .filter-input { width:auto; font-size:14px; }
+  .filter-btn { font-size:13px; padding:5px 9px; }
+  .tab-item { font-size:14px; }
+  .status-chip { font-size:13px; }
+  .chip-cnt { font-size:12px; }
+  .s-value { font-size:17px; }
+  .s-label { font-size:11px; }
+  .topbar-title { font-size:16px; }
+  .topbar-meta  { font-size:13px; }
+  .inv-card-name  { font-size:16px; }
+  .inv-card-badge { font-size:12px; }
+  .inv-card-meta  { font-size:13px; }
+  .inv-card-meta .lbl { font-size:12px; }
+  .inv-card-cost .lbl { font-size:11px; }
+  .inv-card-cost .val { font-size:15px; }
+  .inv-card-days  { font-size:14px; }
+  .inv-card-note  { font-size:14px; }
+  .inv-card-total-row { font-size:15px; }
+  .filter-dd-item { font-size:14px; }
+  .filter-dd-head a, .filter-dd-head span { font-size:13px; }
+}
+#mobile-merge-bar {
+  display:none;
+}
+@media (max-width:700px) {
+  #mobile-merge-bar {
+    display:block;
+    position:fixed; bottom:0; left:0; right:0; z-index:200;
+    padding:10px 16px 14px; /* 14px底部留給 home indicator */
+    background:rgba(255,255,255,0.96);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    border-top:1px solid var(--border);
+    box-shadow:0 -2px 12px rgba(0,0,0,.08);
+  }
+  #mobile-merge-bar button {
+    width:100%; padding:10px; font-size:13px; font-weight:800;
+    border-radius:10px; border:1.5px solid #93c5fd;
+    background:#eff6ff; color:#1d4ed8; cursor:pointer;
+    font-family:inherit; transition:all .15s;
+  }
+  #mobile-merge-bar button.active {
+    background:#3b82f6; color:white; border-color:#2563eb;
+  }
+  /* 讓頁面底部留空間避免內容被遮住 */
+  #panel-inventory { padding-bottom:70px; }
 }
 </style>
 </head>
@@ -749,6 +793,8 @@ function switchTab(id, el){
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('panel-' + id).classList.add('active');
+  const bar = document.getElementById('mobile-merge-bar');
+  if(bar) bar.style.display = (id === 'inventory') ? '' : 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1203,6 +1249,8 @@ function _syncMergeBtn(){
       btn.style.borderColor = 'var(--border)';
     }
   });
+  const mobileBtn = document.getElementById('mobile-merge-btn');
+  if(mobileBtn) mobileBtn.classList.toggle('active', pivotEnabled);
 }
 
 function clickMerge(){
@@ -1316,7 +1364,6 @@ function renderInventory(){
       <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('warehouse')">倉庫${invSortCol==='warehouse'?(invSortDir==='asc'?'↑':'↓'):''}</button>
       <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('scope')">核算範圍${invSortCol==='scope'?(invSortDir==='asc'?'↑':'↓'):''}</button>
     </div>
-    <button class="merge-btn filter-btn" onclick="clickMerge()" style="font-size:11px;padding:5px 10px;font-weight:800;flex-shrink:0;transition:all .15s;${mergeBtnStyle}">⊞ 合併明細</button>
   </div>`;
 
   let grandQty = 0, grandCost = 0;
@@ -2122,5 +2169,10 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshData();
 });
 </script>
+
+<!-- 手機版底部固定合併明細按鈕 -->
+<div id="mobile-merge-bar">
+  <button onclick="clickMerge()" id="mobile-merge-btn">⊞ 合併明細</button>
+</div>
 </body>
 </html>
