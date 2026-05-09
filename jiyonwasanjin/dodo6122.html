@@ -4414,19 +4414,44 @@ async function loadFromSheets(){
       Object.entries(COL).forEach(([sh, internal]) => {
         mapped[internal] = String(r[sh]||'').trim();
       });
-      // Numeric fields
       mapped['庫存數量'] = parseFloat(String(r['庫存數量']||'').replace(/,/g,''))||0;
-      // Restore price & scope into prices object
+      // 從「全部庫存」的行內取 scope（單價留給「單價設定」工作表覆蓋）
       const scope = String(r['存貨核算範圍名稱']||'').trim();
-      const price = parseFloat(String(r['單價']||'').replace(/[$,]/g,''))||0;
-      if(scope || price){
+      if(scope){
         const k = `${mapped['產品名稱']}__${mapped['批號']}`;
-        if(k !== '__') prices[k] = { price, priceSource:'Sheets', scope };
+        if(k !== '__'){
+          if(!prices[k]) prices[k] = { price:0, priceSource:'', scope:'' };
+          if(!prices[k].scope) prices[k].scope = scope;
+        }
       }
       return mapped;
     });
 
     processData(raw);
+
+    // ── 再讀「單價設定」工作表，補齊單價 ────────────────────────
+    try{
+      const priceUrl = url + '?action=read&sheetId=' + encodeURIComponent(SHEET_ID) + '&sheetName=' + encodeURIComponent('單價設定');
+      const priceResp = await fetch(priceUrl, { redirect:'follow' });
+      if(priceResp.ok){
+        const pText  = await priceResp.text();
+        const pStart = pText.indexOf('{'), pEnd = pText.lastIndexOf('}');
+        const pResult = JSON.parse(pStart>=0 ? pText.slice(pStart, pEnd+1) : pText);
+        if(pResult.success && pResult.rows?.length){
+          pResult.rows.forEach(r => {
+            const k     = String(r['產品名稱__批號key']||'').trim();
+            const price = parseFloat(String(r['單價']||'').replace(/[$,]/g,''))||0;
+            const scope = String(r['存貨核算範圍名稱']||'').trim();
+            if(!k) return;
+            if(!prices[k]) prices[k] = { price:0, priceSource:'', scope:'' };
+            if(price > 0){ prices[k].price = price; prices[k].priceSource = 'Sheets'; }
+            if(scope) prices[k].scope = scope;
+          });
+          recompute(); renderPrices();
+        }
+      }
+    }catch(e){ console.warn('單價設定讀取失敗:', e.message); }
+
     showToast(`✅ 從 Google Sheets 載入 ${raw.length} 筆資料`);
 
   }catch(err){
