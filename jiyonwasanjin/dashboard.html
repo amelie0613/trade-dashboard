@@ -161,7 +161,8 @@ td.note-cell .save-indicator.show { display: block; }
 
 /* ── SCOPE CARDS ── */
 .scope-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
-.scope-card { background: #fff; border: 1px solid var(--border); border-top: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px; box-shadow: 0 2px 6px rgba(104,120,192,.08); }
+.scope-card { background: #fff; border: 1px solid var(--border); border-top: 4px solid var(--accent); border-radius: 8px; padding: 10px 12px; box-shadow: 0 2px 6px rgba(104,120,192,.08); cursor: pointer; transition: box-shadow .15s, transform .15s; }
+.scope-card:hover { box-shadow: 0 6px 18px rgba(104,120,192,.22); transform: translateY(-2px); }
 .scope-card-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
 .scope-card-name { font-size: 13px; font-weight: 800; color: var(--text); line-height: 1.3; }
 .scope-card-wh { font-size: 10px; color: #999; margin-top: 2px; }
@@ -191,7 +192,8 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 .cost-pie-section { margin-bottom: 16px; }
 .cost-pie-wrap { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; padding: 10px 0; }
 .cost-pie-canvas-wrap { position: relative; width: 220px; height: 220px; flex-shrink: 0; }
-.cost-pie-legend { display: flex; flex-direction: column; gap: 5px; min-width: 160px; max-width: 260px; }
+.cost-pie-legend { display: flex; flex-direction: row; gap: 20px; align-items: flex-start; }
+.cost-pie-legend-col { display: flex; flex-direction: column; gap: 5px; min-width: 150px; }
 .cost-pie-legend-item { display: flex; align-items: center; gap: 7px; font-size: 12px; cursor: pointer; padding: 3px 7px; border-radius: 6px; transition: background .15s; }
 .cost-pie-legend-item:hover { background: #f0f4f9; }
 .cost-pie-legend-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
@@ -440,13 +442,13 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 
 <!-- ════ TABS ════ -->
 <div class="tab-bar">
-  <div class="tab-item active" data-tab="inventory" onclick="switchTab('inventory',this)">📋 庫存明細</div>
-  <div class="tab-item"        data-tab="cost"      onclick="switchTab('cost',this)">💰 成本分析</div>
+  <div class="tab-item active" data-tab="cost"      onclick="switchTab('cost',this)">💰 成本分析</div>
+  <div class="tab-item"        data-tab="inventory" onclick="switchTab('inventory',this)">📋 庫存明細</div>
   <div class="tab-item"        data-tab="diff"      onclick="switchTab('diff',this)">🔄 差異報告</div>
 </div>
 
 <!-- ════ INVENTORY TAB ════ -->
-<div class="tab-panel active" id="panel-inventory">
+<div class="tab-panel" id="panel-inventory">
   <div class="status-bar">
     <div class="status-chip active" data-s="all"     onclick="switchStatus('all',this)">📋 全部 <span class="chip-cnt" id="cnt-all">0</span></div>
     <div class="status-chip"        data-s="normal"  onclick="switchStatus('normal',this)">✅ 正常品 <span class="chip-cnt" id="cnt-normal">0</span></div>
@@ -514,7 +516,7 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 </div>
 
 <!-- ════ COST TAB ════ -->
-<div class="tab-panel" id="panel-cost">
+<div class="tab-panel active" id="panel-cost">
 
   <!-- 圓餅圖 -->
   <div class="cost-section cost-pie-section" id="cost-pie-section" style="display:none;">
@@ -1336,7 +1338,7 @@ function renderCost(){
     scopes.forEach(([sc, d], i) => {
       const color   = CARD_COLORS[i % CARD_COLORS.length];
       const whCount = Object.keys(d.whMap).length;
-      cardHtml += `<div class="scope-card" style="border-top-color:${color}">
+      cardHtml += `<div class="scope-card" style="border-top-color:${color}" onclick="navigateToScopeInventory('${sc}')" title="點擊查看「${sc}」庫存明細">
         <div class="scope-card-header">
           <div>
             <div class="scope-card-name">${sc}</div>
@@ -1452,10 +1454,14 @@ function renderCostPie(scopes) {
     </div>`;
   }).join('');
   legend.innerHTML = `
-    <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin-bottom:3px;">◉ 外環・核算範圍（點擊看倉庫明細）</div>
-    ${outerLegend}
-    <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin:9px 0 3px;padding-top:8px;border-top:1px solid #e8edf5;">◎ 內環・庫存狀態（點擊跳轉明細）</div>
-    ${innerLegend}`;
+    <div class="cost-pie-legend-col">
+      <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin-bottom:3px;">◉ 外環・核算範圍（點擊看倉庫明細）</div>
+      ${outerLegend}
+    </div>
+    <div class="cost-pie-legend-col">
+      <div style="font-size:10px;font-weight:700;color:#aaa;letter-spacing:.06em;margin-bottom:3px;">◎ 內環・庫存狀態（點擊跳轉明細）</div>
+      ${innerLegend}
+    </div>`;
 
   // ── Chart ──
   if (_costPieChart) { _costPieChart.destroy(); _costPieChart = null; }
@@ -1608,16 +1614,32 @@ function closeCostModal() {
 }
 
 function navigateToStatusInventory(statusKey, label) {
-  // Close any open cost modal
   document.getElementById('costScopeModal').classList.remove('open');
-  // Switch to inventory tab
   const tabEl = document.querySelector('.tab-item[data-tab="inventory"]');
   if (tabEl) switchTab('inventory', tabEl);
-  // Activate the matching status chip
   const chipEl = document.querySelector('.status-chip[data-s="' + statusKey + '"]');
   if (chipEl) switchStatus(statusKey, chipEl);
-  // Notify user
   toast('📋 已跳轉至庫存明細・' + label);
+}
+
+function navigateToScopeInventory(scopeName) {
+  // 清除所有篩選，再設定核算範圍
+  filterWarehouses.clear(); filterScopes.clear(); filterCategories.clear();
+  filterName = ''; filterLot = '';
+  const ni = document.getElementById('fi-name'); if(ni){ ni.value = ''; ni.classList.remove('has-val'); }
+  const li = document.getElementById('fi-lot');  if(li){ li.value = ''; li.classList.remove('has-val'); }
+  filterScopes.add(scopeName);
+  filterScopesBackup = new Set(filterScopes);
+  ['warehouse','scope','category'].forEach(t => _syncFilterBtn(t));
+  updateFilterClearBtn();
+  // 切換到庫存明細分頁
+  const tabEl = document.querySelector('.tab-item[data-tab="inventory"]');
+  if(tabEl) switchTab('inventory', tabEl);
+  // 切回全部狀態
+  const chipEl = document.querySelector('.status-chip[data-s="all"]');
+  if(chipEl) switchStatus('all', chipEl);
+  renderInventory();
+  toast('📋 已篩選核算範圍：' + scopeName);
 }
 
 // ═══════════════════════════════════════════════════════════════
