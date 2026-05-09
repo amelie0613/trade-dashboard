@@ -2139,10 +2139,7 @@ function loadFile(input){
       const firstSheetJson = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], {defval:''});
       processData(firstSheetJson);
 
-      // 【新】備份到 Supabase
-      saveToSupabase(firstSheetJson);
-
-      showToast(`✅ 成功載入 ${firstSheetJson.length} 筆資料，已同步到 Google Sheets 及 Supabase`);
+      showToast(`✅ 成功載入 ${firstSheetJson.length} 筆資料`);
     }catch(err){
       showToast('❌ 讀取失敗：'+err.message, 4000);
     }
@@ -2163,26 +2160,37 @@ function toISODate(v){
   return d.toISOString().slice(0,10);
 }
 
-async function saveToSupabase(rows){
+async function saveToSupabase(){
+  if(!allData || !allData.length) return { ok: false, error: '尚無資料' };
   try{
-    const records = rows.map(r => ({
-      核算組織:        r['核算組織']        || null,
-      產品類別:        r['產品類別']        || null,
-      產品代碼:        String(r['產品代碼'] || ''),
-      產品名稱:        r['產品名稱']        || null,
-      產品規格:        r['產品規格']        || null,
-      庫存數量:        Number(r['庫存數量'])  || 0,
-      單位:            r['單位']            || null,
-      倉庫名稱:        r['倉庫名稱']        || null,
-      批號:            String(r['批號']     || ''),
-      入庫日期:        toISODate(r['入庫日期']),
-      有效期至:        toISODate(r['有效期至']),
-      剩餘在庫天數:    r['剩餘/在庫天數'] != null ? Number(r['剩餘/在庫天數']) : null,
-      庫存狀態:        r['庫存狀態']        || null,
-      存貨核算範圍名稱: r['存貨核算範圍名稱'] || null,
-      單價:            Number(r['單價'])    || 0,
-      存貨成本:        Number(r['存貨成本']) || 0,
-    }));
+    const records = allData.map(r => {
+      const f = classify(r);
+      const { qty, price, scope: scopeVal, cost } = computeCost(r);
+      let daysLabel = null;
+      if(f.long && r._lotDate) daysLabel = Math.round((TODAY - r._lotDate) / 86400000);
+      else if(r._expDate){ const d = daysDiff(r._expDate); if(d !== null) daysLabel = d; }
+      const status = f.expired ? '過期品'
+        : f.soon ? ('即將到期(' + (f.soonSeg==='urgent'?'緊急':f.soonSeg==='warn'?'警示':f.soonSeg==='caution'?'注意':'追蹤') + ')')
+        : f.long ? '長期在庫' : '正常';
+      return {
+        核算組織:         r['核算組織名稱'] || null,
+        產品類別:         r['產品類別']     || null,
+        產品代碼:         String(r['產品代碼'] || ''),
+        產品名稱:         r['產品名稱']     || null,
+        產品規格:         r['產品規格']     || null,
+        庫存數量:         qty,
+        單位:             r['基本單位名稱'] || null,
+        倉庫名稱:         r['倉庫名稱']     || null,
+        批號:             String(r['批號']  || ''),
+        入庫日期:         r._lotDate ? new Date(r._lotDate).toISOString().slice(0,10) : null,
+        有效期至:         r._expDate ? new Date(r._expDate).toISOString().slice(0,10) : null,
+        剩餘在庫天數:     daysLabel !== null ? Number(daysLabel) : null,
+        庫存狀態:         status,
+        存貨核算範圍名稱: scopeVal || null,
+        單價:             price,
+        存貨成本:         cost,
+      };
+    });
 
     // 全量替換：先刪除舊資料
     await fetch(`${SUPABASE_URL}/rest/v1/inventory?id=gte.0`, {
@@ -2208,12 +2216,15 @@ async function saveToSupabase(rows){
 
     if(res.ok){
       console.log(`✅ Supabase 備份成功：${records.length} 筆資料`);
+      return { ok: true, count: records.length };
     } else {
       const errText = await res.text();
       console.error('❌ Supabase 備份失敗：', errText);
+      return { ok: false, error: errText };
     }
   } catch(err){
     console.error('❌ 無法連接 Supabase：', err);
+    return { ok: false, error: err.message };
   }
 }
 
@@ -4159,8 +4170,15 @@ async function writeToSheets(){
   btn.textContent = '☁️ 寫入分析結果';
   if(errors.length === 0){
     statusEl.style.color = 'var(--green)';
-    statusEl.textContent = `✅ 4個分頁全部寫入完成，共 ${totalRows} 筆`;
+    statusEl.textContent = `✅ 4個分頁全部寫入完成，共 ${totalRows} 筆，同步 Supabase 中…`;
     showToast('✅ 已寫入 Google Sheets 4個分頁');
+    // 同步分析後資料到 Supabase
+    const sbResult = await saveToSupabase();
+    if(sbResult && sbResult.ok){
+      statusEl.textContent = `✅ 4個分頁全部寫入完成，共 ${totalRows} 筆，已同步 Supabase（${sbResult.count} 筆）`;
+    } else {
+      statusEl.textContent = `✅ Sheets 寫入完成，但 Supabase 同步失敗：${sbResult?.error || '未知錯誤'}`;
+    }
   } else {
     statusEl.style.color = 'var(--red)';
     statusEl.textContent = '⚠️ 部分失敗：' + errors.join('、');
@@ -4415,7 +4433,7 @@ async function loadFromSheets(){
         mapped[internal] = String(r[sh]||'').trim();
       });
       mapped['庫存數量'] = parseFloat(String(r['庫存數量']||'').replace(/,/g,''))||0;
-      // 從「全部庫存」的行內取 scope（單價留給「單價設定」工作表覆蓋）
+      // 只還原 scope，單價由匯入單價 xlsx 管理
       const scope = String(r['存貨核算範圍名稱']||'').trim();
       if(scope){
         const k = `${mapped['產品名稱']}__${mapped['批號']}`;
@@ -4428,30 +4446,6 @@ async function loadFromSheets(){
     });
 
     processData(raw);
-
-    // ── 再讀「單價設定」工作表，補齊單價 ────────────────────────
-    try{
-      const priceUrl = url + '?action=read&sheetId=' + encodeURIComponent(SHEET_ID) + '&sheetName=' + encodeURIComponent('單價設定');
-      const priceResp = await fetch(priceUrl, { redirect:'follow' });
-      if(priceResp.ok){
-        const pText  = await priceResp.text();
-        const pStart = pText.indexOf('{'), pEnd = pText.lastIndexOf('}');
-        const pResult = JSON.parse(pStart>=0 ? pText.slice(pStart, pEnd+1) : pText);
-        if(pResult.success && pResult.rows?.length){
-          pResult.rows.forEach(r => {
-            const k     = String(r['產品名稱__批號key']||'').trim();
-            const price = parseFloat(String(r['單價']||'').replace(/[$,]/g,''))||0;
-            const scope = String(r['存貨核算範圍名稱']||'').trim();
-            if(!k) return;
-            if(!prices[k]) prices[k] = { price:0, priceSource:'', scope:'' };
-            if(price > 0){ prices[k].price = price; prices[k].priceSource = 'Sheets'; }
-            if(scope) prices[k].scope = scope;
-          });
-          recompute(); renderPrices();
-        }
-      }
-    }catch(e){ console.warn('單價設定讀取失敗:', e.message); }
-
     showToast(`✅ 從 Google Sheets 載入 ${raw.length} 筆資料`);
 
   }catch(err){
