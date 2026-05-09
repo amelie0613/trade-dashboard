@@ -6017,15 +6017,15 @@ function calculateRental(rentalData, ioData, weightData) {
     const daysBetween = (from, to) =>
         Math.max(1, Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1);
 
-    // 檢查天數異常：偶數月>15/單數月>16（8月特殊，按單數月）
+    // 檢查天數異常：偶數月應為15天/單數月應為16天（8月特殊，按單數月）
     const checkDaysAnomaly = (days) => {
         const month = periodEnd.getMonth() + 1;
         const oddMonths = [1, 3, 5, 7, 9, 11];
         const evenMonths = [2, 4, 6, 10, 12];
 
-        if (oddMonths.includes(month)) return days > 16;
-        if (month === 8) return days > 16;
-        if (evenMonths.includes(month)) return days > 15;
+        if (oddMonths.includes(month)) return days !== 16;
+        if (month === 8) return days !== 16;
+        if (evenMonths.includes(month)) return days !== 15;
         return false;
     };
 
@@ -6062,7 +6062,9 @@ function calculateRental(rentalData, ioData, weightData) {
         let rentalInbound   = 0;
         let handlingInbound = 0;
         let totalInboundQty = 0;
+        let totalInboundWeight = 0;
         const inboundDetails = [];
+        const inboundFormulaDetails = [];
 
         for (const io of ioMatch) {
             const bizType = normalize(io[config.col_type]);
@@ -6074,11 +6076,26 @@ function calculateRental(rentalData, ioData, weightData) {
 
             const ioWeight = ioQty * unitWeight;
             const ioDays   = daysBetween(ioDate, periodEnd);
+            const ioRental = calcRental(ioWeight, ioDays);
 
-            rentalInbound   += calcRental(ioWeight, ioDays);
+            rentalInbound   += ioRental;
             handlingInbound += handlingFeeRate * ioWeight;
             totalInboundQty += ioQty;
+            totalInboundWeight += ioWeight;
             inboundDetails.push(`【${bizType}】${Math.round(ioQty)}(${ioDays}天)`);
+
+            // 記錄入庫明細用於計算公式顯示
+            const calcMethod = ioDays > 10
+                ? `基本費率 × 重量 = ${baseRate.toFixed(2)} × ${ioWeight.toFixed(2)} kg = ${Math.round(ioRental)}`
+                : `(基本費率 / 15) × 天數 × 重量 = (${baseRate.toFixed(2)} / 15) × ${ioDays} × ${ioWeight.toFixed(2)} kg = ${Math.round(ioRental)}`;
+            inboundFormulaDetails.push({
+                bizType,
+                qty: Math.round(ioQty),
+                days: ioDays,
+                weight: ioWeight.toFixed(2),
+                rental: Math.round(ioRental),
+                method: calcMethod
+            });
         }
 
         // ── 3. 本期出庫：僅彙整備註，不收手續費 ────────────────────────
@@ -6131,7 +6148,9 @@ function calculateRental(rentalData, ioData, weightData) {
             rentalCost,
             handlingCost,
             totalCost,
-            pricingWeight
+            pricingWeight,
+            totalInboundWeight,
+            inboundFormulaDetails
         };
 
         result.push({
@@ -6734,56 +6753,130 @@ function showFormulaDetail(event, rowIdx, col) {
 
     let formulaHtml = '';
     if (col === '租金') {
-        formulaHtml = `
-            <div style="padding:12px; font-size:12px; line-height:1.6; font-family:monospace;">
-                <div style="font-weight:700; margin-bottom:8px; color:#ef4444;">📋 租金計算公式</div>
-                <div style="background:#f9f9f9; padding:8px; border-radius:6px; margin-bottom:8px; border-left:3px solid #ef4444;">
-                    <div><strong>基本費率：</strong> ${details.baseRate.toFixed(2)}</div>
-                    <div><strong>計費期間：</strong> ${details.fullPeriodDays} 天</div>
-                    <div><strong>單位重量：</strong> ${parseFloat(details.unitWeight).toFixed(4)} kg</div>
-                    <div style="margin-top:6px; padding-top:6px; border-top:1px solid #ddd;">
-                        <div><strong>前期結餘租金：</strong></div>
-                        <div style="margin-left:16px; color:#666;">
-                            = 基本費率 × 計期重量 = ${details.baseRate.toFixed(2)} × ${parseFloat(details.balanceWeight).toFixed(2)} kg
-                            <br/>= ${Math.round(details.rentalBalance)}
+        // 前期結餘的計算方式
+        const balanceCalcMethod = details.fullPeriodDays > 10
+            ? `基本費率 × 計期重量 = ${details.baseRate.toFixed(2)} × ${parseFloat(details.balanceWeight).toFixed(2)} kg = ${Math.round(details.rentalBalance)}`
+            : `(基本費率 / 15) × 天數 × 計期重量 = (${details.baseRate.toFixed(2)} / 15) × ${details.fullPeriodDays} × ${parseFloat(details.balanceWeight).toFixed(2)} kg = ${Math.round(details.rentalBalance)}`;
+
+        let inboundCalcHtml = '';
+        if (details.inboundFormulaDetails && details.inboundFormulaDetails.length > 0) {
+            inboundCalcHtml = '<div style="margin-left:16px; color:#666;">';
+            details.inboundFormulaDetails.forEach((detail, idx) => {
+                inboundCalcHtml += `
+                    <div style="margin-bottom:8px; padding:6px; background:#fff; border-left:2px solid #f7a35c;">
+                        <div><strong>【${detail.bizType}】</strong></div>
+                        <div style="margin-left:12px; font-size:11px;">
+                            數量：${detail.qty}<br/>
+                            單位重量：${parseFloat(details.unitWeight).toFixed(4)} kg<br/>
+                            計期重量：${detail.qty} × ${parseFloat(details.unitWeight).toFixed(4)} = ${detail.weight} kg<br/>
+                            天數：${detail.days}
+                        </div>
+                        <div style="margin-left:12px; margin-top:4px; padding-top:4px; border-top:1px solid #eee; font-weight:700; color:#f7a35c;">
+                            ${detail.method}
                         </div>
                     </div>
-                    <div style="margin-top:6px; padding-top:6px; border-top:1px solid #ddd;">
-                        <div><strong>本期入庫租金：</strong></div>
-                        <div style="margin-left:16px; color:#666;">${Math.round(details.rentalInbound)}</div>
+                `;
+            });
+            inboundCalcHtml += `<div style="margin-top:8px; padding-top:8px; border-top:2px solid #f7a35c; font-weight:700; background:#fffbf7; padding:8px; border-radius:4px;">本期入庫小計：${Math.round(details.rentalInbound)}</div></div>`;
+        } else {
+            inboundCalcHtml = '<div style="margin-left:16px; color:#666;">無本期入庫</div>';
+        }
+
+        formulaHtml = `
+            <div style="padding:12px; font-size:12px; line-height:1.6; font-family:'DM Sans',monospace;">
+                <div style="font-weight:700; margin-bottom:8px; color:#ef4444;">📋 租金計算公式</div>
+                <div style="background:#f9f9f9; padding:10px; border-radius:6px; border-left:4px solid #ef4444;">
+                    <div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px;">
+                        <div><strong>📌 基本參數</strong></div>
+                        <div style="margin-left:12px; font-size:11px;">基本費率：${details.baseRate.toFixed(2)} │ 計費期間：${details.fullPeriodDays} 天 │ 單位重量：${parseFloat(details.unitWeight).toFixed(4)} kg</div>
                     </div>
-                    <div style="margin-top:8px; padding-top:8px; border-top:2px solid #ef4444; font-weight:700; color:#ef4444;">
-                        <strong>合計租金：</strong> ${Math.round(details.rentalBalance)} + ${Math.round(details.rentalInbound)} = <span style="font-size:14px;">${details.rentalCost}</span>
+
+                    <div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px;">
+                        <div><strong>📦 前期結餘租金</strong></div>
+                        <div style="margin-left:12px; font-size:11px;">
+                            計期重量：${parseFloat(details.balanceWeight).toFixed(2)} kg<br/>
+                            <div style="margin-top:4px; padding:6px; background:#fffdf0f7; border-radius:3px;">
+                                ${balanceCalcMethod}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px;">
+                        <div><strong>📥 本期入庫租金</strong></div>
+                        ${inboundCalcHtml}
+                    </div>
+
+                    <div style="background:#ffe8e8; padding:10px; border-radius:4px; margin-top:8px; font-weight:700; color:#ef4444; text-align:center;">
+                        🔴 <strong>合計租金</strong><br/>
+                        ${Math.round(details.rentalBalance)} + ${Math.round(details.rentalInbound)} = <span style="font-size:16px;">${details.rentalCost}</span>
                     </div>
                 </div>
             </div>
         `;
     } else if (col === '出入庫') {
+        let inboundWeightCalc = '';
+        if (details.inboundFormulaDetails && details.inboundFormulaDetails.length > 0) {
+            inboundWeightCalc = '<div style="margin:6px 0; color:#666;">';
+            details.inboundFormulaDetails.forEach((detail, idx) => {
+                inboundWeightCalc += `
+                    <div style="padding:6px; background:#fff; border-left:2px solid #f7a35c; margin-bottom:6px;">
+                        <strong>【${detail.bizType}】</strong> ${detail.weight} kg
+                    </div>
+                `;
+            });
+            inboundWeightCalc += `<div style="margin-top:8px; padding:8px; background:#fff8f0; border-radius:4px; font-weight:700; color:#f7a35c; text-align:center;">總計：${parseFloat(details.totalInboundWeight).toFixed(2)} kg</div></div>`;
+        } else {
+            inboundWeightCalc = '<div style="color:#999;">無本期入庫（出入庫酌收為 0）</div>';
+        }
+
         formulaHtml = `
-            <div style="padding:12px; font-size:12px; line-height:1.6; font-family:monospace;">
+            <div style="padding:12px; font-size:12px; line-height:1.6; font-family:'DM Sans',monospace;">
                 <div style="font-weight:700; margin-bottom:8px; color:#f7a35c;">📋 出入庫酌收計算公式</div>
-                <div style="background:#f9f9f9; padding:8px; border-radius:6px; border-left:3px solid #f7a35c;">
-                    <div><strong>手續費費率：</strong> ${details.handlingFeeRate.toFixed(2)}</div>
-                    <div><strong>本期入庫總重量：</strong> ${parseFloat(details.handlingInbound / details.handlingFeeRate).toFixed(2)} kg</div>
-                    <div style="margin-top:8px; padding-top:8px; border-top:2px solid #f7a35c; font-weight:700; color:#f7a35c;">
-                        <strong>出入庫酌收：</strong> 手續費率 × 入庫重量 = ${details.handlingFeeRate.toFixed(2)} × 入庫重量 = <span style="font-size:14px;">${details.handlingCost}</span>
+                <div style="background:#f9f9f9; padding:10px; border-radius:6px; border-left:4px solid #f7a35c;">
+                    <div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px;">
+                        <div><strong>📌 基本參數</strong></div>
+                        <div style="margin-left:12px; font-size:11px;">手續費費率：${details.handlingFeeRate.toFixed(2)}</div>
+                    </div>
+
+                    <div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px;">
+                        <div><strong>📥 本期入庫明細</strong></div>
+                        <div style="margin-left:12px;">
+                            ${inboundWeightCalc}
+                        </div>
+                    </div>
+
+                    <div style="background:#fff8f0; padding:10px; border-radius:4px; margin-top:8px; font-weight:700; color:#f7a35c; text-align:center;">
+                        🟡 <strong>出入庫酌收計算</strong><br/>
+                        手續費率 × 入庫重量 = ${details.handlingFeeRate.toFixed(2)} × ${parseFloat(details.totalInboundWeight).toFixed(2)} kg<br/>
+                        = <span style="font-size:16px;">${details.handlingCost}</span>
                     </div>
                 </div>
             </div>
         `;
     } else if (col === '總計') {
         formulaHtml = `
-            <div style="padding:12px; font-size:12px; line-height:1.6; font-family:monospace;">
+            <div style="padding:12px; font-size:12px; line-height:1.6; font-family:'DM Sans',monospace;">
                 <div style="font-weight:700; margin-bottom:8px; color:#22c55e;">📋 總計計算公式</div>
-                <div style="background:#f9f9f9; padding:8px; border-radius:6px; border-left:3px solid #22c55e;">
-                    <div style="margin-bottom:6px;">
-                        <strong>租金：</strong> ${details.rentalCost}
+                <div style="background:#f9f9f9; padding:10px; border-radius:6px; border-left:4px solid #22c55e;">
+                    <div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px;">
+                        <div><strong>💰 租金</strong></div>
+                        <div style="margin-left:12px; font-size:13px; font-weight:700; color:#ef4444; padding:6px; background:#ffe8e8; border-radius:4px;">
+                            ${details.rentalCost}
+                        </div>
                     </div>
-                    <div style="margin-bottom:8px;">
-                        <strong>出入庫酌收：</strong> ${details.handlingCost}
+
+                    <div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px;">
+                        <div><strong>💳 出入庫酌收</strong></div>
+                        <div style="margin-left:12px; font-size:13px; font-weight:700; color:#f7a35c; padding:6px; background:#fff8f0; border-radius:4px;">
+                            ${details.handlingCost}
+                        </div>
                     </div>
-                    <div style="padding-top:8px; border-top:2px solid #22c55e; font-weight:700; color:#22c55e;">
-                        <strong>總計：</strong> 租金 + 出入庫酌收 = ${details.rentalCost} + ${details.handlingCost} = <span style="font-size:14px;">${details.totalCost}</span>
+
+                    <div style="background:#e8f5e9; padding:12px; border-radius:4px; margin-top:8px; font-weight:700; color:#22c55e; text-align:center;">
+                        ✅ <strong>總計金額</strong><br/>
+                        <div style="font-size:11px; margin:6px 0; color:#666;">租金 + 出入庫酌收</div>
+                        ${details.rentalCost} + ${details.handlingCost} = <br/>
+                        <span style="font-size:18px; color:#22c55e;">${details.totalCost}</span>
                     </div>
                 </div>
             </div>
