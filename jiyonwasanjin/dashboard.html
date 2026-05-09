@@ -327,6 +327,7 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   .topbar-title { font-size:14px; min-width:0; }
   .topbar-sub { display:none; }
   .upload-status { max-width:100%; flex:1 1 100%; order:10; font-size:10px; }
+  #dataDateMobile { display:block !important; }
   .topbar-hide-mobile { display:none !important; }
   .mob-menu-btn { display:flex; }
 
@@ -402,6 +403,25 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
 }
 .filter-clear-btn:hover { background:#e06070; color:white; }
+.expiry-banner {
+  display:none; cursor:pointer; margin-bottom:14px;
+  padding:11px 16px; border-radius:12px;
+  background:linear-gradient(135deg,#fff7ed,#ffedd5);
+  border:1.5px solid #fb923c;
+  flex-direction:row; align-items:center; gap:12px;
+}
+.expiry-banner:hover { border-color:#ea580c; background:linear-gradient(135deg,#ffedd5,#fed7aa); }
+.expiry-banner-label { flex-shrink:0; font-size:13px; font-weight:800; color:#c2410c; white-space:nowrap; }
+.expiry-banner-tags  { flex:1; display:flex; flex-wrap:wrap; gap:5px; min-width:0; overflow:hidden; max-height:52px; }
+.expiry-tag { background:#fed7aa; color:#9a3412; border-radius:5px; padding:2px 8px; font-size:11px; font-weight:700; white-space:nowrap; }
+.expiry-tag em { font-style:normal; opacity:.65; margin-left:2px; }
+.expiry-banner-arrow { flex-shrink:0; font-size:12px; font-weight:700; color:#c2410c; white-space:nowrap; }
+.filter-days-chip {
+  display:none; padding:4px 9px; border-radius:6px;
+  background:#ffedd5; color:#9a3412; font-size:11px; font-weight:700;
+  border:1.5px solid #fb923c; cursor:pointer; white-space:nowrap;
+}
+.filter-days-chip:hover { background:#fed7aa; }
 @media (max-width:700px) {
   .filter-bar { gap:6px; }
   .filter-input { width:100px; }
@@ -416,6 +436,7 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   <div class="topbar-title">📊 庫存管理
     <span class="topbar-sub" id="dataDate"></span>
   </div>
+  <span id="dataDateMobile" style="display:none;width:100%;order:11;font-size:10px;color:rgba(255,255,255,.75);padding:2px 0 4px;"></span>
   <span class="upload-status" id="uploadStatus"></span>
   <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="loadExcel(this)">
   <button class="btn btn-primary" onclick="document.getElementById('xlsxInput').click()">📂 上傳 Excel</button>
@@ -457,27 +478,27 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   </div>
   <!-- 篩選列 -->
   <div class="filter-bar" id="filter-bar">
-    <div class="filter-group">
-      <button class="filter-btn" id="fbtn-warehouse" onclick="toggleFDrop('warehouse')">倉庫<span id="fc-warehouse"></span> ▾</button>
-      <div class="filter-dropdown" id="fd-warehouse"></div>
+    <div style="display:flex;flex:1;gap:7px;align-items:center;flex-wrap:nowrap;min-width:0;overflow-x:auto;scrollbar-width:none;">
+      <div class="filter-group">
+        <button class="filter-btn" id="fbtn-warehouse" onclick="toggleFDrop('warehouse')">倉庫<span id="fc-warehouse"></span> ▾</button>
+        <div class="filter-dropdown" id="fd-warehouse"></div>
+      </div>
+      <div class="filter-group">
+        <button class="filter-btn" id="fbtn-scope" onclick="toggleFDrop('scope')">核算範圍<span id="fc-scope"></span> ▾</button>
+        <div class="filter-dropdown" id="fd-scope"></div>
+      </div>
+      <div class="filter-group">
+        <button class="filter-btn" id="fbtn-category" onclick="toggleFDrop('category')">產品類別<span id="fc-category"></span> ▾</button>
+        <div class="filter-dropdown" id="fd-category"></div>
+      </div>
+      <input class="filter-input" type="text" placeholder="🔍 名稱 / 批號 / 備註" id="fi-search" oninput="onSearchText()" style="flex:1;min-width:80px;">
     </div>
-    <div class="filter-group">
-      <button class="filter-btn" id="fbtn-scope" onclick="toggleFDrop('scope')">核算範圍<span id="fc-scope"></span> ▾</button>
-      <div class="filter-dropdown" id="fd-scope"></div>
+    <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+      <button class="btn btn-blue" style="padding:6px 14px;font-size:12px;white-space:nowrap;" onclick="applyFilters()">✓ 確認篩選</button>
+      <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;white-space:nowrap;background:#e06070;opacity:0.9;" onclick="cancelFilters()">✕ 取消</button>
+      <button class="filter-clear-btn" id="filter-clear-btn" style="display:none" onclick="clearFilters()">✕ 清除篩選</button>
+      <div class="filter-days-chip" id="filter-days-chip" onclick="clearFilters()">⚠️ 90天到期 ✕</div>
     </div>
-    <div class="filter-group">
-      <button class="filter-btn" id="fbtn-category" onclick="toggleFDrop('category')">產品類別<span id="fc-category"></span> ▾</button>
-      <div class="filter-dropdown" id="fd-category"></div>
-    </div>
-    <input class="filter-input" type="text" placeholder="🔍 產品名稱" id="fi-name" oninput="onFilterText('name')">
-    <input class="filter-input" type="text" placeholder="🔍 批號" id="fi-lot" oninput="onFilterText('lot')">
-    <label style="font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;color:var(--muted);white-space:nowrap;">
-      <input type="checkbox" id="pivot-toggle" onchange="togglePivot()" style="accent-color:var(--accent);width:14px;height:14px;">
-      樞紐分組
-    </label>
-    <button class="btn btn-blue" style="padding:6px 14px;font-size:12px;white-space:nowrap;" onclick="applyFilters()">✓ 確認篩選</button>
-    <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;white-space:nowrap;background:#e06070;opacity:0.9;" onclick="cancelFilters()">✕ 取消</button>
-    <button class="filter-clear-btn" id="filter-clear-btn" style="display:none" onclick="clearFilters()">✕ 清除篩選</button>
   </div>
   <div class="summary-row">
     <div class="summary-card"><div class="s-label">顯示筆數</div><div class="s-value" id="s-count">—</div></div>
@@ -485,7 +506,10 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
     <div class="summary-card"><div class="s-label">總存貨成本</div><div class="s-value" id="s-cost">—</div></div>
     <div class="summary-card"><div class="s-label">已設定單價</div><div class="s-value green" id="s-priced">—</div></div>
   </div>
-  <!-- 桌面：表格 -->
+  <!-- 桌面：合併明細 + 表格 -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+    <button class="merge-btn filter-btn" onclick="clickMerge()" style="font-size:12px;padding:5px 14px;font-weight:800;transition:all .15s;">⊞ 合併明細</button>
+  </div>
   <div class="tbl-wrap">
     <table>
       <thead>
@@ -517,9 +541,20 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 <!-- ════ COST TAB ════ -->
 <div class="tab-panel active" id="panel-cost">
 
+  <!-- 即將到期提醒橫幅 -->
+  <div class="expiry-banner" id="expiry-alert-banner" onclick="navigateToExpiring90()">
+    <div class="expiry-banner-label">⚠️ 即將到期（90天內）</div>
+    <div class="expiry-banner-tags" id="expiry-alert-names"></div>
+    <div class="expiry-banner-arrow">→ 查看明細</div>
+  </div>
+
   <!-- 圓餅圖 -->
   <div class="cost-section cost-pie-section" id="cost-pie-section" style="display:none;">
     <h3>🥧 存貨成本分布（依核算範圍）</h3>
+    <div id="totalCostBanner" style="text-align:center;margin-bottom:14px;padding:12px 16px;background:linear-gradient(135deg,#f0f4ff,#e8edff);border-radius:12px;border:1.5px solid #c8d0ee;">
+      <div style="font-size:11px;font-weight:700;color:#888;letter-spacing:.06em;margin-bottom:4px;">💰 總核算成本</div>
+      <div id="totalCostValue" style="font-size:26px;font-weight:900;color:#6878C0;letter-spacing:-.5px;">—</div>
+    </div>
     <div class="cost-pie-wrap">
       <div class="cost-pie-canvas-wrap">
         <canvas id="costPieChart"></canvas>
@@ -692,16 +727,15 @@ let diffFilter = 'all';
 let filterWarehouses = new Set();
 let filterScopes     = new Set();
 let filterCategories = new Set();
-let filterName       = '';
-let filterLot        = '';
+let filterSearch     = '';
+let filterMaxDays    = null;
 let pivotEnabled     = false;
 
 // ── 篩選備份（用於取消操作） ──
 let filterWarehousesBackup = new Set();
 let filterScopesBackup     = new Set();
 let filterCategoriesBackup = new Set();
-let filterNameBackup       = '';
-let filterLotBackup        = '';
+let filterSearchBackup     = '';
 let pivotEnabledBackup     = false;
 
 // ═══════════════════════════════════════════════════════════════
@@ -879,10 +913,11 @@ async function refreshData(){
     const dataDateStr = dataDateVal
       ? new Date(dataDateVal).toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' })
       : null;
+    const dateTxt = dataDateStr ? `資料截取日：${dataDateStr}　` : '';
     document.getElementById('dataDate').textContent =
-      rawRows.length
-        ? '　' + (dataDateStr ? `資料截取日：${dataDateStr}　` : '') + `共 ${rawRows.length} 筆`
-        : '';
+      rawRows.length ? `　${dateTxt}共 ${rawRows.length} 筆` : '';
+    const mob = document.getElementById('dataDateMobile');
+    if(mob) mob.textContent = rawRows.length && dataDateStr ? `📅 資料截取日：${dataDateStr}` : '';
 
     renderInventory();
     renderCost();
@@ -958,8 +993,12 @@ function getInvRows(){
   if(filterWarehouses.size > 0)  rows = rows.filter(r => filterWarehouses.has(r.warehouse));
   if(filterScopes.size > 0)      rows = rows.filter(r => filterScopes.has(r.scope));
   if(filterCategories.size > 0)  rows = rows.filter(r => filterCategories.has(r.category));
-  if(filterName)                  rows = rows.filter(r => r.name.includes(filterName));
-  if(filterLot)                   rows = rows.filter(r => r.lot.includes(filterLot));
+  if(filterSearch){
+    const q = filterSearch;
+    rows = rows.filter(r => r.name.includes(q) || r.lot.includes(q) || (notesMap[r._key] || '').includes(q));
+  }
+  if(filterMaxDays !== null)
+    rows = rows.filter(r => r.days !== null && r.days >= 0 && r.days < filterMaxDays);
 
   // 樞紐分組
   if(pivotEnabled){
@@ -1090,38 +1129,36 @@ function _syncFilterBtn(type){
   if(fc)  fc.textContent = set.size > 0 ? ` (${set.size})` : '';
 }
 
-function onFilterText(type){
-  if(type === 'name' || !type) filterName = document.getElementById('fi-name').value.trim();
-  if(type === 'lot'  || !type) filterLot  = document.getElementById('fi-lot').value.trim();
-  const ni = document.getElementById('fi-name');
-  const li = document.getElementById('fi-lot');
-  if(ni) ni.classList.toggle('has-val', !!filterName);
-  if(li) li.classList.toggle('has-val', !!filterLot);
+function onSearchText(){
+  const si = document.getElementById('fi-search');
+  filterSearch = si ? si.value.trim() : '';
+  if(si) si.classList.toggle('has-val', !!filterSearch);
   updateFilterClearBtn();
+  renderInventory();
 }
 
 function clearFilters(){
   filterWarehouses.clear(); filterScopes.clear(); filterCategories.clear();
-  filterName = ''; filterLot = '';
-  const ni = document.getElementById('fi-name'); if(ni){ ni.value = ''; ni.classList.remove('has-val'); }
-  const li = document.getElementById('fi-lot');  if(li){ li.value = ''; li.classList.remove('has-val'); }
+  filterSearch = ''; filterMaxDays = null;
+  const si = document.getElementById('fi-search'); if(si){ si.value = ''; si.classList.remove('has-val'); }
   ['warehouse','scope','category'].forEach(t => _syncFilterBtn(t));
   updateFilterClearBtn();
   applyFilters();
 }
 
 function updateFilterClearBtn(){
-  const has = filterWarehouses.size > 0 || filterScopes.size > 0 || filterCategories.size > 0 || filterName || filterLot;
+  const has = filterWarehouses.size > 0 || filterScopes.size > 0 || filterCategories.size > 0 || filterSearch || filterMaxDays !== null;
   const btn = document.getElementById('filter-clear-btn');
-  if(btn) btn.style.display = has ? '' : 'none';
+  if(btn) btn.style.display = (has && filterMaxDays === null) ? '' : 'none';
+  const chip = document.getElementById('filter-days-chip');
+  if(chip) chip.style.display = filterMaxDays !== null ? '' : 'none';
 }
 
 function saveFilterState(){
-  filterWareousesBackup = new Set(filterWarehouses);
+  filterWarehousesBackup = new Set(filterWarehouses);
   filterScopesBackup     = new Set(filterScopes);
   filterCategoriesBackup = new Set(filterCategories);
-  filterNameBackup       = filterName;
-  filterLotBackup        = filterLot;
+  filterSearchBackup     = filterSearch;
   pivotEnabledBackup     = pivotEnabled;
 }
 
@@ -1133,16 +1170,14 @@ function applyFilters(){
 }
 
 function cancelFilters(){
-  filterWarehouses = new Set(filterWareousesBackup);
+  filterWarehouses = new Set(filterWarehousesBackup);
   filterScopes     = new Set(filterScopesBackup);
   filterCategories = new Set(filterCategoriesBackup);
-  filterName       = filterNameBackup;
-  filterLot        = filterLotBackup;
+  filterSearch     = filterSearchBackup;
   pivotEnabled     = pivotEnabledBackup;
 
-  document.getElementById('fi-name').value = filterName;
-  document.getElementById('fi-lot').value  = filterLot;
-  document.getElementById('pivot-toggle').checked = pivotEnabled;
+  const si = document.getElementById('fi-search'); if(si) si.value = filterSearch;
+  _syncMergeBtn();
 
   ['warehouse','scope','category'].forEach(t => {
     _syncFilterBtn(t);
@@ -1153,8 +1188,28 @@ function cancelFilters(){
   toast('✓ 篩選已取消');
 }
 
+function _syncMergeBtn(){
+  document.querySelectorAll('.merge-btn').forEach(btn => {
+    if(pivotEnabled){
+      btn.style.background = 'var(--accent)';
+      btn.style.color = 'white';
+      btn.style.borderColor = 'var(--accent)';
+    } else {
+      btn.style.background = 'white';
+      btn.style.color = 'var(--muted)';
+      btn.style.borderColor = 'var(--border)';
+    }
+  });
+}
+
+function clickMerge(){
+  pivotEnabled = !pivotEnabled;
+  _syncMergeBtn();
+  updateFilterClearBtn();
+  renderInventory();
+}
+
 function togglePivot(){
-  pivotEnabled = document.getElementById('pivot-toggle').checked;
   updateFilterClearBtn();
 }
 
@@ -1242,8 +1297,15 @@ function renderInventory(){
   const BADGE_CLS2  = { normal:'badge-normal', expired:'badge-expired', soon:'badge-soon', long:'badge-long' };
   const DAYS_LABEL  = { all:'剩餘/在庫', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
 
-  // 手機版排序菜單
-  let html = `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding:0 10px;">
+  // 手機版排序菜單 + 合併明細按鈕
+  const mergeBtnStyle = pivotEnabled
+    ? 'background:var(--accent);color:white;border-color:var(--accent);'
+    : 'background:white;color:var(--muted);border-color:var(--border);';
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:0 10px;">
+    <div style="font-size:11px;color:#999;white-space:nowrap;">產品明細</div>
+    <button class="merge-btn filter-btn" onclick="clickMerge()" style="font-size:11px;padding:4px 12px;font-weight:800;transition:all .15s;${mergeBtnStyle}">⊞ 合併明細</button>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding:0 10px;">
     <div style="font-size:11px;color:#999;align-self:center;white-space:nowrap;">排序：</div>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('name')">名稱${invSortCol==='name'?(invSortDir==='asc'?'↑':'↓'):''}</button>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('qty')">數量${invSortCol==='qty'?(invSortDir==='asc'?'↑':'↓'):''}</button>
@@ -1360,6 +1422,8 @@ function renderCost(){
   const soonTotal    = scopes.reduce((s,[,d]) => s + d.soon,    0);
   const longTotal    = scopes.reduce((s,[,d]) => s + d.long,    0);
 
+  renderExpiry90Banner();
+
   // KPI 卡片已移除，不再更新
 
   // ── 圓餅圖 ──
@@ -1467,6 +1531,8 @@ function renderCostPie(scopes) {
   const outerValues = scopes.map(([, d]) => d.total);
   const outerColors = scopes.map((_, i) => PIE_COLORS[i % PIE_COLORS.length]);
   const totalSum    = outerValues.reduce((s, v) => s + v, 0);
+  const totalEl = document.getElementById('totalCostValue');
+  if(totalEl) totalEl.textContent = '$' + Math.round(totalSum).toLocaleString('zh-TW');
 
   // ── 內環：依庫存狀態 ──
   let sumNormal = 0, sumExpired = 0, sumSoon = 0, sumLong = 0;
@@ -1674,9 +1740,8 @@ function navigateToStatusInventory(statusKey, label) {
 function navigateToScopeInventory(scopeName) {
   // 清除所有篩選，再設定核算範圍
   filterWarehouses.clear(); filterScopes.clear(); filterCategories.clear();
-  filterName = ''; filterLot = '';
-  const ni = document.getElementById('fi-name'); if(ni){ ni.value = ''; ni.classList.remove('has-val'); }
-  const li = document.getElementById('fi-lot');  if(li){ li.value = ''; li.classList.remove('has-val'); }
+  filterSearch = '';
+  const si = document.getElementById('fi-search'); if(si){ si.value = ''; si.classList.remove('has-val'); }
   filterScopes.add(scopeName);
   filterScopesBackup = new Set(filterScopes);
   ['warehouse','scope','category'].forEach(t => _syncFilterBtn(t));
@@ -1689,6 +1754,41 @@ function navigateToScopeInventory(scopeName) {
   if(chipEl) switchStatus('all', chipEl);
   renderInventory();
   toast('📋 已篩選核算範圍：' + scopeName);
+}
+
+function renderExpiry90Banner(){
+  const banner = document.getElementById('expiry-alert-banner');
+  const tagsEl = document.getElementById('expiry-alert-names');
+  if(!banner || !tagsEl) return;
+
+  const expiring = rawRows
+    .map(r => ({ name: r['產品名稱'] || '', days: daysDiff(r._expDate) }))
+    .filter(r => r.days !== null && r.days >= 0 && r.days < 90)
+    .sort((a, b) => a.days - b.days);
+
+  if(!expiring.length){ banner.style.display = 'none'; return; }
+
+  banner.style.display = 'flex';
+  const MAX = 8;
+  const shown = expiring.slice(0, MAX);
+  const extra = expiring.length - MAX;
+  tagsEl.innerHTML = shown.map(r =>
+    `<span class="expiry-tag">${r.name} <em>${r.days}天</em></span>`
+  ).join('') + (extra > 0 ? `<span class="expiry-tag" style="background:#fca97a;color:#7c2d12;">還有 +${extra} 項</span>` : '');
+}
+
+function navigateToExpiring90(){
+  filterWarehouses.clear(); filterScopes.clear(); filterCategories.clear();
+  filterSearch = ''; filterMaxDays = 90;
+  const si = document.getElementById('fi-search'); if(si){ si.value = ''; si.classList.remove('has-val'); }
+  ['warehouse','scope','category'].forEach(t => _syncFilterBtn(t));
+  updateFilterClearBtn();
+  const tabEl = document.querySelector('.tab-item[data-tab="inventory"]');
+  if(tabEl) switchTab('inventory', tabEl);
+  const chipEl = document.querySelector('.status-chip[data-s="all"]');
+  if(chipEl) switchStatus('all', chipEl);
+  renderInventory();
+  toast('⚠️ 已篩選 90 天內即將到期品');
 }
 
 // ═══════════════════════════════════════════════════════════════
