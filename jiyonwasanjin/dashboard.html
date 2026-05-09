@@ -423,8 +423,8 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 }
 .filter-days-chip:hover { background:#fed7aa; }
 @media (max-width:700px) {
-  .filter-bar { gap:6px; }
-  .filter-input { width:100px; }
+  .filter-bar { gap:5px; }
+  .filter-input { width:auto; }
   .filter-btn { font-size:11px; padding:5px 9px; }
 }
 </style>
@@ -477,8 +477,9 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
     <div class="status-chip"        data-s="long"    onclick="switchStatus('long',this)">⏳ 長期在庫 <span class="chip-cnt" id="cnt-long">0</span></div>
   </div>
   <!-- 篩選列 -->
-  <div class="filter-bar" id="filter-bar">
-    <div style="display:flex;flex:1;gap:7px;align-items:center;flex-wrap:nowrap;min-width:0;overflow-x:auto;scrollbar-width:none;">
+  <div class="filter-bar" id="filter-bar" style="flex-direction:column;align-items:stretch;">
+    <!-- 第一行：下拉選取 -->
+    <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
       <div class="filter-group">
         <button class="filter-btn" id="fbtn-warehouse" onclick="toggleFDrop('warehouse')">倉庫<span id="fc-warehouse"></span> ▾</button>
         <div class="filter-dropdown" id="fd-warehouse"></div>
@@ -491,12 +492,13 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
         <button class="filter-btn" id="fbtn-category" onclick="toggleFDrop('category')">產品類別<span id="fc-category"></span> ▾</button>
         <div class="filter-dropdown" id="fd-category"></div>
       </div>
-      <input class="filter-input" type="text" placeholder="🔍 名稱 / 批號 / 備註" id="fi-search" oninput="onSearchText()" style="flex:1;min-width:80px;">
     </div>
-    <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-      <button class="btn btn-blue" style="padding:6px 14px;font-size:12px;white-space:nowrap;" onclick="applyFilters()">✓ 確認篩選</button>
-      <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;white-space:nowrap;background:#e06070;opacity:0.9;" onclick="cancelFilters()">✕ 取消</button>
-      <button class="filter-clear-btn" id="filter-clear-btn" style="display:none" onclick="clearFilters()">✕ 清除篩選</button>
+    <!-- 第二行：文字搜尋 + 動作按鈕 -->
+    <div style="display:flex;gap:7px;align-items:center;margin-top:6px;">
+      <input class="filter-input" type="text" placeholder="🔍 名稱 / 批號 / 備註" id="fi-search" oninput="onSearchText()" style="flex:1;min-width:0;box-sizing:border-box;">
+      <button class="btn btn-blue" style="padding:6px 14px;font-size:12px;white-space:nowrap;flex-shrink:0;" onclick="applyFilters()">✓ 確認篩選</button>
+      <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;white-space:nowrap;background:#e06070;opacity:0.9;flex-shrink:0;" onclick="cancelFilters()">✕ 取消</button>
+      <button class="filter-clear-btn" id="filter-clear-btn" style="display:none;flex-shrink:0;" onclick="clearFilters()">✕ 清除篩選</button>
       <div class="filter-days-chip" id="filter-days-chip" onclick="clearFilters()">⚠️ 90天到期 ✕</div>
     </div>
   </div>
