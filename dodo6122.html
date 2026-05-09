@@ -1630,12 +1630,11 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <div class="section-title">💾 總帳狀態</div>
                       <div id="ledger_db_status" style="font-size:0.85rem; color:#8a6a7a; margin-bottom:1rem;">讀取中...</div>
                       <button onclick="viewLedger()" class="btn-secondary" style="width:100%; margin-bottom:0.5rem;">📋 檢視目前總帳</button>
-                      <button onclick="syncToFirestore()" style="width:100%; background:#4285f4; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 GitHub</button>
-                      <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #4285f4; color:#4285f4; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 GitHub 載入</button>
+                      <button onclick="syncToFirestore()" style="width:100%; background:#3ecf8e; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 Supabase</button>
+                      <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #3ecf8e; color:#2a9d6e; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 Supabase 載入</button>
                       <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 復原上一步</button>
                       <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
                       <hr style="border:none; border-top:1px solid #f0e0f0; margin:0.8rem 0;">
-                      <button onclick="setGitHubToken()" style="width:100%; background:none; border:1.5px solid #aaa; color:#888; border-radius:10px; padding:0.4rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.78rem; margin-bottom:0.3rem;">🔑 設定 GitHub Token</button>
                       <button onclick="clearLedger()" style="width:100%; background:none; border:1.5px solid #e8836a; color:#e8836a; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem;">🗑️ 清除總帳資料</button>
                     </div>
                   </div>
@@ -4799,133 +4798,102 @@ async function clearAllLedger() {
     invalidateCache();
 }
 
-// ===== 手動同步到 Firestore =====
+// ===== Supabase 總帳：欄位對應 =====
+function ledgerRowToSb(r) {
+    return {
+        product_category:   r['產品類別']     || '',
+        product_code:       r['產品代碼']     || '',
+        product_name:       String(r['產品名稱'] || '').trim(),
+        batch_no:           String(r['批號']   || '').trim(),
+        department:         r['採購部門']     || '',
+        prev_balance:       r['上期結存']     || 0,
+        current_in:         r['本期入庫']     || 0,
+        current_out:        r['本期出庫']     || 0,
+        current_balance:    r['本期結存']     || 0,
+        total_balance:      r['總檔結存']     || 0,
+        prev_remainder:     r['前期結餘']     || 0,
+        first_half_rental:  r['上半期租金']   || 0,
+        second_half_rental: r['下半期租金']   || 0,
+        rental_total:       r['租金總計']     || 0,
+        allocated_price:    r['分攤單價']     || 0,
+        monthly_out_rental: r['月租金出庫']   || 0,
+        monthly_remainder:  r['月租金結餘']   || 0,
+        total_remainder:    r['總檔租金結餘'] || 0,
+        monthly_history:    r['月結歷史']     || {},
+        notes:              r['備註']         || '',
+        month_label:        r['月份']         || '',
+        updated_at:         r['updatedAt']    || new Date().toISOString(),
+    };
+}
+function sbRowToLedger(r) {
+    return {
+        產品類別:     r.product_category   || '',
+        產品代碼:     r.product_code       || '',
+        產品名稱:     r.product_name       || '',
+        批號:         r.batch_no           || '',
+        採購部門:     r.department         || '',
+        上期結存:     r.prev_balance       || 0,
+        本期入庫:     r.current_in         || 0,
+        本期出庫:     r.current_out        || 0,
+        本期結存:     r.current_balance    || 0,
+        總檔結存:     r.total_balance      || 0,
+        前期結餘:     r.prev_remainder     || 0,
+        上半期租金:   r.first_half_rental  || 0,
+        下半期租金:   r.second_half_rental || 0,
+        租金總計:     r.rental_total       || 0,
+        分攤單價:     r.allocated_price    || 0,
+        月租金出庫:   r.monthly_out_rental || 0,
+        月租金結餘:   r.monthly_remainder  || 0,
+        總檔租金結餘: r.total_remainder    || 0,
+        月結歷史:     r.monthly_history    || {},
+        備註:         r.notes              || '',
+        月份:         r.month_label        || '',
+        updatedAt:    r.updated_at         || '',
+    };
+}
+
+// ===== 備份到 Supabase =====
 async function syncToGitHub() {
     const rows = lsLoadLedgerRows();
-    if (!rows || rows.length === 0) { alert('本地沒有總帳資料'); return; }
+    if (!rows || rows.length === 0) { showToast('❌ 本地沒有總帳資料'); return; }
     const statusEl = document.getElementById('sync_status');
-    if (statusEl) statusEl.textContent = '⏳ 上傳到 GitHub...';
-    
+    if (statusEl) statusEl.textContent = '⏳ 上傳到 Supabase...';
     try {
-        // 從 localStorage 讀取 token（不寫死在代碼裡）
-        let token = localStorage.getItem('github_token');
-        if (!token) {
-            token = prompt('請輸入 GitHub Token：');
-            if (!token) { if (statusEl) statusEl.textContent = '❌ 未輸入 Token'; return; }
-            localStorage.setItem('github_token', token);
-        }
-        const owner = 'amelie0613';
-        const repo = 'trade-dashboard';
-        const path = 'ledger_backup.json';
-        const message = `Ledger backup - ${new Date().toISOString().split('T')[0]}`;
-        
-        // 先取得現有檔案的 SHA（用於更新）
-        let sha = null;
-        try {
-            const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
-                headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'X-GitHub-Api-Version': '2022-11-28' }
-            });
-            if (getRes.ok) {
-                const data = await getRes.json();
-                sha = data.sha;
-            }
-        } catch (e) {
-            console.log('新檔案，無需 SHA');
-        }
-        
-        // 上傳到 GitHub（處理中文字符）
-        const jsonStr = JSON.stringify(rows, null, 2);
-        const content = btoa(unescape(encodeURIComponent(jsonStr))); // 支援中文
-        const body = {
-            message: message,
-            content: content,
-            ...(sha && { sha: sha }) // 如果有舊檔案，提供 SHA 用於更新
-        };
-        
-        const uploadRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'X-GitHub-Api-Version': '2022-11-28',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
+        const data = rows.filter(r => r['產品名稱'] && r['批號']).map(ledgerRowToSb);
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/ledger_table?on_conflict=product_name,batch_no`, {
+            method: 'POST',
+            headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify(data),
         });
-        
-        if (!uploadRes.ok) {
-            throw new Error(`GitHub API 錯誤: ${uploadRes.status}`);
-        }
-        
-        if (statusEl) statusEl.textContent = `✅ 已上傳 ${rows.length} 筆到 GitHub`;
+        if (!resp.ok) throw new Error(await resp.text());
+        if (statusEl) statusEl.textContent = `✅ 已上傳 ${data.length} 筆到 Supabase`;
         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
-        console.log('✅ 已上傳到 GitHub:', path);
     } catch(e) {
-        console.error('GitHub 上傳錯誤:', e);
+        console.error('Supabase 總帳上傳失敗：', e);
         if (statusEl) statusEl.textContent = `❌ 上傳失敗：${e.message}`;
     }
 }
 
-// ===== 設定 GitHub Token =====
-window.setGitHubToken = function() {
-    const current = localStorage.getItem('github_token');
-    const token = prompt('請輸入 GitHub Token：\n（輸入後會存在本地瀏覽器，不會上傳）', current || '');
-    if (token === null) return;
-    if (token.trim() === '') {
-        localStorage.removeItem('github_token');
-        alert('已清除 Token');
-    } else {
-        localStorage.setItem('github_token', token.trim());
-        alert('✅ Token 已儲存！');
-    }
-};
-
-// 兼容舊名稱
-async function syncToFirestore() {
-    return syncToGitHub();
-}
-window.syncToFirestore = syncToFirestore;
-
-// ===== 從 Firestore 載入到 localStorage =====
+// ===== 從 Supabase 載入 =====
 async function syncFromGitHub() {
     const statusEl = document.getElementById('sync_status');
-    if (statusEl) statusEl.textContent = '⏳ 從 GitHub 載入...';
+    if (statusEl) statusEl.textContent = '⏳ 從 Supabase 載入...';
     try {
-        // 從 localStorage 讀取 token
-        let token = localStorage.getItem('github_token');
-        if (!token) {
-            token = prompt('請輸入 GitHub Token：');
-            if (!token) { if (statusEl) statusEl.textContent = '❌ 未輸入 Token'; return; }
-            localStorage.setItem('github_token', token);
-        }
-        const owner = 'amelie0613';
-        const repo = 'trade-dashboard';
-        const path = 'ledger_backup.json';
-        
-        // 從 GitHub 讀檔
-        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
-            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'X-GitHub-Api-Version': '2022-11-28' }
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/ledger_table?select=*&order=product_name.asc`, {
+            headers: SB_HEADERS,
         });
-        
-        if (!res.ok) {
-            if (statusEl) statusEl.textContent = '⚠️ GitHub 上沒有備份檔案';
+        if (!resp.ok) throw new Error(await resp.text());
+        const sbRows = await resp.json();
+        if (!sbRows || sbRows.length === 0) {
+            if (statusEl) statusEl.textContent = '⚠️ Supabase 上沒有總帳資料';
             return;
         }
-        
-        const data = await res.json();
-        const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, '')))); // 支援中文
-        const rows = JSON.parse(content);
-        
-        if (!rows || rows.length === 0) {
-            if (statusEl) statusEl.textContent = '⚠️ 備份檔案為空';
-            return;
-        }
-        
+        const rows = sbRows.map(sbRowToLedger);
         lsSaveLedgerRows(rows);
         _ledgerCache = rows;
         _ledgerCacheTime = Date.now();
         await refreshLedgerStatus();
-        if (statusEl) statusEl.textContent = `✅ 已從 GitHub 載入 ${rows.length} 筆到本地`;
+        if (statusEl) statusEl.textContent = `✅ 已從 Supabase 載入 ${rows.length} 筆`;
         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
     } catch(e) {
         if (statusEl) statusEl.textContent = `❌ 載入失敗：${e.message}`;
@@ -4934,9 +4902,9 @@ async function syncFromGitHub() {
 }
 
 // 兼容舊名稱
-async function syncFromFirestore() {
-    return syncFromGitHub();
-}
+async function syncToFirestore()   { return syncToGitHub(); }
+async function syncFromFirestore() { return syncFromGitHub(); }
+window.syncToFirestore   = syncToFirestore;
 window.syncFromFirestore = syncFromFirestore;
 
 // ===== 總帳記憶體快取 =====
@@ -5040,7 +5008,9 @@ window.doUploadLedger = async function() {
 
         await saveLedgerRows(rows);
         await refreshLedgerStatus();
-        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆</span>`;
+        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆，同步中...</span>`;
+        await syncToGitHub();
+        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆，已同步到 Supabase</span>`;
 
         // 自動顯示總帳
         await viewLedger();
@@ -5093,10 +5063,11 @@ async function doInitLedger() {
             月結歷史: {}
         })).filter(r => r.產品名稱 && r.批號);
 
-        statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 寫入 Firebase 中...</span>';
         await saveLedgerRows(rows);
         await refreshLedgerStatus();
-        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 期初開帳完成！共 ${rows.length} 筆</span>`;
+        statusEl.innerHTML = `<span style="color:#2a6a82;">⏳ 同步到 Supabase 中...</span>`;
+        await syncToGitHub();
+        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 期初開帳完成！共 ${rows.length} 筆，已同步到 Supabase</span>`;
     } catch(e) {
         statusEl.innerHTML = `<span style="color:#e8836a;">❌ 失敗：${e.message}</span>`;
     }
@@ -5799,7 +5770,7 @@ async function confirmMonthly() {
         });
         await refreshLedgerStatus();
         
-        // 自動上傳到 GitHub
+        // 自動上傳到 Supabase
         await syncToGitHub();
         
         window._pendingMonthly = null;
@@ -5809,7 +5780,7 @@ async function confirmMonthly() {
                 <div style="font-size:2rem; margin-bottom:0.5rem;">🎉</div>
                 <div style="font-weight:800; font-size:1.2rem; color:#4a9a37;">${label} 月結算完成！</div>
                 <div style="color:#8a6a7a; margin-top:0.5rem;">更新 ${newRows.length} 筆，總帳共 ${finalRows.length} 筆</div>
-                <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 已自動備份到 GitHub</div>
+                <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 已自動備份到 Supabase</div>
                 <button onclick="viewLedger()" class="btn-primary" style="margin-top:1rem; width:auto; padding:0.6rem 1.5rem;">📋 檢視總帳</button>
             </div>`;
     } catch(e) {
@@ -7240,17 +7211,6 @@ function exportResults() {
         }));
     });
 
-    // 合計列
-    const totalRowData = displayCols.map((col, i) => {
-        if (i === 0) return '合計';
-        if (numericCols.has(col)) {
-            const n = totals[col] || 0;
-            return Math.round(n * 100) / 100;
-        }
-        return '';
-    });
-    aoa.push(totalRowData);
-
     // ── 6. 建立 worksheet & 套樣式 ───────────────────────────────────
     const ws = window.XLSX.utils.aoa_to_sheet(aoa);
 
@@ -8515,10 +8475,11 @@ function exportInventoryReport(){
   window.open('inventory_report.html', 'inventory_report', 'width=1500,height=900,resizable=yes,scrollbars=yes');
 }
 
-// ── 頁面啟動時自動從 Supabase 載入單價表與重量表 ──────────────────
+// ── 頁面啟動時自動從 Supabase 載入單價表、重量表、總帳 ────────────
 document.addEventListener('DOMContentLoaded', function() {
     supabaseLoadPrices();
     supabaseLoadWeightTable();
+    syncFromGitHub(); // 載入總帳（實際從 Supabase 讀取）
 });
 
 </script>
