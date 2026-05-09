@@ -359,6 +359,10 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   .tbl-wrap  { display:block; }
 }
 
+@media (max-width: 700px) {
+  #desktop-merge-btn { display:none !important; }
+}
+
 /* ── FILTER BAR ── */
 .filter-bar { display:flex; gap:7px; margin-bottom:10px; flex-wrap:wrap; align-items:center; }
 .filter-group { position:relative; }
@@ -1214,10 +1218,6 @@ function togglePivot(){
 }
 
 function renderInventory(){
-  const isMobileView = window.innerWidth <= 700;
-  const desktopMergeBtn = document.getElementById('desktop-merge-btn');
-  if(desktopMergeBtn) desktopMergeBtn.style.display = isMobileView ? 'none' : 'flex';
-
   const rows = getInvRows();
 
   // Counts
@@ -1301,9 +1301,15 @@ function renderInventory(){
   const BADGE_CLS2  = { normal:'badge-normal', expired:'badge-expired', soon:'badge-soon', long:'badge-long' };
   const DAYS_LABEL  = { all:'剩餘/在庫', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
 
-  // 手機版排序菜單
-  let html = `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding:0 10px;">
-    <div style="font-size:11px;color:#999;align-self:center;white-space:nowrap;">排序：</div>
+  // 手機版排序菜單 + 合併明細按鈕
+  const mergeBtnStyle = pivotEnabled
+    ? 'background:var(--accent);color:white;border-color:var(--accent);'
+    : 'background:white;color:var(--muted);border-color:var(--border);';
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:0 10px;">
+    <div style="font-size:11px;color:#999;white-space:nowrap;">排序：</div>
+    <button class="merge-btn filter-btn" onclick="clickMerge()" style="font-size:11px;padding:4px 12px;font-weight:800;transition:all .15s;${mergeBtnStyle}">⊞ 合併明細</button>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding:0 10px;">
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('name')">名稱${invSortCol==='name'?(invSortDir==='asc'?'↑':'↓'):''}</button>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('qty')">數量${invSortCol==='qty'?(invSortDir==='asc'?'↑':'↓'):''}</button>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('days')">天數${invSortCol==='days'?(invSortDir==='asc'?'↑':'↓'):''}</button>
