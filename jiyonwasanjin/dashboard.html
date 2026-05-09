@@ -336,9 +336,8 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 
   .tab-panel { padding:10px 10px; }
 
-  .status-bar { overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; padding-bottom:4px; }
-  .status-bar::-webkit-scrollbar { display:none; }
-  .status-chip { padding:5px 10px; font-size:11px; white-space:nowrap; }
+  .status-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; overflow:visible; padding-bottom:0; }
+  .status-chip { padding:6px 4px; font-size:11px; white-space:nowrap; display:flex; align-items:center; justify-content:center; gap:4px; }
 
   .summary-row { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
   .summary-card { min-width:0; padding:7px 10px; }
@@ -806,10 +805,39 @@ async function fetchFromSupabase(){
   });
 }
 
-function loadNotes(){
-  try { return JSON.parse(localStorage.getItem('dash_notes') || '{}'); } catch{ return {}; }
+async function fetchNotesFromSupabase(){
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/inventory_notes?select=note_key,note&limit=5000`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    const map = {};
+    rows.forEach(r => { if(r.note_key) map[r.note_key] = r.note || ''; });
+    return map;
+  } catch(e) {
+    console.warn('⚠️ 備註載入失敗，改用本機：', e.message);
+    try { return JSON.parse(localStorage.getItem('dash_notes') || '{}'); } catch{ return {}; }
+  }
 }
-function persistNotes(){
+
+async function saveNoteToSupabase(key, note){
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/inventory_notes`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify({ note_key: key, note, updated_at: new Date().toISOString() }),
+    });
+  } catch(e) {
+    console.warn('⚠️ 備註儲存 Supabase 失敗：', e.message);
+  }
+  // 同時備份到 localStorage
   localStorage.setItem('dash_notes', JSON.stringify(notesMap));
 }
 
@@ -825,8 +853,8 @@ async function refreshData(){
   try {
     const invRows = await fetchFromSupabase();
 
-    // 載入本機備註
-    notesMap = loadNotes();
+    // 載入備註（從 Supabase，失敗時回退 localStorage）
+    notesMap = await fetchNotesFromSupabase();
 
     // 從 Supabase 資料建立單價對照（每筆已含 單價、存貨核算範圍名稱）
     prices = {};
@@ -845,8 +873,16 @@ async function refreshData(){
 
     diffRows = [];
     document.getElementById('d-gentime').textContent = '—';
+
+    // 讀取資料截取日期（取第一筆有值的 data_date）
+    const dataDateVal = invRows.find(r => r['data_date'])?.['data_date'] || null;
+    const dataDateStr = dataDateVal
+      ? new Date(dataDateVal).toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' })
+      : null;
     document.getElementById('dataDate').textContent =
-      rawRows.length ? '　資料筆數：' + rawRows.length : '';
+      rawRows.length
+        ? '　' + (dataDateStr ? `資料截取日：${dataDateStr}　` : '') + `共 ${rawRows.length} 筆`
+        : '';
 
     renderInventory();
     renderCost();
@@ -1213,6 +1249,8 @@ function renderInventory(){
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('qty')">數量${invSortCol==='qty'?(invSortDir==='asc'?'↑':'↓'):''}</button>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('days')">天數${invSortCol==='days'?(invSortDir==='asc'?'↑':'↓'):''}</button>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('cost')">成本${invSortCol==='cost'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('warehouse')">倉庫${invSortCol==='warehouse'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+    <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('scope')">核算範圍${invSortCol==='scope'?(invSortDir==='asc'?'↑':'↓'):''}</button>
   </div>`;
 
   let grandQty = 0, grandCost = 0;
@@ -1282,9 +1320,9 @@ function saveNote(textarea){
   const note = textarea.value.trim();
 
   clearTimeout(noteTimers[key]);
-  noteTimers[key] = setTimeout(() => {
+  noteTimers[key] = setTimeout(async () => {
     notesMap[key] = note;
-    persistNotes();
+    await saveNoteToSupabase(key, note);
     const indId = 'si-' + key.replace(/[^a-zA-Z0-9]/g,'_');
     const ind = document.getElementById(indId);
     if(ind){ ind.classList.add('show'); setTimeout(() => ind.classList.remove('show'), 2000); }
@@ -1332,7 +1370,7 @@ function renderCost(){
     document.getElementById('cost-body').innerHTML = '<tr><td colspan="6" class="empty-msg">無成本資料（請先設定單價）</td></tr>';
   } else {
     // ── 核算範圍卡片 ──
-    const CARD_COLORS = ['#6878C0','#1B5B9E','#2E6CB8','#3575C0','#4A6FA5','#3A5E8C'];
+    const CARD_COLORS = PIE_COLORS;
     const fmtCard = v => v > 0 ? '$' + Math.round(v).toLocaleString() : '<span style="color:#ccc">—</span>';
     let cardHtml = '';
     scopes.forEach(([sc, d], i) => {
@@ -1402,7 +1440,18 @@ function renderCost(){
 // ═══════════════════════════════════════════════════════════════
 //  COST PIE CHART
 // ═══════════════════════════════════════════════════════════════
-const PIE_COLORS = ['#6878C0','#1B5B9E','#2E7DD4','#3A9E6E','#B05A00','#8B2A8B','#1A7A8A','#C0506A','#5060B0','#2A8A50'];
+const PIE_COLORS = [
+  '#EC4899', // 牡丹粉
+  '#3B82F6', // 勿忘草藍
+  '#10B981', // 春草綠
+  '#F59E0B', // 水仙黃
+  '#8B5CF6', // 鳶尾紫
+  '#F97316', // 鬱金香橙
+  '#06B6D4', // 晴空藍
+  '#EF4444', // 罌粟紅
+  '#A855F7', // 紫藤
+  '#22C55E', // 嫩草綠
+];
 let _costPieChart = null;
 let _costPieScopes = [];  // cache for modal lookup
 let _innerStatusMap = []; // inner ring index → { key, label } mapping
@@ -1428,10 +1477,10 @@ function renderCostPie(scopes) {
     sumLong    += d.long    || 0;
   });
   const innerData = [
-    { key: 'normal',  label: '正常品',   value: sumNormal,  color: '#059669' },
-    { key: 'expired', label: '過期品',   value: sumExpired, color: '#DC2626' },
-    { key: 'soon',    label: '即將到期', value: sumSoon,    color: '#EA580C' },
-    { key: 'long',    label: '長期在庫', value: sumLong,    color: '#B45309' },
+    { key: 'normal',  label: '正常品',   value: sumNormal,  color: '#4ADE80' }, // 春草綠
+    { key: 'expired', label: '過期品',   value: sumExpired, color: '#F43F5E' }, // 玫瑰紅
+    { key: 'soon',    label: '即將到期', value: sumSoon,    color: '#FB923C' }, // 金盞花橙
+    { key: 'long',    label: '長期在庫', value: sumLong,    color: '#818CF8' }, // 薰衣草紫
   ].filter(d => d.value > 0);
   _innerStatusMap = innerData; // save for click handler
 

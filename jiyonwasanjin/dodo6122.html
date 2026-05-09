@@ -1020,6 +1020,12 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         📤 上傳原始資料 + 單價 + 差異結果
       </button>
     </div>
+    <div style="margin-top:14px;padding:12px 14px;background:#fff8f0;border:1.5px solid #fcd9a0;border-radius:10px;">
+      <label style="font-size:11px;font-weight:800;color:#b45309;display:block;margin-bottom:6px;">📅 資料截取日期 <span style="font-weight:400;color:#888;">（將顯示在 Dashboard 供大家確認資料時效）</span></label>
+      <input type="date" id="dataDateInput"
+        style="width:100%;border:2px solid #fcd9a0;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;background:white;"
+        onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fcd9a0'">
+    </div>
     <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeSheetsPanel()">取消</button>
       <button class="btn btn-primary" onclick="writeToSheets()" id="sheetsSaveBtn">☁️ 寫入分析結果</button>
@@ -2160,7 +2166,7 @@ function toISODate(v){
   return d.toISOString().slice(0,10);
 }
 
-async function saveToSupabase(){
+async function saveToSupabase(dataDate){
   if(!allData || !allData.length) return { ok: false, error: '尚無資料' };
   try{
     const records = allData.map(r => {
@@ -2189,6 +2195,7 @@ async function saveToSupabase(){
         存貨核算範圍名稱: scopeVal || null,
         單價:             price,
         存貨成本:         cost,
+        data_date:        dataDate || null,
       };
     });
 
@@ -4084,6 +4091,11 @@ function openSheetsPanel(){
   const saved = localStorage.getItem('sheetsScriptUrl')||DEFAULT_SHEETS_SCRIPT_URL;
   const urlEl = document.getElementById('sheetsUrl');
   if(urlEl && saved) urlEl.value = saved;
+  // 預設帶入今天日期（若尚未填寫）
+  const dateEl = document.getElementById('dataDateInput');
+  if(dateEl && !dateEl.value){
+    dateEl.value = new Date().toISOString().slice(0,10);
+  }
   document.getElementById('sheetsPanel').style.display = 'block';
 }
 function closeSheetsPanel(){
@@ -4172,8 +4184,9 @@ async function writeToSheets(){
     statusEl.style.color = 'var(--green)';
     statusEl.textContent = `✅ 4個分頁全部寫入完成，共 ${totalRows} 筆，同步 Supabase 中…`;
     showToast('✅ 已寫入 Google Sheets 4個分頁');
-    // 同步分析後資料到 Supabase
-    const sbResult = await saveToSupabase();
+    // 同步分析後資料到 Supabase（帶入使用者填寫的資料截取日期）
+    const dataDate = (document.getElementById('dataDateInput')?.value || '').trim() || null;
+    const sbResult = await saveToSupabase(dataDate);
     if(sbResult && sbResult.ok){
       statusEl.textContent = `✅ 4個分頁全部寫入完成，共 ${totalRows} 筆，已同步 Supabase（${sbResult.count} 筆）`;
     } else {
