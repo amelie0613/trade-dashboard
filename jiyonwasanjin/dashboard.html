@@ -460,13 +460,14 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
     box-shadow:0 -2px 12px rgba(0,0,0,.08);
   }
   #mobile-merge-bar button {
-    width:100%; padding:10px; font-size:13px; font-weight:800;
-    border-radius:10px; border:1.5px solid #93c5fd;
-    background:#eff6ff; color:#1d4ed8; cursor:pointer;
-    font-family:inherit; transition:all .15s;
+    width:100%; padding:11px; font-size:14px; font-weight:800;
+    border-radius:10px; border:none;
+    background:#1d4ed8; color:white; cursor:pointer;
+    font-family:inherit; transition:all .18s;
+    letter-spacing:.04em;
   }
   #mobile-merge-bar button.active {
-    background:#3b82f6; color:white; border-color:#2563eb;
+    background:#dbeafe; color:#1d4ed8; border:1.5px solid #93c5fd;
   }
   /* 讓頁面底部留空間避免內容被遮住 */
   #panel-inventory { padding-bottom:70px; }
@@ -1250,7 +1251,10 @@ function _syncMergeBtn(){
     }
   });
   const mobileBtn = document.getElementById('mobile-merge-btn');
-  if(mobileBtn) mobileBtn.classList.toggle('active', pivotEnabled);
+  if(mobileBtn){
+    mobileBtn.classList.toggle('active', pivotEnabled);
+    mobileBtn.textContent = pivotEnabled ? '⊟ 展開明細' : '⊞ 合併明細';
+  }
 }
 
 function clickMerge(){
