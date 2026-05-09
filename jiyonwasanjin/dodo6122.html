@@ -6505,21 +6505,21 @@ function displayResults(data) {
 
             <!-- 合計區：永遠顯示在表格上方，篩選後自動更新 -->
             <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; margin-bottom:0.8rem;">
-                <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:8px; padding:0.45rem 0.7rem; text-align:center;">
-                    <div style="font-size:0.7rem; color:#c0507a; font-weight:700; margin-bottom:0.15rem;">租金合計</div>
-                    <div style="font-size:0.95rem; font-weight:800; color:#c0507a;" id="totalRental">0</div>
+                <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:8px; padding:0.45rem 0.7rem; text-align:center;">
+                    <div style="font-size:0.7rem; color:#4a9a37; font-weight:700; margin-bottom:0.15rem;">計價重量合計 (kg)</div>
+                    <div style="font-size:0.95rem; font-weight:800; color:#4a9a37;" id="totalWeight">0</div>
                 </div>
                 <div style="background:#fff8e8; border:1.5px solid #f7d96b; border-radius:8px; padding:0.45rem 0.7rem; text-align:center;">
                     <div style="font-size:0.7rem; color:#b07020; font-weight:700; margin-bottom:0.15rem;">出入庫酌收合計</div>
                     <div style="font-size:0.95rem; font-weight:800; color:#b07020;" id="totalHandling">0</div>
                 </div>
+                <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:8px; padding:0.45rem 0.7rem; text-align:center;">
+                    <div style="font-size:0.7rem; color:#c0507a; font-weight:700; margin-bottom:0.15rem;">租金合計</div>
+                    <div style="font-size:0.95rem; font-weight:800; color:#c0507a;" id="totalRental">0</div>
+                </div>
                 <div style="background:#f0f8ff; border:1.5px solid #7ec8e3; border-radius:8px; padding:0.45rem 0.7rem; text-align:center;">
                     <div style="font-size:0.7rem; color:#2a6a82; font-weight:700; margin-bottom:0.15rem;">總計合計</div>
                     <div style="font-size:0.95rem; font-weight:800; color:#2a6a82;" id="totalSum">0</div>
-                </div>
-                <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:8px; padding:0.45rem 0.7rem; text-align:center;">
-                    <div style="font-size:0.7rem; color:#4a9a37; font-weight:700; margin-bottom:0.15rem;">計價重量合計 (kg)</div>
-                    <div style="font-size:0.95rem; font-weight:800; color:#4a9a37;" id="totalWeight">0</div>
                 </div>
             </div>
 
@@ -6533,8 +6533,8 @@ function displayResults(data) {
                     <option value="產品類別">產品類別</option>
                     <option value="採購部門">採購部門</option>
                 </select>
-                <button id="btnFilterRed" onclick="toggleRedFilter()" style="padding:0.5rem 0.8rem; font-size:0.85rem; flex:none; background:#fff5f5; color:#ef4444; border:1.5px solid #ef4444; border-radius:6px; font-weight:700;">🔴 只顯示異常</button>
-                <button onclick="clearFilter()" style="padding:0.5rem 0.8rem; font-size:0.85rem; flex:none; background:#fdf0f7; color:#c0507a; border:1px solid #f2a7c3; border-radius:6px; font-weight:700;">清除篩選</button>
+                <button id="btnFilterRed" onclick="toggleRedFilter()" style="padding:0.5rem 0.8rem; font-size:0.85rem; flex:none; background:#fff5f5; color:#ef4444; border:1.5px solid #ef4444; border-radius:6px; font-weight:700; line-height:1.2; box-sizing:border-box;">🔴 只顯示異常</button>
+                <button onclick="clearFilter()" style="padding:0.5rem 0.8rem; font-size:0.85rem; flex:none; background:#fdf0f7; color:#c0507a; border:1px solid #f2a7c3; border-radius:6px; font-weight:700; line-height:1.2; box-sizing:border-box;">清除篩選</button>
                 <span id="filterNote" style="font-size:0.8rem; color:#999;"></span>
                 <span style="font-size:0.78rem; color:#8a6a7a; margin-left:auto;">✏️ 異常列及出入庫、租金、總計、備註欄均可直接點擊編輯</span>
             </div>
@@ -6606,7 +6606,7 @@ function displayResults(data) {
         const hasAbnormal = abn_both || abn_neg || abn_weight || abn_days;
         const trColor = (abn_both || abn_days) ? ' style="color:#ef4444;"' : '';     // 整行紅：上期+入庫同時>0 或天數異常
 
-        html += `<tr data-row="${rowIdx}" data-abnormal="${hasAbnormal}"${trColor}>`;
+        html += `<tr data-row="${rowIdx}" data-abnormal="${hasAbnormal}"${trColor} oncontextmenu="showRowDeleteMenu(event,${rowIdx});return false;">`;
         html += `<td style="width:40px; padding:4px; text-align:center;">
             <input type="checkbox" data-row-idx="${rowIdx}" onchange="onCheckboxChange(this)" style="cursor:pointer;">
         </td>`;
@@ -6631,7 +6631,7 @@ function displayResults(data) {
 
             if (canEdit) {
                 const isCalcCol = ['出入庫', '租金', '總計'].includes(col);
-                const contextMenuAttr = isCalcCol ? `oncontextmenu="showFormulaDetail(event, ${rowIdx}, '${col}'); return false;"` : '';
+                const contextMenuAttr = isCalcCol ? `oncontextmenu="event.stopPropagation();showFormulaDetail(event,${rowIdx},'${col}');return false;"` : '';
                 html += `<td class="${alignClass}" style="padding:0;${redStyle}">
                     <input type="text" value="${val}"
                         data-row="${rowIdx}" data-col="${col}"
@@ -6888,6 +6888,35 @@ function onLedgerEdit(input) {
         alert('更新失敗：' + e.message);
         input.value = input.defaultValue;
     }
+}
+
+function showRowDeleteMenu(event, rowIdx) {
+    const existing = document.getElementById('rowDeleteMenu');
+    if (existing) existing.remove();
+
+    const menu = document.createElement('div');
+    menu.id = 'rowDeleteMenu';
+    menu.style.cssText = `position:fixed;z-index:9999;background:#fff;border:1px solid #fca5a5;
+        border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);padding:4px 0;min-width:130px;
+        left:${event.clientX}px;top:${event.clientY}px;`;
+    menu.innerHTML = `
+        <div onclick="deleteResultRow(${rowIdx})"
+            style="padding:9px 16px;cursor:pointer;font-size:13px;color:#ef4444;font-weight:700;display:flex;align-items:center;gap:6px;"
+            onmouseenter="this.style.background='#fff5f5'" onmouseleave="this.style.background=''">
+            🗑️ 刪除此列
+        </div>`;
+    document.body.appendChild(menu);
+
+    const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('mousedown', close); } };
+    setTimeout(() => document.addEventListener('mousedown', close), 0);
+}
+
+function deleteResultRow(rowIdx) {
+    const menu = document.getElementById('rowDeleteMenu');
+    if (menu) menu.remove();
+    if (!calculatedData) return;
+    calculatedData.splice(rowIdx, 1);
+    displayResults(calculatedData);
 }
 
 function showFormulaDetail(event, rowIdx, col) {
