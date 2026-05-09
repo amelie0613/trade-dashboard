@@ -1138,6 +1138,12 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
       <li class="nav-item" data-view="rental" onclick="navSwitch('rental')">
         <span class="nav-icon">🧊</span> 租金計算
       </li>
+      <li class="nav-item" data-view="price" onclick="navSwitch('price')">
+        <span class="nav-icon">💰</span> 單價管理
+      </li>
+      <li class="nav-item" data-view="weight" onclick="navSwitch('weight')">
+        <span class="nav-icon">⚖️</span> 重量管理
+      </li>
       <li class="nav-item" data-view="settings" onclick="navSwitch('settings')">
         <span class="nav-icon">⚙️</span> 系統設定
       </li>
@@ -1152,7 +1158,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
       <div class="header-title" id="headerTitle">總覽儀表板</div>
       <div class="header-right">
         <button onclick="loadAll()" title="一次帶入所有資料（GitHub 單價 + Sheets 庫存 + Sheets 差異）" style="display:flex;align-items:center;gap:5px;padding:6px 14px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">⬇️ 全部帶入</button>
-        <button onclick="ghLoadChoose(event)" title="從 GitHub 載入單價或重量表" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 GitHub 載入 ▾</button>
+        <button onclick="sbLoadChoose(event)" title="從 Supabase 載入單價或重量表" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid #3ecf8e;border-radius:8px;background:#fff;color:#3ecf8e;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 Supabase 載入 ▾</button>
         <button onclick="openReadSheetsMenu()" title="從 Google Sheets 讀取資料" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📊 從 Sheets 讀取</button>
         <button onclick="openWriteSheetsMenu()" title="寫入 Google Sheets" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">☁️ 寫入 Sheets</button>
         <!-- Context-aware export buttons -->
@@ -1511,13 +1517,13 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <div style="display:flex;gap:0.6rem;">
                         <div class="form-group" style="margin:0;min-width:130px;">
                           <label>租金表 (.xlsx)</label>
-                          <div class="file-input-label" id="label1" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file1',this)">拖拉至此</div>
-                          <input type="file" id="file1" accept=".xlsx" style="display:none;" />
+                          <div class="file-input-label" id="label1" onclick="document.getElementById('file1').click()" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file1',this)" style="cursor:pointer;">拖拉或點擊</div>
+                          <input type="file" id="file1" accept=".xlsx" onchange="handleFileSelect(this, 'file1')" style="display:none;" />
                         </div>
                         <div class="form-group" style="margin:0;min-width:130px;">
                           <label>出入庫記錄表 (.xlsx)</label>
-                          <div class="file-input-label" id="label2" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file2',this)">拖拉至此</div>
-                          <input type="file" id="file2" accept=".xlsx" style="display:none;" />
+                          <div class="file-input-label" id="label2" onclick="document.getElementById('file2').click()" ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'file2',this)" style="cursor:pointer;">拖拉或點擊</div>
+                          <input type="file" id="file2" accept=".xlsx" onchange="handleFileSelect(this, 'file2')" style="display:none;" />
                         </div>
                       </div>
                     </div>
@@ -1531,13 +1537,15 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;">
                         <div class="form-group" style="margin:0;">
                           <label>期初日期</label>
-                          <input type="text" id="startDate" placeholder="20260401" maxlength="10"
-                                 oninput="autoFormatDate(this)" style="letter-spacing:0.05em;" />
+                          <input type="date" id="startDate" style="padding:0.4rem;" />
+                          <input type="text" id="startDateText" placeholder="20260401" maxlength="10"
+                                 oninput="syncDateInputs('startDate', 'startDateText')" style="letter-spacing:0.05em; margin-top:2px; display:none;" />
                         </div>
                         <div class="form-group" style="margin:0;">
                           <label>期末日期</label>
-                          <input type="text" id="endDate" placeholder="20260415" maxlength="10"
-                                 oninput="autoFormatDate(this)" style="letter-spacing:0.05em;" />
+                          <input type="date" id="endDate" style="padding:0.4rem;" />
+                          <input type="text" id="endDateText" placeholder="20260415" maxlength="10"
+                                 oninput="syncDateInputs('endDate', 'endDateText')" style="letter-spacing:0.05em; margin-top:2px; display:none;" />
                         </div>
                         <div class="form-group" style="margin:0;">
                           <label>日租金 (每15天/kg，$)</label>
@@ -1738,29 +1746,27 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <h3>💰 單價管理</h3>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               <button class="btn btn-blue" onclick="document.getElementById('priceFileInput').click()">📥 匯入單價 xlsx</button>
-              <button class="btn" style="background:#4285f4;color:white;" onclick="ghBackupPrices()">☁️ 備份到 GitHub</button>
-              <button class="btn btn-ghost" onclick="ghLoadPrices()">📥 從 GitHub 載入</button>
-              <span id="ghPriceStatus" style="font-size:12px;color:var(--muted);font-weight:700;min-width:80px;"></span>
+              <button class="btn" style="background:#3ecf8e;color:white;" onclick="supabaseBackupPrices()">☁️ 上傳到 Supabase</button>
+              <button class="btn btn-ghost" onclick="supabaseLoadPrices()">📥 從 Supabase 載入</button>
+              <span id="sbPriceStatus" style="font-size:12px;color:var(--muted);font-weight:700;min-width:80px;"></span>
             </div>
             <!-- priceGrid kept hidden for JS compatibility -->
             <div id="priceGrid" style="display:none;"></div>
+            <!-- 保留 ghPriceStatus 供舊邏輯兼容 -->
+            <span id="ghPriceStatus" style="display:none;"></span>
           </div>
 
           <!-- 重量表管理 -->
           <div class="settings-section">
             <h3>⚖️ 重量表管理</h3>
-            <div style="margin-bottom:10px;">
-              <label style="font-size:11px;color:var(--muted);font-weight:700;">GitHub 檔名（預設 weight_table.json）</label>
-              <input type="text" id="settings-gh-weight-path" placeholder="weight_table.json"
-                style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:monospace;outline:none;margin-top:4px;box-sizing:border-box;"
-                onchange="localStorage.setItem('gh_weight_path',this.value);">
-            </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               <button class="btn btn-blue" style="font-size:12px;" onclick="document.getElementById('weightFileInput').click()">📥 匯入 xlsx</button>
-              <button class="btn btn-primary" style="font-size:12px;" onclick="ghBackupWeightTable()">☁️ 備份到 GitHub</button>
-              <button class="btn btn-ghost" style="font-size:12px;" onclick="ghLoadWeightTable()">📥 從 GitHub 載入</button>
-              <span id="ghWeightStatus2" style="font-size:12px;color:var(--muted);font-weight:700;"></span>
+              <button class="btn" style="background:#3ecf8e;color:white;font-size:12px;" onclick="supabaseBackupWeightTable()">☁️ 上傳到 Supabase</button>
+              <button class="btn btn-ghost" style="font-size:12px;" onclick="supabaseLoadWeightTable()">📥 從 Supabase 載入</button>
+              <span id="sbWeightStatus2" style="font-size:12px;color:var(--muted);font-weight:700;"></span>
             </div>
+            <!-- 保留舊 ID 供兼容 -->
+            <span id="ghWeightStatus2" style="display:none;"></span>
           </div>
 
           <!-- 警示閾值 -->
@@ -1876,6 +1882,99 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         </div>
       </div><!-- /view-settings -->
 
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- VIEW: PRICE MANAGEMENT                                       -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="view-panel" id="view-price">
+        <!-- 操作列 -->
+        <div style="background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:15px;font-weight:800;color:var(--text);margin-right:4px;">💰 單價管理</span>
+          <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
+          <button class="btn btn-blue" onclick="document.getElementById('priceFileInput').click()" style="font-size:12px;">📥 匯入 xlsx</button>
+          <button class="btn" style="background:#3ecf8e;color:white;font-size:12px;" onclick="supabaseBackupPrices()">☁️ 上傳到 Supabase</button>
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="supabaseLoadPrices()">📥 從 Supabase 載入</button>
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="exportPriceTable()">📤 匯出 xlsx</button>
+          <span id="sbPriceStatus2" style="font-size:12px;color:var(--muted);font-weight:700;margin-left:4px;"></span>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+            <input type="text" id="priceSearchInput" placeholder="搜尋產品名稱 / 批號…" oninput="renderPriceManage()"
+              style="width:200px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;outline:none;">
+          </div>
+        </div>
+
+        <!-- 合計列 -->
+        <div style="background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:10px 18px;margin-bottom:12px;display:flex;align-items:center;gap:20px;font-size:12px;">
+          <span>共 <strong id="priceTotalCount">0</strong> 筆</span>
+          <span>有單價：<strong id="priceFilledCount" style="color:var(--green);">0</strong> 筆</span>
+          <span>未設定：<strong id="priceEmptyCount" style="color:var(--red);">0</strong> 筆</span>
+        </div>
+
+        <!-- 表格 -->
+        <div style="background:#fff;border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;">
+          <div style="overflow-x:auto;max-height:calc(100vh - 280px);overflow-y:auto;">
+            <table id="priceManageTable" style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead>
+                <tr>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">產品代碼</th>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">產品名稱</th>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">批號</th>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:right;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">期末單位成本</th>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:right;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">期初單位成本</th>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:right;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">收入單位成本</th>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:right;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">發出單位成本</th>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:center;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">採用來源</th>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:right;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">採用單價</th>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">存貨核算範圍</th>
+                </tr>
+              </thead>
+              <tbody id="priceManageTbody">
+                <tr><td colspan="10" style="padding:40px;text-align:center;color:var(--muted);">請先從 Supabase 載入或匯入 xlsx</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /view-price -->
+
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <!-- VIEW: WEIGHT MANAGEMENT                                      -->
+      <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+      <div class="view-panel" id="view-weight">
+        <!-- 操作列 -->
+        <div style="background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:15px;font-weight:800;color:var(--text);margin-right:4px;">⚖️ 重量管理</span>
+          <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
+          <button class="btn btn-blue" onclick="document.getElementById('weightFileInput').click()" style="font-size:12px;">📥 匯入 xlsx</button>
+          <button class="btn" style="background:#3ecf8e;color:white;font-size:12px;" onclick="supabaseBackupWeightTable()">☁️ 上傳到 Supabase</button>
+          <button class="btn btn-ghost" style="font-size:12px;" onclick="supabaseLoadWeightTable().then(renderWeightManage)">📥 從 Supabase 載入</button>
+          <span id="sbWeightStatus3" style="font-size:12px;color:var(--muted);font-weight:700;margin-left:4px;"></span>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+            <input type="text" id="weightSearchInput" placeholder="搜尋產品名稱…" oninput="renderWeightManage()"
+              style="width:200px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:inherit;outline:none;">
+          </div>
+        </div>
+
+        <!-- 合計列 -->
+        <div style="background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:10px 18px;margin-bottom:12px;display:flex;align-items:center;gap:20px;font-size:12px;">
+          <span>共 <strong id="weightTotalCount">0</strong> 筆</span>
+        </div>
+
+        <!-- 表格 -->
+        <div style="background:#fff;border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;">
+          <div style="overflow-x:auto;max-height:calc(100vh - 260px);overflow-y:auto;">
+            <table id="weightManageTable" style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead>
+                <tr>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">產品名稱</th>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:right;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">重量 (kg)</th>
+                </tr>
+              </thead>
+              <tbody id="weightManageTbody">
+                <tr><td colspan="2" style="padding:40px;text-align:center;color:var(--muted);">請先從 Supabase 載入或匯入 xlsx</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div><!-- /view-weight -->
+
     </div><!-- /view-area -->
   </div><!-- /main-area -->
 </div><!-- /app-shell -->
@@ -1963,7 +2062,7 @@ function navSwitch(view){
   const titles = {
     dashboard:'總覽儀表板', inventory:'庫存管理',
     diff:'差異比較', rental:'租金計算',
-    settings:'系統設定'
+    settings:'系統設定', price:'單價管理', weight:'重量管理'
   };
   const titleEl = document.getElementById('headerTitle');
   if(titleEl) titleEl.textContent = titles[view] || view;
@@ -1973,6 +2072,8 @@ function navSwitch(view){
   if(view==='diff') renderDiff();
   else if(view==='dashboard') updateDashboard();
   else if(view==='settings'){ initSettingsFields(); renderPrices(); }
+  else if(view==='price')  renderPriceManage();
+  else if(view==='weight') renderWeightManage();
 }
 
 function updateDashboard(){
@@ -3905,19 +4006,21 @@ async function ghBackupPrices(){
   }
 }
 
-function ghLoadChoose(event) {
+function ghLoadChoose(event) { sbLoadChoose(event); } // 向下兼容
+
+function sbLoadChoose(event) {
   const existing = document.getElementById('ghLoadMenu');
   if (existing) { existing.remove(); return; }
   const menu = document.createElement('div');
   menu.id = 'ghLoadMenu';
-  menu.style.cssText = 'position:fixed;z-index:9999;background:#fff;border:1.5px solid #dde1e7;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:5px;min-width:150px;';
+  menu.style.cssText = 'position:fixed;z-index:9999;background:#fff;border:1.5px solid #3ecf8e;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,.15);padding:5px;min-width:160px;';
   const items = [
-    { icon: '💰', label: '載入單價', fn: 'ghLoadPrices' },
-    { icon: '⚖️', label: '載入重量表', fn: 'ghLoadWeightTable' },
+    { icon: '💰', label: '載入單價表', fn: 'supabaseLoadPrices' },
+    { icon: '⚖️', label: '載入重量表', fn: 'supabaseLoadWeightTable' },
   ];
   menu.innerHTML = items.map(it =>
     `<div onclick="${it.fn}();document.getElementById('ghLoadMenu')?.remove()"
-      onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''"
+      onmouseover="this.style.background='#f0fff8'" onmouseout="this.style.background=''"
       style="padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;border-radius:7px;user-select:none;">${it.icon} ${it.label}</div>`
   ).join('');
   const btn = event.currentTarget;
@@ -4079,7 +4182,7 @@ async function ghLoadWeightTable(){
 async function loadAll(){
   showToast('⏳ 全部帶入中，請稍候…', 8000);
   const results = [];
-  try{ await ghLoadPrices();      results.push('✅ 單價'); }catch(e){ results.push('⚠️ 單價失敗'); }
+  try{ await supabaseLoadPrices();      results.push('✅ 單價'); }catch(e){ results.push('⚠️ 單價失敗'); }
   try{ await loadFromSheets();    results.push('✅ 庫存'); }catch(e){ results.push('⚠️ 庫存失敗'); }
   try{ await loadDiffFromSheets();results.push('✅ 差異'); }catch(e){ results.push('⚠️ 差異失敗'); }
   showToast('全部帶入完成：' + results.join('、'), 5000);
@@ -4519,6 +4622,22 @@ function autoFormatDate(el) {
         el.value = digits;
         el.style.color = '#333';
         el.style.fontWeight = '400';
+    }
+}
+
+function handleFileSelect(input, fileId) {
+    const file = input.files[0];
+    if (!file) return;
+    if (!file.name.endsWith('.xlsx')) {
+        showStatus('❌ 請上傳 .xlsx 格式', 'error');
+        return;
+    }
+    files[fileId] = file;
+    ledgerFiles[fileId] = file;
+    const label = document.getElementById('label' + fileId.slice(-1));
+    if (label) {
+        label.textContent = '✅ ' + file.name;
+        label.classList.add('has-file');
     }
 }
 
@@ -5887,7 +6006,7 @@ async function processFiles() {
         return;
     }
     if (!cachedWeightData || !cachedWeightData.length) {
-        showStatus('❌ 重量表尚未載入，請至設定頁從 GitHub 載入', 'error');
+        showStatus('❌ 重量表尚未載入，請至設定頁從 Supabase 載入或匯入 xlsx', 'error');
         return;
     }
 
@@ -5981,6 +6100,34 @@ function readExcelSheet(file, sheetName) {
     });
 }
 
+// 日期輸入同步和格式轉換
+function syncDateInputs(dateId, textId) {
+    const dateInput = document.getElementById(dateId);
+    const textInput = document.getElementById(textId);
+    if (!textInput) return;
+
+    // 從text轉到date：YYYYMMDD -> YYYY-MM-DD
+    const textVal = textInput.value.trim();
+    if (textVal && /^\d{8}$/.test(textVal)) {
+        dateInput.value = `${textVal.slice(0,4)}-${textVal.slice(4,6)}-${textVal.slice(6,8)}`;
+    }
+}
+
+function getDateValue(dateId, textId) {
+    const dateInput = document.getElementById(dateId);
+    const textInput = document.getElementById(textId);
+
+    // 優先用date input（從日期選擇器）
+    if (dateInput && dateInput.value) {
+        return dateInput.value.replace(/-/g, '');
+    }
+    // 其次用text input（手動輸入）
+    if (textInput && textInput.value) {
+        return textInput.value.trim();
+    }
+    return null;
+}
+
 function calculateRental(rentalData, ioData, weightData) {
     const config = getConfig();
     const result = [];
@@ -6001,10 +6148,12 @@ function calculateRental(rentalData, ioData, weightData) {
         return isNaN(d) ? null : d;
     };
 
-    const periodStart = parseDate(document.getElementById('startDate').value);
-    const periodEnd   = parseDate(document.getElementById('endDate').value);
+    const startDateVal = getDateValue('startDate', 'startDateText');
+    const endDateVal = getDateValue('endDate', 'endDateText');
+    const periodStart = parseDate(startDateVal);
+    const periodEnd   = parseDate(endDateVal);
     if (!periodStart || !periodEnd) {
-        throw new Error('請先填入正確的期初/期末日期（格式：20260401）');
+        throw new Error('請先填入正確的期初/期末日期（可用日期選擇器或手動輸入 YYYYMMDD 格式）');
     }
 
     const baseRate      = parseFloat(document.getElementById('dailyRate').value)   || 0.8;
@@ -6814,19 +6963,22 @@ function showFormulaDetail(event, rowIdx, col) {
             </div>
         `;
     } else if (col === '出入庫') {
-        let inboundWeightCalc = '';
+        let inboundDetailRows = '';
         if (details.inboundFormulaDetails && details.inboundFormulaDetails.length > 0) {
-            inboundWeightCalc = '<div style="margin:6px 0; color:#666;">';
+            inboundDetailRows = '<div style="margin-left:16px; color:#666;">';
             details.inboundFormulaDetails.forEach((detail, idx) => {
-                inboundWeightCalc += `
-                    <div style="padding:6px; background:#fff; border-left:2px solid #f7a35c; margin-bottom:6px;">
-                        <strong>【${detail.bizType}】</strong> ${detail.weight} kg
+                inboundDetailRows += `
+                    <div style="margin-bottom:8px; padding:6px; background:#fff; border-left:2px solid #f7a35c;">
+                        <div><strong>【${detail.bizType}】</strong></div>
+                        <div style="margin-left:12px; font-size:11px;">
+                            數量 × 單位重量：${detail.qty} × ${parseFloat(details.unitWeight).toFixed(4)} kg = ${detail.weight} kg
+                        </div>
                     </div>
                 `;
             });
-            inboundWeightCalc += `<div style="margin-top:8px; padding:8px; background:#fff8f0; border-radius:4px; font-weight:700; color:#f7a35c; text-align:center;">總計：${parseFloat(details.totalInboundWeight).toFixed(2)} kg</div></div>`;
+            inboundDetailRows += `<div style="margin-top:8px; padding-top:8px; border-top:2px solid #f7a35c; font-weight:700; background:#fff8f0; padding:8px; border-radius:4px;">本期入庫總重量：${parseFloat(details.totalInboundWeight).toFixed(2)} kg</div></div>`;
         } else {
-            inboundWeightCalc = '<div style="color:#999;">無本期入庫（出入庫酌收為 0）</div>';
+            inboundDetailRows = '<div style="margin-left:16px; color:#999;">無本期入庫（出入庫酌收為 0）</div>';
         }
 
         formulaHtml = `
@@ -6840,15 +6992,11 @@ function showFormulaDetail(event, rowIdx, col) {
 
                     <div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px;">
                         <div><strong>📥 本期入庫明細</strong></div>
-                        <div style="margin-left:12px;">
-                            ${inboundWeightCalc}
-                        </div>
+                        ${inboundDetailRows}
                     </div>
 
-                    <div style="background:#fff8f0; padding:10px; border-radius:4px; margin-top:8px; font-weight:700; color:#f7a35c; text-align:center;">
-                        🟡 <strong>出入庫酌收計算</strong><br/>
-                        手續費率 × 入庫重量 = ${details.handlingFeeRate.toFixed(2)} × ${parseFloat(details.totalInboundWeight).toFixed(2)} kg<br/>
-                        = <span style="font-size:16px;">${details.handlingCost}</span>
+                    <div style="background:#fff8f0; padding:10px; border-radius:4px; margin-top:8px; font-weight:700; color:#f7a35c; text-align:left;">
+                        🟡 <strong>出入庫酌收：</strong>手續費率 × 入庫重量 = ${details.handlingFeeRate.toFixed(2)} × ${parseFloat(details.totalInboundWeight).toFixed(2)} kg = <span style="font-size:14px;">${details.handlingCost}</span>
                     </div>
                 </div>
             </div>
@@ -6858,25 +7006,24 @@ function showFormulaDetail(event, rowIdx, col) {
             <div style="padding:12px; font-size:12px; line-height:1.6; font-family:'DM Sans',monospace;">
                 <div style="font-weight:700; margin-bottom:8px; color:#22c55e;">📋 總計計算公式</div>
                 <div style="background:#f9f9f9; padding:10px; border-radius:6px; border-left:4px solid #22c55e;">
-                    <div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px;">
-                        <div><strong>💰 租金</strong></div>
-                        <div style="margin-left:12px; font-size:13px; font-weight:700; color:#ef4444; padding:6px; background:#ffe8e8; border-radius:4px;">
-                            ${details.rentalCost}
+                    <div style="background:#fff; padding:10px; border-radius:4px;">
+                        <div style="display:grid; grid-template-columns:auto 1fr; gap:20px; align-items:center;">
+                            <div>
+                                <div><strong>💰 租金</strong></div>
+                                <div style="font-size:13px; font-weight:700; color:#ef4444; margin-top:4px;">${details.rentalCost}</div>
+                            </div>
+                            <div>
+                                <div><strong>+</strong></div>
+                            </div>
+                            <div>
+                                <div><strong>💳 出入庫酌收</strong></div>
+                                <div style="font-size:13px; font-weight:700; color:#f7a35c; margin-top:4px;">${details.handlingCost}</div>
+                            </div>
                         </div>
                     </div>
 
-                    <div style="background:#fff; padding:8px; border-radius:4px; margin-bottom:8px;">
-                        <div><strong>💳 出入庫酌收</strong></div>
-                        <div style="margin-left:12px; font-size:13px; font-weight:700; color:#f7a35c; padding:6px; background:#fff8f0; border-radius:4px;">
-                            ${details.handlingCost}
-                        </div>
-                    </div>
-
-                    <div style="background:#e8f5e9; padding:12px; border-radius:4px; margin-top:8px; font-weight:700; color:#22c55e; text-align:center;">
-                        ✅ <strong>總計金額</strong><br/>
-                        <div style="font-size:11px; margin:6px 0; color:#666;">租金 + 出入庫酌收</div>
-                        ${details.rentalCost} + ${details.handlingCost} = <br/>
-                        <span style="font-size:18px; color:#22c55e;">${details.totalCost}</span>
+                    <div style="background:#e8f5e9; padding:12px; border-radius:4px; margin-top:10px; font-weight:700; color:#22c55e; text-align:left;">
+                        ✅ <strong>總計：</strong>${details.rentalCost} + ${details.handlingCost} = <span style="font-size:14px; color:#22c55e;">${details.totalCost}</span>
                     </div>
                 </div>
             </div>
@@ -7124,6 +7271,290 @@ function exportResults() {
     window.XLSX.writeFile(wb, filename);
     showStatus('✅ 彩色報表已下載！', 'success');
 }
+// ─── SUPABASE 單價表 & 重量表 ────────────────────────────────────
+const SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
+const SB_HEADERS = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+};
+
+// ── 上傳單價表 ──────────────────────────────────────────────────
+async function supabaseBackupPrices() {
+    const rows = buildPricesJson();
+    if (!rows.length) { showToast('❌ 尚無單價資料可上傳'); return; }
+
+    const data = rows.map(r => ({
+        product_code:       r['產品代碼']       || '',
+        product_name:       r['產品名稱'],
+        batch_no:           r['批號'],
+        unit:               r['基本單位']        || '',
+        price:              r['單價']            || 0,
+        period_end_cost:    r['期末單位成本']    ?? null,
+        period_start_cost:  r['期初單位成本']    ?? null,
+        income_unit_cost:   r['收入單位成本']    ?? null,
+        issue_unit_cost:    r['發出單位成本']    ?? null,
+        price_source:       r['採用來源']        || '',
+        scope:              r['存貨核算範圍名稱'] || '',
+        updated_at:         new Date().toISOString(),
+    })).filter(r => r.product_name && r.batch_no);
+
+    try {
+        sbPriceStatus('⏳ 上傳中…');
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/prices_table`, {
+            method: 'POST',
+            headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify(data),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        sbPriceStatus(`✅ 已上傳 ${data.length} 筆`, 'var(--green)');
+        showToast(`✅ 單價表已上傳到 Supabase（${data.length} 筆）`);
+        setTimeout(() => sbPriceStatus(''), 4000);
+    } catch(err) {
+        sbPriceStatus('❌ 上傳失敗', 'var(--red)');
+        showToast('❌ ' + err.message, 4000);
+    }
+}
+
+// ── 從 Supabase 讀取單價表 ──────────────────────────────────────
+async function supabaseLoadPrices() {
+    try {
+        sbPriceStatus('⏳ 載入中…');
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/prices_table?select=*&order=product_name.asc`, {
+            headers: SB_HEADERS,
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const rows = await resp.json();
+
+        let count = 0;
+        rows.forEach(r => {
+            const name = String(r.product_name || '').trim();
+            const lot  = String(r.batch_no     || '').trim();
+            if (!name || !lot) return;
+
+            // 優先順序與 ghLoadPrices 完全一致：直接單價 > 期末 > 期初 > 收入 > 發出
+            const direct    = parseFloat(r.price);
+            const endCost   = parseFloat(r.period_end_cost);
+            const startCost = parseFloat(r.period_start_cost);
+            const inCost    = parseFloat(r.income_unit_cost);
+            const outCost   = parseFloat(r.issue_unit_cost);
+            const price = direct    > 0 ? direct
+                        : endCost   > 0 ? endCost
+                        : startCost > 0 ? startCost
+                        : inCost    > 0 ? inCost
+                        : outCost   > 0 ? outCost
+                        : 0;
+            const priceSource = String(r.price_source || '') ||
+                                (endCost   > 0 ? '期末' :
+                                 startCost > 0 ? '期初' :
+                                 inCost    > 0 ? '收入' :
+                                 outCost   > 0 ? '發出' : '');
+
+            prices[`${name}__${lot}`] = { price, priceSource, scope: String(r.scope || '').trim() };
+            count++;
+        });
+
+        recompute(); renderPrices();
+        if (typeof renderPriceManage === 'function') renderPriceManage();
+        sbPriceStatus(`✅ 已載入 ${count} 筆`, 'var(--green)');
+        showToast(`✅ 從 Supabase 載入 ${count} 筆單價`);
+        setTimeout(() => sbPriceStatus(''), 4000);
+    } catch(err) {
+        sbPriceStatus('❌ 載入失敗', 'var(--red)');
+        showToast('❌ ' + err.message, 4000);
+    }
+}
+
+// ── 上傳重量表 ──────────────────────────────────────────────────
+async function supabaseBackupWeightTable() {
+    if (!cachedWeightData || !cachedWeightData.length) {
+        showToast('❌ 尚無重量表資料，請先上傳 xlsx');
+        return;
+    }
+    // 讀取目前的欄位設定（以防用戶自訂欄名）
+    const colProduct = document.getElementById('col_product3')?.value || '產品名稱';
+    const colWeight  = document.getElementById('col_weight')?.value   || '重量';
+
+    const data = cachedWeightData
+        .map(r => ({
+            product_name: String(r[colProduct] || '').trim(),
+            weight:       parseFloat(r[colWeight]) || 0,
+            updated_at:   new Date().toISOString(),
+        }))
+        .filter(r => r.product_name);
+
+    try {
+        sbWeightStatus('⏳ 上傳中…');
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/weight_table`, {
+            method: 'POST',
+            headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify(data),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        sbWeightStatus(`✅ 已上傳 ${data.length} 筆`, 'var(--green)');
+        showToast(`✅ 重量表已上傳到 Supabase（${data.length} 筆）`);
+        setTimeout(() => sbWeightStatus(''), 4000);
+    } catch(err) {
+        sbWeightStatus('❌ 上傳失敗', 'var(--red)');
+        showToast('❌ ' + err.message, 4000);
+    }
+}
+
+// ── 從 Supabase 讀取重量表 ──────────────────────────────────────
+async function supabaseLoadWeightTable() {
+    try {
+        sbWeightStatus('⏳ 載入中…');
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/weight_table?select=*&order=product_name.asc`, {
+            headers: SB_HEADERS,
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const rows = await resp.json();
+
+        // 還原成與 cachedWeightData 相同的格式：用目前設定的欄位名
+        // 確保 calculateRental 中 w[col_product3] / w[col_weight] 能正常取值
+        const colProduct = document.getElementById('col_product3')?.value || '產品名稱';
+        const colWeight  = document.getElementById('col_weight')?.value   || '重量';
+
+        cachedWeightData = rows.map(r => ({
+            [colProduct]: r.product_name,
+            [colWeight]:  r.weight,
+        }));
+
+        if (typeof renderWeightManage === 'function') renderWeightManage();
+        sbWeightStatus(`✅ 已載入 ${rows.length} 筆`, 'var(--green)');
+        showToast(`✅ 從 Supabase 載入重量表 ${rows.length} 筆`);
+        setTimeout(() => sbWeightStatus(''), 4000);
+    } catch(err) {
+        sbWeightStatus('❌ 載入失敗', 'var(--red)');
+        showToast('❌ ' + err.message, 4000);
+    }
+}
+
+function sbWeightStatus(msg, color = 'var(--muted)') {
+    ['sbWeightStatus', 'sbWeightStatus2', 'sbWeightStatus3'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.textContent = msg; el.style.color = color; }
+    });
+}
+
+function sbPriceStatus(msg, color = 'var(--muted)') {
+    ['sbPriceStatus', 'sbPriceStatus2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.textContent = msg; el.style.color = color; }
+    });
+}
+
+// ── 單價管理頁面：渲染表格 ─────────────────────────────────────
+function renderPriceManage() {
+    const tbody = document.getElementById('priceManageTbody');
+    if (!tbody) return;
+
+    const keyword = (document.getElementById('priceSearchInput')?.value || '').toLowerCase();
+
+    // 從 prices 物件取所有資料
+    const rows = Object.entries(prices).map(([k, pd]) => {
+        const [name, lot] = k.split('__');
+        // 找到對應的庫存資料取得 product_code
+        const found = allData.find(r =>
+            String(r['產品名稱'] || '').trim() === name &&
+            String(r['批號'] || '').trim() === lot
+        ) || {};
+        return { code: found['產品代碼'] || '', name, lot, pd };
+    }).filter(r => r.name && r.name !== '' && r.lot !== undefined);
+
+    const filtered = keyword
+        ? rows.filter(r => (r.name + r.lot + r.code).toLowerCase().includes(keyword))
+        : rows;
+
+    // 統計
+    const filled = filtered.filter(r => r.pd.price > 0).length;
+    const el = id => document.getElementById(id);
+    if (el('priceTotalCount'))  el('priceTotalCount').textContent  = filtered.length;
+    if (el('priceFilledCount')) el('priceFilledCount').textContent = filled;
+    if (el('priceEmptyCount'))  el('priceEmptyCount').textContent  = filtered.length - filled;
+
+    if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--muted);">
+            ${keyword ? '查無符合的產品' : '請先從 Supabase 載入或匯入 xlsx'}
+        </td></tr>`;
+        return;
+    }
+
+    const sourceColor = src =>
+        src === '期末' ? '#2A7A10' : src === '期初' ? '#906000' :
+        src === '收入' ? '#1565c0' : src === '發出' ? '#6a1b9a' : '#999';
+    const sourceBg = src =>
+        src === '期末' ? '#E8F8E0' : src === '期初' ? '#FFF8E0' :
+        src === '收入' ? '#E3F2FD' : src === '發出' ? '#F3E5F5' : '#f5f5f5';
+
+    tbody.innerHTML = filtered.map((r, idx) => {
+        const { pd } = r;
+        const bg = idx % 2 === 0 ? '#fff' : '#fafbfc';
+        const endCost   = pd.priceSource === '期末' ? pd.price : '';
+        const startCost = pd.priceSource === '期初' ? pd.price : '';
+        const inCost    = pd.priceSource === '收入' ? pd.price : '';
+        const outCost   = pd.priceSource === '發出' ? pd.price : '';
+        const srcBadge  = pd.priceSource
+            ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${sourceBg(pd.priceSource)};color:${sourceColor(pd.priceSource)};font-weight:700;">${pd.priceSource}</span>`
+            : '<span style="color:#ccc;font-size:11px;">—</span>';
+        return `<tr style="background:${bg};">
+            <td style="padding:7px 12px;border:1px solid #edf2f7;font-size:11px;font-weight:700;color:var(--accent);">${r.code}</td>
+            <td style="padding:7px 12px;border:1px solid #edf2f7;font-size:12px;">${r.name}</td>
+            <td style="padding:7px 12px;border:1px solid #edf2f7;font-size:11px;color:var(--muted);">${r.lot}</td>
+            <td style="padding:7px 12px;border:1px solid #edf2f7;text-align:right;font-variant-numeric:tabular-nums;">${endCost !== '' ? Number(endCost).toLocaleString() : ''}</td>
+            <td style="padding:7px 12px;border:1px solid #edf2f7;text-align:right;font-variant-numeric:tabular-nums;">${startCost !== '' ? Number(startCost).toLocaleString() : ''}</td>
+            <td style="padding:7px 12px;border:1px solid #edf2f7;text-align:right;font-variant-numeric:tabular-nums;">${inCost !== '' ? Number(inCost).toLocaleString() : ''}</td>
+            <td style="padding:7px 12px;border:1px solid #edf2f7;text-align:right;font-variant-numeric:tabular-nums;">${outCost !== '' ? Number(outCost).toLocaleString() : ''}</td>
+            <td style="padding:7px 12px;border:1px solid #edf2f7;text-align:center;">${srcBadge}</td>
+            <td style="padding:7px 12px;border:1px solid #edf2f7;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:${pd.price > 0 ? 'var(--text)' : 'var(--red)'};">${pd.price > 0 ? Number(pd.price).toLocaleString() : '未設定'}</td>
+            <td style="padding:7px 12px;border:1px solid #edf2f7;font-size:11px;color:var(--muted);">${pd.scope || ''}</td>
+        </tr>`;
+    }).join('');
+}
+
+// ── 重量管理頁面：渲染表格 ─────────────────────────────────────
+function renderWeightManage() {
+    const tbody = document.getElementById('weightManageTbody');
+    if (!tbody) return;
+
+    const colProduct = document.getElementById('col_product3')?.value || '產品名稱';
+    const colWeight  = document.getElementById('col_weight')?.value   || '重量';
+    const keyword    = (document.getElementById('weightSearchInput')?.value || '').toLowerCase();
+
+    if (!cachedWeightData || !cachedWeightData.length) {
+        tbody.innerHTML = `<tr><td colspan="2" style="padding:40px;text-align:center;color:var(--muted);">請先從 Supabase 載入或匯入 xlsx</td></tr>`;
+        const el = document.getElementById('weightTotalCount');
+        if (el) el.textContent = 0;
+        return;
+    }
+
+    const filtered = cachedWeightData.filter(r => {
+        const name = String(r[colProduct] || '').toLowerCase();
+        return !keyword || name.includes(keyword);
+    });
+
+    const el = document.getElementById('weightTotalCount');
+    if (el) el.textContent = filtered.length;
+
+    tbody.innerHTML = filtered.map((r, idx) => {
+        const name   = r[colProduct] || '';
+        const weight = parseFloat(r[colWeight]) || 0;
+        const bg     = idx % 2 === 0 ? '#fff' : '#fafbfc';
+        return `<tr style="background:${bg};">
+            <td style="padding:8px 12px;border:1px solid #edf2f7;font-size:12px;">${name}</td>
+            <td style="padding:8px 12px;border:1px solid #edf2f7;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${weight.toFixed(4)}</td>
+        </tr>`;
+    }).join('');
+}
+
+// 匯入重量 xlsx 後同步刷新重量管理頁
+const _origLoadWeightFile = loadWeightFile;
+loadWeightFile = function(input) {
+    _origLoadWeightFile(input);
+    setTimeout(renderWeightManage, 300);
+};
+
 // 掛載所有函式到 window
 window.doInitLedger = doInitLedger;
 window.previewMonthly = previewMonthly;
