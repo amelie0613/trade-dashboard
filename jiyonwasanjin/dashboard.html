@@ -418,9 +418,8 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   <span class="upload-status" id="uploadStatus"></span>
   <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="loadExcel(this)">
   <button class="btn btn-primary" onclick="document.getElementById('xlsxInput').click()">📂 上傳 Excel</button>
-  <button class="btn btn-ghost topbar-hide-mobile" onclick="refreshData()">🔄 從 Sheets 載入</button>
+  <button class="btn btn-ghost topbar-hide-mobile" onclick="refreshData()">🔄 重新整理</button>
   <button class="btn btn-blue topbar-hide-mobile" onclick="exportToExcel()">💾 匯出 Excel</button>
-  <button class="btn btn-green topbar-hide-mobile" onclick="uploadAnalyzed()">☁️ 上傳分析</button>
   <button class="btn btn-ghost topbar-hide-mobile" onclick="openConfig()">⚙️ 設定</button>
   <button class="mob-menu-btn" onclick="openMobMenu()">☰</button>
 </div>
@@ -432,10 +431,8 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
       <button onclick="closeMobMenu()" style="background:none;border:none;color:#c8d4ff;font-size:22px;cursor:pointer;line-height:1;">✕</button>
     </div>
     <div class="mob-menu-item" onclick="document.getElementById('xlsxInput').click();closeMobMenu()">📂 上傳庫存 Excel</div>
-    <div class="mob-menu-item" onclick="refreshData();closeMobMenu()">🔄 從 Google Sheets 載入</div>
+    <div class="mob-menu-item" onclick="refreshData();closeMobMenu()">🔄 重新整理</div>
     <div class="mob-menu-item" onclick="exportToExcel();closeMobMenu()">💾 匯出 Excel</div>
-    <div class="mob-menu-divider"></div>
-    <div class="mob-menu-item" onclick="uploadAnalyzed();closeMobMenu()">☁️ 上傳分析結果</div>
     <div class="mob-menu-divider"></div>
     <div class="mob-menu-item" onclick="openConfig();closeMobMenu()">⚙️ 設定</div>
   </div>
@@ -629,19 +626,6 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   <div class="modal">
     <h3>⚙️ 設定</h3>
     <div class="form-group">
-      <label>Google Sheet ID</label>
-      <input type="text" id="cfg-sheetId" placeholder="試算表 ID（網址中的長串字元）">
-    </div>
-    <div class="form-group">
-      <label>Apps Script 網址 <span style="color:var(--red)">*</span></label>
-      <input type="text" id="cfg-scriptUrl" placeholder="https://script.google.com/macros/s/...">
-    </div>
-    <div class="form-group">
-      <label>庫存工作表名稱 <span style="font-size:11px;color:#888;">（預設：全部庫存）</span></label>
-      <input type="text" id="cfg-invSheet" placeholder="全部庫存">
-      <div style="font-size:11px;color:#888;margin-top:4px;">請確認工作表名稱與試算表一致</div>
-    </div>
-    <div class="form-group">
       <label>即將到期天數（預設 210）</label>
       <input type="number" id="cfg-soonDays" value="210" min="1" max="999">
     </div>
@@ -664,39 +648,24 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 // ═══════════════════════════════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════
-const DEFAULT_SHEET_ID   = '1vAjncE2dWp95g0tCzOcprCgu3caWPPr6qw42Hb4xyMI';
-const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcHHwc6iAxtDrq2f3ahNDzN2RPm_mtCD1bCLgVXFlGJIoxcqdb3sQSAXV_foUssiTZ/exec';
-
 // ── Supabase 設定 ──
 const SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
 
 let CFG = {
-  sheetId:   localStorage.getItem('dash_sheetId')   || DEFAULT_SHEET_ID,
-  scriptUrl: localStorage.getItem('dash_scriptUrl') || DEFAULT_SCRIPT_URL,
-  invSheet:  localStorage.getItem('dash_invSheet')  || '全部庫存',
   soonDays:  +(localStorage.getItem('dash_soonDays')  || 210),
   longYears: +(localStorage.getItem('dash_longYears') || 3),
 };
 
 function openConfig(){
-  document.getElementById('cfg-sheetId').value   = CFG.sheetId;
-  document.getElementById('cfg-scriptUrl').value = CFG.scriptUrl;
-  document.getElementById('cfg-invSheet').value  = CFG.invSheet;
   document.getElementById('cfg-soonDays').value  = CFG.soonDays;
   document.getElementById('cfg-longYears').value = CFG.longYears;
   document.getElementById('config-modal').classList.add('open');
 }
 function closeConfig(){ document.getElementById('config-modal').classList.remove('open'); }
 function saveConfig(){
-  CFG.sheetId   = document.getElementById('cfg-sheetId').value.trim();
-  CFG.scriptUrl = document.getElementById('cfg-scriptUrl').value.trim();
-  CFG.invSheet  = document.getElementById('cfg-invSheet').value.trim() || '全部庫存';
   CFG.soonDays  = +document.getElementById('cfg-soonDays').value  || 210;
   CFG.longYears = +document.getElementById('cfg-longYears').value || 3;
-  localStorage.setItem('dash_sheetId',   CFG.sheetId);
-  localStorage.setItem('dash_scriptUrl', CFG.scriptUrl);
-  localStorage.setItem('dash_invSheet',  CFG.invSheet);
   localStorage.setItem('dash_soonDays',  CFG.soonDays);
   localStorage.setItem('dash_longYears', CFG.longYears);
   closeConfig();
@@ -708,7 +677,7 @@ function saveConfig(){
 // ═══════════════════════════════════════════════════════════════
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 
-let rawRows   = [];   // 原始庫存（從 Sheets）
+let rawRows   = [];   // 原始庫存（從 Supabase）
 let prices    = {};   // { 'name__lot': { price, scope } }
 let notesMap  = {};   // { key: noteText }
 let diffRows  = [];   // 差異報告（已算好）
@@ -820,12 +789,6 @@ function getStatus(flags){
 // ═══════════════════════════════════════════════════════════════
 //  FETCH
 // ═══════════════════════════════════════════════════════════════
-function scriptGet(sheetName){
-  if(!CFG.scriptUrl) return Promise.reject(new Error('尚未設定 Apps Script 網址'));
-  const url = `${CFG.scriptUrl}?action=read&sheetId=${encodeURIComponent(CFG.sheetId)}&sheetName=${encodeURIComponent(sheetName)}`;
-  return fetch(url, { redirect: 'follow' }).then(r => r.json());
-}
-
 async function fetchFromSupabase(){
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/inventory?select=*&order=id.asc&limit=10000`,
@@ -841,13 +804,11 @@ async function fetchFromSupabase(){
   });
 }
 
-function fetchNotes(){
-  if(!CFG.scriptUrl) return Promise.resolve({});
-  const url = `${CFG.scriptUrl}?action=readNotes&sheetId=${encodeURIComponent(CFG.sheetId)}`;
-  return fetch(url, { redirect: 'follow' })
-    .then(r => r.json())
-    .then(d => d.notes || {})
-    .catch(() => ({}));
+function loadNotes(){
+  try { return JSON.parse(localStorage.getItem('dash_notes') || '{}'); } catch{ return {}; }
+}
+function persistNotes(){
+  localStorage.setItem('dash_notes', JSON.stringify(notesMap));
 }
 
 function showLoading(panelId){
@@ -860,71 +821,28 @@ async function refreshData(){
   setUploadStatus('🔄 從 Supabase 載入資料中…');
 
   try {
-    // 優先從 Supabase 讀取庫存，失敗時回退到 Google Sheets
-    let invRows = [];
-    try {
-      invRows = await fetchFromSupabase();
-      setUploadStatus(`✅ 從 Supabase 載入 ${invRows.length} 筆`);
-    } catch(sbErr){
-      console.warn('⚠️ Supabase 失敗，嘗試 Google Sheets：', sbErr.message);
-      if(CFG.scriptUrl){
-        const invSheetName = CFG.invSheet || '全部庫存';
-        const invRes = await scriptGet(invSheetName);
-        if(invRes.error) throw new Error(invRes.error);
-        invRows = invRes.rows || [];
-      }
-    }
+    const invRows = await fetchFromSupabase();
 
-    const [priceRes, noteRes, diffRes] = await Promise.all([
-      CFG.scriptUrl ? scriptGet('單價設定').catch(() => ({ rows:[] })) : Promise.resolve({ rows:[] }),
-      CFG.scriptUrl ? fetchNotes() : Promise.resolve({}),
-      CFG.scriptUrl ? scriptGet('Ot庫存狀況表').catch(() => scriptGet('庫存差異比較').catch(() => ({ rows:[] }))) : Promise.resolve({ rows:[] }),
-    ]);
+    // 載入本機備註
+    notesMap = loadNotes();
 
-    // 解析單價
+    // 從 Supabase 資料建立單價對照（每筆已含 單價、存貨核算範圍名稱）
     prices = {};
-    (priceRes.rows || []).forEach(r => {
-      const k = r['產品名稱__批號key'] || '';
-      if(k) prices[k] = { price: +(r['單價']||0), scope: r['存貨核算範圍名稱']||'' };
-    });
-
-    // 解析備註
-    notesMap = noteRes || {};
-
-    // 解析原始庫存並附加計算欄；同時從行內提取單價（若 單價設定 sheet 沒有資料時做後備）
     rawRows = invRows.map(r => {
       r._expDate = parseDate(r['有效期至']);
       r._lotDate = parseLotDate(r['批號']);
-      // 欄位別名：相容「基本單位」/「基本單位名稱」/「計量單位」/「單位」、「倉庫」/「倉庫名稱」
-      if(!r['基本單位名稱'] && r['基本單位']) r['基本單位名稱'] = r['基本單位'];
-      if(!r['基本單位名稱'] && r['計量單位']) r['基本單位名稱'] = r['計量單位'];
       if(!r['基本單位名稱'] && r['單位']) r['基本單位名稱'] = r['單位'];
-      if(!r['倉庫名稱']   && r['倉庫'])   r['倉庫名稱']   = r['倉庫'];
-      // 從行內提取單價（期末優先 → 期初 → 單價欄）
-      const endCost    = parseFloat(r['期末單位成本']);
-      const startCost  = parseFloat(r['期初單位成本']);
-      const directPrice= parseFloat(r['單價']);
-      const extracted  = (!isNaN(directPrice) && directPrice > 0) ? directPrice
-                       : (!isNaN(endCost)    && endCost    > 0) ? endCost
-                       : (!isNaN(startCost)  && startCost  > 0) ? startCost : 0;
-      const rowScope = String(r['存貨核算範圍名稱']||'').trim();
       const k = priceKey(r);
       if(k !== '__'){
-        if(!prices[k]) prices[k] = { price: 0, scope: rowScope };
-        // 補 scope（若原本空白）
-        if(!prices[k].scope && rowScope) prices[k].scope = rowScope;
-        // 補 price（只有 > 0 才覆蓋）
-        if(extracted > 0 && !prices[k].price) prices[k].price = extracted;
+        const p    = parseFloat(r['單價']) || 0;
+        const scope = String(r['存貨核算範圍名稱'] || '').trim();
+        prices[k] = { price: p, scope };
       }
       return r;
     });
 
-    // 解析差異報告
-    diffRows = (diffRes.rows || []);
-
-    // 更新產生時間
-    const genAt = diffRows.length ? (diffRows[0]['產生時間'] || '') : '';
-    document.getElementById('d-gentime').textContent = genAt || '—';
+    diffRows = [];
+    document.getElementById('d-gentime').textContent = '—';
     document.getElementById('dataDate').textContent =
       rawRows.length ? '　資料筆數：' + rawRows.length : '';
 
@@ -937,7 +855,7 @@ async function refreshData(){
   } catch(err) {
     setUploadStatus('❌ 載入失敗：' + err.message);
     document.getElementById('inv-body').innerHTML =
-      `<tr><td colspan="15" class="empty-msg">❌ 載入失敗：${err.message}<br><br>請確認 Apps Script 網址與 Sheet ID 正確，且 Sheet 已分享為「任何人可檢視」。</td></tr>`;
+      `<tr><td colspan="15" class="empty-msg">❌ 從 Supabase 載入失敗：${err.message}</td></tr>`;
   }
 }
 
@@ -1362,25 +1280,12 @@ function saveNote(textarea){
   const note = textarea.value.trim();
 
   clearTimeout(noteTimers[key]);
-  noteTimers[key] = setTimeout(async () => {
-    if(!CFG.scriptUrl){ toast('❌ 請先設定 Apps Script 網址'); return; }
-
+  noteTimers[key] = setTimeout(() => {
     notesMap[key] = note;
-
-    try {
-      const resp = await fetch(CFG.scriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action:'writeNote', sheetId: CFG.sheetId, key, note }),
-        redirect: 'follow',
-      });
-      const text = await resp.text();
-      if(text.includes('"success"') || text.includes('success')){
-        const indId = 'si-' + key.replace(/[^a-zA-Z0-9]/g,'_');
-        const ind = document.getElementById(indId);
-        if(ind){ ind.classList.add('show'); setTimeout(() => ind.classList.remove('show'), 2000); }
-      }
-    } catch(e){ toast('❌ 備註儲存失敗：' + e.message); }
+    persistNotes();
+    const indId = 'si-' + key.replace(/[^a-zA-Z0-9]/g,'_');
+    const ind = document.getElementById(indId);
+    if(ind){ ind.classList.add('show'); setTimeout(() => ind.classList.remove('show'), 2000); }
   }, 800);
 }
 
@@ -1771,7 +1676,7 @@ function renderDiff(){
 
   if(!rows.length){
     const hint = diffRows.length === 0
-      ? '請確認 Google Sheets 中有「庫存差異比較」分頁，且已從 dodo6122 上傳差異資料。'
+      ? '差異報告尚無資料，請從 dodo6122 產生並上傳差異報告。'
       : `已載入 ${diffRows.length} 筆，但篩選後無結果。`;
     document.getElementById('diff-body').innerHTML = `<tr><td colspan="13" class="empty-msg">📭 ${hint}</td></tr>`;
     return;
@@ -1883,76 +1788,6 @@ function exportToExcel(){
   toast(`✅ 已匯出 ${rows.length} 筆資料到 ${filename}`);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  UPLOAD ANALYZED RESULTS
-// ═══════════════════════════════════════════════════════════════
-async function uploadAnalyzed(){
-  if(!CFG.scriptUrl){ toast('❌ 請先設定 Apps Script 網址'); return; }
-  if(!rawRows.length){ toast('❌ 請先載入資料'); return; }
-
-  setUploadStatus('⏳ 上傳分析結果中…');
-
-  const post = async (payload) => {
-    const resp = await fetch(CFG.scriptUrl, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload), redirect: 'follow',
-    });
-    return resp.text();
-  };
-
-  const headers = ['核算組織名稱','產品類別','產品代碼','產品名稱','產品規格',
-    '庫存數量','單位','倉庫名稱','批號','入庫日期','有效期至',
-    '剩餘/在庫天數','庫存狀態','存貨核算範圍名稱','單價','存貨成本'];
-
-  const sheets = [
-    { sheetName:'全部庫存',  filter:'all',     color:'#7B6BAA' },
-    { sheetName:'過期品',    filter:'expired', color:'#E07070' },
-    { sheetName:'長期在庫',  filter:'long',    color:'#E0904A' },
-    { sheetName:'即將到期',  filter:'soon',    color:'#D0736A' },
-  ];
-
-  const chgLabel = { normal:'正常', expired:'過期品', long:'長期在庫', soon:'即將到期' };
-  const errors = [];
-  let totalRows = 0;
-
-  for(const s of sheets){
-    let source = rawRows.map(r => {
-      const flags  = classify(r);
-      const status = getStatus(flags);
-      const pd     = prices[priceKey(r)] || { price:0, scope:'' };
-      const qty    = parseFloat(r['庫存數量'])||0;
-      const days   = flags.long && r._lotDate ? Math.round((TODAY-r._lotDate)/86400000) : daysDiff(r._expDate);
-      return {
-        status,
-        row: [
-          r['核算組織名稱']||'', r['產品類別']||'', r['產品代碼']||'',
-          r['產品名稱']||'', r['產品規格']||'', String(qty),
-          r['基本單位名稱']||'', r['倉庫名稱']||'', r['批號']||'',
-          fmtDate(r._lotDate), fmtDate(r._expDate)||(r['有效期至']||''),
-          days !== null ? String(days) : '', chgLabel[status]||'',
-          pd.scope||'', String(pd.price||0),
-          qty * pd.price > 0 ? String(Math.round(qty*pd.price)) : '',
-        ]
-      };
-    });
-
-    if(s.filter !== 'all') source = source.filter(x => x.status === s.filter);
-    const rows = source.map(x => x.row);
-
-    try {
-      const res = await post({ sheetId: CFG.sheetId, sheetName: s.sheetName, headers, rows, headerColor: s.color });
-      if(res.includes('success')) totalRows += rows.length;
-      else errors.push(`${s.sheetName}：${res.slice(0,50)}`);
-    } catch(e){ errors.push(`${s.sheetName}：${e.message}`); }
-  }
-
-  if(errors.length === 0){
-    setUploadStatus(`✅ 分析結果已上傳，共 ${totalRows} 筆`);
-    toast('✅ 分析結果已上傳到 Google Sheets');
-  } else {
-    setUploadStatus('⚠️ 部分失敗：' + errors.join('、'));
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════
 //  HELPERS
@@ -2109,13 +1944,7 @@ window.addEventListener('resize', () => {
 //  INIT
 // ═══════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  if(CFG.scriptUrl && CFG.sheetId){
-    refreshData();
-  } else {
-    setUploadStatus('📂 請上傳庫存 Excel，或點「設定」連接 Google Sheets');
-    document.getElementById('inv-body').innerHTML =
-      '<tr><td colspan="15" class="empty-msg">📂 請點左上角「上傳庫存 Excel」直接讀取本機檔案，<br>或點右上角「設定」填入 Apps Script 網址與 Google Sheet ID。</td></tr>';
-  }
+  refreshData();
 });
 </script>
 </body>
