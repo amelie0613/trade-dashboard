@@ -371,7 +371,7 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 .filter-btn:hover { border-color:var(--accent); color:var(--accent); }
 .filter-btn.has-sel { background:var(--accent); color:white; border-color:var(--accent); }
 .filter-dropdown {
-  display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:80;
+  display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:1000;
   background:white; border:1.5px solid var(--border); border-radius:10px;
   padding:5px 0; min-width:170px; max-height:260px; overflow-y:auto;
   box-shadow:0 4px 18px rgba(104,120,192,.22);
@@ -507,7 +507,7 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
     <div class="summary-card"><div class="s-label">已設定單價</div><div class="s-value green" id="s-priced">—</div></div>
   </div>
   <!-- 桌面：合併明細 + 表格 -->
-  <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:6px;" id="desktop-merge-btn">
     <button class="merge-btn filter-btn" onclick="clickMerge()" style="font-size:12px;padding:5px 14px;font-weight:800;transition:all .15s;">⊞ 合併明細</button>
   </div>
   <div class="tbl-wrap">
@@ -1214,6 +1214,10 @@ function togglePivot(){
 }
 
 function renderInventory(){
+  const isMobileView = window.innerWidth <= 700;
+  const desktopMergeBtn = document.getElementById('desktop-merge-btn');
+  if(desktopMergeBtn) desktopMergeBtn.style.display = isMobileView ? 'none' : 'flex';
+
   const rows = getInvRows();
 
   // Counts
@@ -1297,15 +1301,8 @@ function renderInventory(){
   const BADGE_CLS2  = { normal:'badge-normal', expired:'badge-expired', soon:'badge-soon', long:'badge-long' };
   const DAYS_LABEL  = { all:'剩餘/在庫', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
 
-  // 手機版排序菜單 + 合併明細按鈕
-  const mergeBtnStyle = pivotEnabled
-    ? 'background:var(--accent);color:white;border-color:var(--accent);'
-    : 'background:white;color:var(--muted);border-color:var(--border);';
-  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:0 10px;">
-    <div style="font-size:11px;color:#999;white-space:nowrap;">產品明細</div>
-    <button class="merge-btn filter-btn" onclick="clickMerge()" style="font-size:11px;padding:4px 12px;font-weight:800;transition:all .15s;${mergeBtnStyle}">⊞ 合併明細</button>
-  </div>
-  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding:0 10px;">
+  // 手機版排序菜單
+  let html = `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding:0 10px;">
     <div style="font-size:11px;color:#999;align-self:center;white-space:nowrap;">排序：</div>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('name')">名稱${invSortCol==='name'?(invSortDir==='asc'?'↑':'↓'):''}</button>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('qty')">數量${invSortCol==='qty'?(invSortDir==='asc'?'↑':'↓'):''}</button>
