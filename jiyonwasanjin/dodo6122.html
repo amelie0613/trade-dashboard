@@ -3832,6 +3832,29 @@ async function ghBackupPrices(){
     return;
   }
 
+  // 上傳前檢查零單價
+  const zeroItems = Object.entries(prices)
+    .filter(([, pd]) => !(pd.price > 0))
+    .map(([k]) => {
+      const [name, lot] = k.split('__');
+      const found = allData.find(r =>
+        String(r['產品名稱']||'').trim() === name &&
+        String(r['批號']||'').trim() === lot
+      ) || {};
+      return {
+        產品代碼: found['產品代碼'] || '',
+        產品名稱: name,
+        批號:     lot,
+        倉庫名稱: found['倉庫名稱'] || '',
+        庫存數量: found['庫存數量'] || '',
+      };
+    });
+
+  if(zeroItems.length > 0){
+    const confirmed = await showZeroPriceConfirm(zeroItems);
+    if(!confirmed) return;
+  }
+
   ghPriceStatus('⏳ 上傳中…');
   const content = btoa(unescape(encodeURIComponent(JSON.stringify(buildPricesJson(), null, 2))));
   const apiUrl  = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
