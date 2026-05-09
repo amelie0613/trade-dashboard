@@ -1072,6 +1072,35 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- ════ 零單價確認對話框 ════ -->
+<div id="zeroPriceModal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(26,37,64,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:28px 30px;width:min(680px,95vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(104,120,192,.3);">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <span style="font-size:24px;">⚠️</span>
+      <h3 style="font-size:16px;font-weight:900;color:#ef4444;margin:0;">發現單價為 0 的資料</h3>
+    </div>
+    <p style="font-size:12px;color:#64748b;margin-bottom:14px;">以下 <b id="zeroPriceCnt"></b> 筆資料單價為 0，請確認是否仍要上傳到 GitHub？</p>
+    <div style="flex:1;overflow-y:auto;border:1px solid #dde6ef;border-radius:8px;margin-bottom:16px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#6878C0;color:#fff;position:sticky;top:0;">
+            <th style="padding:8px 10px;text-align:left;font-weight:700;">產品代碼</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:700;">產品名稱</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:700;">批號</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:700;">倉庫名稱</th>
+            <th style="padding:8px 10px;text-align:left;font-weight:700;">庫存數量</th>
+          </tr>
+        </thead>
+        <tbody id="zeroPriceBody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button onclick="resolveZeroPriceModal(false)" style="padding:9px 22px;border-radius:9px;border:2px solid #dde6ef;background:#fff;font-size:13px;font-weight:700;cursor:pointer;color:#64748b;">取消</button>
+      <button onclick="resolveZeroPriceModal(true)" style="padding:9px 22px;border-radius:9px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">仍要上傳</button>
+    </div>
+  </div>
+</div>
+
 <!-- HIDDEN INPUTS (required by JS) -->
 <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="loadFile(this)" style="display:none">
 <input type="file" id="priceFileInput" accept=".xlsx,.xls" onchange="loadPriceFile(this)" style="display:none">
@@ -3072,6 +3101,32 @@ function updateTablePrice(key, type, val){
 function openGithubPanel(){ document.getElementById('githubPanel').style.display='block'; }
 function closeGithubPanel(){ document.getElementById('githubPanel').style.display='none'; document.getElementById('ghStatus').textContent=''; }
 
+// ─── 零單價確認對話框 ─────────────────────────────────────────
+let _zeroPriceResolve = null;
+
+function showZeroPriceConfirm(zeroItems){
+  return new Promise(resolve => {
+    _zeroPriceResolve = resolve;
+    document.getElementById('zeroPriceCnt').textContent = zeroItems.length;
+    const tbody = document.getElementById('zeroPriceBody');
+    tbody.innerHTML = zeroItems.map((item, i) => `
+      <tr style="background:${i%2===0?'#fff':'#fef2f2'};">
+        <td style="padding:6px 10px;border-bottom:1px solid #e8edf5;">${item.產品代碼||'—'}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e8edf5;font-weight:600;">${item.產品名稱}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e8edf5;">${item.批號||'—'}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e8edf5;">${item.倉庫名稱||'—'}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e8edf5;text-align:right;">${item.庫存數量||'—'}</td>
+      </tr>`).join('');
+    const modal = document.getElementById('zeroPriceModal');
+    modal.style.display = 'flex';
+  });
+}
+
+function resolveZeroPriceModal(confirmed){
+  document.getElementById('zeroPriceModal').style.display = 'none';
+  if(_zeroPriceResolve){ _zeroPriceResolve(confirmed); _zeroPriceResolve = null; }
+}
+
 function buildPricesJson(){
   // 行列式：每個 key 一筆，包含所有欄位
   return Object.entries(prices).map(([k, pd]) => {
@@ -3099,6 +3154,29 @@ async function savePricesToGithub(){
   const btn      = document.getElementById('ghSaveBtn');
 
   if(!token||!owner||!repo){ statusEl.style.color='var(--red)'; statusEl.textContent='❌ 請填寫 Token、使用者名稱、Repository'; return; }
+
+  // 上傳前檢查零單價
+  const zeroItems = Object.entries(prices)
+    .filter(([, pd]) => !(pd.price > 0))
+    .map(([k, pd]) => {
+      const [name, lot] = k.split('__');
+      const found = allData.find(r =>
+        String(r['產品名稱']||'').trim() === name &&
+        String(r['批號']||'').trim() === lot
+      ) || {};
+      return {
+        產品代碼: found['產品代碼'] || '',
+        產品名稱: name,
+        批號:     lot,
+        倉庫名稱: found['倉庫名稱'] || '',
+        庫存數量: found['庫存數量'] || '',
+      };
+    });
+
+  if(zeroItems.length > 0){
+    const confirmed = await showZeroPriceConfirm(zeroItems);
+    if(!confirmed) return;
+  }
 
   btn.disabled=true; btn.textContent='儲存中…';
   statusEl.style.color='var(--muted)'; statusEl.textContent='連線中…';
