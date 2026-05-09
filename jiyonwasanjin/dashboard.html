@@ -493,12 +493,13 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
         <div class="filter-dropdown" id="fd-category"></div>
       </div>
     </div>
-    <!-- 第二行：文字搜尋 + 動作按鈕 -->
-    <div style="display:flex;gap:7px;align-items:center;margin-top:6px;">
-      <input class="filter-input" type="text" placeholder="🔍 名稱 / 批號 / 備註" id="fi-search" oninput="onSearchText()" style="flex:1;min-width:0;box-sizing:border-box;">
-      <button class="btn btn-blue" style="padding:6px 14px;font-size:12px;white-space:nowrap;flex-shrink:0;" onclick="applyFilters()">✓ 確認篩選</button>
-      <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;white-space:nowrap;background:#e06070;opacity:0.9;flex-shrink:0;" onclick="cancelFilters()">✕ 取消</button>
-      <button class="filter-clear-btn" id="filter-clear-btn" style="display:none;flex-shrink:0;" onclick="clearFilters()">✕ 清除篩選</button>
+    <!-- 第二行：文字搜尋 -->
+    <input class="filter-input" type="text" placeholder="🔍 名稱 / 批號 / 備註" id="fi-search" oninput="onSearchText()" style="width:100%;box-sizing:border-box;margin-top:6px;">
+    <!-- 第三行：動作按鈕 -->
+    <div style="display:flex;gap:7px;align-items:center;margin-top:6px;flex-wrap:wrap;">
+      <button class="btn btn-blue" style="padding:6px 14px;font-size:12px;white-space:nowrap;" onclick="applyFilters()">✓ 確認篩選</button>
+      <button class="btn btn-primary" style="padding:6px 14px;font-size:12px;white-space:nowrap;background:#e06070;opacity:0.9;" onclick="cancelFilters()">✕ 取消</button>
+      <button class="filter-clear-btn" id="filter-clear-btn" style="display:none;" onclick="clearFilters()">✕ 清除篩選</button>
       <div class="filter-days-chip" id="filter-days-chip" onclick="clearFilters()">⚠️ 90天到期 ✕</div>
     </div>
   </div>
@@ -1304,7 +1305,8 @@ function renderInventory(){
   const DAYS_LABEL  = { all:'剩餘/在庫', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
 
   // 手機版排序菜單
-  let html = `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;padding:0 10px;">
+  const mergeBtnStyle = pivotEnabled ? `background:var(--accent);color:white;border-color:var(--accent);` : '';
+  let html = `<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;padding:0 10px;align-items:center;">
     <div style="font-size:11px;color:#999;align-self:center;white-space:nowrap;">排序：</div>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('name')">名稱${invSortCol==='name'?(invSortDir==='asc'?'↑':'↓'):''}</button>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('qty')">數量${invSortCol==='qty'?(invSortDir==='asc'?'↑':'↓'):''}</button>
@@ -1312,6 +1314,7 @@ function renderInventory(){
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('cost')">成本${invSortCol==='cost'?(invSortDir==='asc'?'↑':'↓'):''}</button>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('warehouse')">倉庫${invSortCol==='warehouse'?(invSortDir==='asc'?'↑':'↓'):''}</button>
     <button class="filter-btn" style="font-size:11px;padding:5px 10px;" onclick="sortInv('scope')">核算範圍${invSortCol==='scope'?(invSortDir==='asc'?'↑':'↓'):''}</button>
+    <button class="merge-btn filter-btn" onclick="clickMerge()" style="font-size:11px;padding:5px 10px;font-weight:800;transition:all .15s;${mergeBtnStyle}">⊞ 合併明細</button>
   </div>`;
 
   let grandQty = 0, grandCost = 0;
