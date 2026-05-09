@@ -2256,10 +2256,6 @@ function loadFile(input){
   reader.readAsBinaryString(file);
 }
 
-// ─── SUPABASE 備份 ─────────────────────────────────────────────
-const SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
-
 function toISODate(v){
   if(!v) return null;
   const d = parseExcelDate(v);
@@ -7272,11 +7268,11 @@ function exportResults() {
     showStatus('✅ 彩色報表已下載！', 'success');
 }
 // ─── SUPABASE 單價表 & 重量表 ────────────────────────────────────
-const SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
-const SB_HEADERS = {
-    'apikey': SUPABASE_KEY,
-    'Authorization': `Bearer ${SUPABASE_KEY}`,
+window.SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
+window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
+window.SB_HEADERS = {
+    'apikey': window.SUPABASE_KEY,
+    'Authorization': `Bearer ${window.SUPABASE_KEY}`,
     'Content-Type': 'application/json',
 };
 
@@ -7302,18 +7298,22 @@ async function supabaseBackupPrices() {
 
     try {
         sbPriceStatus('⏳ 上傳中…');
+        console.log('[Supabase] 上傳單價表，筆數：', data.length, '，第一筆：', data[0]);
         const resp = await fetch(`${SUPABASE_URL}/rest/v1/prices_table`, {
             method: 'POST',
             headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
             body: JSON.stringify(data),
         });
-        if (!resp.ok) throw new Error(await resp.text());
+        const respText = await resp.text();
+        console.log('[Supabase] 回應 status：', resp.status, '，body：', respText);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}：${respText}`);
         sbPriceStatus(`✅ 已上傳 ${data.length} 筆`, 'var(--green)');
         showToast(`✅ 單價表已上傳到 Supabase（${data.length} 筆）`);
         setTimeout(() => sbPriceStatus(''), 4000);
     } catch(err) {
+        console.error('[Supabase] 單價表上傳失敗：', err);
         sbPriceStatus('❌ 上傳失敗', 'var(--red)');
-        showToast('❌ ' + err.message, 4000);
+        showToast('❌ ' + err.message, 5000);
     }
 }
 
@@ -7386,18 +7386,22 @@ async function supabaseBackupWeightTable() {
 
     try {
         sbWeightStatus('⏳ 上傳中…');
+        console.log('[Supabase] 上傳重量表，筆數：', data.length, '，第一筆：', data[0]);
         const resp = await fetch(`${SUPABASE_URL}/rest/v1/weight_table`, {
             method: 'POST',
             headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
             body: JSON.stringify(data),
         });
-        if (!resp.ok) throw new Error(await resp.text());
+        const respText = await resp.text();
+        console.log('[Supabase] 回應 status：', resp.status, '，body：', respText);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}：${respText}`);
         sbWeightStatus(`✅ 已上傳 ${data.length} 筆`, 'var(--green)');
         showToast(`✅ 重量表已上傳到 Supabase（${data.length} 筆）`);
         setTimeout(() => sbWeightStatus(''), 4000);
     } catch(err) {
+        console.error('[Supabase] 重量表上傳失敗：', err);
         sbWeightStatus('❌ 上傳失敗', 'var(--red)');
-        showToast('❌ ' + err.message, 4000);
+        showToast('❌ ' + err.message, 5000);
     }
 }
 
