@@ -5816,73 +5816,117 @@ async function viewLedger() {
 
         let grandTotal = activeRows.reduce((s,r) => s+(r.月租金結餘 ?? r.前期結餘 ?? 0), 0);
 
+        // ── 欄位定義 ─────────────────────────────────────────────────
+        const ledgerCols = [
+            { key:'採購部門',   label:'採購部門',   align:'text',   highlight:false },
+            { key:'產品類別',   label:'產品類別',   align:'text',   highlight:false },
+            { key:'產品代碼',   label:'產品代碼',   align:'text',   highlight:false },
+            { key:'產品名稱',   label:'產品名稱',   align:'text',   highlight:false },
+            { key:'批號',       label:'批號',       align:'text',   highlight:false },
+            { key:'總檔結存',   label:'總檔結存',   align:'num',    highlight:false },
+            { key:'前期結餘',   label:'前期結餘',   align:'num',    highlight:false },
+            { key:'上半期租金', label:'本月上半',   align:'num',    highlight:false },
+            { key:'下半期租金', label:'本月下半',   align:'num',    highlight:false },
+            { key:'租金總計',   label:'租金總計',   align:'num',    highlight:true  },
+            { key:'分攤單價',   label:'分攤單價',   align:'num',    highlight:false },
+            { key:'月租金出庫', label:'月租金(出庫)', align:'num',  highlight:false },
+            { key:'月租金結餘', label:'月租金(結餘)', align:'num',  highlight:true  },
+            { key:'_history',   label:'月結歷史',   align:'text',   highlight:false },
+            { key:'備註',       label:'備註',       align:'text',   highlight:false },
+        ];
+        const numKeys = new Set(ledgerCols.filter(c=>c.align==='num').map(c=>c.key));
+
+        // ── 計算合計列 ───────────────────────────────────────────────
+        const totalsMap = {};
+        numKeys.forEach(k => { totalsMap[k] = 0; });
+        activeRows.forEach(r => {
+            numKeys.forEach(k => { totalsMap[k] += parseFloat(r[k])||0; });
+        });
+
+        // ── 排序 ─────────────────────────────────────────────────────
+        const sorted = [...activeRows].sort((a,b) => {
+            const dA = a.採購部門||'', dB = b.採購部門||'';
+            if (dA !== dB) return dA.localeCompare(dB,'zh-TW');
+            const cA = a.產品類別||'', cB = b.產品類別||'';
+            if (cA !== cB) return cA.localeCompare(cB,'zh-TW');
+            return (a.產品名稱||'').localeCompare(b.產品名稱||'','zh-TW');
+        });
+
+        // ── 合計列 HTML ──────────────────────────────────────────────
+        const thStyle = `position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;font-weight:700;border:1px solid #4a5a9f;padding:7px 10px;white-space:nowrap;font-size:11px;`;
+        const sumStyle = `position:sticky;top:33px;z-index:2;background:#EEF3FD;font-weight:800;font-size:11px;color:#764ba2;`;
+
+        const thRow = ledgerCols.map(c => {
+            const hlBg = c.highlight ? 'background:#9b5fc0;' : '';
+            return `<th style="${thStyle}${hlBg}text-align:${c.align==='num'?'right':'left'};">${c.label}</th>`;
+        }).join('');
+
+        const sumRow = ledgerCols.map(c => {
+            if (c.align === 'num') {
+                const v = totalsMap[c.key] || 0;
+                return `<td style="${sumStyle}border:1px solid #c5d3f0;text-align:right;padding:5px 10px;">${Math.round(v).toLocaleString()}</td>`;
+            }
+            return `<td style="${sumStyle}border:1px solid #c5d3f0;padding:5px 10px;">${c.key==='採購部門'?'合計':''}</td>`;
+        }).join('');
+
+        // ── 資料列 HTML ──────────────────────────────────────────────
+        const tdBase = `border:1px solid #dde6ef;font-size:11px;padding:5px 10px;white-space:nowrap;`;
         let tableRows = '';
-        activeRows.sort((a,b) => {
-            const catA = a.產品類別||'', catB = b.產品類別||'';
-            if (catA !== catB) return catA.localeCompare(catB, 'zh-TW');
-            return (a.產品名稱||'').localeCompare(b.產品名稱||'', 'zh-TW');
-        }).forEach((r, idx) => {
-            const history = Object.entries(r.月結歷史||{}).map(([k,v])=>`${k}:$${Number(v).toLocaleString()}`).join(' / ');
-            const rowKey = String(r.產品名稱||'').trim() + '|' + String(r.批號||'').trim(); // 產品名稱+批號
-            tableRows += `<tr>
-                <td style="white-space:nowrap;">${r.產品類別||''}</td>
-                <td style="white-space:nowrap;">${r.產品代碼||''}</td>
-                <td style="padding:0;">
-                    <input type="text" value="${r.產品名稱}" data-ledger-key="${rowKey}" data-field="產品名稱" 
-                        onchange="onLedgerEdit(this)" 
-                        style="width:100%; border:none; padding:0.3rem 0.4rem; background:transparent; font-family:inherit; outline:none; cursor:pointer; border-bottom:1.5px solid transparent;"
-                        onfocus="this.style.borderBottomColor='#f2a7c3'; this.style.background='#fff8fc';"
-                        onblur="this.style.borderBottomColor='transparent'; this.style.background='transparent';" />
-                </td>
-                <td style="white-space:nowrap;">${r.批號}</td>
-                <td style="white-space:nowrap; text-align:right; color:#8a5aa0;">${r.分攤單價 !== undefined && r.分攤單價 !== 0 ? parseFloat(r.分攤單價).toFixed(5) : '-'}</td>
-                <td style="white-space:nowrap;">${r.採購部門||''}</td>
-                <td style="text-align:right; white-space:nowrap;">${r.總檔結存 !== undefined ? r.總檔結存 : (r.本期結存 !== undefined ? r.本期結存 : '-')}</td>
-                <td style="font-weight:700; color:#c0507a; white-space:nowrap; text-align:right;">${(r.月租金結餘 ?? r.前期結餘 ?? 0).toLocaleString()}</td>
-                <td style="font-size:0.72rem; color:#8a6a7a; min-width:120px;">${history||'-'}</td>
-            </tr>`;
+        sorted.forEach((r, idx) => {
+            const bg = idx % 2 === 0 ? '#fff' : '#fafbfc';
+            const history = Object.entries(r.月結歷史||{}).slice(-4).map(([k,v])=>`${k}:${Number(v).toLocaleString()}`).join(' / ');
+            const rowKey = String(r.產品名稱||'').trim()+'|'+String(r.批號||'').trim();
+            tableRows += `<tr style="background:${bg};">`;
+            ledgerCols.forEach(c => {
+                const hlColor = c.highlight ? 'color:#c0507a;font-weight:700;' : '';
+                if (c.key === '_history') {
+                    tableRows += `<td style="${tdBase}${hlColor}font-size:10px;color:#8a6a7a;min-width:140px;white-space:normal;">${history||'-'}</td>`;
+                } else if (c.key === '產品名稱') {
+                    tableRows += `<td style="${tdBase}padding:0;"><input type="text" value="${r.產品名稱||''}" data-ledger-key="${rowKey}" data-field="產品名稱" onchange="onLedgerEdit(this)" style="width:100%;border:none;padding:4px 10px;background:transparent;font-family:inherit;font-size:11px;outline:none;cursor:pointer;border-bottom:1.5px solid transparent;" onfocus="this.style.borderBottomColor='#f2a7c3';this.style.background='#fff8fc';" onblur="this.style.borderBottomColor='transparent';this.style.background='transparent';"/></td>`;
+                } else if (c.align === 'num') {
+                    const v = parseFloat(r[c.key])||0;
+                    const disp = c.key==='分攤單價' ? (v?v.toFixed(5):'-') : (v?v.toLocaleString():'-');
+                    tableRows += `<td style="${tdBase}${hlColor}text-align:right;font-variant-numeric:tabular-nums;">${disp}</td>`;
+                } else {
+                    tableRows += `<td style="${tdBase}${hlColor}">${r[c.key]||''}</td>`;
+                }
+            });
+            tableRows += '</tr>';
         });
 
         resultsEl.innerHTML = `<div class="result-section">
             <!-- 採購部門小計 -->
-            <div style="margin-bottom:1.2rem;">
-                <div style="font-size:0.8rem; font-weight:800; color:#8a5aa0; margin-bottom:0.6rem; text-transform:uppercase; letter-spacing:0.05em;">各採購部門租金總額</div>
-                <div style="display:flex; flex-wrap:wrap; gap:0.6rem; align-items:stretch;">
+            <div style="margin-bottom:1rem;">
+                <div style="font-size:0.78rem;font-weight:800;color:#8a5aa0;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">各採購部門租金總額</div>
+                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:stretch;">
                     ${deptCards}
-                    <div style="background:#fdf0f7; border:1.5px solid #f2a7c3; border-radius:10px; padding:0.7rem 1rem; text-align:center; min-width:120px;">
-                        <div style="font-size:0.75rem; font-weight:700; color:#c0507a; margin-bottom:0.2rem;">總計</div>
-                        <div style="font-size:1.1rem; font-weight:800; color:#c0507a;">$${Math.round(grandTotal).toLocaleString()}</div>
+                    <div style="background:#fdf0f7;border:1.5px solid #f2a7c3;border-radius:8px;padding:0.45rem 0.7rem;text-align:center;min-width:100px;">
+                        <div style="font-size:0.7rem;font-weight:700;color:#c0507a;margin-bottom:0.15rem;">總計</div>
+                        <div style="font-size:0.95rem;font-weight:800;color:#c0507a;">${Math.round(grandTotal).toLocaleString()}</div>
                     </div>
                 </div>
             </div>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.8rem; flex-wrap:wrap; gap:0.5rem;">
-                <h3 style="margin:0;">📋 在庫總帳（${activeRows.length} 筆，已隱藏結餘=0）</h3>
-                <button onclick="exportLedger()" style="background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.5rem 1rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">📥 匯出 Excel</button>
+            <!-- 篩選 & 匯出 -->
+            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.8rem;">
+                <input type="text" id="ledgerSearchInput" placeholder="搜尋產品名稱 / 批號…"
+                    style="width:200px;padding:0.5rem 0.7rem;font-size:0.85rem;"
+                    oninput="viewLedger()" />
+                <span style="font-size:0.8rem;color:#999;">共 <strong>${activeRows.length}</strong> 筆（結餘=0 已隱藏）</span>
+                <button onclick="exportLedger()" style="margin-left:auto;background:#8dcc7a;color:white;border:none;border-radius:8px;padding:0.5rem 1rem;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;font-size:0.85rem;">📥 匯出 Excel</button>
             </div>
-            <div class="overflow-auto"><table style="font-size:12px;">
-                <thead><tr>
-                    <th style="white-space:nowrap;">產品類別</th>
-                    <th style="white-space:nowrap;">產品代碼</th>
-                    <th>產品名稱</th>
-                    <th style="white-space:nowrap;">批號</th>
-                    <th style="white-space:nowrap; text-align:right;">分攤單價</th>
-                    <th style="white-space:nowrap;">採購部門</th>
-                    <th style="text-align:right; white-space:nowrap;">總檔結存</th>
-                    <th class="highlight" style="text-align:right; white-space:nowrap;">總檔租金結餘</th>
-                    <th>月結歷史</th>
-                </tr></thead>
-                <tbody>
-                    ${tableRows}
-                    <tr style="background:#fdf0f7; font-weight:800;">
-                        <td colspan="5" style="color:#c0507a;">合計</td>
-                        <td></td>
-                        <td></td>
-                        <td style="color:#c0507a; text-align:right;">$${Math.round(grandTotal).toLocaleString()}</td>
-                        <td></td>
-                    </tr>
-                </tbody>
-            </table></div></div>`;
+
+            <!-- 明細表格 -->
+            <div class="overflow-auto" style="max-height:calc(100vh - 300px);overflow-y:auto;">
+                <table id="resultTable" style="min-width:1600px;">
+                    <thead>
+                        <tr>${sumRow}</tr>
+                        <tr>${thRow}</tr>
+                    </thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            </div>
+        </div>`;
     } catch(e) {
         resultsEl.innerHTML = `<p style="color:#e8836a; text-align:center; padding:2rem;">❌ 讀取失敗：${e.message}</p>`;
     }
