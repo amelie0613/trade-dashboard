@@ -2110,7 +2110,10 @@ function loadFile(input){
       const firstSheetJson = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], {defval:''});
       processData(firstSheetJson);
 
-      showToast(`✅ 成功載入 ${firstSheetJson.length} 筆資料，已同步到 Google Sheets`);
+      // 【新】備份到 Supabase
+      saveToSupabase(firstSheetJson);
+
+      showToast(`✅ 成功載入 ${firstSheetJson.length} 筆資料，已同步到 Google Sheets 及 Supabase`);
     }catch(err){
       showToast('❌ 讀取失敗：'+err.message, 4000);
     }
@@ -2118,6 +2121,71 @@ function loadFile(input){
     input.value = '';
   };
   reader.readAsBinaryString(file);
+}
+
+// ─── SUPABASE 備份 ─────────────────────────────────────────────
+const SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
+
+function toISODate(v){
+  if(!v) return null;
+  const d = parseExcelDate(v);
+  if(!d) return null;
+  return d.toISOString().slice(0,10);
+}
+
+async function saveToSupabase(rows){
+  try{
+    const records = rows.map(r => ({
+      核算組織:        r['核算組織']        || null,
+      產品類別:        r['產品類別']        || null,
+      產品代碼:        String(r['產品代碼'] || ''),
+      產品名稱:        r['產品名稱']        || null,
+      產品規格:        r['產品規格']        || null,
+      庫存數量:        Number(r['庫存數量'])  || 0,
+      單位:            r['單位']            || null,
+      倉庫名稱:        r['倉庫名稱']        || null,
+      批號:            String(r['批號']     || ''),
+      入庫日期:        toISODate(r['入庫日期']),
+      有效期至:        toISODate(r['有效期至']),
+      剩餘在庫天數:    r['剩餘/在庫天數'] != null ? Number(r['剩餘/在庫天數']) : null,
+      庫存狀態:        r['庫存狀態']        || null,
+      存貨核算範圍名稱: r['存貨核算範圍名稱'] || null,
+      單價:            Number(r['單價'])    || 0,
+      存貨成本:        Number(r['存貨成本']) || 0,
+    }));
+
+    // 全量替換：先刪除舊資料
+    await fetch(`${SUPABASE_URL}/rest/v1/inventory?id=gte.0`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Prefer': 'return=minimal'
+      }
+    });
+
+    // 批量插入新資料
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(records)
+    });
+
+    if(res.ok){
+      console.log(`✅ Supabase 備份成功：${records.length} 筆資料`);
+    } else {
+      const errText = await res.text();
+      console.error('❌ Supabase 備份失敗：', errText);
+    }
+  } catch(err){
+    console.error('❌ 無法連接 Supabase：', err);
+  }
 }
 
 // 【新】自動寫入 Google Sheets

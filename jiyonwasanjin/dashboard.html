@@ -667,6 +667,10 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 const DEFAULT_SHEET_ID   = '1vAjncE2dWp95g0tCzOcprCgu3caWPPr6qw42Hb4xyMI';
 const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcHHwc6iAxtDrq2f3ahNDzN2RPm_mtCD1bCLgVXFlGJIoxcqdb3sQSAXV_foUssiTZ/exec';
 
+// ── Supabase 設定 ──
+const SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
+
 let CFG = {
   sheetId:   localStorage.getItem('dash_sheetId')   || DEFAULT_SHEET_ID,
   scriptUrl: localStorage.getItem('dash_scriptUrl') || DEFAULT_SCRIPT_URL,
@@ -822,6 +826,21 @@ function scriptGet(sheetName){
   return fetch(url, { redirect: 'follow' }).then(r => r.json());
 }
 
+async function fetchFromSupabase(){
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/inventory?select=*&order=id.asc&limit=10000`,
+    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+  );
+  if(!res.ok) throw new Error('Supabase HTTP ' + res.status);
+  const data = await res.json();
+  return data.map(r => {
+    const row = { ...r };
+    row['剩餘/在庫天數'] = r['剩餘在庫天數'];
+    if(!row['單位'] && row['基本單位名稱']) row['單位'] = row['基本單位名稱'];
+    return row;
+  });
+}
+
 function fetchNotes(){
   if(!CFG.scriptUrl) return Promise.resolve({});
   const url = `${CFG.scriptUrl}?action=readNotes&sheetId=${encodeURIComponent(CFG.sheetId)}`;
@@ -837,30 +856,30 @@ function showLoading(panelId){
 }
 
 async function refreshData(){
-  if(!CFG.scriptUrl){
-    toast('⚙️ 請先點右上角「設定」填入 Apps Script 網址');
-    openConfig();
-    return;
-  }
-
   showLoading('inv-body');
-  setUploadStatus('🔄 載入資料中…');
+  setUploadStatus('🔄 從 Supabase 載入資料中…');
 
   try {
-    // 讀取庫存工作表（預設「全部庫存」）
-    const invSheetName = CFG.invSheet || '全部庫存';
-    let invRes = await scriptGet(invSheetName);
-    if(invRes.error){
-      setUploadStatus(`❌ 找不到「${invSheetName}」工作表`);
+    // 優先從 Supabase 讀取庫存，失敗時回退到 Google Sheets
+    let invRows = [];
+    try {
+      invRows = await fetchFromSupabase();
+      setUploadStatus(`✅ 從 Supabase 載入 ${invRows.length} 筆`);
+    } catch(sbErr){
+      console.warn('⚠️ Supabase 失敗，嘗試 Google Sheets：', sbErr.message);
+      if(CFG.scriptUrl){
+        const invSheetName = CFG.invSheet || '全部庫存';
+        const invRes = await scriptGet(invSheetName);
+        if(invRes.error) throw new Error(invRes.error);
+        invRows = invRes.rows || [];
+      }
     }
 
     const [priceRes, noteRes, diffRes] = await Promise.all([
-      scriptGet('單價設定').catch(() => ({ rows: [] })),
-      fetchNotes(),
-      scriptGet('Ot庫存狀況表').catch(() => scriptGet('庫存差異比較').catch(() => ({ rows: [] }))),
+      CFG.scriptUrl ? scriptGet('單價設定').catch(() => ({ rows:[] })) : Promise.resolve({ rows:[] }),
+      CFG.scriptUrl ? fetchNotes() : Promise.resolve({}),
+      CFG.scriptUrl ? scriptGet('Ot庫存狀況表').catch(() => scriptGet('庫存差異比較').catch(() => ({ rows:[] }))) : Promise.resolve({ rows:[] }),
     ]);
-
-    if(invRes.error) throw new Error(invRes.error);
 
     // 解析單價
     prices = {};
@@ -873,7 +892,7 @@ async function refreshData(){
     notesMap = noteRes || {};
 
     // 解析原始庫存並附加計算欄；同時從行內提取單價（若 單價設定 sheet 沒有資料時做後備）
-    rawRows = (invRes.rows || []).map(r => {
+    rawRows = invRows.map(r => {
       r._expDate = parseDate(r['有效期至']);
       r._lotDate = parseLotDate(r['批號']);
       // 欄位別名：相容「基本單位」/「基本單位名稱」/「計量單位」/「單位」、「倉庫」/「倉庫名稱」
