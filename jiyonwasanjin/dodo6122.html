@@ -4966,7 +4966,7 @@ async function refreshLedgerStatus(forceRefresh = false) {
         if (!rows || rows.length === 0) {
             el.innerHTML = '<span style="color:#e8836a; font-weight:700;">⚠️ 尚未建立總帳</span><br><span style="font-size:0.78rem;">請從雲端載入或重新導入</span>';
         } else {
-            const total = rows.reduce((s,r) => s+(parseFloat(r.月租金結餘??r.前期結餘)||0), 0);
+            const total = rows.reduce((s,r) => s+(parseFloat(r.月租金結餘||r.前期結餘)||0), 0);
             el.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 本地快取</span><br>
                 <span style="font-size:0.78rem;">品項數：${rows.length} 筆<br>
                 累計租金餘額：$${Math.round(total).toLocaleString()}</span>`;
@@ -5803,7 +5803,7 @@ async function viewLedger() {
         const deptMap = {};
         activeRows.forEach(r => {
             const dept = r.採購部門 || '未分類';
-            deptMap[dept] = (deptMap[dept] || 0) + (r.月租金結餘 ?? r.前期結餘 ?? 0);
+            deptMap[dept] = (deptMap[dept] || 0) + (r.月租金結餘 || r.前期結餘 || 0);
         });
         const deptColors = ['#f2a7c3','#7ec8e3','#8dcc7a','#f7a35c','#c9a8e0','#f7d96b','#e8836a'];
         let deptCards = Object.entries(deptMap)
@@ -5814,7 +5814,7 @@ async function viewLedger() {
                     <div style="font-size:1.1rem; font-weight:800; color:#c0507a;">$${Math.round(total).toLocaleString()}</div>
                 </div>`).join('');
 
-        let grandTotal = activeRows.reduce((s,r) => s+(r.月租金結餘 ?? r.前期結餘 ?? 0), 0);
+        let grandTotal = activeRows.reduce((s,r) => s+(r.月租金結餘 || r.前期結餘 || 0), 0);
 
         // ── 欄位定義 ─────────────────────────────────────────────────
         const ledgerCols = [
@@ -5854,19 +5854,19 @@ async function viewLedger() {
 
         // ── 合計列 HTML ──────────────────────────────────────────────
         const thStyle = `position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;font-weight:700;border:1px solid #4a5a9f;padding:7px 10px;white-space:nowrap;font-size:11px;`;
-        const sumStyle = `position:sticky;top:33px;z-index:2;background:#EEF3FD;font-weight:800;font-size:11px;color:#764ba2;`;
-
-        const thRow = ledgerCols.map(c => {
-            const hlBg = c.highlight ? 'background:#9b5fc0;' : '';
-            return `<th style="${thStyle}${hlBg}text-align:${c.align==='num'?'right':'left'};">${c.label}</th>`;
-        }).join('');
+        const sumStyle = `position:sticky;top:0;z-index:2;background:#EEF3FD;font-weight:800;font-size:11px;color:#764ba2;border:1px solid #c5d3f0;padding:5px 10px;`;
 
         const sumRow = ledgerCols.map(c => {
             if (c.align === 'num') {
                 const v = totalsMap[c.key] || 0;
-                return `<td style="${sumStyle}border:1px solid #c5d3f0;text-align:right;padding:5px 10px;">${Math.round(v).toLocaleString()}</td>`;
+                return `<th style="${sumStyle}text-align:right;">${Math.round(v).toLocaleString()}</th>`;
             }
-            return `<td style="${sumStyle}border:1px solid #c5d3f0;padding:5px 10px;">${c.key==='採購部門'?'合計':''}</td>`;
+            return `<th style="${sumStyle}">${c.key==='採購部門'?'合計':''}</th>`;
+        }).join('');
+
+        const thRow = ledgerCols.map(c => {
+            const hlBg = c.highlight ? 'background:#9b5fc0;' : '';
+            return `<th style="${thStyle}${hlBg}text-align:${c.align==='num'?'right':'left'};">${c.label}</th>`;
         }).join('');
 
         // ── 資料列 HTML ──────────────────────────────────────────────
