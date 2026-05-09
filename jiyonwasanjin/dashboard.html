@@ -507,7 +507,7 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
     <div class="summary-card"><div class="s-label">已設定單價</div><div class="s-value green" id="s-priced">—</div></div>
   </div>
   <!-- 桌面：合併明細 + 表格 -->
-  <div style="display:flex;justify-content:flex-end;margin-bottom:6px;">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:6px;" id="desktop-merge-btn">
     <button class="merge-btn filter-btn" onclick="clickMerge()" style="font-size:12px;padding:5px 14px;font-weight:800;transition:all .15s;">⊞ 合併明細</button>
   </div>
   <div class="tbl-wrap">
@@ -1214,6 +1214,10 @@ function togglePivot(){
 }
 
 function renderInventory(){
+  const isMobileView = window.innerWidth <= 700;
+  const desktopMergeBtn = document.getElementById('desktop-merge-btn');
+  if(desktopMergeBtn) desktopMergeBtn.style.display = isMobileView ? 'none' : 'flex';
+
   const rows = getInvRows();
 
   // Counts
