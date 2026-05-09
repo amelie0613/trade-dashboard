@@ -7299,7 +7299,7 @@ async function supabaseBackupPrices() {
     try {
         sbPriceStatus('⏳ 上傳中…');
         console.log('[Supabase] 上傳單價表，筆數：', data.length, '，第一筆：', data[0]);
-        const resp = await fetch(`${SUPABASE_URL}/rest/v1/prices_table`, {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/prices_table?on_conflict=product_name,batch_no`, {
             method: 'POST',
             headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
             body: JSON.stringify(data),
@@ -7387,7 +7387,7 @@ async function supabaseBackupWeightTable() {
     try {
         sbWeightStatus('⏳ 上傳中…');
         console.log('[Supabase] 上傳重量表，筆數：', data.length, '，第一筆：', data[0]);
-        const resp = await fetch(`${SUPABASE_URL}/rest/v1/weight_table`, {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/weight_table?on_conflict=product_name`, {
             method: 'POST',
             headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
             body: JSON.stringify(data),
