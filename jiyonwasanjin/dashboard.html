@@ -447,30 +447,46 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
 }
 #mobile-merge-bar {
   display:none;
+  position:fixed; bottom:0; left:0; right:0; z-index:200;
+  padding:16px 16px env(safe-area-inset-bottom, 14px);
+  background:linear-gradient(to top, rgba(245,246,250,1) 55%, rgba(245,246,250,0));
+}
+#mobile-merge-bar button {
+  width:100%; padding:13px; font-size:14px; font-weight:800;
+  border-radius:14px; border:none;
+  background:#1d4ed8; color:white; cursor:pointer;
+  font-family:inherit; transition:all .18s;
+  letter-spacing:.04em;
+  box-shadow:0 4px 16px rgba(29,78,216,.35);
+}
+#mobile-merge-bar button.active {
+  background:#dbeafe; color:#1d4ed8; border:1.5px solid #93c5fd;
+  box-shadow:0 2px 10px rgba(147,197,253,.4);
 }
 @media (max-width:700px) {
-  #mobile-merge-bar {
-    display:block;
-    position:fixed; bottom:0; left:0; right:0; z-index:200;
-    padding:10px 16px 14px; /* 14px底部留給 home indicator */
-    background:rgba(255,255,255,0.96);
-    backdrop-filter:blur(8px);
-    -webkit-backdrop-filter:blur(8px);
-    border-top:1px solid var(--border);
-    box-shadow:0 -2px 12px rgba(0,0,0,.08);
-  }
-  #mobile-merge-bar button {
-    width:100%; padding:11px; font-size:14px; font-weight:800;
-    border-radius:10px; border:none;
-    background:#1d4ed8; color:white; cursor:pointer;
-    font-family:inherit; transition:all .18s;
-    letter-spacing:.04em;
-  }
-  #mobile-merge-bar button.active {
-    background:#dbeafe; color:#1d4ed8; border:1.5px solid #93c5fd;
-  }
-  /* 讓頁面底部留空間避免內容被遮住 */
-  #panel-inventory { padding-bottom:70px; }
+  .filter-bar { gap:5px; }
+  .filter-input { width:auto; font-size:14px; }
+  .filter-btn { font-size:13px; padding:5px 9px; }
+  .tab-item { font-size:14px; }
+  .status-chip { font-size:13px; }
+  .chip-cnt { font-size:12px; }
+  .s-value { font-size:17px; }
+  .s-label { font-size:11px; }
+  .topbar-title { font-size:16px; }
+  .topbar-meta  { font-size:13px; }
+  .inv-card-name  { font-size:16px; }
+  .inv-card-badge { font-size:12px; }
+  .inv-card-meta  { font-size:13px; }
+  .inv-card-meta .lbl { font-size:12px; }
+  .inv-card-cost .lbl { font-size:11px; }
+  .inv-card-cost .val { font-size:15px; }
+  .inv-card-days  { font-size:14px; }
+  .inv-card-note  { font-size:14px; }
+  .inv-card-total-row { font-size:15px; }
+  .filter-dd-item { font-size:14px; }
+  .filter-dd-head a, .filter-dd-head span { font-size:13px; }
+  /* 庫存明細底部留空給固定按鈕 */
+  #panel-inventory { padding-bottom:72px; }
 }
 </style>
 </head>
@@ -794,8 +810,14 @@ function switchTab(id, el){
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('panel-' + id).classList.add('active');
+  _syncMobileMergeBar(id);
+}
+
+function _syncMobileMergeBar(tabId){
   const bar = document.getElementById('mobile-merge-bar');
-  if(bar) bar.style.display = (id === 'inventory') ? '' : 'none';
+  if(!bar) return;
+  const isMobile = window.innerWidth <= 700;
+  bar.style.display = (isMobile && tabId === 'inventory') ? 'block' : 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1272,6 +1294,7 @@ function renderInventory(){
   const isMobileView = window.innerWidth <= 700;
   const desktopMergeBtn = document.getElementById('desktop-merge-btn');
   if(desktopMergeBtn) desktopMergeBtn.style.display = isMobileView ? 'none' : 'flex';
+  _syncMobileMergeBar('inventory');
 
   const rows = getInvRows();
 
@@ -1450,6 +1473,7 @@ function saveNote(textarea){
 //  COST RENDER
 // ═══════════════════════════════════════════════════════════════
 function renderCost(){
+  _syncMobileMergeBar('cost');
   // ── 建立按 scope → warehouse 的雙層分組結構 ──
   const scopeMap = {};  // scope → { whMap: { wh → {normal,soon,expired,long,total} }, ...totals }
 
@@ -2163,13 +2187,18 @@ function closeMobMenu(){ document.getElementById('mobMenuOverlay').classList.rem
 let _resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(_resizeTimer);
-  _resizeTimer = setTimeout(() => { if(rawRows.length) renderInventory(); }, 200);
+  _resizeTimer = setTimeout(() => {
+    if(rawRows.length) renderInventory();
+    const activeTab = document.querySelector('.tab-item.active');
+    if(activeTab) _syncMobileMergeBar(activeTab.dataset.tab);
+  }, 200);
 });
 
 // ═══════════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
+  _syncMobileMergeBar('cost'); // 預設在成本分析頁，隱藏按鈕
   refreshData();
 });
 </script>
