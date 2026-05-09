@@ -1062,6 +1062,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         </div>
         <p style="font-size:0.78rem; font-weight:800; color:#8dcc7a; margin:0.5rem 0 0.6rem; text-transform:uppercase; letter-spacing:0.06em;">⚖️ 重量表</p>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin-bottom:1.5rem;">
+            <div class="config-item"><label>產品代碼</label><input type="text" id="col_code3" value="產品" /></div>
             <div class="config-item"><label>產品名稱</label><input type="text" id="col_product3" value="產品名稱" /></div>
             <div class="config-item"><label>重量欄</label><input type="text" id="col_weight" value="重量" /></div>
         </div>
@@ -1963,6 +1964,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <table id="weightManageTable" style="width:100%;border-collapse:collapse;font-size:12px;">
               <thead>
                 <tr>
+                  <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">產品代碼</th>
                   <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:left;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">產品名稱</th>
                   <th style="position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;padding:9px 12px;text-align:right;white-space:nowrap;font-size:11px;font-weight:700;border:1px solid #4a5a9f;">重量 (kg)</th>
                 </tr>
@@ -7373,16 +7375,24 @@ async function supabaseBackupWeightTable() {
         return;
     }
     // 讀取目前的欄位設定（以防用戶自訂欄名）
+    const colCode    = document.getElementById('col_code3')?.value    || '產品';
     const colProduct = document.getElementById('col_product3')?.value || '產品名稱';
     const colWeight  = document.getElementById('col_weight')?.value   || '重量';
 
-    const data = cachedWeightData
-        .map(r => ({
-            product_name: String(r[colProduct] || '').trim(),
-            weight:       parseFloat(r[colWeight]) || 0,
-            updated_at:   new Date().toISOString(),
-        }))
-        .filter(r => r.product_name);
+    const seen = new Map();
+    cachedWeightData.forEach(r => {
+        const name = String(r[colProduct] || '').trim();
+        if (name) seen.set(name, {
+            product_code: String(r[colCode] || '').trim(),
+            weight: parseFloat(r[colWeight]) || 0,
+        });
+    });
+    const data = [...seen.entries()].map(([product_name, v]) => ({
+        product_name,
+        product_code: v.product_code,
+        weight:       v.weight,
+        updated_at:   new Date().toISOString(),
+    }));
 
     try {
         sbWeightStatus('⏳ 上傳中…');
@@ -7417,10 +7427,12 @@ async function supabaseLoadWeightTable() {
 
         // 還原成與 cachedWeightData 相同的格式：用目前設定的欄位名
         // 確保 calculateRental 中 w[col_product3] / w[col_weight] 能正常取值
+        const colCode    = document.getElementById('col_code3')?.value    || '產品';
         const colProduct = document.getElementById('col_product3')?.value || '產品名稱';
         const colWeight  = document.getElementById('col_weight')?.value   || '重量';
 
         cachedWeightData = rows.map(r => ({
+            [colCode]:    r.product_code || '',
             [colProduct]: r.product_name,
             [colWeight]:  r.weight,
         }));
@@ -7522,12 +7534,13 @@ function renderWeightManage() {
     const tbody = document.getElementById('weightManageTbody');
     if (!tbody) return;
 
+    const colCode    = document.getElementById('col_code3')?.value    || '產品';
     const colProduct = document.getElementById('col_product3')?.value || '產品名稱';
     const colWeight  = document.getElementById('col_weight')?.value   || '重量';
     const keyword    = (document.getElementById('weightSearchInput')?.value || '').toLowerCase();
 
     if (!cachedWeightData || !cachedWeightData.length) {
-        tbody.innerHTML = `<tr><td colspan="2" style="padding:40px;text-align:center;color:var(--muted);">請先從 Supabase 載入或匯入 xlsx</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" style="padding:40px;text-align:center;color:var(--muted);">請先從 Supabase 載入或匯入 xlsx</td></tr>`;
         const el = document.getElementById('weightTotalCount');
         if (el) el.textContent = 0;
         return;
@@ -7542,10 +7555,12 @@ function renderWeightManage() {
     if (el) el.textContent = filtered.length;
 
     tbody.innerHTML = filtered.map((r, idx) => {
+        const code   = r[colCode]    || '';
         const name   = r[colProduct] || '';
         const weight = parseFloat(r[colWeight]) || 0;
         const bg     = idx % 2 === 0 ? '#fff' : '#fafbfc';
         return `<tr style="background:${bg};">
+            <td style="padding:8px 12px;border:1px solid #edf2f7;font-size:12px;">${code}</td>
             <td style="padding:8px 12px;border:1px solid #edf2f7;font-size:12px;">${name}</td>
             <td style="padding:8px 12px;border:1px solid #edf2f7;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${weight.toFixed(4)}</td>
         </tr>`;
@@ -8470,6 +8485,12 @@ function exportInventoryReport(){
   }));
   window.open('inventory_report.html', 'inventory_report', 'width=1500,height=900,resizable=yes,scrollbars=yes');
 }
+
+// ── 頁面啟動時自動從 Supabase 載入單價表與重量表 ──────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    supabaseLoadPrices();
+    supabaseLoadWeightTable();
+});
 
 </script>
 
