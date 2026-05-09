@@ -326,8 +326,8 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   .topbar { height:auto; flex-wrap:wrap; padding:8px 12px; gap:6px; min-height:52px; }
   .topbar-title { font-size:14px; min-width:0; }
   .topbar-sub { display:none; }
-  .upload-status { max-width:100%; flex:1 1 100%; order:10; font-size:10px; }
-  #dataDateMobile { display:block !important; }
+  .upload-status { max-width:none; }
+  #topbar-status-row { display:flex !important; }
   .topbar-hide-mobile { display:none !important; }
   .mob-menu-btn { display:flex; }
 
@@ -497,8 +497,10 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   <div class="topbar-title">📊 庫存管理
     <span class="topbar-sub" id="dataDate"></span>
   </div>
-  <span id="dataDateMobile" style="display:none;width:100%;order:11;font-size:10px;color:rgba(255,255,255,.75);padding:2px 0 4px;"></span>
-  <span class="upload-status" id="uploadStatus"></span>
+  <div id="topbar-status-row" style="display:none;width:100%;order:10;justify-content:space-between;align-items:center;font-size:11px;color:rgba(255,255,255,.8);padding:0 0 2px;">
+    <span id="dataDateMobile"></span>
+    <span class="upload-status" id="uploadStatus" style="max-width:none;flex:none;order:unset;font-size:11px;"></span>
+  </div>
   <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="loadExcel(this)">
   <button class="btn btn-primary" onclick="document.getElementById('xlsxInput').click()">📂 上傳 Excel</button>
   <button class="btn btn-ghost topbar-hide-mobile" onclick="refreshData()">🔄 重新整理</button>

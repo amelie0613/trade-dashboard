@@ -6017,6 +6017,21 @@ function calculateRental(rentalData, ioData, weightData) {
     const daysBetween = (from, to) =>
         Math.max(1, Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1);
 
+    // 檢查天數異常：偶數月>15/單數月>16（8月特殊，按單數月）
+    const checkDaysAnomaly = (days) => {
+        const month = periodEnd.getMonth() + 1;
+        const oddMonths = [1, 3, 5, 7, 9, 11];
+        const evenMonths = [2, 4, 6, 10, 12];
+
+        if (oddMonths.includes(month)) return days > 16;
+        if (month === 8) return days > 16;
+        if (evenMonths.includes(month)) return days > 15;
+        return false;
+    };
+
+    // 計算細節記錄（用於右鍵菜單）
+    const formulaDetails = {};
+
     const fullPeriodDays = daysBetween(periodStart, periodEnd);
     const fmt = d => d ? d.toISOString().slice(0, 10) : '';
     const normalize = (v) => String(v || '').trim();
@@ -6099,6 +6114,26 @@ function calculateRental(rentalData, ioData, weightData) {
         const firstInbound = ioMatch.find(io => isInbound(normalize(io[config.col_type])));
         const purchaseDept = firstInbound ? (firstInbound[config.col_dept] || '') : '';
 
+        // 檢查天數異常
+        const daysAnomaly = checkDaysAnomaly(fullPeriodDays);
+
+        // 計算細節（用於右鍵菜單）
+        const key = `${productName}|${batchNo}`;
+        formulaDetails[key] = {
+            baseRate,
+            handlingFeeRate,
+            fullPeriodDays,
+            unitWeight,
+            balanceWeight,
+            rentalBalance,
+            rentalInbound,
+            handlingInbound,
+            rentalCost,
+            handlingCost,
+            totalCost,
+            pricingWeight
+        };
+
         result.push({
             ...row,
             '[期初]': fmt(periodStart),
@@ -6110,10 +6145,13 @@ function calculateRental(rentalData, ioData, weightData) {
             '租金': rentalCost.toString(),
             '總計': totalCost.toString(),
             '採購部門': purchaseDept,
-            '業務屬性明細': fullRemark
+            '業務屬性明細': fullRemark,
+            '_daysAnomaly': daysAnomaly,
+            '_formulaKey': key
         });
     }
 
+    result._formulaDetails = formulaDetails;
     return result;
 }
 
@@ -6391,14 +6429,16 @@ function displayResults(data) {
         const currIn     = parseFloat(row['本期入庫']);
         const currClose  = parseFloat(row['本期結存']);
         const netWeight  = parseFloat(row['淨重']);
+        const daysAnomaly = row._daysAnomaly || false;
 
         // 異常條件
         const abn_both   = (prevStock  > 0) && (currIn > 0);          // 上期結存>0 且 本期入庫>0
         const abn_neg    = !isNaN(currClose) && currClose < 0;         // 本期結存<0
         const abn_weight = !isNaN(netWeight) && netWeight === 0;       // 淨重=0
+        const abn_days   = daysAnomaly;                                 // 天數異常
 
-        const hasAbnormal = abn_both || abn_neg || abn_weight;
-        const trColor = abn_both ? ' style="color:#ef4444;"' : '';     // 整行紅：上期+入庫同時>0
+        const hasAbnormal = abn_both || abn_neg || abn_weight || abn_days;
+        const trColor = (abn_both || abn_days) ? ' style="color:#ef4444;"' : '';     // 整行紅：上期+入庫同時>0 或天數異常
 
         html += `<tr data-row="${rowIdx}" data-abnormal="${hasAbnormal}"${trColor}>`;
         html += `<td style="width:40px; padding:4px; text-align:center;">
@@ -6409,10 +6449,13 @@ function displayResults(data) {
 
             // 儲存格層級紅字（不整行紅的情況）
             let cellRed = false;
-            if (!abn_both) {
+            if (!abn_both && !abn_days) {
                 if (col === '本期結存' && abn_neg)    cellRed = true;
                 if (col === '淨重'     && abn_weight) cellRed = true;
             }
+            // 天數異常時標記「天數」欄為紅色
+            if (col === '天數' && abn_days) cellRed = true;
+
             const redStyle = cellRed ? 'color:#ef4444;' : '';
             const alignClass = `col-${RESULT_COL_ALIGN[col]||'text'}`;
 
@@ -6421,10 +6464,13 @@ function displayResults(data) {
             const isNote  = col === '備註';
 
             if (canEdit) {
+                const isCalcCol = ['出入庫', '租金', '總計'].includes(col);
+                const contextMenuAttr = isCalcCol ? `oncontextmenu="showFormulaDetail(event, ${rowIdx}, '${col}'); return false;"` : '';
                 html += `<td class="${alignClass}" style="padding:0;${redStyle}">
                     <input type="text" value="${val}"
                         data-row="${rowIdx}" data-col="${col}"
                         onchange="onCellEdit(this)"
+                        ${contextMenuAttr}
                         style="width:100%; min-width:${isNote?'120px':'60px'}; padding:3px 8px; border:none; border-bottom:1.5px solid transparent; background:transparent; font-size:11px; font-family:inherit; color:inherit; font-variant-numeric:tabular-nums;
                         outline:none; cursor:pointer; text-align:inherit;"
                         onfocus="this.style.borderBottomColor='#f2a7c3'; this.style.background='#fff8fc';"
@@ -6677,6 +6723,100 @@ function onLedgerEdit(input) {
         input.value = input.defaultValue;
     }
 }
+
+function showFormulaDetail(event, rowIdx, col) {
+    const row = calculatedData[rowIdx];
+    if (!row) return;
+
+    const formulaKey = row._formulaKey;
+    const details = calculatedData._formulaDetails?.[formulaKey];
+    if (!details) return;
+
+    let formulaHtml = '';
+    if (col === '租金') {
+        formulaHtml = `
+            <div style="padding:12px; font-size:12px; line-height:1.6; font-family:monospace;">
+                <div style="font-weight:700; margin-bottom:8px; color:#ef4444;">📋 租金計算公式</div>
+                <div style="background:#f9f9f9; padding:8px; border-radius:6px; margin-bottom:8px; border-left:3px solid #ef4444;">
+                    <div><strong>基本費率：</strong> ${details.baseRate.toFixed(2)}</div>
+                    <div><strong>計費期間：</strong> ${details.fullPeriodDays} 天</div>
+                    <div><strong>單位重量：</strong> ${parseFloat(details.unitWeight).toFixed(4)} kg</div>
+                    <div style="margin-top:6px; padding-top:6px; border-top:1px solid #ddd;">
+                        <div><strong>前期結餘租金：</strong></div>
+                        <div style="margin-left:16px; color:#666;">
+                            = 基本費率 × 計期重量 = ${details.baseRate.toFixed(2)} × ${parseFloat(details.balanceWeight).toFixed(2)} kg
+                            <br/>= ${Math.round(details.rentalBalance)}
+                        </div>
+                    </div>
+                    <div style="margin-top:6px; padding-top:6px; border-top:1px solid #ddd;">
+                        <div><strong>本期入庫租金：</strong></div>
+                        <div style="margin-left:16px; color:#666;">${Math.round(details.rentalInbound)}</div>
+                    </div>
+                    <div style="margin-top:8px; padding-top:8px; border-top:2px solid #ef4444; font-weight:700; color:#ef4444;">
+                        <strong>合計租金：</strong> ${Math.round(details.rentalBalance)} + ${Math.round(details.rentalInbound)} = <span style="font-size:14px;">${details.rentalCost}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (col === '出入庫') {
+        formulaHtml = `
+            <div style="padding:12px; font-size:12px; line-height:1.6; font-family:monospace;">
+                <div style="font-weight:700; margin-bottom:8px; color:#f7a35c;">📋 出入庫酌收計算公式</div>
+                <div style="background:#f9f9f9; padding:8px; border-radius:6px; border-left:3px solid #f7a35c;">
+                    <div><strong>手續費費率：</strong> ${details.handlingFeeRate.toFixed(2)}</div>
+                    <div><strong>本期入庫總重量：</strong> ${parseFloat(details.handlingInbound / details.handlingFeeRate).toFixed(2)} kg</div>
+                    <div style="margin-top:8px; padding-top:8px; border-top:2px solid #f7a35c; font-weight:700; color:#f7a35c;">
+                        <strong>出入庫酌收：</strong> 手續費率 × 入庫重量 = ${details.handlingFeeRate.toFixed(2)} × 入庫重量 = <span style="font-size:14px;">${details.handlingCost}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (col === '總計') {
+        formulaHtml = `
+            <div style="padding:12px; font-size:12px; line-height:1.6; font-family:monospace;">
+                <div style="font-weight:700; margin-bottom:8px; color:#22c55e;">📋 總計計算公式</div>
+                <div style="background:#f9f9f9; padding:8px; border-radius:6px; border-left:3px solid #22c55e;">
+                    <div style="margin-bottom:6px;">
+                        <strong>租金：</strong> ${details.rentalCost}
+                    </div>
+                    <div style="margin-bottom:8px;">
+                        <strong>出入庫酌收：</strong> ${details.handlingCost}
+                    </div>
+                    <div style="padding-top:8px; border-top:2px solid #22c55e; font-weight:700; color:#22c55e;">
+                        <strong>總計：</strong> 租金 + 出入庫酌收 = ${details.rentalCost} + ${details.handlingCost} = <span style="font-size:14px;">${details.totalCost}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (!formulaHtml) return;
+
+    // 創建彈出窗口
+    let modal = document.getElementById('formulaModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'formulaModal';
+        modal.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:#fff; border:1px solid #ddd; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15); z-index:10000; max-width:500px; max-height:400px; overflow-y:auto;';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = formulaHtml + `
+        <div style="padding:12px; text-align:right; border-top:1px solid #eee; background:#f5f5f5;">
+            <button onclick="document.getElementById('formulaModal').style.display='none'" style="padding:6px 16px; background:#6878c0; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600;">關閉</button>
+        </div>
+    `;
+    modal.style.display = 'block';
+    event.stopPropagation();
+}
+
+// 點擊其他地方關閉彈窗
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('formulaModal');
+    if (modal && e.target !== modal && !modal.contains(e.target)) {
+        modal.style.display = 'none';
+    }
+});
 
 function recalcSummary() {
     const tbody = document.getElementById('resultBody');
