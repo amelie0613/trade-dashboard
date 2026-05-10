@@ -7466,31 +7466,66 @@ function displayOutboundRecords() {
 async function exportOutboundExcel() {
     const records = window._outboundRecords || [];
     if (records.length === 0) { alert('目前沒有出庫記錄'); return; }
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('出庫記錄表');
-    ws.columns = [
-        { header:'產品名稱', key:'產品名稱', width:20 },
-        { header:'批號',     key:'批號',     width:15 },
-        { header:'期間',     key:'period',    width:10 },
-        { header:'出庫日期', key:'出庫日期', width:14 },
-        { header:'出庫類型', key:'出庫類型',    width:10 },
-        { header:'業務屬性', key:'業務屬性',    width:18 },
-        { header:'出庫數量', key:'出庫數量',    width:12 },
-        { header:'分攤單價', key:'分攤單價',    width:14 },
-        { header:'出庫金額', key:'出庫金額',    width:14 },
-        { header:'備註',     key:'備註',        width:24 },
-        { header:'月份',     key:'month_label', width:10 },
-    ];
-    ws.getRow(1).font = { bold: true };
-    ws.getRow(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF764BA2' } };
-    ws.getRow(1).font = { bold:true, color:{ argb:'FFFFFFFF' } };
-    records.forEach(r => ws.addRow(r));
-    const buf = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `出庫記錄表_${new Date().toISOString().slice(0,10)}.xlsx`;
-    a.click();
+    try {
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('出庫記錄表');
+
+        // 定義欄位
+        ws.columns = [
+            { header:'產品名稱', key:'A', width:22 },
+            { header:'批號',     key:'B', width:16 },
+            { header:'期間',     key:'C', width:10 },
+            { header:'出庫日期', key:'D', width:14 },
+            { header:'出庫類型', key:'E', width:10 },
+            { header:'業務屬性', key:'F', width:20 },
+            { header:'出庫數量', key:'G', width:12 },
+            { header:'分攤單價', key:'H', width:14 },
+            { header:'出庫金額', key:'I', width:14 },
+            { header:'備註',     key:'J', width:26 },
+            { header:'月份',     key:'K', width:10 },
+        ];
+
+        // 標題列樣式
+        const hRow = ws.getRow(1);
+        hRow.font = { bold:true, color:{ argb:'FFFFFFFF' } };
+        hRow.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF764BA2' } };
+        hRow.alignment = { vertical:'middle', horizontal:'center' };
+        hRow.height = 20;
+
+        // 逐筆加入資料（明確處理 null / undefined）
+        records.forEach(r => {
+            const row = ws.addRow([
+                r.產品名稱  || '',
+                r.批號      || '',
+                r.period    || '',
+                r.出庫日期  || '',
+                r.出庫類型  || '',
+                r.業務屬性  || '',
+                r.出庫數量  ?? '',
+                r.分攤單價 != null && r.分攤單價 > 0 ? r.分攤單價 : '',
+                r.出庫金額 != null && r.出庫金額 > 0 ? r.出庫金額 : '',
+                r.備註      || '',
+                r.month_label || '',
+            ]);
+            // 備註欄若有值且是調撥/拆解，加底色
+            if (r.備註 && (r.出庫類型 === '調撥' || r.出庫類型 === '拆解')) {
+                row.getCell(10).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFF5F0FF' } };
+            }
+        });
+
+        // 凍結首列
+        ws.views = [{ state:'frozen', ySplit:1 }];
+
+        const buf = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `出庫記錄表_${new Date().toISOString().slice(0,10)}.xlsx`;
+        a.click();
+    } catch(e) {
+        alert('匯出失敗：' + e.message);
+        console.error('exportOutboundExcel 錯誤：', e);
+    }
 }
 
 async function saveOutboundNow() {
