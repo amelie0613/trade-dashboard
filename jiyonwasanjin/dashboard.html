@@ -683,6 +683,21 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
 .mob-chip-opt.sel { background:var(--accent); color:white; border-color:var(--accent); }
 .mob-chip-all { border-color:#aaa; color:#888; font-weight:700; }
 .mob-chip-all.sel { background:#64748b; color:white; border-color:#64748b; }
+/* 屬於已選核算範圍的倉庫 — 淡藍提示 */
+.mob-chip-opt.related {
+  border-color: var(--accent);
+  background: #eef1ff;
+  color: var(--accent2);
+  font-weight: 700;
+}
+.mob-chip-opt.related.sel {
+  background: var(--accent);
+  color: white;
+}
+/* 不屬於已選核算範圍的倉庫 — 淡化 */
+.mob-chip-opt.unrelated:not(.sel) {
+  opacity: .35;
+}
 </style>
 </head>
 <body>
@@ -2578,6 +2593,7 @@ function selectAllMobChips(containerId){
   if(!el) return;
   el.querySelectorAll('.mob-chip-opt').forEach(c => c.classList.remove('sel'));
   el.querySelector('.mob-chip-all').classList.add('sel');
+  if(containerId === 'mob-chips-scope') _updateWarehouseHints();
 }
 
 function toggleMobChip(containerId, chipEl){
@@ -2587,6 +2603,52 @@ function toggleMobChip(containerId, chipEl){
   const anySelected = el.querySelectorAll('.mob-chip-opt:not(.mob-chip-all).sel').length > 0;
   const allChip = el.querySelector('.mob-chip-all');
   if(allChip) allChip.classList.toggle('sel', !anySelected);
+  if(containerId === 'mob-chips-scope') _updateWarehouseHints();
+}
+
+function _buildScopeWarehouseMap(){
+  const map = {};
+  rawRows.forEach(r => {
+    const pd = prices[priceKey(r)];
+    const sc = (pd?.scope || String(r['存貨核算範圍名稱']||'').trim());
+    const wh = String(r['倉庫名稱']||'').trim();
+    if(sc && wh){
+      if(!map[sc]) map[sc] = new Set();
+      map[sc].add(wh);
+    }
+  });
+  return map;
+}
+
+function _updateWarehouseHints(){
+  const selectedScopes = _getMobChipValues('mob-chips-scope');
+  const whContainer = document.getElementById('mob-chips-warehouse');
+  if(!whContainer) return;
+
+  if(selectedScopes.size === 0){
+    // 沒選核算範圍：清除所有提示
+    whContainer.querySelectorAll('.mob-chip-opt:not(.mob-chip-all)').forEach(c => {
+      c.classList.remove('related','unrelated');
+    });
+    return;
+  }
+
+  // 推算屬於所選核算範圍的倉庫
+  const scopeMap = _buildScopeWarehouseMap();
+  const hinted = new Set();
+  selectedScopes.forEach(sc => {
+    (scopeMap[sc] || new Set()).forEach(wh => hinted.add(wh));
+  });
+
+  whContainer.querySelectorAll('.mob-chip-opt:not(.mob-chip-all)').forEach(c => {
+    const wh = c.textContent.trim();
+    c.classList.toggle('related',   hinted.has(wh));
+    c.classList.toggle('unrelated', !hinted.has(wh));
+  });
+
+  // 更新「全部」chip：有提示時淡化
+  const allChip = whContainer.querySelector('.mob-chip-all');
+  if(allChip) allChip.classList.toggle('unrelated', hinted.size > 0);
 }
 
 function _getMobChipValues(containerId){
