@@ -5569,10 +5569,20 @@ async function previewMonthly() {
         
         // 插入採購部門卡片
         document.getElementById('deptCards').innerHTML = deptCardsHTML;
-        
+
         statusEl.innerHTML = '<span style="color:#4a9a37; font-weight:700;">✅ 預覽完成，請確認後導入</span>';
         // 只把結餘!=0的存入pendingMonthly（導入時移除清零的）
         window._pendingMonthly = { preview: kept, label, colKeyMap };
+
+        // 顯示預覽的租金總計（供 F12 驗證）
+        const previewRentalTotal = kept.reduce((s,r) => s+(r.租金總計||0), 0);
+        console.log(`📊 月結預覽已計算：租金總計=$${Math.round(previewRentalTotal).toLocaleString('en-US', {maximumFractionDigits: 0})}, 預計處理 ${kept.length} 筆`);
+        const deptTotals = {};
+        kept.forEach(r => {
+            const d = r.採購部門 || '未分類';
+            deptTotals[d] = (deptTotals[d]||0) + (r.租金總計||0);
+        });
+        console.log('各部門租金總計：', Object.entries(deptTotals).map(([d,t]) => `${d}: $${Math.round(t).toLocaleString()}`).join(', '));
 
     } catch(e) {
         statusEl.innerHTML = `<span style="color:#e8836a;">❌ 失敗：${e.message}</span>`;
@@ -5682,60 +5692,34 @@ window.clearPreviewFilter = function() {
 };
 
 // ===== 重新計算預覽合計 =====
-window.recalcPreview = function() {
-    if (!window._pendingMonthly) return;
-    const preview = window._pendingMonthly.preview;
+window.recalcPreview = async function() {
+    // 重新計算月結預覽（從最新的 Excel 檔案 + localStorage 資料）
+    const f1 = ledgerFiles['ledger_file_first'] || document.getElementById('ledger_file_first')?.files[0];
+    const f2 = ledgerFiles['ledger_file_second'] || document.getElementById('ledger_file_second')?.files[0];
 
-    // 直接從 preview 資料重算合計（onPreviewEdit 已即時同步）
-    const totalRental  = preview.reduce((s,r) => s+(r.租金總計||0), 0);
-    const totalOut     = preview.reduce((s,r) => s+(r.月租金出庫||0), 0);
-    const totalRemain  = preview.reduce((s,r) => s+(r.月租金結餘||0), 0);
-    const totalPrev    = preview.reduce((s,r) => s+(r.前期結餘||0), 0);
-    const totalFirst   = preview.reduce((s,r) => s+(r.上半期||0), 0);
-    const totalSecond  = preview.reduce((s,r) => s+(r.下半期||0), 0);
-
-    const upd = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = '$'+Math.round(val).toLocaleString(); };
-    upd('psum_租金總計', totalRental);
-    upd('psum_出庫', totalOut);
-    upd('psum_結餘', totalRemain);
-    upd('psum_前期結餘', totalPrev);
-    upd('psum_上期', totalFirst);
-    upd('psum_下期', totalSecond);
-    upd('psum_期租金', totalFirst + totalSecond);
-
-    const status = document.getElementById('recalc_status');
-    if (status) {
-        status.textContent = '✅ 已更新';
-        setTimeout(() => { status.textContent = ''; }, 2000);
+    if (!f1 && !f2) {
+        const status = document.getElementById('recalc_status');
+        if (status) {
+            status.textContent = '⚠️ 請先上傳檔案';
+            setTimeout(() => { status.textContent = ''; }, 3000);
+        }
+        return;
     }
 
-    // 同步更新紫色合計列
-    const label2 = window._pendingMonthly?.label || '';
-    const thead = document.querySelector('#previewTable thead');
-    if (thead) {
-        const sumRow = thead.querySelector('tr:first-child');
-        if (sumRow) {
-            const sumMap2 = {
-                '總檔結存': preview.reduce((s,r)=>s+(parseFloat(r.總檔結存)||0),0),
-                '上期結存': preview.reduce((s,r)=>s+(r.上期結存||0),0),
-                '本期入庫': preview.reduce((s,r)=>s+(r.本期入庫||0),0),
-                '本期出庫': preview.reduce((s,r)=>s+(r.本期出庫||0),0),
-                '本期結存': preview.reduce((s,r)=>s+(r.本期結存||0),0),
-                '總檔租金結餘': preview.reduce((s,r)=>s+(r.前期結餘||0),0),
-                '租金總計': preview.reduce((s,r)=>s+(r.租金總計||0),0),
-                '月租金(出庫)': preview.reduce((s,r)=>s+(r.月租金出庫||0),0),
-                '月租金(結餘)': preview.reduce((s,r)=>s+(r.月租金結餘||0),0),
-                [`${label2}上`]: preview.reduce((s,r)=>s+(r.上半期||0),0),
-                [`${label2}下`]: preview.reduce((s,r)=>s+(r.下半期||0),0),
-            };
-            const cols = ['產品名稱','批號','採購部門','總檔結存','上期結存','本期入庫','本期出庫','本期結存','總檔租金結餘',`${label2}上`,`${label2}下`,'租金總計','分攤單價','月租金(出庫)','月租金(結餘)','狀態','備註'];
-            const skipCols = ['產品名稱','批號','採購部門','分攤單價','狀態','備註'];
-            Array.from(sumRow.cells).forEach((td, i) => {
-                const col = cols[i];
-                if (!col || skipCols.includes(col)) return;
-                const val = sumMap2[col];
-                if (val !== undefined) td.textContent = Math.round(val).toLocaleString();
-            });
+    const status = document.getElementById('recalc_status');
+    if (status) status.textContent = '⏳ 重新計算中...';
+
+    try {
+        await previewMonthly();
+        if (status) {
+            status.textContent = '✅ 已重新計算';
+            setTimeout(() => { status.textContent = ''; }, 2000);
+        }
+    } catch(e) {
+        console.error('重新計算失敗：', e);
+        if (status) {
+            status.textContent = '❌ 重新計算失敗';
+            setTimeout(() => { status.textContent = ''; }, 3000);
         }
     }
 };
@@ -6062,6 +6046,7 @@ async function confirmMonthly() {
                 <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 總帳已備份到 Supabase（${finalRows.length} 筆，已移除結存=0的 ${newRows.length - finalRows.length} 筆）${(window._outboundRecords||[]).length > 0 ? `<br/>✅ 出庫記錄已回填分攤單價（${(window._outboundRecords||[]).length} 筆）` : '<br/>⚠️ 未找到出庫記錄，如需回填請先在租金計算頁面儲存出庫記錄到 Supabase'}</div>
                 <div style="display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;margin-top:1rem;">
                     <button onclick="viewLedger()" class="btn-primary" style="width:auto; padding:0.6rem 1.5rem;">📋 檢視總帳</button>
+                    <button onclick="previewMonthly()" style="width:auto;padding:0.6rem 1.5rem;background:#667eea;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;">🔄 重新預覽更新後數據</button>
                     <button onclick="switchPage('calc');setTimeout(()=>{ document.getElementById('outbound_results')?.scrollIntoView({behavior:'smooth'}); },300);" style="width:auto;padding:0.6rem 1.5rem;background:#764ba2;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;">📦 查看出庫記錄表</button>
                     <button onclick="viewOutboundFromSupabase('${label}')" style="width:auto;padding:0.6rem 1.5rem;background:#7ec8e3;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;">☁️ 從 Supabase 查看</button>
                 </div>
