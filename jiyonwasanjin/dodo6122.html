@@ -481,7 +481,7 @@ table.data-tbl th{ position:relative; }
 }
 #resultTable td,#ledgerDetailTable td{
   padding:5px 10px;
-  border:1px solid #dde6ef;
+  border:1px solid #c8d8ea;
   font-size:11px;
   text-align:left;
 }
@@ -5871,7 +5871,7 @@ async function viewLedger() {
 
         // ── 資料列 HTML ──────────────────────────────────────────────
         window._ledgerViewRows = sorted; // 供右鍵公式使用
-        const tdBase = `border:1px solid #dde6ef;font-size:11px;padding:5px 10px;white-space:nowrap;`;
+        const tdBase = `border:1px solid #c8d8ea;font-size:11px;padding:5px 10px;white-space:nowrap;`;
         let tableRows = '';
         sorted.forEach((r, idx) => {
             const bg = idx % 2 === 0 ? '#fff' : '#fafbfc';
@@ -6973,6 +6973,7 @@ function showAllocPriceDetail(event, idx) {
     const close = e => { if (!modal.contains(e.target)) { modal.remove(); document.removeEventListener('mousedown', close); } };
     setTimeout(() => document.addEventListener('mousedown', close), 0);
 }
+window.showAllocPriceDetail = showAllocPriceDetail;
 
 function showRowDeleteMenu(event, rowIdx) {
     const existing = document.getElementById('rowDeleteMenu');
