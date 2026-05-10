@@ -1585,6 +1585,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <div id="results">
                   <p style="color:#999; text-align:center; padding:2rem;">上傳檔案後點擊「計算」查看結果</p>
                 </div>
+                <div id="outbound_results"></div>
               </div>
             </div>
           </div><!-- end page_calc -->
@@ -5784,7 +5785,21 @@ async function confirmMonthly() {
         
         // 自動上傳到 Supabase
         await syncToGitHub();
-        
+
+        // 回填出庫記錄表的分攤單價 → 計算出庫金額 → 備份到 Supabase
+        if (window._outboundRecords && window._outboundRecords.length > 0) {
+            const priceMap = {};
+            newRows.forEach(r => { priceMap[r.產品名稱 + '|' + r.批號] = r.分攤單價 || 0; });
+            window._outboundRecords.forEach(rec => {
+                const price = priceMap[rec.產品名稱 + '|' + rec.批號] || 0;
+                rec.分攤單價  = price;
+                rec.出庫金額  = Math.round(price * rec.出庫數量);
+                rec.month_label = label;
+            });
+            await syncOutboundToSupabase(window._outboundRecords, label);
+            displayOutboundRecords(); // 重繪出庫記錄表（顯示填入的金額）
+        }
+
         window._pendingMonthly = null;
 
         resultsEl.innerHTML = `
@@ -5792,7 +5807,7 @@ async function confirmMonthly() {
                 <div style="font-size:2rem; margin-bottom:0.5rem;">🎉</div>
                 <div style="font-weight:800; font-size:1.2rem; color:#4a9a37;">${label} 月結算完成！</div>
                 <div style="color:#8a6a7a; margin-top:0.5rem;">更新 ${newRows.length} 筆，總帳共 ${finalRows.length} 筆</div>
-                <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 已自動備份到 Supabase</div>
+                <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 已自動備份到 Supabase（含出庫記錄表 ${(window._outboundRecords||[]).length} 筆）</div>
                 <button onclick="viewLedger()" class="btn-primary" style="margin-top:1rem; width:auto; padding:0.6rem 1.5rem;">📋 檢視總帳</button>
             </div>`;
     } catch(e) {
@@ -6051,7 +6066,16 @@ async function processFiles() {
         const result = calculateRental(data1, data2, data3);
         calculatedData = result;
 
+        // 收集所有出庫記錄（調撥/拆解/銷售）供出庫記錄表使用
+        window._outboundRecords = [];
+        result.forEach(r => {
+            if (r._outboundList && r._outboundList.length > 0) {
+                window._outboundRecords.push(...r._outboundList);
+            }
+        });
+
         displayResults(result);
+        displayOutboundRecords();
         showStatus('✅ 計算完成！', 'success');
     } catch (err) {
         showStatus('❌ 錯誤: ' + err.message, 'error');
@@ -6279,6 +6303,7 @@ function calculateRental(rentalData, ioData, weightData) {
 
         // ── 3. 本期出庫：僅彙整備註，不收手續費 ────────────────────────
         const outboundByType = {};
+        const outboundList = []; // 收集逐筆出庫記錄，供出庫記錄表使用
 
         for (const io of ioMatch) {
             const bizType = normalize(io[config.col_type]);
@@ -6288,6 +6313,24 @@ function calculateRental(rentalData, ioData, weightData) {
             if (ioQty === 0) continue;
 
             outboundByType[bizType] = (outboundByType[bizType] || 0) + ioQty;
+
+            // 判斷出庫類型簡稱
+            let outType = '其他';
+            if (bizType.includes('調撥')) outType = '調撥';
+            else if (bizType.includes('拆解')) outType = '拆解';
+            else if (bizType.includes('銷售') || bizType.includes('出貨')) outType = '銷售';
+
+            outboundList.push({
+                產品名稱: productName,
+                批號: batchNo,
+                出庫日期: normalize(io[config.col_date]),
+                出庫類型: outType,
+                業務屬性: bizType,
+                出庫數量: ioQty,
+                分攤單價: null,
+                出庫金額: null,
+                month_label: '',
+            });
         }
 
         // ── 4. 彙總金額 ───────────────────────────────────────────────
@@ -6345,7 +6388,8 @@ function calculateRental(rentalData, ioData, weightData) {
             '採購部門': purchaseDept,
             '業務屬性明細': fullRemark,
             '_daysAnomaly': daysAnomaly,
-            '_formulaKey': key
+            '_formulaKey': key,
+            '_outboundList': outboundList,
         });
     }
 
@@ -7014,6 +7058,109 @@ function deleteResultRow(rowIdx) {
     if (!calculatedData) return;
     calculatedData.splice(rowIdx, 1);
     displayResults(calculatedData);
+}
+
+// ===== 出庫記錄表 =====
+function displayOutboundRecords() {
+    const el = document.getElementById('outbound_results');
+    if (!el) return;
+    const records = window._outboundRecords || [];
+    if (records.length === 0) { el.innerHTML = ''; return; }
+
+    const typeColor = { '調撥':'#7ec8e3', '拆解':'#c9a8e0', '銷售':'#8dcc7a', '其他':'#f7a35c' };
+    const thStyle = `position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;font-weight:700;border:1px solid #4a5a9f;padding:6px 10px;white-space:nowrap;font-size:11px;`;
+    const tdBase = `border:1px solid #c8d8ea;font-size:11px;padding:5px 10px;white-space:nowrap;`;
+
+    const cols = ['產品名稱','批號','出庫日期','出庫類型','業務屬性','出庫數量','分攤單價','出庫金額'];
+    const thRow = cols.map(c => `<th style="${thStyle}">${c}</th>`).join('');
+
+    let rows = '';
+    records.forEach((r, i) => {
+        const bg = i % 2 === 0 ? '#fff' : '#fafbfc';
+        const tagColor = typeColor[r.出庫類型] || '#ccc';
+        const tag = `<span style="background:${tagColor}20;color:${tagColor};border:1px solid ${tagColor};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">${r.出庫類型}</span>`;
+        const 單價 = r.分攤單價 != null ? r.分攤單價.toFixed(5) : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
+        const 金額 = r.出庫金額 != null ? r.出庫金額.toLocaleString() : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
+        rows += `<tr style="background:${bg};">
+            <td style="${tdBase}font-weight:600;">${r.產品名稱}</td>
+            <td style="${tdBase}color:#666;">${r.批號}</td>
+            <td style="${tdBase}font-variant-numeric:tabular-nums;">${r.出庫日期||'-'}</td>
+            <td style="${tdBase}text-align:center;">${tag}</td>
+            <td style="${tdBase}color:#888;font-size:10px;">${r.業務屬性}</td>
+            <td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;">${r.出庫數量.toLocaleString()}</td>
+            <td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;">${單價}</td>
+            <td style="${tdBase}text-align:right;font-weight:700;color:#c0507a;font-variant-numeric:tabular-nums;">${金額}</td>
+        </tr>`;
+    });
+
+    el.innerHTML = `<div class="result-section" style="margin-top:1.5rem;">
+        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.8rem;">
+            <div style="font-size:0.95rem;font-weight:800;color:#764ba2;">📦 出庫記錄表（共 ${records.length} 筆）</div>
+            <span style="font-size:0.78rem;color:#999;">分攤單價與出庫金額將於月結算確認後自動填入</span>
+            <button onclick="exportOutboundExcel()" style="margin-left:auto;background:#8dcc7a;color:white;border:none;border-radius:8px;padding:0.4rem 0.9rem;font-weight:800;cursor:pointer;font-size:0.82rem;">📥 匯出 Excel</button>
+        </div>
+        <div class="overflow-auto" style="max-height:400px;overflow-y:auto;">
+            <table style="border-collapse:collapse;width:100%;min-width:900px;font-size:12px;font-family:'Noto Sans TC',sans-serif;">
+                <thead><tr>${thRow}</tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    </div>`;
+}
+
+async function exportOutboundExcel() {
+    const records = window._outboundRecords || [];
+    if (records.length === 0) { alert('目前沒有出庫記錄'); return; }
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('出庫記錄表');
+    ws.columns = [
+        { header:'產品名稱', key:'產品名稱', width:20 },
+        { header:'批號',     key:'批號',     width:15 },
+        { header:'出庫日期', key:'出庫日期', width:14 },
+        { header:'出庫類型', key:'出庫類型', width:10 },
+        { header:'業務屬性', key:'業務屬性', width:18 },
+        { header:'出庫數量', key:'出庫數量', width:12 },
+        { header:'分攤單價', key:'分攤單價', width:14 },
+        { header:'出庫金額', key:'出庫金額', width:14 },
+        { header:'月份',     key:'month_label', width:10 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    ws.getRow(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF764BA2' } };
+    ws.getRow(1).font = { bold:true, color:{ argb:'FFFFFFFF' } };
+    records.forEach(r => ws.addRow(r));
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `出庫記錄表_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click();
+}
+
+async function syncOutboundToSupabase(records, label) {
+    if (!records || records.length === 0) return;
+    const data = records.map(r => ({
+        product_name:   r.產品名稱,
+        batch_no:       r.批號,
+        outbound_date:  r.出庫日期 || '',
+        outbound_type:  r.出庫類型,
+        biz_type:       r.業務屬性,
+        quantity:       r.出庫數量,
+        allocated_price: r.分攤單價 || 0,
+        outbound_amount: r.出庫金額 || 0,
+        month_label:    label || r.month_label || '',
+        created_at:     new Date().toISOString(),
+    }));
+    try {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?on_conflict=product_name,batch_no,outbound_date,biz_type`, {
+            method: 'POST',
+            headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify(data),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        console.log(`✅ 出庫記錄已備份到 Supabase（${data.length} 筆）`);
+    } catch(e) {
+        console.error('出庫記錄備份失敗：', e);
+    }
 }
 
 function showFormulaDetail(event, rowIdx, col) {
