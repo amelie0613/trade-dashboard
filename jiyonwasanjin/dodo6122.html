@@ -40,6 +40,42 @@
   --accent-light:  #EEF3FD;
 }
 
+/* ── 計算公式 Tooltip ─────────────────────────────────── */
+#calc_formula_tooltip {
+    position: fixed;
+    z-index: 99999;
+    background: #1a2540;
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    max-width: 420px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    pointer-events: none;
+    display: none;
+    white-space: pre-line;
+    line-height: 1.7;
+    font-family: 'Noto Sans TC', sans-serif;
+    border-left: 4px solid #6878C0;
+}
+#calc_formula_tooltip .formula-title {
+    font-weight: 700;
+    color: #a0b4f0;
+    margin-bottom: 4px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+#calc_formula_tooltip .formula-line {
+    color: #e0e8ff;
+}
+#calc_formula_tooltip .formula-result {
+    color: #7feba2;
+    font-weight: 700;
+    margin-top: 4px;
+    font-size: 13px;
+}
+
 *{box-sizing:border-box;margin:0;padding:0;}
 
 body{
@@ -1671,6 +1707,36 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                   </div>
                 </div>
                 <div id="ledger_results" style="margin-top:1rem;"></div>
+
+                <!-- 📦 出庻記錄管理區域 -->
+                <div style="margin-top:2rem; border-top:2px solid #e0e0e0; padding-top:1.5rem;">
+                  <div class="section-title" style="color:#764ba2; font-size:1rem;">📦 出庻記錄管理</div>
+
+                  <!-- 狀態概覽 -->
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
+                    <div style="background:#f0e6f7; border:1.5px solid #764ba2; border-radius:10px; padding:1rem;">
+                      <div style="font-size:0.85rem; color:#764ba2; font-weight:700; margin-bottom:0.5rem;">💾 localStorage 狀態</div>
+                      <div id="outbound_local_status" style="font-size:0.9rem; color:#333;">讀取中...</div>
+                    </div>
+                    <div style="background:#f0f6ff; border:1.5px solid #6878c0; border-radius:10px; padding:1rem;">
+                      <div style="font-size:0.85rem; color:#6878c0; font-weight:700; margin-bottom:0.5rem;">☁️ Supabase 狀態</div>
+                      <div id="outbound_db_status" style="font-size:0.9rem; color:#333;">讀取中...</div>
+                    </div>
+                  </div>
+
+                  <!-- 操作按鈕 -->
+                  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.8rem; margin-bottom:1.5rem;">
+                    <button onclick="checkOutboundLocal()" style="background:#764ba2; color:white; border:none; border-radius:8px; padding:0.7rem; font-weight:700; cursor:pointer; font-size:0.85rem;">🔍 檢查 localStorage</button>
+                    <button onclick="checkOutboundSupabase()" style="background:#6878c0; color:white; border:none; border-radius:8px; padding:0.7rem; font-weight:700; cursor:pointer; font-size:0.85rem;">🔍 檢查 Supabase</button>
+                    <button onclick="syncBothToSupabase()" style="background:#3ecf8e; color:white; border:none; border-radius:8px; padding:0.7rem; font-weight:700; cursor:pointer; font-size:0.85rem;">☁️ 同步到 Supabase</button>
+                  </div>
+
+                  <!-- 詳細結果 -->
+                  <div id="outbound_detail_result" style="background:#fafafa; border:1px solid #ddd; border-radius:8px; padding:1rem; font-size:0.85rem; max-height:400px; overflow-y:auto; display:none;">
+                    <div id="outbound_detail_content"></div>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div><!-- end page_ledger -->
@@ -5341,8 +5407,30 @@ async function previewMonthly() {
             const numCell = (colName, extraStyle='') => {
                 const key = colKeyMap[colName] || colName;
                 const raw = r[key] !== undefined ? r[key] : '';
-                // 不加千分位，避免parseFloat解析錯誤
                 const val = raw !== '' ? raw : '';
+
+                // 右鍵計算公式
+                let contextStr = '';
+                const fmtN = n => (parseFloat(n)||0).toLocaleString();
+                if (colName === '租金總計') {
+                    const formula = `showCalcFormula(event,'租金總計',['前期結餘 + ${label}上 + ${label}下','${fmtN(r.前期結餘)} + ${fmtN(r.上半期)} + ${fmtN(r.下半期)}'],'${fmtN(r.租金總計)}');return false;`;
+                    contextStr = `oncontextmenu="${formula}" title="右鍵查看計算公式" style="${eStyle}${extraStyle}cursor:context-menu;"`;
+                } else if (colName === '分攤單價') {
+                    const base = r.上期結存 === 0 ? r.本期入庫 : r.上期結存;
+                    const baseLabel = r.上期結存 === 0 ? '本期入庫' : '上期結存';
+                    const formula = `showCalcFormula(event,'分攤單價',['租金總計 ÷ ${baseLabel}','${fmtN(r.租金總計)} ÷ ${fmtN(base)}'],'${(parseFloat(r.分攤單價)||0).toFixed(5)}');return false;`;
+                    contextStr = `oncontextmenu="${formula}" title="右鍵查看計算公式" style="${eStyle}${extraStyle}cursor:context-menu;"`;
+                } else if (colName === '月租金(出庫)') {
+                    const formula = `showCalcFormula(event,'月租金(出庫)',['分攤單價 × 本期出庫','${(parseFloat(r.分攤單價)||0).toFixed(5)} × ${fmtN(r.本期出庫)}'],'${fmtN(r.月租金出庫||r[colKeyMap[colName]])}');return false;`;
+                    contextStr = `oncontextmenu="${formula}" title="右鍵查看計算公式" style="${eStyle}${extraStyle}cursor:context-menu;"`;
+                } else if (colName === '月租金(結餘)') {
+                    const formula = `showCalcFormula(event,'月租金(結餘)',['租金總計 - 月租金(出庫)','${fmtN(r.租金總計)} - ${fmtN(r.月租金出庫||r[colKeyMap[colName]])}'],'${fmtN(r.月租金結餘||r[colKeyMap[colName]])}');return false;`;
+                    contextStr = `oncontextmenu="${formula}" title="右鍵查看計算公式" style="${eStyle}${extraStyle}cursor:context-menu;"`;
+                }
+
+                if (contextStr) {
+                    return `<td style="padding:0;"><input type="text" value="${val}" data-prow="${rowIdx}" data-pcol="${colName}" onchange="onPreviewEdit(this)" ${contextStr} ${eFocus} /></td>`;
+                }
                 return `<td style="padding:0;"><input type="text" value="${val}" data-prow="${rowIdx}" data-pcol="${colName}" onchange="onPreviewEdit(this)" style="${eStyle}${extraStyle}" ${eFocus} /></td>`;
             };
 
@@ -5802,6 +5890,36 @@ async function confirmMonthly() {
         // 自動上傳到 Supabase
         await syncToGitHub();
 
+        // 若 window._outboundRecords 為空，先從 Supabase 讀取（當前月份或未填金額的記錄）
+        if (!window._outboundRecords || window._outboundRecords.length === 0) {
+            try {
+                const resp = await fetch(
+                    `${SUPABASE_URL}/rest/v1/outbound_records?select=*&allocated_price=eq.0&order=outbound_date.asc`,
+                    { headers: SB_HEADERS }
+                );
+                if (resp.ok) {
+                    const sbRecs = await resp.json();
+                    if (sbRecs.length > 0) {
+                        window._outboundRecords = sbRecs.map(r => ({
+                            產品名稱: r.product_name,
+                            批號: r.batch_no,
+                            出庫日期: r.outbound_date,
+                            出庫類型: r.outbound_type,
+                            業務屬性: r.biz_type,
+                            出庫數量: r.quantity,
+                            分攤單價: r.allocated_price,
+                            出庫金額: r.outbound_amount,
+                            month_label: r.month_label,
+                            period: r.period,
+                        }));
+                        console.log(`📦 從 Supabase 讀取 ${window._outboundRecords.length} 筆出庻記錄`);
+                    }
+                }
+            } catch(e) {
+                console.warn('從 Supabase 讀取出庻記錄失敗：', e);
+            }
+        }
+
         // 回填出庫記錄表的分攤單價 → 計算出庫金額 → 備份到 Supabase
         if (window._outboundRecords && window._outboundRecords.length > 0) {
             const priceMap = {};
@@ -5823,7 +5941,7 @@ async function confirmMonthly() {
                 <div style="font-size:2rem; margin-bottom:0.5rem;">🎉</div>
                 <div style="font-weight:800; font-size:1.2rem; color:#4a9a37;">${label} 月結算完成！</div>
                 <div style="color:#8a6a7a; margin-top:0.5rem;">更新 ${newRows.length} 筆，總帳共 ${finalRows.length} 筆</div>
-                <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 已自動備份到 Supabase（含出庫記錄表 ${(window._outboundRecords||[]).length} 筆）</div>
+                <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 總帳已備份到 Supabase（${newRows.length} 筆）${(window._outboundRecords||[]).length > 0 ? `<br/>✅ 出庻記錄已回填分攤單價（${(window._outboundRecords||[]).length} 筆）` : '<br/>⚠️ 未找到出庻記錄，如需回填請先在租金計算頁面儲存出庻記錄到 Supabase'}</div>
                 <div style="display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;margin-top:1rem;">
                     <button onclick="viewLedger()" class="btn-primary" style="width:auto; padding:0.6rem 1.5rem;">📋 檢視總帳</button>
                     <button onclick="switchPage('calc');setTimeout(()=>{ document.getElementById('outbound_results')?.scrollIntoView({behavior:'smooth'}); },300);" style="width:auto;padding:0.6rem 1.5rem;background:#764ba2;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;">📦 查看出庫記錄表</button>
@@ -7105,9 +7223,20 @@ function displayOutboundRecords() {
         const bg = i % 2 === 0 ? '#fff' : '#fafbfc';
         const tagColor = typeColor[r.出庫類型] || '#ccc';
         const tag = `<span style="background:${tagColor}20;color:${tagColor};border:1px solid ${tagColor};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">${r.出庫類型}</span>`;
-        const 單價 = r.分攤單價 != null ? r.分攤單價.toFixed(5) : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
-        const 金額 = r.出庫金額 != null ? r.出庫金額.toLocaleString() : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
+        const hasPrice = r.分攤單價 != null && r.分攤單價 > 0;
+        const 單價display = hasPrice ? r.分攤單價.toFixed(5) : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
+        const 金額display = r.出庫金額 != null && r.出庫金額 > 0 ? r.出庫金額.toLocaleString() : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
         const periodBg = r.period === '上期' ? '#d4e8f7' : r.period === '下期' ? '#f0e6f7' : '#fff';
+
+        // 右鍵公式 for 分攤單價
+        const priceFormula = hasPrice
+            ? `oncontextmenu="showCalcFormula(event,'分攤單價',['來自月結算總帳','出庻金額 = 分攤單價 × 出庻數量','${r.分攤單價.toFixed(5)} × ${r.出庫數量} = ${r.出庫金額||0}'],'${r.分攤單價.toFixed(5)}');return false;"`
+            : '';
+        // 右鍵公式 for 出庻金額
+        const amtFormula = (hasPrice && r.出庫金額)
+            ? `oncontextmenu="showCalcFormula(event,'出庻金額',['分攤單價 × 出庻數量','${r.分攤單價.toFixed(5)} × ${r.出庫數量}'],'${(r.出庫金額||0).toLocaleString()}');return false;"`
+            : '';
+
         rows += `<tr style="background:${bg};">
             <td style="${tdBase}font-weight:600;">${r.產品名稱}</td>
             <td style="${tdBase}color:#666;">${r.批號}</td>
@@ -7116,8 +7245,8 @@ function displayOutboundRecords() {
             <td style="${tdBase}text-align:center;">${tag}</td>
             <td style="${tdBase}color:#888;font-size:10px;">${r.業務屬性}</td>
             <td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;">${r.出庫數量.toLocaleString()}</td>
-            <td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;">${單價}</td>
-            <td style="${tdBase}text-align:right;font-weight:700;color:#c0507a;font-variant-numeric:tabular-nums;">${金額}</td>
+            <td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;${hasPrice?'cursor:context-menu;' :''}" ${priceFormula} title="${hasPrice?'右鍵查看計算公式':''}">${單價display}</td>
+            <td style="${tdBase}text-align:right;font-weight:700;color:#c0507a;font-variant-numeric:tabular-nums;${hasPrice?'cursor:context-menu;':''}" ${amtFormula} title="${hasPrice?'右鍵查看計算公式':''}">${金額display}</td>
         </tr>`;
     });
 
@@ -8842,6 +8971,40 @@ function exportInventoryReport(){
   window.open('inventory_report.html', 'inventory_report', 'width=1500,height=900,resizable=yes,scrollbars=yes');
 }
 
+// ===== 計算公式右鍵顯示 =====
+function showCalcFormula(event, title, lines, result) {
+    event.preventDefault();
+    event.stopPropagation();
+    let tooltip = document.getElementById('calc_formula_tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'calc_formula_tooltip';
+        document.body.appendChild(tooltip);
+    }
+    tooltip.innerHTML = `
+        <div class="formula-title">📐 ${title}</div>
+        ${lines.map(l => `<div class="formula-line">${l}</div>`).join('')}
+        <div class="formula-result">= ${result}</div>
+    `;
+
+    const x = Math.min(event.clientX + 10, window.innerWidth - 440);
+    const y = Math.min(event.clientY + 10, window.innerHeight - 200);
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+    tooltip.style.display = 'block';
+
+    const hide = (e) => {
+        if (e.type === 'keydown' && e.key !== 'Escape') return;
+        tooltip.style.display = 'none';
+        document.removeEventListener('click', hide);
+        document.removeEventListener('keydown', hide);
+    };
+    setTimeout(() => {
+        document.addEventListener('click', hide);
+        document.addEventListener('keydown', hide);
+    }, 50);
+}
+
 // ── 頁面啟動時自動從 Supabase 載入單價表、重量表、總帳 ────────────
 document.addEventListener('DOMContentLoaded', function() {
     supabaseLoadPrices();
@@ -8849,7 +9012,137 @@ document.addEventListener('DOMContentLoaded', function() {
     syncFromGitHub(); // 載入總帳（實際從 Supabase 讀取）
 });
 
+// ===== 出庻記錄管理函數 =====
+
+// 檢查 localStorage 中的出庻記錄
+// 檢查 window._outboundRecords 狀態
+function checkOutboundLocal() {
+    const statusEl = document.getElementById('outbound_local_status');
+    const detailEl = document.getElementById('outbound_detail_result');
+    const contentEl = document.getElementById('outbound_detail_content');
+
+    const records = window._outboundRecords || [];
+
+    if (records.length === 0) {
+        statusEl.innerHTML = '⚠️ 目前沒有出庻記錄（請先在租金計算頁面計算並儲存）';
+        detailEl.style.display = 'none';
+        return;
+    }
+
+    const size = (JSON.stringify(records).length / 1024).toFixed(2);
+    const hasPrices = records.filter(r => r.分攤單價 && r.分攤單價 > 0).length;
+    statusEl.innerHTML = `✅ 共 <strong>${records.length} 筆</strong>（${size} KB）<br/>已填分攤單價：${hasPrices} 筆 / 未填：${records.length - hasPrices} 筆`;
+
+    const sample = records.slice(0, 3).map(r => ({
+        產品名稱: r.產品名稱,
+        批號: r.批號,
+        期間: r.period,
+        出庻數量: r.出庻數量,
+        分攤單價: r.分攤單價,
+        出庻金額: r.出庻金額,
+    }));
+
+    contentEl.innerHTML = `
+        <div style="margin-bottom:0.5rem;"><strong>前 3 筆記錄：</strong></div>
+        <pre style="font-size:0.75rem; overflow-x:auto; background:#fff; padding:0.5rem; border-radius:4px;">${JSON.stringify(sample, null, 2)}</pre>
+    `;
+    detailEl.style.display = 'block';
+}
+
+// 檢查 Supabase 中的出庻記錄
+async function checkOutboundSupabase() {
+    const statusEl = document.getElementById('outbound_db_status');
+    const detailEl = document.getElementById('outbound_detail_result');
+    const contentEl = document.getElementById('outbound_detail_content');
+
+    statusEl.innerHTML = '⏳ 讀取中...';
+
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/outbound_records?select=*&limit=3`,
+            { headers: SB_HEADERS }
+        );
+
+        if (!resp.ok) throw new Error(await resp.text());
+
+        const data = await resp.json();
+
+        if (data.length === 0) {
+            statusEl.innerHTML = '❌ Supabase 中沒有出庻記錄';
+            return;
+        }
+
+        statusEl.innerHTML = `✅ 共 <strong>${data.length} 筆</strong>`;
+
+        // 顯示詳細信息
+        contentEl.innerHTML = `
+            <div style="margin-bottom:1rem;">
+                <strong>Supabase 出庻記錄概覽：</strong><br/>
+                筆數：${data.length}
+            </div>
+            <div style="background:#fff; border:1px solid #ddd; border-radius:5px; padding:0.8rem;">
+                <strong>前 3 筆記錄：</strong><br/>
+                <pre style="font-size:0.75rem; overflow-x:auto;">${JSON.stringify(data.slice(0, 3), null, 2)}</pre>
+            </div>
+        `;
+        detailEl.style.display = 'block';
+    } catch(e) {
+        statusEl.innerHTML = `❌ 錯誤：${e.message}`;
+        console.error('checkOutboundSupabase:', e);
+    }
+}
+
+// 同時同步總帳和出庻記錄到 Supabase
+async function syncBothToSupabase() {
+    const syncStatusEl = document.getElementById('sync_status');
+    const detailEl = document.getElementById('outbound_detail_result');
+    const contentEl = document.getElementById('outbound_detail_content');
+
+    detailEl.style.display = 'block';
+    contentEl.innerHTML = '<p>⏳ 正在同步...</p>';
+
+    let ledgerMsg = '', outboundMsg = '';
+
+    // 1. 同步總帳到 ledger_table
+    const ledgerRows = lsLoadLedgerRows() || [];
+    if (ledgerRows.length > 0) {
+        try {
+            await syncToGitHub();
+            ledgerMsg = `✅ 總帳已同步到 Supabase（${ledgerRows.length} 筆）`;
+        } catch(e) {
+            ledgerMsg = `❌ 總帳同步失敗：${e.message}`;
+        }
+    } else {
+        ledgerMsg = '⚠️ 沒有總帳資料可同步';
+    }
+
+    // 2. 同步出庻記錄到 outbound_records
+    const outboundRecords = window._outboundRecords || [];
+    if (outboundRecords.length > 0) {
+        try {
+            await syncOutboundToSupabase(outboundRecords, '');
+            outboundMsg = `✅ 出庻記錄已同步到 Supabase（${outboundRecords.length} 筆）`;
+        } catch(e) {
+            outboundMsg = `❌ 出庻記錄同步失敗：${e.message}`;
+        }
+    } else {
+        outboundMsg = '⚠️ 沒有出庻記錄可同步（請先在租金計算頁面儲存到 Supabase）';
+    }
+
+    contentEl.innerHTML = `<p>${ledgerMsg}</p><p>${outboundMsg}</p>`;
+    if (syncStatusEl) syncStatusEl.textContent = '✅ 同步完成';
+
+    // 刷新狀態
+    setTimeout(() => {
+        checkOutboundLocal();
+        checkOutboundSupabase();
+    }, 1000);
+}
+
 </script>
+
+<!-- 計算公式 Tooltip -->
+<div id="calc_formula_tooltip"></div>
 
 </body>
 </html>
