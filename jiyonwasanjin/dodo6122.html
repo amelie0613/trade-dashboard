@@ -1645,6 +1645,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <div class="section-title">💾 總帳狀態</div>
                       <div id="ledger_db_status" style="font-size:0.85rem; color:#8a6a7a; margin-bottom:1rem;">讀取中...</div>
                       <button onclick="viewLedger()" class="btn-secondary" style="width:100%; margin-bottom:0.5rem;">📋 檢視目前總帳</button>
+                      <button onclick="viewOutboundFromSupabase('')" style="width:100%; background:#764ba2; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📦 出庫記錄表（Supabase）</button>
                       <button onclick="syncToFirestore()" style="width:100%; background:#3ecf8e; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 Supabase</button>
                       <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #3ecf8e; color:#2a9d6e; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 Supabase 載入</button>
                       <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 復原上一步</button>
@@ -5808,7 +5809,11 @@ async function confirmMonthly() {
                 <div style="font-weight:800; font-size:1.2rem; color:#4a9a37;">${label} 月結算完成！</div>
                 <div style="color:#8a6a7a; margin-top:0.5rem;">更新 ${newRows.length} 筆，總帳共 ${finalRows.length} 筆</div>
                 <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 已自動備份到 Supabase（含出庫記錄表 ${(window._outboundRecords||[]).length} 筆）</div>
-                <button onclick="viewLedger()" class="btn-primary" style="margin-top:1rem; width:auto; padding:0.6rem 1.5rem;">📋 檢視總帳</button>
+                <div style="display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;margin-top:1rem;">
+                    <button onclick="viewLedger()" class="btn-primary" style="width:auto; padding:0.6rem 1.5rem;">📋 檢視總帳</button>
+                    <button onclick="switchPage('calc');setTimeout(()=>{ document.getElementById('outbound_results')?.scrollIntoView({behavior:'smooth'}); },300);" style="width:auto;padding:0.6rem 1.5rem;background:#764ba2;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;">📦 查看出庫記錄表</button>
+                    <button onclick="viewOutboundFromSupabase('${label}')" style="width:auto;padding:0.6rem 1.5rem;background:#7ec8e3;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;">☁️ 從 Supabase 查看</button>
+                </div>
             </div>`;
     } catch(e) {
         resultsEl.innerHTML = `<p style="color:#e8836a; text-align:center; padding:2rem;">❌ 寫入失敗：${e.message}</p>`;
@@ -7162,6 +7167,54 @@ async function syncOutboundToSupabase(records, label) {
         console.error('出庫記錄備份失敗：', e);
     }
 }
+
+// ===== 從 Supabase 讀取出庫記錄（可按月份查詢）=====
+async function viewOutboundFromSupabase(monthLabel) {
+    const targetEl = document.getElementById('outbound_results') || document.getElementById('ledger_results');
+    if (!targetEl) return;
+    targetEl.innerHTML = '<p style="text-align:center;padding:1rem;color:#2a6a82;">⏳ 讀取出庫記錄...</p>';
+
+    try {
+        let url = `${SUPABASE_URL}/rest/v1/outbound_records?select=*&order=outbound_date.asc`;
+        if (monthLabel) url += `&month_label=eq.${encodeURIComponent(monthLabel)}`;
+
+        const resp = await fetch(url, { headers: SB_HEADERS });
+        if (!resp.ok) throw new Error(await resp.text());
+        const rows = await resp.json();
+
+        if (!rows || rows.length === 0) {
+            targetEl.innerHTML = `<p style="color:#999;text-align:center;padding:1rem;">Supabase 無出庫記錄${monthLabel ? '（' + monthLabel + '）' : ''}</p>`;
+            return;
+        }
+
+        // 轉換回中文欄位
+        window._outboundRecords = rows.map(r => ({
+            產品名稱: r.product_name,
+            批號:     r.batch_no,
+            出庫日期: r.outbound_date,
+            出庫類型: r.outbound_type,
+            業務屬性: r.biz_type,
+            出庫數量: r.quantity,
+            分攤單價: r.allocated_price,
+            出庫金額: r.outbound_amount,
+            month_label: r.month_label,
+        }));
+
+        displayOutboundRecords();
+
+        // 若在月結算頁，也在 ledger_results 顯示
+        if (targetEl.id === 'ledger_results') {
+            const el = document.getElementById('outbound_results');
+            if (el && el.innerHTML) targetEl.innerHTML = el.innerHTML;
+        }
+
+        // 自動捲到出庫記錄表
+        setTimeout(() => targetEl.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch(e) {
+        targetEl.innerHTML = `<p style="color:#e8836a;text-align:center;padding:1rem;">❌ 讀取失敗：${e.message}</p>`;
+    }
+}
+window.viewOutboundFromSupabase = viewOutboundFromSupabase;
 
 function showFormulaDetail(event, rowIdx, col) {
     const row = calculatedData[rowIdx];
