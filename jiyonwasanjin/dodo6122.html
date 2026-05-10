@@ -1570,6 +1570,14 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                           <label>出入庫費用 (1次/kg，$)</label>
                           <input type="number" id="handlingFee" value="1.0" step="0.01" />
                         </div>
+                        <div class="form-group" style="margin:0;">
+                          <label>計算期間</label>
+                          <select id="rentalPeriod" style="padding:0.4rem;width:100%;">
+                            <option value="">-- 選擇期間 --</option>
+                            <option value="上期">上期（1-15日）</option>
+                            <option value="下期">下期（16-月末）</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
 
@@ -1581,6 +1589,13 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                     <button class="btn-secondary" onclick="resetForm()">清除</button>
                   </div>
                   <div id="status"></div>
+                </div>
+                <div style="background:#e8f4f8;border-left:4px solid #7ec8e3;padding:1rem;margin-top:1rem;border-radius:6px;font-size:0.85rem;color:#2a6a82;">
+                  <div style="font-weight:800;margin-bottom:0.5rem;">⚙️ 出庻記錄需要 Supabase 設置</div>
+                  <p style="margin:0.4rem 0;font-size:0.82rem;">出庻記錄表已支援「上期/下期」區分（防止覆蓋）。使用前需在 Supabase 中執行 SQL 設置。</p>
+                  <div style="margin-top:0.6rem;display:flex;gap:0.6rem;flex-wrap:wrap;">
+                    <button onclick="alert('請查看「各類報表研發」資料夾中的「Supabase_outbound_records_部署說明.md」文件，按步驟執行 SQL。')" style="background:#7ec8e3;color:white;border:none;border-radius:6px;padding:0.4rem 0.8rem;font-size:0.8rem;font-weight:700;cursor:pointer;">📖 查看部署說明</button>
+                  </div>
                 </div>
                 <div id="results">
                   <p style="color:#999; text-align:center; padding:2rem;">上傳檔案後點擊「計算」查看結果</p>
@@ -6059,6 +6074,11 @@ async function processFiles() {
         showStatus('❌ 重量表尚未載入，請至設定頁從 Supabase 載入或匯入 xlsx', 'error');
         return;
     }
+    const period = document.getElementById('rentalPeriod').value;
+    if (!period) {
+        showStatus('❌ 請選擇計算期間（上期或下期）', 'error');
+        return;
+    }
 
     try {
         showStatus('⏳ 處理中...', 'info');
@@ -6068,7 +6088,7 @@ async function processFiles() {
         const data3 = cachedWeightData;                     // 重量表（來自 GitHub）
 
         rentalTableData = data1;
-        const result = calculateRental(data1, data2, data3);
+        const result = calculateRental(data1, data2, data3, period);
         calculatedData = result;
 
         // 收集所有出庫記錄（調撥/拆解/銷售）供出庫記錄表使用
@@ -6081,7 +6101,7 @@ async function processFiles() {
 
         displayResults(result);
         displayOutboundRecords();
-        showStatus('✅ 計算完成！', 'success');
+        showStatus(`✅ ${period}計算完成！`, 'success');
     } catch (err) {
         showStatus('❌ 錯誤: ' + err.message, 'error');
         console.error(err);
@@ -6187,7 +6207,7 @@ function getDateValue(dateId, textId) {
     return null;
 }
 
-function calculateRental(rentalData, ioData, weightData) {
+function calculateRental(rentalData, ioData, weightData, period = '') {
     const config = getConfig();
     const result = [];
 
@@ -6335,6 +6355,7 @@ function calculateRental(rentalData, ioData, weightData) {
                 分攤單價: null,
                 出庫金額: null,
                 month_label: '',
+                period: period,
             });
         }
 
@@ -7076,7 +7097,7 @@ function displayOutboundRecords() {
     const thStyle = `position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;font-weight:700;border:1px solid #4a5a9f;padding:6px 10px;white-space:nowrap;font-size:11px;`;
     const tdBase = `border:1px solid #c8d8ea;font-size:11px;padding:5px 10px;white-space:nowrap;`;
 
-    const cols = ['產品名稱','批號','出庫日期','出庫類型','業務屬性','出庫數量','分攤單價','出庫金額'];
+    const cols = ['產品名稱','批號','期間','出庫日期','出庫類型','業務屬性','出庫數量','分攤單價','出庫金額'];
     const thRow = cols.map(c => `<th style="${thStyle}">${c}</th>`).join('');
 
     let rows = '';
@@ -7086,9 +7107,11 @@ function displayOutboundRecords() {
         const tag = `<span style="background:${tagColor}20;color:${tagColor};border:1px solid ${tagColor};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">${r.出庫類型}</span>`;
         const 單價 = r.分攤單價 != null ? r.分攤單價.toFixed(5) : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
         const 金額 = r.出庫金額 != null ? r.出庫金額.toLocaleString() : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
+        const periodBg = r.period === '上期' ? '#d4e8f7' : r.period === '下期' ? '#f0e6f7' : '#fff';
         rows += `<tr style="background:${bg};">
             <td style="${tdBase}font-weight:600;">${r.產品名稱}</td>
             <td style="${tdBase}color:#666;">${r.批號}</td>
+            <td style="${tdBase}text-align:center;background:${periodBg};font-weight:600;color:#555;">${r.period||'-'}</td>
             <td style="${tdBase}font-variant-numeric:tabular-nums;">${r.出庫日期||'-'}</td>
             <td style="${tdBase}text-align:center;">${tag}</td>
             <td style="${tdBase}color:#888;font-size:10px;">${r.業務屬性}</td>
@@ -7099,10 +7122,11 @@ function displayOutboundRecords() {
     });
 
     el.innerHTML = `<div class="result-section" style="margin-top:1.5rem;">
-        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.8rem;">
+        <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.8rem;">
             <div style="font-size:0.95rem;font-weight:800;color:#764ba2;">📦 出庫記錄表（共 ${records.length} 筆）</div>
             <span style="font-size:0.78rem;color:#999;">分攤單價與出庫金額將於月結算確認後自動填入</span>
-            <button onclick="exportOutboundExcel()" style="margin-left:auto;background:#8dcc7a;color:white;border:none;border-radius:8px;padding:0.4rem 0.9rem;font-weight:800;cursor:pointer;font-size:0.82rem;">📥 匯出 Excel</button>
+            <button onclick="saveOutboundNow()" style="margin-left:auto;background:#7ec8e3;color:white;border:none;border-radius:8px;padding:0.4rem 0.9rem;font-weight:800;cursor:pointer;font-size:0.82rem;">☁️ 儲存到 Supabase</button>
+            <button onclick="exportOutboundExcel()" style="background:#8dcc7a;color:white;border:none;border-radius:8px;padding:0.4rem 0.9rem;font-weight:800;cursor:pointer;font-size:0.82rem;">📥 匯出 Excel</button>
         </div>
         <div class="overflow-auto" style="max-height:400px;overflow-y:auto;">
             <table style="border-collapse:collapse;width:100%;min-width:900px;font-size:12px;font-family:'Noto Sans TC',sans-serif;">
@@ -7121,6 +7145,7 @@ async function exportOutboundExcel() {
     ws.columns = [
         { header:'產品名稱', key:'產品名稱', width:20 },
         { header:'批號',     key:'批號',     width:15 },
+        { header:'期間',     key:'period',    width:10 },
         { header:'出庫日期', key:'出庫日期', width:14 },
         { header:'出庫類型', key:'出庫類型', width:10 },
         { header:'業務屬性', key:'業務屬性', width:18 },
@@ -7141,6 +7166,20 @@ async function exportOutboundExcel() {
     a.click();
 }
 
+async function saveOutboundNow() {
+    const records = window._outboundRecords || [];
+    if (records.length === 0) { alert('目前沒有出庫記錄'); return; }
+    const btn = document.querySelector('button[onclick="saveOutboundNow()"]');
+    if (btn) { btn.textContent = '⏳ 儲存中...'; btn.disabled = true; }
+    try {
+        await syncOutboundToSupabase(records, records[0]?.month_label || '');
+        if (btn) { btn.textContent = `✅ 已儲存 ${records.length} 筆`; btn.style.background = '#4a9a37'; }
+        setTimeout(() => { if (btn) { btn.textContent = '☁️ 儲存到 Supabase'; btn.style.background = '#7ec8e3'; btn.disabled = false; } }, 2500);
+    } catch(e) {
+        if (btn) { btn.textContent = '❌ 儲存失敗'; btn.disabled = false; }
+    }
+}
+
 async function syncOutboundToSupabase(records, label) {
     if (!records || records.length === 0) return;
     const data = records.map(r => ({
@@ -7153,10 +7192,11 @@ async function syncOutboundToSupabase(records, label) {
         allocated_price: r.分攤單價 || 0,
         outbound_amount: r.出庫金額 || 0,
         month_label:    label || r.month_label || '',
+        period:         r.period || '',
         created_at:     new Date().toISOString(),
     }));
     try {
-        const resp = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?on_conflict=product_name,batch_no,outbound_date,biz_type`, {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?on_conflict=product_name,batch_no,outbound_date,biz_type,period`, {
             method: 'POST',
             headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
             body: JSON.stringify(data),
@@ -7198,6 +7238,7 @@ async function viewOutboundFromSupabase(monthLabel) {
             分攤單價: r.allocated_price,
             出庫金額: r.outbound_amount,
             month_label: r.month_label,
+            period: r.period,
         }));
 
         displayOutboundRecords();
