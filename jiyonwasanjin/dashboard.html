@@ -254,6 +254,56 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   .cost-modal-cards { display: flex; }
 }
 
+/* ── RISK BAR ── */
+.risk-bar {
+  background: linear-gradient(135deg, #1a2540 0%, #243260 100%);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 6px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  font-size: 11px;
+}
+.risk-bar-label { font-weight: 700; color: rgba(255,255,255,.45); margin-right: 2px; white-space: nowrap; }
+.risk-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 11px; border-radius: 7px; font-weight: 700;
+  cursor: pointer; transition: all .15s; white-space: nowrap; font-size: 11px;
+}
+.risk-tag:hover { filter: brightness(1.25); transform: translateY(-1px); }
+.risk-tag.risk-expired { background: rgba(196,30,58,.28); color: #FCA5A5; border: 1px solid rgba(196,30,58,.45); }
+.risk-tag.risk-soon    { background: rgba(234,88,12,.22);  color: #FDBA74; border: 1px solid rgba(234,88,12,.4); }
+.risk-tag.risk-long    { background: rgba(180,140,9,.22);  color: #FCD34D; border: 1px solid rgba(160,120,9,.4); }
+.risk-tag.zero { opacity: .35; cursor: default; pointer-events: none; }
+@media (max-width: 700px) { .risk-bar { display: none !important; } }
+
+/* ── SEARCH HIGHLIGHT ── */
+mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1px; font-style: normal; }
+
+/* ── NOTE MODAL ── */
+.note-modal-bg {
+  display: none; position: fixed; inset: 0; z-index: 250;
+  background: rgba(26,37,64,.55); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+.note-modal-bg.open { display: flex; }
+.note-modal-box {
+  background: white; border-radius: 16px; padding: 24px 28px;
+  width: min(480px, 95vw); box-shadow: 0 20px 60px rgba(104,120,192,.3);
+}
+.note-modal-title { font-size: 14px; font-weight: 800; color: var(--accent); margin-bottom: 3px; }
+.note-modal-sub   { font-size: 11px; color: #aaa; margin-bottom: 12px; }
+.note-modal-ta {
+  width: 100%; height: 120px; border: 2px solid var(--border); border-radius: 10px;
+  padding: 10px 14px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px;
+  outline: none; transition: border-color .15s; box-sizing: border-box;
+}
+.note-modal-ta:focus { border-color: var(--accent); }
+.note-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+.note-modal-saved { font-size: 11px; color: var(--green); text-align: center; margin-top: 6px; min-height: 14px; }
+@media (max-width: 600px) {
+  .note-modal-bg.open { align-items: flex-end; }
+  .note-modal-box { border-radius: 18px 18px 0 0; padding: 20px 18px 28px; width: 100%; }
+}
+
 /* ── LOADING / EMPTY ── */
 .loading-wrap { text-align: center; padding: 60px 20px; color: var(--muted); }
 .loading-wrap .spin { font-size: 30px; animation: spin 1s linear infinite; display: inline-block; }
@@ -537,6 +587,14 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   </div>
 </div>
 
+<!-- ════ RISK BAR ════ -->
+<div class="risk-bar" id="risk-bar" style="display:none;">
+  <span class="risk-bar-label">⚠ 風險摘要：</span>
+  <span class="risk-tag risk-expired" id="risk-expired" onclick="navigateToStatusInventory('expired','過期品')">❌ 過期品 <b id="risk-cnt-expired">0</b> 項</span>
+  <span class="risk-tag risk-soon"    id="risk-soon"    onclick="navigateToStatusInventory('soon','即將到期')">⚠️ 即將到期 <b id="risk-cnt-soon">0</b> 項</span>
+  <span class="risk-tag risk-long"    id="risk-long"    onclick="navigateToStatusInventory('long','長期在庫')">⏳ 長期在庫 <b id="risk-cnt-long">0</b> 項</span>
+</div>
+
 <!-- ════ TABS ════ -->
 <div class="tab-bar">
   <div class="tab-item active" data-tab="cost"      onclick="switchTab('cost',this)">💰 成本分析</div>
@@ -757,6 +815,20 @@ tr.wh-child-row  td { background: #fafbfc; color: #444; }
   </div>
 </div>
 
+<!-- ════ NOTE MODAL ════ -->
+<div class="note-modal-bg" id="note-modal" onclick="if(event.target===this)closeNoteModal()">
+  <div class="note-modal-box">
+    <div class="note-modal-title" id="note-modal-title">📝 編輯備註</div>
+    <div class="note-modal-sub"   id="note-modal-sub"></div>
+    <textarea class="note-modal-ta" id="note-modal-ta" placeholder="輸入備註內容…"></textarea>
+    <div class="note-modal-actions">
+      <button class="btn" style="background:#f1f5f9;color:var(--text);border:1.5px solid var(--border);" onclick="closeNoteModal()">取消</button>
+      <button class="btn btn-blue" onclick="saveNoteModal()">💾 儲存</button>
+    </div>
+    <div class="note-modal-saved" id="note-modal-saved"></div>
+  </div>
+</div>
+
 <!-- ════ TOAST ════ -->
 <div id="toast"></div>
 
@@ -840,6 +912,13 @@ function _syncMobileMergeBar(tabId){
 //  UTILS
 // ═══════════════════════════════════════════════════════════════
 function fmtMoney(n){ return n > 0 ? '$' + Math.round(n).toLocaleString('zh-TW') : '—'; }
+function hlText(text, q){
+  const s = String(text || '');
+  if(!q) return s || '—';
+  const esc = q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const result = s.replace(new RegExp(esc,'gi'), m => `<mark class="hl">${m}</mark>`);
+  return result || '—';
+}
 function fmtNum(n)  { return (+n||0).toLocaleString('zh-TW'); }
 function fmtDiff(n) { if(n===''||n===null||n===undefined) return '—'; n=+n; return (n>0?'+':'')+n.toLocaleString('zh-TW'); }
 function fmtCostDiff(n){ if(n===''||n===null||n===undefined) return '—'; n=+n; return (n>0?'+$':'$')+Math.round(n).toLocaleString('zh-TW'); }
@@ -1357,24 +1436,27 @@ function renderInventory(){
       const scopeDisp = r.scope ? `<span class="scope-badge">${r.scope}</span>` : '<span style="color:#bbb">—</span>';
       const costDisp  = r.cost > 0 ? '$' + Math.round(r.cost).toLocaleString('zh-TW') : '—';
       const noteVal   = (notesMap[r._key] || '').replace(/"/g,'&quot;');
+      const noteNameE = (r.name||'').replace(/'/g,"\\'");
+      const noteLotE  = (r.lot||'').replace(/'/g,"\\'");
+      const keyE      = r._key.replace(/'/g,"\\'");
+      const notePreview = notesMap[r._key] ? notesMap[r._key].slice(0,28) + (notesMap[r._key].length>28?'…':'') : '';
       html += `<tr class="${ROW_CLS[r.status]||'row-normal'}">
         <td>${r.category||'—'}</td>
         <td style="text-align:center">${r.code||'—'}</td>
-        <td>${r.name||'—'}</td>
+        <td>${hlText(r.name, filterSearch)}</td>
         <td style="color:#666">${r.spec||'—'}</td>
         <td style="text-align:right">${r.qty.toLocaleString('zh-TW')}</td>
         <td style="text-align:center">${r.unit||'—'}</td>
         <td>${r.warehouse||'—'}</td>
-        <td>${r.lot||'—'}</td>
+        <td>${hlText(r.lot, filterSearch)}</td>
         <td style="text-align:center">${r.lotDate||'—'}</td>
         <td style="text-align:center">${r.expDate||'—'}</td>
         <td style="text-align:center" class="${daysCls}">${daysDisp}</td>
         <td style="text-align:right">${priceDisp}</td>
         <td style="text-align:center">${scopeDisp}</td>
         <td style="text-align:right" class="${COST_CLS[r.status]||'cost-blue'}">${costDisp}</td>
-        <td class="note-cell">
-          <textarea data-key="${r._key}" onblur="saveNote(this)" placeholder="輸入備註…">${noteVal}</textarea>
-          <div class="save-indicator" id="si-${r._key.replace(/[^a-zA-Z0-9]/g,'_')}">已儲存 ✓</div>
+        <td class="note-cell" style="cursor:pointer;" onclick="openNoteModal('${keyE}','${noteNameE}','${noteLotE}')" title="點擊編輯備註">
+          <div style="font-size:11px;color:${notesMap[r._key]?'#444':'#bbb'};padding:3px 5px;min-height:28px;border:1px solid transparent;border-radius:4px;transition:all .15s;" onmouseover="this.style.borderColor='#c8d0ee';this.style.background='#f5f7ff'" onmouseout="this.style.borderColor='transparent';this.style.background='transparent'">${notePreview || '<span style="font-style:italic;color:#ccc">點擊新增備註</span>'}</div>
         </td>
       </tr>`;
     });
@@ -1424,9 +1506,12 @@ function renderInventory(){
     const noteVal    = (notesMap[r._key] || '').replace(/"/g,'&quot;');
     const daysText   = r.days !== null ? `${r.daysAbs} 天` : '—';
 
+    const _keyE2     = r._key.replace(/'/g,"\\'");
+    const _nameE2    = (r.name||'').replace(/'/g,"\\'");
+    const _lotE2     = (r.lot||'').replace(/'/g,"\\'");
     html += `<div class="inv-card card-${r.status}">
       <div class="inv-card-top">
-        <div class="inv-card-name">${r.name||'—'}</div>
+        <div class="inv-card-name">${hlText(r.name, filterSearch)}</div>
         <span class="inv-card-badge ${BADGE_CLS2[r.status]||'badge-normal'}">${BADGE_LABEL[r.status]||r.status}</span>
       </div>
       <div class="inv-card-meta">
@@ -1435,7 +1520,7 @@ function renderInventory(){
         <span><span class="lbl">規格</span>${r.spec||'—'}</span>
         <span><span class="lbl">數量</span>${r.qty.toLocaleString('zh-TW')} ${r.unit||''}</span>
         <span><span class="lbl">倉庫</span>${r.warehouse||'—'}</span>
-        <span><span class="lbl">批號</span>${r.lot||'—'}</span>
+        <span><span class="lbl">批號</span>${hlText(r.lot, filterSearch)}</span>
         <span><span class="lbl">入庫日</span>${r.lotDate||'—'}</span>
         <span><span class="lbl">效期至</span>${r.expDate||'—'}</span>
       </div>
@@ -1453,7 +1538,9 @@ function renderInventory(){
           <div class="val ${costValCls}">${r.cost > 0 ? '$'+Math.round(r.cost).toLocaleString('zh-TW') : '—'}</div>
         </div>
       </div>
-      <textarea class="inv-card-note" data-key="${r._key}" onblur="saveNote(this)" placeholder="備註…">${noteVal}</textarea>
+      <div onclick="openNoteModal('${_keyE2}','${_nameE2}','${_lotE2}')" style="margin-top:8px;padding:7px 10px;border:1.5px dashed #d0d8f0;border-radius:8px;font-size:12px;color:${notesMap[r._key]?'#333':'#bbb'};cursor:pointer;background:#fafbff;transition:all .15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.background='#eef1ff'" onmouseout="this.style.borderColor='#d0d8f0';this.style.background='#fafbff'">
+        ${notesMap[r._key] ? '📝 ' + notesMap[r._key].slice(0,40) + (notesMap[r._key].length>40?'…':'') : '＋ 點擊新增備註'}
+      </div>
     </div>`;
   });
 
@@ -1594,6 +1681,7 @@ function renderCost(){
     document.getElementById('cost-body').innerHTML = html;
   }
 
+  updateRiskBar();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2191,6 +2279,57 @@ function loadExcel(input){
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RISK BAR
+// ═══════════════════════════════════════════════════════════════
+function updateRiskBar(){
+  const counts = { expired:0, soon:0, long:0 };
+  rawRows.forEach(r => {
+    const s = getStatus(classify(r));
+    if(counts[s] !== undefined) counts[s]++;
+  });
+  const bar = document.getElementById('risk-bar');
+  if(!bar) return;
+  bar.style.display = rawRows.length ? '' : 'none';
+  ['expired','soon','long'].forEach(type => {
+    const tagEl = document.getElementById('risk-' + type);
+    const cntEl = document.getElementById('risk-cnt-' + type);
+    if(!tagEl || !cntEl) return;
+    cntEl.textContent = counts[type].toLocaleString();
+    tagEl.classList.toggle('zero', counts[type] === 0);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  NOTE MODAL
+// ═══════════════════════════════════════════════════════════════
+let _noteModalKey = '';
+
+function openNoteModal(key, name, lot){
+  _noteModalKey = key;
+  document.getElementById('note-modal-title').textContent = '📝 備註：' + (name || '');
+  document.getElementById('note-modal-sub').textContent   = lot ? '批號：' + lot : '';
+  document.getElementById('note-modal-ta').value          = notesMap[key] || '';
+  document.getElementById('note-modal-saved').textContent = '';
+  document.getElementById('note-modal').classList.add('open');
+  setTimeout(() => document.getElementById('note-modal-ta').focus(), 120);
+}
+
+function closeNoteModal(){
+  document.getElementById('note-modal').classList.remove('open');
+}
+
+async function saveNoteModal(){
+  const key  = _noteModalKey;
+  const note = document.getElementById('note-modal-ta').value.trim();
+  notesMap[key] = note;
+  await saveNoteToSupabase(key, note);
+  // 同步更新表格中的 textarea（若仍在 DOM）
+  document.querySelectorAll(`textarea[data-key="${CSS.escape(key)}"]`).forEach(ta => { ta.value = note; });
+  document.getElementById('note-modal-saved').textContent = '✓ 已儲存';
+  setTimeout(() => closeNoteModal(), 700);
 }
 
 // ═══════════════════════════════════════════════════════════════
