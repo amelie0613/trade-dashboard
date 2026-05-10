@@ -1698,7 +1698,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <button onclick="viewLedger()" class="btn-secondary" style="width:100%; margin-bottom:0.5rem;">📋 檢視目前總帳</button>
                       <button onclick="viewOutboundFromSupabase('')" style="width:100%; background:#764ba2; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📦 出庫記錄表（Supabase）</button>
                       <button onclick="syncOutboundToSupabase(window._outboundRecords, '')" style="width:100%; background:#3ecf8e; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 Supabase</button>
-                      <button onclick="syncFromFirestore()" style="width:100%; background:none; border:1.5px solid #3ecf8e; color:#2a9d6e; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 Supabase 載入</button>
+                      <button onclick="syncLedgerFromSupabase()" style="width:100%; background:none; border:1.5px solid #3ecf8e; color:#2a9d6e; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 Supabase 載入</button>
                       <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 復原上一步</button>
                       <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
                       <hr style="border:none; border-top:1px solid #f0e0f0; margin:0.8rem 0;">
@@ -4818,21 +4818,8 @@ window.switchPage = function(page) {
     });
 }
 
-// ===== Firebase 等待就緒 =====
-function waitFirebase() {
-    return new Promise((resolve, reject) => {
-        if (window._fbReady && window._currentUser) { resolve(); return; }
-        resolve(); return; // 不再需要登入
-        const handler = () => {
-            if (window._currentUser) resolve();
-            else resolve(); // 不再需要登入
-        };
-        document.addEventListener('firebase-ready', handler, { once: true });
-        setTimeout(() => resolve(), 1000); // 不再需要登入
-    });
-}
 
-// ===== 總帳 Firestore 操作 =====
+// ===== 總帳 Supabase 操作 =====
 const LEDGER_COL = 'ledger';
 const MONTHLY_COL = 'monthly_records';
 const LS_KEY = 'rental_ledger_rows_v2';
@@ -4886,7 +4873,7 @@ async function saveLedgerRows(rows) {
 async function loadLedgerRows(forceRefresh = false) {
     const local = lsLoadLedgerRows();
     if (local && !forceRefresh) return local; // 有本地資料直接回傳
-    // 沒有本地資料，返回空陣列（改用GitHub讀檔）
+    // 沒有本地資料，返回空陣列（請使用 syncLedgerFromSupabase() 從 Supabase 載入）
     return [];
 }
 
@@ -4950,7 +4937,7 @@ function sbRowToLedger(r) {
 }
 
 // ===== 備份到 Supabase =====
-async function syncToGitHub() {
+async function syncLedgerToSupabase() {
     const rows = lsLoadLedgerRows();
     if (!rows || rows.length === 0) { showToast('❌ 本地沒有總帳資料'); return; }
     const statusEl = document.getElementById('sync_status');
@@ -5015,7 +5002,7 @@ async function syncToGitHub() {
 }
 
 // ===== 從 Supabase 載入 =====
-async function syncFromGitHub() {
+async function syncLedgerFromSupabase() {
     const statusEl = document.getElementById('sync_status');
     if (statusEl) statusEl.textContent = '⏳ 從 Supabase 載入...';
     try {
@@ -5041,11 +5028,9 @@ async function syncFromGitHub() {
     }
 }
 
-// 兼容舊名稱
-async function syncToFirestore()   { return syncToGitHub(); }
-async function syncFromFirestore() { return syncFromGitHub(); }
-window.syncToFirestore   = syncToFirestore;
-window.syncFromFirestore = syncFromFirestore;
+// 掛載到 window（供 HTML onclick 呼叫）
+window.syncLedgerToSupabase   = syncLedgerToSupabase;
+window.syncLedgerFromSupabase = syncLedgerFromSupabase;
 
 // ===== 總帳記憶體快取 =====
 let _ledgerCache = null;
@@ -5054,32 +5039,19 @@ const CACHE_TTL = 5 * 60 * 1000; // 5分鐘
 
 function invalidateCache() { _ledgerCache = null; }
 
-async function loadLedgerRows(forceRefresh = false) {
-    await waitFirebase();
-    const now = Date.now();
-    if (!forceRefresh && _ledgerCache && (now - _ledgerCacheTime) < CACHE_TTL) {
-        return _ledgerCache;
-    }
-    const { getDocs, collection } = window._fs;
-    const db = window._db;
-    const snap = await getDocs(collection(db, LEDGER_COL));
-    _ledgerCache = snap.docs.map(d => d.data());
-    _ledgerCacheTime = now;
-    return _ledgerCache;
-}
 
 async function deleteLedgerRow(productName, batchNo) {
-    // 不再需要 - 資料存在 GitHub
+    // 不再需要 - 資料存在 Supabase
     console.log('DeleteLedgerRow 已移除');
 }
 
 async function saveMonthlyRecord(label, summary) {
-    // 不再需要 - 資料存在 GitHub
+    // 不再需要 - 資料存在 Supabase
     console.log('SaveMonthlyRecord 已移除');
 }
 
 async function clearAllLedger() {
-    // 不再需要 - 資料存在 GitHub
+    // 不再需要 - 資料存在 Supabase
     console.log('ClearAllLedger 已移除');
 }
 
@@ -5090,7 +5062,7 @@ async function clearLedger() {
     try {
         lsClearLedger(); // 只清除 localStorage
         refreshLedgerStatus();
-        document.getElementById('ledger_results').innerHTML = '<p style="color:#999; text-align:center; padding:2rem;">本地總帳已清除（GitHub 備份保留）</p>';
+        document.getElementById('ledger_results').innerHTML = '<p style="color:#999; text-align:center; padding:2rem;">本地總帳已清除（Supabase 備份保留）</p>';
     } catch(e) {
         alert('清除失敗：' + e.message);
     }
@@ -5100,7 +5072,7 @@ async function refreshLedgerStatus(forceRefresh = false) {
     const el = document.getElementById('ledger_db_status');
     if (!el) return;
     try {
-        const rows = lsLoadLedgerRows(); // 優先讀本地，不觸發 Firebase
+        const rows = lsLoadLedgerRows(); // 讀本地 localStorage
         if (!rows || rows.length === 0) {
             el.innerHTML = '<span style="color:#e8836a; font-weight:700;">⚠️ 尚未建立總帳</span><br><span style="font-size:0.78rem;">請從雲端載入或重新導入</span>';
         } else {
@@ -5204,7 +5176,7 @@ async function doInitLedger() {
         await saveLedgerRows(rows);
         await refreshLedgerStatus();
         statusEl.innerHTML = `<span style="color:#2a6a82;">⏳ 同步到 Supabase 中...</span>`;
-        await syncToGitHub();
+        await syncLedgerToSupabase();
         statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 期初開帳完成！共 ${rows.length} 筆，已同步到 Supabase</span>`;
     } catch(e) {
         statusEl.innerHTML = `<span style="color:#e8836a;">❌ 失敗：${e.message}</span>`;
@@ -5871,7 +5843,7 @@ async function confirmMonthly() {
 
 
     const resultsEl = document.getElementById('ledger_results');
-    resultsEl.innerHTML = '<p style="text-align:center; padding:2rem; color:#2a6a82;">⏳ 寫入 Firebase 中...</p>';
+    resultsEl.innerHTML = '<p style="text-align:center; padding:2rem; color:#2a6a82;">⏳ 月結算寫入中...</p>';
 
     try {
         // 讀取現有資料（保留月結歷史、採購部門等）
@@ -5929,11 +5901,15 @@ async function confirmMonthly() {
             totalRental: preview.reduce((s,r)=>s+r.租金總計,0)
         });
         await refreshLedgerStatus();
-        
-        // 自動上傳到 Supabase
-        await syncToGitHub();
 
-        // 若 window._outboundRecords 為空，先從 Supabase 讀取（當前月份或未填金額的記錄）
+        // ══════════════════════════════════════════════════════
+        // 方案C：先回填出庫記錄分攤單價，再刪除結存=0品項
+        // 理由：syncLedgerToSupabase() 會刪除 ledger_table 中本期結存=0的品項，
+        //       必須在刪除前完成出庫記錄的分攤單價回填，避免資料遺失。
+        // ══════════════════════════════════════════════════════
+
+        // 步驟1：若 window._outboundRecords 為空，先從 Supabase 讀取未填金額的記錄
+        //        此時 ledger_table 仍保有結存=0品項的單價，可作為備用查詢來源
         if (!window._outboundRecords || window._outboundRecords.length === 0) {
             try {
                 const resp = await fetch(
@@ -5963,9 +5939,10 @@ async function confirmMonthly() {
             }
         }
 
-        // 回填出庫記錄表的分攤單價 → 計算出庫金額 → 備份到 Supabase
+        // 步驟2：用 newRows（含結存=0品項）建立分攤單價對照表，回填出庫記錄
         if (window._outboundRecords && window._outboundRecords.length > 0) {
             const priceMap = {};
+            // 使用 newRows（全部月結品項，含本期結存=0）確保已出清品項的單價也能查到
             newRows.forEach(r => { priceMap[r.產品名稱 + '|' + r.批號] = r.分攤單價 || 0; });
             window._outboundRecords.forEach(rec => {
                 const price = priceMap[rec.產品名稱 + '|' + rec.批號] || 0;
@@ -5977,6 +5954,10 @@ async function confirmMonthly() {
             displayOutboundRecords(); // 重繪出庫記錄表（顯示填入的金額）
         }
 
+        // 步驟3：上傳總帳到 Supabase（此步驟會刪除結存=0的已出清品項）
+        //        必須在出庫記錄回填完成後才執行
+        await syncLedgerToSupabase();
+
         window._pendingMonthly = null;
 
         resultsEl.innerHTML = `
@@ -5984,7 +5965,7 @@ async function confirmMonthly() {
                 <div style="font-size:2rem; margin-bottom:0.5rem;">🎉</div>
                 <div style="font-weight:800; font-size:1.2rem; color:#4a9a37;">${label} 月結算完成！</div>
                 <div style="color:#8a6a7a; margin-top:0.5rem;">更新 ${newRows.length} 筆，總帳共 ${finalRows.length} 筆</div>
-                <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 總帳已備份到 Supabase（${newRows.length} 筆）${(window._outboundRecords||[]).length > 0 ? `<br/>✅ 出庫記錄已回填分攤單價（${(window._outboundRecords||[]).length} 筆）` : '<br/>⚠️ 未找到出庫記錄，如需回填請先在租金計算頁面儲存出庫記錄到 Supabase'}</div>
+                <div style="font-size:0.85rem; color:#4a9a37; margin-top:0.5rem;">✅ 總帳已備份到 Supabase（${finalRows.length} 筆，已移除結存=0的 ${newRows.length - finalRows.length} 筆）${(window._outboundRecords||[]).length > 0 ? `<br/>✅ 出庫記錄已回填分攤單價（${(window._outboundRecords||[]).length} 筆）` : '<br/>⚠️ 未找到出庫記錄，如需回填請先在租金計算頁面儲存出庫記錄到 Supabase'}</div>
                 <div style="display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap;margin-top:1rem;">
                     <button onclick="viewLedger()" class="btn-primary" style="width:auto; padding:0.6rem 1.5rem;">📋 檢視總帳</button>
                     <button onclick="switchPage('calc');setTimeout(()=>{ document.getElementById('outbound_results')?.scrollIntoView({behavior:'smooth'}); },300);" style="width:auto;padding:0.6rem 1.5rem;background:#764ba2;color:white;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;">📦 查看出庫記錄表</button>
@@ -9074,7 +9055,7 @@ function showCalcFormula(event, title, lines, result) {
 document.addEventListener('DOMContentLoaded', function() {
     supabaseLoadPrices();
     supabaseLoadWeightTable();
-    syncFromGitHub(); // 載入總帳（實際從 Supabase 讀取）
+    syncLedgerFromSupabase(); // 載入總帳（實際從 Supabase 讀取）
 });
 
 // ===== 出庫記錄管理函數 =====
@@ -9172,7 +9153,7 @@ async function syncBothToSupabase() {
     const ledgerRows = lsLoadLedgerRows() || [];
     if (ledgerRows.length > 0) {
         try {
-            await syncToGitHub();
+            await syncLedgerToSupabase();
             ledgerMsg = `✅ 總帳已同步到 Supabase（${ledgerRows.length} 筆）`;
         } catch(e) {
             ledgerMsg = `❌ 總帳同步失敗：${e.message}`;
