@@ -509,33 +509,14 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
   .filter-dd-item { font-size:14px; }
   .filter-dd-head a, .filter-dd-head span { font-size:13px; }
 }
-#mobile-merge-bar {
-  display:none;
-  position:fixed; bottom:0; left:0; right:0; z-index:200;
-  padding:16px 16px env(safe-area-inset-bottom, 14px);
-  background:linear-gradient(to top, rgba(245,246,250,1) 55%, rgba(245,246,250,0));
-}
-#mobile-merge-bar button {
-  width:100%; padding:13px; font-size:14px; font-weight:800;
-  border-radius:14px; border:none;
-  background:#1d4ed8; color:white; cursor:pointer;
-  font-family:inherit; transition:all .18s;
-  letter-spacing:.04em;
-  box-shadow:0 4px 16px rgba(29,78,216,.35);
-}
-#mobile-merge-bar button.active {
-  background:#dbeafe; color:#1d4ed8; border:1.5px solid #93c5fd;
-  box-shadow:0 2px 10px rgba(147,197,253,.4);
-}
+/* 桌機版底部合併按鈕（手機不用） */
+#mobile-merge-bar { display:none !important; }
+
 @media (max-width:700px) {
-  .filter-bar { gap:5px; }
-  .filter-input { width:auto; font-size:14px; }
-  .filter-btn { font-size:13px; padding:5px 9px; }
+  /* ── 字型大小 ── */
   .tab-item { font-size:14px; }
   .status-chip { font-size:13px; }
   .chip-cnt { font-size:12px; }
-  .s-value { font-size:17px; }
-  .s-label { font-size:11px; }
   .topbar-title { font-size:16px; }
   .topbar-meta  { font-size:13px; }
   .inv-card-name  { font-size:16px; }
@@ -545,13 +526,143 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
   .inv-card-cost .lbl { font-size:11px; }
   .inv-card-cost .val { font-size:15px; }
   .inv-card-days  { font-size:14px; }
-  .inv-card-note  { font-size:14px; }
   .inv-card-total-row { font-size:15px; }
-  .filter-dd-item { font-size:14px; }
-  .filter-dd-head a, .filter-dd-head span { font-size:13px; }
-  /* 庫存明細底部留空給固定按鈕 */
-  #panel-inventory { padding-bottom:72px; }
+  /* ── 手機版：隱藏桌機元素 ── */
+  #filter-bar        { display:none !important; }
+  .summary-row       { display:none !important; }
+  #desktop-merge-btn { display:none !important; }
+  #panel-inventory   { padding-bottom:16px; }
+  /* ── Status Bar：單行橫向滾動 ── */
+  .status-bar {
+    display:flex !important; flex-wrap:nowrap !important;
+    overflow-x:auto; scrollbar-width:none; gap:6px; padding-bottom:4px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .status-bar::-webkit-scrollbar { display:none; }
+  .status-chip { flex-shrink:0; padding:7px 12px; }
 }
+
+/* ── 手機版：搜尋 + 篩選按鈕列 ── */
+.mob-filter-row { display:none; }
+@media (max-width:700px) {
+  .mob-filter-row {
+    display:flex; gap:8px; align-items:center;
+    margin:8px 0 8px;
+  }
+  .mob-filter-search {
+    flex:1; padding:10px 14px; border-radius:11px;
+    border:1.5px solid var(--border); font-size:15px;
+    font-family:inherit; outline:none; background:white;
+    transition:border-color .15s;
+  }
+  .mob-filter-search:focus { border-color:var(--accent); }
+  .mob-filter-btn {
+    position:relative; display:flex; align-items:center; gap:5px;
+    padding:10px 15px; border-radius:11px; border:1.5px solid var(--border);
+    background:white; font-size:14px; font-weight:700; color:var(--text);
+    font-family:inherit; cursor:pointer; white-space:nowrap; transition:all .15s;
+  }
+  .mob-filter-btn.active { background:var(--accent); color:white; border-color:var(--accent); }
+  .mob-filter-badge {
+    display:none; position:absolute; top:-7px; right:-7px;
+    background:#EF4444; color:white; border-radius:50%;
+    width:19px; height:19px; font-size:10px; font-weight:800;
+    align-items:center; justify-content:center; border:2px solid var(--bg);
+  }
+  .mob-filter-badge.show { display:flex; }
+}
+
+/* ── 手機版：精簡摘要列 ── */
+.mob-summary-bar { display:none; }
+@media (max-width:700px) {
+  .mob-summary-bar {
+    display:flex; align-items:center; justify-content:space-between;
+    background:#f0f4f9; border-radius:10px; padding:8px 14px;
+    margin-bottom:10px; font-size:13px;
+  }
+  .mob-sum-left { color:#555; font-weight:600; }
+  .mob-sum-left b { color:var(--accent); font-size:15px; }
+  .mob-sum-right { display:flex; align-items:center; gap:8px; }
+  .mob-sum-cost  { font-size:15px; font-weight:900; color:var(--accent); }
+  .mob-sort-chip {
+    font-size:11px; color:var(--muted); font-weight:700;
+    padding:3px 9px; border-radius:7px; background:white;
+    border:1px solid var(--border); cursor:pointer; white-space:nowrap;
+    transition:all .15s;
+  }
+  .mob-sort-chip.active { background:var(--accent); color:white; border-color:var(--accent); }
+}
+
+/* ── MOBILE BOTTOM SHEET ── */
+.mob-sheet-bg {
+  display:none; position:fixed; inset:0; z-index:300;
+  background:rgba(26,37,64,.45); backdrop-filter:blur(3px);
+  align-items:flex-end;
+}
+.mob-sheet-bg.open { display:flex; }
+.mob-sheet {
+  width:100%; background:white; border-radius:22px 22px 0 0;
+  padding-bottom:env(safe-area-inset-bottom, 0px);
+  box-shadow:0 -8px 40px rgba(104,120,192,.28);
+  transform:translateY(100%); transition:transform .3s cubic-bezier(.4,0,.2,1);
+  max-height:88vh; overflow-y:auto;
+}
+.mob-sheet-bg.open .mob-sheet { transform:none; }
+.mob-sheet-handle { width:40px; height:4px; background:#dde6ef; border-radius:2px; margin:14px auto 0; }
+.mob-sheet-header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:14px 20px 12px; border-bottom:1px solid var(--border);
+}
+.mob-sheet-title { font-size:17px; font-weight:900; color:var(--text); }
+.mob-sheet-close {
+  background:#f1f5f9; border:none; border-radius:50%;
+  width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+  font-size:17px; cursor:pointer; color:#666; transition:background .15s;
+}
+.mob-sheet-close:hover { background:#dde6ef; }
+.mob-sheet-body { padding:16px 20px; display:flex; flex-direction:column; gap:16px; }
+.mob-sheet-sec-label {
+  font-size:11px; font-weight:800; color:#bbb;
+  letter-spacing:.1em; margin-bottom:6px;
+}
+.mob-sheet-select {
+  width:100%; padding:12px 14px; border:1.5px solid var(--border);
+  border-radius:11px; font-size:15px; font-family:inherit;
+  background:white; outline:none; cursor:pointer; transition:border-color .15s;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 14px center;
+}
+.mob-sheet-select:focus { border-color:var(--accent); }
+.mob-sort-row { display:flex; gap:8px; }
+.mob-sort-row .mob-sheet-select { flex:1; }
+.mob-sort-dir {
+  padding:12px 16px; border:1.5px solid var(--border); border-radius:11px;
+  font-size:15px; font-weight:700; cursor:pointer; background:white;
+  font-family:inherit; transition:all .15s; white-space:nowrap; color:var(--text);
+}
+.mob-sort-dir.on { background:var(--accent); color:white; border-color:var(--accent); }
+.mob-toggle-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:14px 0; border-top:1px solid var(--border);
+}
+.mob-toggle-info .mob-toggle-lbl { font-size:15px; font-weight:700; color:var(--text); }
+.mob-toggle-info .mob-toggle-sub { font-size:12px; color:#aaa; margin-top:2px; }
+.mob-sw { position:relative; width:50px; height:28px; cursor:pointer; flex-shrink:0; }
+.mob-sw input { opacity:0; width:0; height:0; position:absolute; }
+.mob-sw-track { position:absolute; inset:0; background:#dde6ef; border-radius:14px; transition:.25s; }
+.mob-sw input:checked + .mob-sw-track { background:var(--accent); }
+.mob-sw-thumb { position:absolute; top:4px; left:4px; width:20px; height:20px; background:white; border-radius:50%; transition:.25s; box-shadow:0 1px 4px rgba(0,0,0,.2); pointer-events:none; }
+.mob-sw input:checked ~ .mob-sw-thumb { left:26px; }
+.mob-sheet-actions {
+  display:flex; gap:10px; padding:12px 20px 20px;
+  border-top:1px solid var(--border);
+  position:sticky; bottom:0; background:white;
+}
+.mob-sheet-clear { flex:1; padding:14px; border-radius:13px; border:1.5px solid var(--border); background:white; font-size:15px; font-weight:700; color:var(--muted); cursor:pointer; font-family:inherit; transition:all .15s; }
+.mob-sheet-clear:active { border-color:var(--red); color:var(--red); }
+.mob-sheet-apply { flex:2; padding:14px; border-radius:13px; border:none; background:var(--accent2); color:white; font-size:15px; font-weight:800; cursor:pointer; font-family:inherit; transition:background .15s; letter-spacing:.03em; }
+.mob-sheet-apply:active { background:var(--accent); }
 </style>
 </head>
 <body>
@@ -566,7 +677,7 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
     <span class="upload-status" id="uploadStatus" style="max-width:none;flex:none;order:unset;font-size:11px;"></span>
   </div>
   <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="loadExcel(this)">
-  <button class="btn btn-primary" onclick="document.getElementById('xlsxInput').click()">📂 上傳 Excel</button>
+  <button class="btn btn-primary topbar-hide-mobile" onclick="document.getElementById('xlsxInput').click()">📂 上傳 Excel</button>
   <button class="btn btn-ghost topbar-hide-mobile" onclick="refreshData()">🔄 重新整理</button>
   <button class="btn btn-blue topbar-hide-mobile" onclick="exportToExcel()">💾 匯出 Excel</button>
   <button class="btn btn-ghost topbar-hide-mobile" onclick="openConfig()">⚙️ 設定</button>
@@ -610,6 +721,24 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
     <div class="status-chip"        data-s="soon"    onclick="switchStatus('soon',this)">⚠️ 即將到期 <span class="chip-cnt" id="cnt-soon">0</span></div>
     <div class="status-chip"        data-s="expired" onclick="switchStatus('expired',this)">❌ 過期品 <span class="chip-cnt" id="cnt-expired">0</span></div>
     <div class="status-chip"        data-s="long"    onclick="switchStatus('long',this)">⏳ 長期在庫 <span class="chip-cnt" id="cnt-long">0</span></div>
+  </div>
+  <!-- 手機版：搜尋 + 篩選按鈕（桌機隱藏） -->
+  <div class="mob-filter-row">
+    <input class="mob-filter-search" id="mob-search" type="text"
+           placeholder="🔍 搜尋名稱 / 批號…" autocomplete="off"
+           oninput="onMobSearch()">
+    <button class="mob-filter-btn" id="mob-filter-btn" onclick="openMobSheet()">
+      ⊟ 篩選
+      <span class="mob-filter-badge" id="mob-filter-badge"></span>
+    </button>
+  </div>
+  <!-- 手機版：精簡摘要列（桌機隱藏） -->
+  <div class="mob-summary-bar" id="mob-summary-bar">
+    <div class="mob-sum-left">共 <b id="mob-s-count">—</b> 筆</div>
+    <div class="mob-sum-right">
+      <span class="mob-sort-chip" id="mob-sort-chip" onclick="openMobSheet()">排序 —</span>
+      <span class="mob-sum-cost" id="mob-s-cost">—</span>
+    </div>
   </div>
   <!-- 篩選列 -->
   <div class="filter-bar" id="filter-bar" style="flex-direction:column;align-items:stretch;">
@@ -812,6 +941,72 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
       <button class="btn btn-blue" onclick="saveConfig()">💾 儲存並重新載入</button>
     </div>
     <div class="modal-status" id="cfg-status"></div>
+  </div>
+</div>
+
+<!-- ════ MOBILE FILTER BOTTOM SHEET ════ -->
+<div class="mob-sheet-bg" id="mob-sheet-bg" onclick="if(event.target===this)closeMobSheet()">
+  <div class="mob-sheet">
+    <div class="mob-sheet-handle"></div>
+    <div class="mob-sheet-header">
+      <div class="mob-sheet-title">篩選 &amp; 排序</div>
+      <button class="mob-sheet-close" onclick="closeMobSheet()">✕</button>
+    </div>
+    <div class="mob-sheet-body">
+
+      <div>
+        <div class="mob-sheet-sec-label">倉庫</div>
+        <select class="mob-sheet-select" id="mob-sel-warehouse">
+          <option value="">全部倉庫</option>
+        </select>
+      </div>
+
+      <div>
+        <div class="mob-sheet-sec-label">核算範圍</div>
+        <select class="mob-sheet-select" id="mob-sel-scope">
+          <option value="">全部核算範圍</option>
+        </select>
+      </div>
+
+      <div>
+        <div class="mob-sheet-sec-label">產品類別</div>
+        <select class="mob-sheet-select" id="mob-sel-category">
+          <option value="">全部類別</option>
+        </select>
+      </div>
+
+      <div>
+        <div class="mob-sheet-sec-label">排序依據</div>
+        <div class="mob-sort-row">
+          <select class="mob-sheet-select" id="mob-sel-sort">
+            <option value="">— 不排序 —</option>
+            <option value="name">產品名稱</option>
+            <option value="days">剩餘天數</option>
+            <option value="cost">存貨成本</option>
+            <option value="qty">數量</option>
+            <option value="warehouse">倉庫</option>
+          </select>
+          <button class="mob-sort-dir" id="mob-sort-dir" onclick="toggleMobSortDir()">↑ 升序</button>
+        </div>
+      </div>
+
+      <div class="mob-toggle-row">
+        <div class="mob-toggle-info">
+          <div class="mob-toggle-lbl">⊞ 合併明細</div>
+          <div class="mob-toggle-sub">同產品同倉庫合計為一筆</div>
+        </div>
+        <label class="mob-sw">
+          <input type="checkbox" id="mob-toggle-merge">
+          <div class="mob-sw-track"></div>
+          <div class="mob-sw-thumb"></div>
+        </label>
+      </div>
+
+    </div>
+    <div class="mob-sheet-actions">
+      <button class="mob-sheet-clear" onclick="clearMobSheet()">清除全部</button>
+      <button class="mob-sheet-apply" onclick="applyMobSheet()">套用篩選</button>
+    </div>
   </div>
 </div>
 
@@ -1408,6 +1603,9 @@ function renderInventory(){
   document.getElementById('s-qty').textContent    = totalQty.toLocaleString('zh-TW');
   document.getElementById('s-cost').textContent   = fmtMoney(totalCost);
   document.getElementById('s-priced').textContent = `${pricedCnt} / ${rows.length}`;
+  // 手機版摘要列 & 篩選 badge
+  _updateMobSummaryBar(rows);
+  _updateMobFilterBadge();
   const costEl = document.getElementById('s-cost');
   costEl.className = 's-value' + (invStatus==='expired'?' red':invStatus==='soon'?' orange':invStatus==='long'?' amber':'');
 
@@ -2330,6 +2528,129 @@ async function saveNoteModal(){
   document.querySelectorAll(`textarea[data-key="${CSS.escape(key)}"]`).forEach(ta => { ta.value = note; });
   document.getElementById('note-modal-saved').textContent = '✓ 已儲存';
   setTimeout(() => closeNoteModal(), 700);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MOBILE BOTTOM SHEET
+// ═══════════════════════════════════════════════════════════════
+const MOB_SORT_LABELS = { '':'—', name:'名稱', days:'天數', cost:'成本', qty:'數量', warehouse:'倉庫' };
+
+function openMobSheet(){
+  _rebuildMobSelects();
+  const sortSel = document.getElementById('mob-sel-sort');
+  if(sortSel) sortSel.value = invSortCol || '';
+  _syncMobSortDirBtn();
+  const mergeToggle = document.getElementById('mob-toggle-merge');
+  if(mergeToggle) mergeToggle.checked = pivotEnabled;
+  document.getElementById('mob-sheet-bg').classList.add('open');
+}
+
+function closeMobSheet(){
+  document.getElementById('mob-sheet-bg').classList.remove('open');
+}
+
+function _rebuildMobSelects(){
+  const warehouses = [...new Set(rawRows.map(r => String(r['倉庫名稱']||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
+  const scopes     = [...new Set(Object.values(prices).map(p=>p.scope).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
+  const categories = [...new Set(rawRows.map(r => String(r['產品類別']||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
+  _fillMobSelect('mob-sel-warehouse', '全部倉庫',    warehouses, filterWarehouses);
+  _fillMobSelect('mob-sel-scope',     '全部核算範圍', scopes,     filterScopes);
+  _fillMobSelect('mob-sel-category',  '全部類別',    categories, filterCategories);
+}
+
+function _fillMobSelect(id, placeholder, options, selectedSet){
+  const sel = document.getElementById(id);
+  if(!sel) return;
+  sel.innerHTML = `<option value="">${placeholder}</option>` +
+    options.map(o => `<option value="${o.replace(/"/g,'&quot;')}">${o}</option>`).join('');
+  sel.value = selectedSet.size === 1 ? [...selectedSet][0] : '';
+}
+
+function _syncMobSortDirBtn(){
+  const btn = document.getElementById('mob-sort-dir');
+  if(!btn) return;
+  const hasSort = !!invSortCol;
+  btn.textContent = invSortDir === 'asc' ? '↑ 升序' : '↓ 降序';
+  btn.classList.toggle('on', hasSort);
+}
+
+function toggleMobSortDir(){
+  invSortDir = invSortDir === 'asc' ? 'desc' : 'asc';
+  _syncMobSortDirBtn();
+}
+
+function clearMobSheet(){
+  filterWarehouses.clear(); filterScopes.clear(); filterCategories.clear();
+  filterSearch = ''; filterMaxDays = null;
+  invSortCol = null; invSortDir = 'asc'; pivotEnabled = false;
+  ['mob-sel-warehouse','mob-sel-scope','mob-sel-category','mob-sel-sort'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  const mt = document.getElementById('mob-toggle-merge'); if(mt) mt.checked = false;
+  _syncMobSortDirBtn();
+  const ms = document.getElementById('mob-search'); if(ms) ms.value = '';
+  const si = document.getElementById('fi-search');  if(si){ si.value=''; si.classList.remove('has-val'); }
+  ['warehouse','scope','category'].forEach(t => _syncFilterBtn(t));
+  updateFilterClearBtn();
+  _updateMobFilterBadge();
+  saveFilterState();
+  renderInventory();
+  closeMobSheet();
+}
+
+function applyMobSheet(){
+  const wh  = document.getElementById('mob-sel-warehouse').value;
+  const sc  = document.getElementById('mob-sel-scope').value;
+  const cat = document.getElementById('mob-sel-category').value;
+  filterWarehouses.clear(); if(wh)  filterWarehouses.add(wh);
+  filterScopes.clear();     if(sc)  filterScopes.add(sc);
+  filterCategories.clear(); if(cat) filterCategories.add(cat);
+  ['warehouse','scope','category'].forEach(t => _syncFilterBtn(t));
+
+  const sortVal = document.getElementById('mob-sel-sort').value;
+  invSortCol  = sortVal || null;
+
+  pivotEnabled = document.getElementById('mob-toggle-merge').checked;
+  _syncMergeBtn();
+
+  _updateMobFilterBadge();
+  updateFilterClearBtn();
+  saveFilterState();
+  renderInventory();
+  closeMobSheet();
+  toast('✓ 篩選已套用');
+}
+
+function onMobSearch(){
+  const ms = document.getElementById('mob-search');
+  filterSearch = ms ? ms.value.trim() : '';
+  const si = document.getElementById('fi-search');
+  if(si){ si.value = filterSearch; si.classList.toggle('has-val', !!filterSearch); }
+  _updateMobFilterBadge();
+  renderInventory();
+}
+
+function _updateMobFilterBadge(){
+  const count = (filterWarehouses.size>0?1:0) + (filterScopes.size>0?1:0) +
+                (filterCategories.size>0?1:0) + (filterSearch?1:0) + (filterMaxDays!==null?1:0);
+  const badge = document.getElementById('mob-filter-badge');
+  const btn   = document.getElementById('mob-filter-btn');
+  if(badge){ badge.textContent = count; badge.classList.toggle('show', count>0); }
+  if(btn)   btn.classList.toggle('active', count>0);
+}
+
+function _updateMobSummaryBar(rows){
+  const cost  = rows.reduce((s,r) => s + r.cost, 0);
+  const cntEl  = document.getElementById('mob-s-count');
+  const costEl = document.getElementById('mob-s-cost');
+  const chip   = document.getElementById('mob-sort-chip');
+  if(cntEl)  cntEl.textContent  = rows.length.toLocaleString('zh-TW');
+  if(costEl) costEl.textContent = fmtMoney(cost);
+  if(chip){
+    const lbl = invSortCol ? `${MOB_SORT_LABELS[invSortCol]||invSortCol} ${invSortDir==='asc'?'↑':'↓'}` : '排序 —';
+    chip.textContent = lbl;
+    chip.classList.toggle('active', !!invSortCol);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
