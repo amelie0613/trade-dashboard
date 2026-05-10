@@ -45,9 +45,10 @@ body {
 /* ── HEADER ── */
 .topbar {
   background: linear-gradient(135deg, var(--accent2) 0%, var(--accent) 100%);
-  color: white; padding: 0 20px;
+  color: white;
+  padding: env(safe-area-inset-top, 0px) 20px 0;
   display: flex; align-items: center; gap: 14px;
-  height: 56px; position: sticky; top: 0; z-index: 100;
+  min-height: 56px; position: sticky; top: 0; z-index: 100;
   box-shadow: 0 2px 12px rgba(104,120,192,.25);
 }
 .topbar-title { font-size: 17px; font-weight: 900; flex: 1; }
@@ -387,7 +388,7 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
 
 /* ── RESPONSIVE BREAKPOINTS ── */
 @media (max-width: 700px) {
-  .topbar { height:auto; flex-wrap:wrap; padding:8px 12px; gap:6px; min-height:52px; }
+  .topbar { height:auto; flex-wrap:wrap; padding:calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px; gap:6px; min-height:52px; }
   .topbar-title { font-size:14px; min-width:0; }
   .topbar-sub { display:none; }
   .upload-status { max-width:none; }
@@ -532,14 +533,14 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
   .summary-row       { display:none !important; }
   #desktop-merge-btn { display:none !important; }
   #panel-inventory   { padding-bottom:16px; }
-  /* ── Status Bar：單行橫向滾動 ── */
+  /* ── Status Bar：2列完整顯示，不切邊 ── */
   .status-bar {
-    display:flex !important; flex-wrap:nowrap !important;
-    overflow-x:auto; scrollbar-width:none; gap:6px; padding-bottom:4px;
-    -webkit-overflow-scrolling:touch;
+    display:grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap:6px; flex-wrap:unset; overflow:visible;
   }
-  .status-bar::-webkit-scrollbar { display:none; }
-  .status-chip { flex-shrink:0; padding:7px 12px; }
+  .status-chip { padding:8px 6px; font-size:12px; text-align:center; }
+  .chip-cnt    { font-size:11px; }
 }
 
 /* ── 手機版：搜尋 + 篩選按鈕列 ── */
@@ -547,18 +548,19 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
 @media (max-width:700px) {
   .mob-filter-row {
     display:flex; gap:8px; align-items:center;
-    margin:8px 0 8px;
+    margin:8px 0 8px; overflow:visible;
   }
   .mob-filter-search {
-    flex:1; padding:10px 14px; border-radius:11px;
+    flex:1; min-width:0; padding:10px 14px; border-radius:11px;
     border:1.5px solid var(--border); font-size:15px;
     font-family:inherit; outline:none; background:white;
     transition:border-color .15s;
   }
   .mob-filter-search:focus { border-color:var(--accent); }
   .mob-filter-btn {
-    position:relative; display:flex; align-items:center; gap:5px;
-    padding:10px 15px; border-radius:11px; border:1.5px solid var(--border);
+    position:relative; flex-shrink:0;
+    display:flex; align-items:center; gap:5px;
+    padding:10px 14px; border-radius:11px; border:1.5px solid var(--border);
     background:white; font-size:14px; font-weight:700; color:var(--text);
     font-family:inherit; cursor:pointer; white-space:nowrap; transition:all .15s;
   }
@@ -566,7 +568,7 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
   .mob-filter-badge {
     display:none; position:absolute; top:-7px; right:-7px;
     background:#EF4444; color:white; border-radius:50%;
-    width:19px; height:19px; font-size:10px; font-weight:800;
+    width:18px; height:18px; font-size:10px; font-weight:800;
     align-items:center; justify-content:center; border:2px solid var(--bg);
   }
   .mob-filter-badge.show { display:flex; }
@@ -663,6 +665,24 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
 .mob-sheet-clear:active { border-color:var(--red); color:var(--red); }
 .mob-sheet-apply { flex:2; padding:14px; border-radius:13px; border:none; background:var(--accent2); color:white; font-size:15px; font-weight:800; cursor:pointer; font-family:inherit; transition:background .15s; letter-spacing:.03em; }
 .mob-sheet-apply:active { background:var(--accent); }
+
+/* ── 底部抽屜多選 Chips ── */
+.mob-chip-list {
+  display:flex; flex-wrap:wrap; gap:7px;
+  max-height:148px; overflow-y:auto; padding:2px 0;
+}
+.mob-chip-list::-webkit-scrollbar { display:none; }
+.mob-chip-opt {
+  padding:7px 16px; border-radius:20px;
+  border:1.5px solid var(--border); font-size:14px;
+  cursor:pointer; background:white; color:var(--text);
+  transition:all .15s; user-select:none; -webkit-user-select:none;
+  white-space:nowrap;
+}
+.mob-chip-opt:active { filter:brightness(.92); }
+.mob-chip-opt.sel { background:var(--accent); color:white; border-color:var(--accent); }
+.mob-chip-all { border-color:#aaa; color:#888; font-weight:700; }
+.mob-chip-all.sel { background:#64748b; color:white; border-color:#64748b; }
 </style>
 </head>
 <body>
@@ -955,24 +975,18 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
     <div class="mob-sheet-body">
 
       <div>
-        <div class="mob-sheet-sec-label">倉庫</div>
-        <select class="mob-sheet-select" id="mob-sel-warehouse">
-          <option value="">全部倉庫</option>
-        </select>
+        <div class="mob-sheet-sec-label">核算範圍</div>
+        <div class="mob-chip-list" id="mob-chips-scope"></div>
       </div>
 
       <div>
-        <div class="mob-sheet-sec-label">核算範圍</div>
-        <select class="mob-sheet-select" id="mob-sel-scope">
-          <option value="">全部核算範圍</option>
-        </select>
+        <div class="mob-sheet-sec-label">倉庫</div>
+        <div class="mob-chip-list" id="mob-chips-warehouse"></div>
       </div>
 
       <div>
         <div class="mob-sheet-sec-label">產品類別</div>
-        <select class="mob-sheet-select" id="mob-sel-category">
-          <option value="">全部類別</option>
-        </select>
+        <div class="mob-chip-list" id="mob-chips-category"></div>
       </div>
 
       <div>
@@ -1675,19 +1689,7 @@ function renderInventory(){
   const BADGE_CLS2  = { normal:'badge-normal', expired:'badge-expired', soon:'badge-soon', long:'badge-long' };
   const DAYS_LABEL  = { all:'剩餘/在庫', normal:'剩餘天數', expired:'超期天數', long:'在庫天數', soon:'剩餘天數' };
 
-  // 手機版排序菜單
-  const mergeBtnStyle = pivotEnabled ? `background:var(--accent);color:white;border-color:var(--accent);` : '';
-  let html = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 10px;">
-    <div style="display:flex;align-items:center;gap:6px;flex:1;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;">
-      <div style="font-size:11px;color:#999;white-space:nowrap;flex-shrink:0;">排序：</div>
-      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('name')">名稱${invSortCol==='name'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('qty')">數量${invSortCol==='qty'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('days')">天數${invSortCol==='days'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('cost')">成本${invSortCol==='cost'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('warehouse')">倉庫${invSortCol==='warehouse'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-      <button class="filter-btn" style="font-size:11px;padding:5px 9px;flex-shrink:0;" onclick="sortInv('scope')">核算範圍${invSortCol==='scope'?(invSortDir==='asc'?'↑':'↓'):''}</button>
-    </div>
-  </div>`;
+  let html = '';
 
   let grandQty = 0, grandCost = 0;
   rows.forEach(r => {
@@ -2553,17 +2555,44 @@ function _rebuildMobSelects(){
   const warehouses = [...new Set(rawRows.map(r => String(r['倉庫名稱']||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
   const scopes     = [...new Set(Object.values(prices).map(p=>p.scope).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
   const categories = [...new Set(rawRows.map(r => String(r['產品類別']||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
-  _fillMobSelect('mob-sel-warehouse', '全部倉庫',    warehouses, filterWarehouses);
-  _fillMobSelect('mob-sel-scope',     '全部核算範圍', scopes,     filterScopes);
-  _fillMobSelect('mob-sel-category',  '全部類別',    categories, filterCategories);
+  _buildMobChips('mob-chips-scope',     scopes,     filterScopes);
+  _buildMobChips('mob-chips-warehouse', warehouses, filterWarehouses);
+  _buildMobChips('mob-chips-category',  categories, filterCategories);
 }
 
-function _fillMobSelect(id, placeholder, options, selectedSet){
-  const sel = document.getElementById(id);
-  if(!sel) return;
-  sel.innerHTML = `<option value="">${placeholder}</option>` +
-    options.map(o => `<option value="${o.replace(/"/g,'&quot;')}">${o}</option>`).join('');
-  sel.value = selectedSet.size === 1 ? [...selectedSet][0] : '';
+function _buildMobChips(containerId, options, selectedSet){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const allSel = selectedSet.size === 0;
+  let html = `<div class="mob-chip-opt mob-chip-all${allSel?' sel':''}" onclick="selectAllMobChips('${containerId}')">全部</div>`;
+  options.forEach(opt => {
+    const esc = opt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const sel = selectedSet.has(opt) ? ' sel' : '';
+    html += `<div class="mob-chip-opt${sel}" onclick="toggleMobChip('${containerId}',this)">${opt.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`;
+  });
+  el.innerHTML = html;
+}
+
+function selectAllMobChips(containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  el.querySelectorAll('.mob-chip-opt').forEach(c => c.classList.remove('sel'));
+  el.querySelector('.mob-chip-all').classList.add('sel');
+}
+
+function toggleMobChip(containerId, chipEl){
+  chipEl.classList.toggle('sel');
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const anySelected = el.querySelectorAll('.mob-chip-opt:not(.mob-chip-all).sel').length > 0;
+  const allChip = el.querySelector('.mob-chip-all');
+  if(allChip) allChip.classList.toggle('sel', !anySelected);
+}
+
+function _getMobChipValues(containerId){
+  const el = document.getElementById(containerId);
+  if(!el) return new Set();
+  return new Set([...el.querySelectorAll('.mob-chip-opt:not(.mob-chip-all).sel')].map(c => c.textContent.trim()));
 }
 
 function _syncMobSortDirBtn(){
@@ -2583,9 +2612,9 @@ function clearMobSheet(){
   filterWarehouses.clear(); filterScopes.clear(); filterCategories.clear();
   filterSearch = ''; filterMaxDays = null;
   invSortCol = null; invSortDir = 'asc'; pivotEnabled = false;
-  ['mob-sel-warehouse','mob-sel-scope','mob-sel-category','mob-sel-sort'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.value = '';
-  });
+  // 重置所有 chip 列表為「全部」
+  ['mob-chips-warehouse','mob-chips-scope','mob-chips-category'].forEach(id => selectAllMobChips(id));
+  const sortSel = document.getElementById('mob-sel-sort'); if(sortSel) sortSel.value = '';
   const mt = document.getElementById('mob-toggle-merge'); if(mt) mt.checked = false;
   _syncMobSortDirBtn();
   const ms = document.getElementById('mob-search'); if(ms) ms.value = '';
@@ -2599,12 +2628,9 @@ function clearMobSheet(){
 }
 
 function applyMobSheet(){
-  const wh  = document.getElementById('mob-sel-warehouse').value;
-  const sc  = document.getElementById('mob-sel-scope').value;
-  const cat = document.getElementById('mob-sel-category').value;
-  filterWarehouses.clear(); if(wh)  filterWarehouses.add(wh);
-  filterScopes.clear();     if(sc)  filterScopes.add(sc);
-  filterCategories.clear(); if(cat) filterCategories.add(cat);
+  filterWarehouses = _getMobChipValues('mob-chips-warehouse');
+  filterScopes     = _getMobChipValues('mob-chips-scope');
+  filterCategories = _getMobChipValues('mob-chips-category');
   ['warehouse','scope','category'].forEach(t => _syncFilterBtn(t));
 
   const sortVal = document.getElementById('mob-sel-sort').value;
