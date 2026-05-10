@@ -5213,10 +5213,15 @@ window.doUploadLedger = async function() {
         })).filter(r => r.產品名稱 && r.批號);
 
         await saveLedgerRows(rows);
-        await refreshLedgerStatus();
-        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆（執行月結算後再備份到 Supabase）</span>`;
 
-        // 自動顯示總帳
+        // 匯入後立即同步到 Supabase，確保 viewLedger() 讀到最新資料
+        statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 同步到 Supabase 中...</span>';
+        await syncLedgerToSupabase();
+
+        await refreshLedgerStatus();
+        statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆，已同步到 Supabase</span>`;
+
+        // 自動顯示最新總帳（直接從 Supabase 讀取）
         await viewLedger();
 
         // 清除檔案選取
@@ -6006,6 +6011,7 @@ async function confirmMonthly() {
                             出庫數量: r.quantity,
                             分攤單價: r.allocated_price,
                             出庫金額: r.outbound_amount,
+                            備註: r.notes || '',
                             month_label: r.month_label,
                             period: r.period,
                         }));
@@ -6057,152 +6063,215 @@ async function confirmMonthly() {
 }
 
 // ===== 檢視總帳 =====
+// ===== 總帳欄位定義（共用）=====
+const LEDGER_COLS = [
+    { key:'採購部門',   label:'採購部門',     align:'text', highlight:false },
+    { key:'產品類別',   label:'產品類別',     align:'text', highlight:false },
+    { key:'產品代碼',   label:'產品代碼',     align:'text', highlight:false },
+    { key:'產品名稱',   label:'產品名稱',     align:'text', highlight:false },
+    { key:'批號',       label:'批號',         align:'text', highlight:false },
+    { key:'總檔結存',   label:'總檔結存',     align:'num',  highlight:false },
+    { key:'前期結餘',   label:'前期結餘',     align:'num',  highlight:false },
+    { key:'上半期租金', label:'本月上半',     align:'num',  highlight:false },
+    { key:'下半期租金', label:'本月下半',     align:'num',  highlight:false },
+    { key:'租金總計',   label:'租金總計',     align:'num',  highlight:true  },
+    { key:'分攤單價',   label:'分攤單價',     align:'num',  highlight:false },
+    { key:'月租金出庫',   label:'月租金(出庫)', align:'num',  highlight:false },
+    { key:'總檔租金結餘', label:'總檔租金結餘', align:'num',  highlight:true  },
+    { key:'_history',   label:'月結歷史',     align:'text', highlight:false },
+    { key:'備註',       label:'備註',         align:'text', highlight:false },
+];
+
+// ===== 檢視總帳：直接從 Supabase 讀取，不使用 localStorage =====
 async function viewLedger() {
     const resultsEl = document.getElementById('ledger_results');
-    resultsEl.innerHTML = '<p style="text-align:center; padding:2rem; color:#2a6a82;">⏳ 讀取中...</p>';
+    resultsEl.innerHTML = '<p style="text-align:center;padding:2rem;color:#2a6a82;">⏳ 從 Supabase 讀取中...</p>';
     try {
-        const rows = lsLoadLedgerRows() || [];
-        if (rows.length === 0) { resultsEl.innerHTML = '<p style="color:#999; text-align:center; padding:2rem;">總帳尚無資料</p>'; return; }
+        // 直接向 Supabase 取最新資料
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/ledger_table?select=*&order=department.asc,product_category.asc,product_name.asc`,
+            { headers: SB_HEADERS }
+        );
+        if (!resp.ok) throw new Error(`Supabase 回應錯誤：${resp.status} ${resp.statusText}`);
 
-        // 只顯示月租金結餘 > 0 的
-        const activeRows = rows.filter(r => (r.月租金結餘 || r.前期結餘 || 0) > 0);
+        const sbRows = await resp.json();
+        if (!sbRows.length) {
+            resultsEl.innerHTML = '<p style="color:#999;text-align:center;padding:2rem;">Supabase 總帳尚無資料。</p>';
+            return;
+        }
 
-        // 採購部門小計
-        const deptMap = {};
-        activeRows.forEach(r => {
-            const dept = r.採購部門 || '未分類';
-            deptMap[dept] = (deptMap[dept] || 0) + (r.月租金結餘 || r.前期結餘 || 0);
-        });
-        const deptColors = ['#f2a7c3','#7ec8e3','#8dcc7a','#f7a35c','#c9a8e0','#f7d96b','#e8836a'];
-        let deptCards = Object.entries(deptMap)
-            .sort((a,b) => b[1]-a[1])
-            .map(([dept, total], i) => `
-                <div style="background:white; border:1.5px solid ${deptColors[i%deptColors.length]}; border-radius:10px; padding:0.7rem 1rem; text-align:center; min-width:120px;">
-                    <div style="font-size:0.75rem; font-weight:700; color:#555; margin-bottom:0.2rem;">${dept}</div>
-                    <div style="font-size:1.1rem; font-weight:800; color:#c0507a;">$${Math.round(total).toLocaleString()}</div>
-                </div>`).join('');
+        // 轉換為本地格式，只保留 total_remainder > 0 的品項
+        const allRows  = sbRows.map(sbRowToLedger);
+        const activeRows = allRows.filter(r => (parseFloat(r.總檔租金結餘) || parseFloat(r.月租金結餘) || 0) > 0);
 
-        let grandTotal = activeRows.reduce((s,r) => s+(r.月租金結餘 || r.前期結餘 || 0), 0);
+        // 緩存供搜尋篩選使用
+        window._ledgerData = activeRows;
 
-        // ── 欄位定義 ─────────────────────────────────────────────────
-        const ledgerCols = [
-            { key:'採購部門',   label:'採購部門',   align:'text',   highlight:false },
-            { key:'產品類別',   label:'產品類別',   align:'text',   highlight:false },
-            { key:'產品代碼',   label:'產品代碼',   align:'text',   highlight:false },
-            { key:'產品名稱',   label:'產品名稱',   align:'text',   highlight:false },
-            { key:'批號',       label:'批號',       align:'text',   highlight:false },
-            { key:'總檔結存',   label:'總檔結存',   align:'num',    highlight:false },
-            { key:'前期結餘',   label:'前期結餘',   align:'num',    highlight:false },
-            { key:'上半期租金', label:'本月上半',   align:'num',    highlight:false },
-            { key:'下半期租金', label:'本月下半',   align:'num',    highlight:false },
-            { key:'租金總計',   label:'租金總計',   align:'num',    highlight:true  },
-            { key:'分攤單價',   label:'分攤單價',   align:'num',    highlight:false },
-            { key:'月租金出庫', label:'月租金(出庫)', align:'num',  highlight:false },
-            { key:'月租金結餘', label:'月租金(結餘)', align:'num',  highlight:true  },
-            { key:'_history',   label:'月結歷史',   align:'text',   highlight:false },
-            { key:'備註',       label:'備註',       align:'text',   highlight:false },
-        ];
-        const numKeys = new Set(ledgerCols.filter(c=>c.align==='num').map(c=>c.key));
+        // F12 驗證用 log
+        const grandTotal = activeRows.reduce((s,r) => s + (parseFloat(r.總檔租金結餘) || parseFloat(r.月租金結餘) || 0), 0);
+        console.log(`📋 Supabase 總帳：全部 ${sbRows.length} 筆 → 顯示 ${activeRows.length} 筆（total_remainder>0），總檔租金結餘合計 $${Math.round(grandTotal).toLocaleString()}`);
 
-        // ── 計算合計列 ───────────────────────────────────────────────
-        const totalsMap = {};
-        numKeys.forEach(k => { totalsMap[k] = 0; });
-        activeRows.forEach(r => {
-            numKeys.forEach(k => { totalsMap[k] += parseFloat(r[k])||0; });
-        });
-
-        // ── 排序 ─────────────────────────────────────────────────────
-        const sorted = [...activeRows].sort((a,b) => {
-            const dA = a.採購部門||'', dB = b.採購部門||'';
-            if (dA !== dB) return dA.localeCompare(dB,'zh-TW');
-            const cA = a.產品類別||'', cB = b.產品類別||'';
-            if (cA !== cB) return cA.localeCompare(cB,'zh-TW');
-            return (a.產品名稱||'').localeCompare(b.產品名稱||'','zh-TW');
-        });
-
-        // ── 合計列 HTML ──────────────────────────────────────────────
-        const thStyle = `position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;font-weight:700;border:1px solid #4a5a9f;padding:7px 10px;white-space:nowrap;font-size:11px;`;
-        const sumStyle = `position:sticky;top:0;z-index:2;background:#EEF3FD;font-weight:800;font-size:11px;color:#764ba2;border:1px solid #c5d3f0;padding:5px 10px;`;
-
-        const sumRow = ledgerCols.map(c => {
-            if (c.align === 'num') {
-                const v = totalsMap[c.key] || 0;
-                return `<th style="${sumStyle}text-align:right;">${Math.round(v).toLocaleString()}</th>`;
-            }
-            return `<th style="${sumStyle}">${c.key==='採購部門'?'合計':''}</th>`;
-        }).join('');
-
-        const thRow = ledgerCols.map(c => {
-            const hlBg = c.highlight ? 'background:#9b5fc0;' : '';
-            return `<th style="${thStyle}${hlBg}text-align:${c.align==='num'?'right':'left'};">${c.label}</th>`;
-        }).join('');
-
-        // ── 資料列 HTML ──────────────────────────────────────────────
-        window._ledgerViewRows = sorted; // 供右鍵公式使用
-        const tdBase = `border:1px solid #c8d8ea;font-size:11px;padding:5px 10px;white-space:nowrap;`;
-        let tableRows = '';
-        sorted.forEach((r, idx) => {
-            const bg = idx % 2 === 0 ? '#fff' : '#fafbfc';
-            const history = Object.entries(r.月結歷史||{}).slice(-4).map(([k,v])=>`${k}:${Number(v).toLocaleString()}`).join(' / ');
-            const rowKey = String(r.產品名稱||'').trim()+'|'+String(r.批號||'').trim();
-            tableRows += `<tr style="background:${bg};">`;
-            ledgerCols.forEach(c => {
-                const hlColor = c.highlight ? 'color:#c0507a;font-weight:700;' : '';
-                if (c.key === '_history') {
-                    tableRows += `<td style="${tdBase}${hlColor}font-size:10px;color:#8a6a7a;min-width:140px;white-space:normal;">${history||'-'}</td>`;
-                } else if (c.key === '產品名稱') {
-                    tableRows += `<td style="${tdBase}padding:0;"><input type="text" value="${r.產品名稱||''}" data-ledger-key="${rowKey}" data-field="產品名稱" onchange="onLedgerEdit(this)" style="width:100%;border:none;padding:4px 10px;background:transparent;font-family:inherit;font-size:11px;outline:none;cursor:pointer;border-bottom:1.5px solid transparent;" onfocus="this.style.borderBottomColor='#f2a7c3';this.style.background='#fff8fc';" onblur="this.style.borderBottomColor='transparent';this.style.background='transparent';"/></td>`;
-                } else if (c.key === '分攤單價') {
-                    const v = parseFloat(r[c.key])||0;
-                    const disp = v ? v.toFixed(5) : '-';
-                    tableRows += `<td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;cursor:context-menu;" oncontextmenu="showAllocPriceDetail(event,${idx});return false;" title="右鍵查看計算公式">${disp}</td>`;
-                } else if (c.align === 'num') {
-                    const v = parseFloat(r[c.key])||0;
-                    const disp = v ? v.toLocaleString() : '-';
-                    tableRows += `<td style="${tdBase}${hlColor}text-align:right;font-variant-numeric:tabular-nums;">${disp}</td>`;
-                } else {
-                    tableRows += `<td style="${tdBase}${hlColor}">${r[c.key]||''}</td>`;
-                }
-            });
-            tableRows += '</tr>';
-        });
-
-        resultsEl.innerHTML = `<div class="result-section">
-            <!-- 採購部門小計 -->
-            <div style="margin-bottom:1rem;">
-                <div style="font-size:0.78rem;font-weight:800;color:#8a5aa0;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">各採購部門租金總額</div>
-                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:stretch;">
-                    ${deptCards}
-                    <div style="background:#fdf0f7;border:1.5px solid #f2a7c3;border-radius:8px;padding:0.45rem 0.7rem;text-align:center;min-width:100px;">
-                        <div style="font-size:0.7rem;font-weight:700;color:#c0507a;margin-bottom:0.15rem;">總計</div>
-                        <div style="font-size:0.95rem;font-weight:800;color:#c0507a;">${Math.round(grandTotal).toLocaleString()}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 篩選 & 匯出 -->
+        // 建立外框（只建一次，搜尋時只更新內部）
+        resultsEl.innerHTML = `
+        <div class="result-section">
+            <div id="ledger_dept_cards" style="margin-bottom:1rem;"></div>
             <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.8rem;">
-                <input type="text" id="ledgerSearchInput" placeholder="搜尋產品名稱 / 批號…"
-                    style="width:200px;padding:0.5rem 0.7rem;font-size:0.85rem;"
-                    oninput="viewLedger()" />
-                <span style="font-size:0.8rem;color:#999;">共 <strong>${activeRows.length}</strong> 筆（結餘=0 已隱藏）</span>
+                <input type="text" id="ledgerSearchInput"
+                    placeholder="搜尋產品名稱 / 批號 / 採購部門…"
+                    style="width:260px;padding:0.5rem 0.8rem;font-size:0.85rem;border:1.5px solid #dde6ef;border-radius:8px;outline:none;"
+                    oninput="filterLedger()" />
+                <span id="ledger_count" style="font-size:0.8rem;color:#999;"></span>
                 <button onclick="exportLedger()" style="margin-left:auto;background:#8dcc7a;color:white;border:none;border-radius:8px;padding:0.5rem 1rem;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;font-size:0.85rem;">📥 匯出 Excel</button>
             </div>
-
-            <!-- 明細表格 -->
-            <div class="overflow-auto" style="max-height:calc(100vh - 300px);overflow-y:auto;">
+            <div style="overflow-x:auto;max-height:calc(100vh - 300px);overflow-y:auto;">
                 <table id="ledgerDetailTable" style="min-width:1600px;border-collapse:collapse;font-size:12px;font-family:'Noto Sans TC',sans-serif;width:100%;">
-                    <thead>
-                        <tr>${sumRow}</tr>
-                        <tr>${thRow}</tr>
-                    </thead>
-                    <tbody>${tableRows}</tbody>
+                    <thead id="ledgerThead"></thead>
+                    <tbody id="ledgerTbody"></tbody>
                 </table>
             </div>
         </div>`;
+
+        _renderLedger('');
+
     } catch(e) {
-        resultsEl.innerHTML = `<p style="color:#e8836a; text-align:center; padding:2rem;">❌ 讀取失敗：${e.message}</p>`;
+        resultsEl.innerHTML = `<p style="color:#e8836a;text-align:center;padding:2rem;">❌ 讀取失敗：${e.message}</p>`;
+        console.error('viewLedger 錯誤：', e);
     }
+}
+
+// ===== 搜尋篩選事件（不重新讀取資料）=====
+window.filterLedger = function() {
+    const input = document.getElementById('ledgerSearchInput');
+    _renderLedger(input ? input.value.trim() : '');
+};
+
+// ===== 渲染總帳表格（從緩存資料篩選，不碰 localStorage）=====
+function _renderLedger(searchTerm) {
+    const all = window._ledgerData || [];
+    if (all.length === 0) return;
+
+    // ── 篩選 ─────────────────────────────────────────────────────
+    const term = (searchTerm || '').toLowerCase();
+    const filtered = term ? all.filter(r =>
+        (r.產品名稱 || '').toLowerCase().includes(term) ||
+        (r.批號 || '').toLowerCase().includes(term) ||
+        (r.採購部門 || '').toLowerCase().includes(term)
+    ) : all;
+
+    // ── 採購部門合計卡片（以 Supabase 的 total_remainder 欄位為準）─────
+    const deptColors = ['#f2a7c3','#7ec8e3','#8dcc7a','#f7a35c','#c9a8e0','#f7d96b','#e8836a'];
+    const getBalance = r => parseFloat(r.總檔租金結餘) || parseFloat(r.月租金結餘) || 0;
+    const deptMap = {};
+    filtered.forEach(r => {
+        const dept = r.採購部門 || '未分類';
+        deptMap[dept] = (deptMap[dept] || 0) + getBalance(r);
+    });
+    const grandTotal = filtered.reduce((s,r) => s + getBalance(r), 0);
+
+    const deptCardsEl = document.getElementById('ledger_dept_cards');
+    if (deptCardsEl) {
+        const cards = Object.entries(deptMap)
+            .sort((a,b) => b[1]-a[1])
+            .map(([dept, total], i) => `
+                <div style="background:white;border:1.5px solid ${deptColors[i%deptColors.length]};border-radius:10px;padding:0.7rem 1rem;text-align:center;min-width:120px;">
+                    <div style="font-size:0.75rem;font-weight:700;color:#555;margin-bottom:0.2rem;">${dept}</div>
+                    <div style="font-size:1.1rem;font-weight:800;color:#c0507a;">$${Math.round(total).toLocaleString()}</div>
+                </div>`).join('');
+        deptCardsEl.innerHTML = `
+            <div style="font-size:0.78rem;font-weight:800;color:#8a5aa0;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">各採購部門租金總額</div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:stretch;">
+                ${cards}
+                <div style="background:#fdf0f7;border:1.5px solid #f2a7c3;border-radius:8px;padding:0.45rem 0.7rem;text-align:center;min-width:100px;">
+                    <div style="font-size:0.7rem;font-weight:700;color:#c0507a;margin-bottom:0.15rem;">總計</div>
+                    <div style="font-size:0.95rem;font-weight:800;color:#c0507a;">$${Math.round(grandTotal).toLocaleString()}</div>
+                </div>
+            </div>`;
+    }
+
+    // ── 筆數顯示 ─────────────────────────────────────────────────
+    const countEl = document.getElementById('ledger_count');
+    if (countEl) {
+        countEl.textContent = term
+            ? `找到 ${filtered.length} / ${all.length} 筆`
+            : `共 ${filtered.length} 筆（結餘=0 已隱藏）`;
+    }
+
+    // ── 排序：採購部門 → 產品類別 → 產品名稱 ──────────────────────
+    const sorted = [...filtered].sort((a,b) => {
+        const dA = a.採購部門||'', dB = b.採購部門||'';
+        if (dA !== dB) return dA.localeCompare(dB,'zh-TW');
+        const cA = a.產品類別||'', cB = b.產品類別||'';
+        if (cA !== cB) return cA.localeCompare(cB,'zh-TW');
+        return (a.產品名稱||'').localeCompare(b.產品名稱||'','zh-TW');
+    });
+
+    // ── 合計列數值 ───────────────────────────────────────────────
+    const numKeys = new Set(LEDGER_COLS.filter(c => c.align === 'num').map(c => c.key));
+    const totalsMap = {};
+    numKeys.forEach(k => { totalsMap[k] = 0; });
+    sorted.forEach(r => { numKeys.forEach(k => { totalsMap[k] += parseFloat(r[k])||0; }); });
+
+    // ── 渲染 thead ───────────────────────────────────────────────
+    const thStyle  = 'position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;font-weight:700;border:1px solid #4a5a9f;padding:7px 10px;white-space:nowrap;font-size:11px;';
+    const sumStyle = 'position:sticky;top:0;z-index:2;background:#EEF3FD;font-weight:800;font-size:11px;color:#764ba2;border:1px solid #c5d3f0;padding:5px 10px;';
+
+    const sumCells = LEDGER_COLS.map(c => {
+        if (c.align === 'num') {
+            const v = totalsMap[c.key] || 0;
+            return `<th style="${sumStyle}text-align:right;">${Math.round(v).toLocaleString()}</th>`;
+        }
+        return `<th style="${sumStyle}">${c.key === '採購部門' ? '合計' : ''}</th>`;
+    }).join('');
+
+    const thCells = LEDGER_COLS.map(c => {
+        const hlBg = c.highlight ? 'background:#9b5fc0;' : '';
+        return `<th style="${thStyle}${hlBg}text-align:${c.align==='num'?'right':'left'};">${c.label}</th>`;
+    }).join('');
+
+    const thead = document.getElementById('ledgerThead');
+    if (thead) thead.innerHTML = `<tr>${sumCells}</tr><tr>${thCells}</tr>`;
+
+    // ── 渲染 tbody ───────────────────────────────────────────────
+    window._ledgerViewRows = sorted; // 供右鍵分攤單價公式彈窗使用
+    const tdBase = 'border:1px solid #c8d8ea;font-size:11px;padding:5px 10px;white-space:nowrap;';
+
+    const rows = sorted.map((r, idx) => {
+        const bg = idx % 2 === 0 ? '#fff' : '#fafbfc';
+        const history = Object.entries(r.月結歷史||{}).slice(-4).map(([k,v]) => `${k}: ${Number(v).toLocaleString()}`).join(' / ');
+        const rowKey  = String(r.產品名稱||'').trim() + '|' + String(r.批號||'').trim();
+
+        const cells = LEDGER_COLS.map(c => {
+            const hlColor = c.highlight ? 'color:#c0507a;font-weight:700;' : '';
+            if (c.key === '_history') {
+                return `<td style="${tdBase}font-size:10px;color:#8a6a7a;min-width:160px;white-space:normal;">${history || '-'}</td>`;
+            }
+            if (c.key === '產品名稱') {
+                const safe = (r.產品名稱||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+                return `<td style="${tdBase}padding:0;"><input type="text" value="${safe}"
+                    data-ledger-key="${rowKey}" data-field="產品名稱"
+                    onchange="onLedgerEdit(this)"
+                    style="width:100%;border:none;padding:4px 10px;background:transparent;font-family:inherit;font-size:11px;outline:none;cursor:pointer;border-bottom:1.5px solid transparent;"
+                    onfocus="this.style.borderBottomColor='#f2a7c3';this.style.background='#fff8fc';"
+                    onblur="this.style.borderBottomColor='transparent';this.style.background='transparent';"/></td>`;
+            }
+            if (c.key === '分攤單價') {
+                const v = parseFloat(r[c.key]) || 0;
+                return `<td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;cursor:context-menu;"
+                    oncontextmenu="showAllocPriceDetail(event,${idx});return false;"
+                    title="右鍵查看計算公式">${v ? v.toFixed(5) : '-'}</td>`;
+            }
+            if (c.align === 'num') {
+                const v = parseFloat(r[c.key]) || 0;
+                return `<td style="${tdBase}${hlColor}text-align:right;font-variant-numeric:tabular-nums;">${v ? v.toLocaleString() : '-'}</td>`;
+            }
+            return `<td style="${tdBase}${hlColor}">${r[c.key] || ''}</td>`;
+        }).join('');
+
+        return `<tr style="background:${bg};">${cells}</tr>`;
+    }).join('');
+
+    const tbody = document.getElementById('ledgerTbody');
+    if (tbody) tbody.innerHTML = rows;
 }
 
 // ===== 匯出總帳 =====
@@ -6571,6 +6640,10 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
             else if (bizType.includes('拆解')) outType = '拆解';
             else if (bizType.includes('銷售') || bizType.includes('出貨')) outType = '銷售';
 
+            // 調撥出庫、拆解出庫需額外記錄備註
+            const needsNote = outType === '調撥' || outType === '拆解';
+            const noteVal   = needsNote ? String(io['備註'] || io['往來對象名稱'] || '').trim() : '';
+
             outboundList.push({
                 產品名稱: productName,
                 批號: batchNo,
@@ -6580,6 +6653,7 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
                 出庫數量: ioQty,
                 分攤單價: null,
                 出庫金額: null,
+                備註: noteVal,
                 month_label: '',
                 period: period,
             });
@@ -7323,7 +7397,7 @@ function displayOutboundRecords() {
     const thStyle = `position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;font-weight:700;border:1px solid #4a5a9f;padding:6px 10px;white-space:nowrap;font-size:11px;`;
     const tdBase = `border:1px solid #c8d8ea;font-size:11px;padding:5px 10px;white-space:nowrap;`;
 
-    const cols = ['產品名稱','批號','期間','出庫日期','出庫類型','業務屬性','出庫數量','分攤單價','出庫金額'];
+    const cols = ['產品名稱','批號','期間','出庫日期','出庫類型','業務屬性','出庫數量','分攤單價','出庫金額','備註'];
     const thRow = cols.map(c => `<th style="${thStyle}">${c}</th>`).join('');
 
     let rows = '';
@@ -7345,6 +7419,16 @@ function displayOutboundRecords() {
             ? `oncontextmenu="showCalcFormula(event,'出庫金額',['分攤單價 × 出庫數量','${r.分攤單價.toFixed(5)} × ${r.出庫數量}'],'${(r.出庫金額||0).toLocaleString()}');return false;"`
             : '';
 
+        // 備註：只有調撥/拆解才顯示，且有值才加底色
+        const needsNote = r.出庫類型 === '調撥' || r.出庫類型 === '拆解';
+        const noteText  = needsNote ? (r.備註 || '') : '';
+        const noteTdStyle = needsNote && noteText
+            ? `${tdBase}font-size:10px;color:#5a3a7a;background:#f5f0ff;min-width:120px;white-space:normal;`
+            : `${tdBase}color:#ccc;font-size:10px;`;
+        const noteDisplay = needsNote
+            ? (noteText || '<span style="color:#ccc;">—</span>')
+            : '<span style="color:#eee;">—</span>';
+
         rows += `<tr style="background:${bg};">
             <td style="${tdBase}font-weight:600;">${r.產品名稱}</td>
             <td style="${tdBase}color:#666;">${r.批號}</td>
@@ -7355,6 +7439,7 @@ function displayOutboundRecords() {
             <td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;">${r.出庫數量.toLocaleString()}</td>
             <td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;${hasPrice?'cursor:context-menu;' :''}" ${priceFormula} title="${hasPrice?'右鍵查看計算公式':''}">${單價display}</td>
             <td style="${tdBase}text-align:right;font-weight:700;color:#c0507a;font-variant-numeric:tabular-nums;${hasPrice?'cursor:context-menu;':''}" ${amtFormula} title="${hasPrice?'右鍵查看計算公式':''}">${金額display}</td>
+            <td style="${noteTdStyle}">${noteDisplay}</td>
         </tr>`;
     });
 
@@ -7384,11 +7469,12 @@ async function exportOutboundExcel() {
         { header:'批號',     key:'批號',     width:15 },
         { header:'期間',     key:'period',    width:10 },
         { header:'出庫日期', key:'出庫日期', width:14 },
-        { header:'出庫類型', key:'出庫類型', width:10 },
-        { header:'業務屬性', key:'業務屬性', width:18 },
-        { header:'出庫數量', key:'出庫數量', width:12 },
-        { header:'分攤單價', key:'分攤單價', width:14 },
-        { header:'出庫金額', key:'出庫金額', width:14 },
+        { header:'出庫類型', key:'出庫類型',    width:10 },
+        { header:'業務屬性', key:'業務屬性',    width:18 },
+        { header:'出庫數量', key:'出庫數量',    width:12 },
+        { header:'分攤單價', key:'分攤單價',    width:14 },
+        { header:'出庫金額', key:'出庫金額',    width:14 },
+        { header:'備註',     key:'備註',        width:24 },
         { header:'月份',     key:'month_label', width:10 },
     ];
     ws.getRow(1).font = { bold: true };
@@ -7428,6 +7514,7 @@ async function syncOutboundToSupabase(records, label) {
         quantity:        r.出庫數量,
         allocated_price: r.分攤單價 || 0,
         outbound_amount: r.出庫金額 || 0,
+        notes:           r.備註 || '',
         month_label:     label || r.month_label || '',
         period:          r.period || '',
         created_at:      new Date().toISOString(),
@@ -7496,6 +7583,7 @@ async function viewOutboundFromSupabase(monthLabel) {
             出庫數量: r.quantity,
             分攤單價: r.allocated_price,
             出庫金額: r.outbound_amount,
+            備註:     r.notes || '',
             month_label: r.month_label,
             period: r.period,
         }));
