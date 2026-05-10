@@ -6634,6 +6634,10 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
 
             outboundByType[bizType] = (outboundByType[bizType] || 0) + ioQty;
 
+            // 出庫記錄只收「-35度冷凍庫」或「-50度冷凍庫」，其他倉庫不紀錄
+            const warehouse = normalize(io['倉庫名稱'] || '');
+            if (!warehouse.includes('-35度冷凍庫') && !warehouse.includes('-50度冷凍庫')) continue;
+
             // 判斷出庫類型簡稱
             let outType = '其他';
             if (bizType.includes('調撥')) outType = '調撥';
