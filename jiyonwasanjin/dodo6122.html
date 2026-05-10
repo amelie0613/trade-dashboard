@@ -4957,12 +4957,55 @@ async function syncToGitHub() {
     if (statusEl) statusEl.textContent = '⏳ 上傳到 Supabase...';
     try {
         const data = rows.filter(r => r['產品名稱'] && r['批號']).map(ledgerRowToSb);
-        const resp = await fetch(`${SUPABASE_URL}/rest/v1/ledger_table?on_conflict=product_name,batch_no`, {
-            method: 'POST',
-            headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
-            body: JSON.stringify(data),
-        });
-        if (!resp.ok) throw new Error(await resp.text());
+
+        // 建立本次應保留的 key set
+        const keepKeys = new Set(data.map(r => `${r.product_name}|||${r.batch_no}`));
+
+        // 步驟 1：讀取 Supabase 中現有的所有品項 key
+        const existResp = await fetch(
+            `${SUPABASE_URL}/rest/v1/ledger_table?select=product_name,batch_no`,
+            { headers: SB_HEADERS }
+        );
+        if (existResp.ok) {
+            const existRows = await existResp.json();
+            // 找出不在本次 finalRows 的品項（已出清，需刪除）
+            const toDelete = existRows.filter(
+                r => !keepKeys.has(`${r.product_name}|||${r.batch_no}`)
+            );
+            if (toDelete.length > 0) {
+                // 批量刪除（每次最多 50 筆，避免 URL 過長）
+                const CHUNK = 50;
+                for (let i = 0; i < toDelete.length; i += CHUNK) {
+                    const chunk = toDelete.slice(i, i + CHUNK);
+                    const names = chunk.map(r => encodeURIComponent(r.product_name)).join(',');
+                    const batchNos = chunk.map(r => encodeURIComponent(r.batch_no)).join(',');
+                    // 逐筆刪除確保精確
+                    for (const r of chunk) {
+                        await fetch(
+                            `${SUPABASE_URL}/rest/v1/ledger_table?product_name=eq.${encodeURIComponent(r.product_name)}&batch_no=eq.${encodeURIComponent(r.batch_no)}`,
+                            { method: 'DELETE', headers: SB_HEADERS }
+                        );
+                    }
+                }
+                console.log(`🗑️ 已從 Supabase 移除 ${toDelete.length} 筆已出清品項`);
+            }
+        }
+
+        // 步驟 2：Upsert 最新的 finalRows（以本地總帳為準）
+        const BATCH = 500;
+        for (let i = 0; i < data.length; i += BATCH) {
+            const chunk = data.slice(i, i + BATCH);
+            const resp = await fetch(
+                `${SUPABASE_URL}/rest/v1/ledger_table?on_conflict=product_name,batch_no`,
+                {
+                    method: 'POST',
+                    headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+                    body: JSON.stringify(chunk),
+                }
+            );
+            if (!resp.ok) throw new Error(await resp.text());
+        }
+
         if (statusEl) statusEl.textContent = `✅ 已上傳 ${data.length} 筆到 Supabase`;
         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
     } catch(e) {
