@@ -485,6 +485,18 @@ table.data-tbl th{ position:relative; }
   font-size:11px;
   text-align:left;
 }
+#previewTable th,#previewTable td{
+  border:1px solid #c8d8ea;
+  vertical-align:middle;
+}
+#previewTable th{
+  position:sticky;top:0;z-index:2;
+  background:var(--accent);
+  color:#fff;font-weight:700;
+  padding:6px 8px;
+  white-space:nowrap;
+  font-size:11px;
+}
 table.data-tbl .row-track   td{background:#f5fff0!important;}
 
 /* ── Tabular-nums for all number / date cells in any table ── */
@@ -5107,7 +5119,7 @@ async function previewMonthly() {
             const 上半期租金 = (parseFloat((r1||{})['租金'])||0) + (parseFloat((r1||{})['出入庫'])||0);
             const 下半期租金 = (parseFloat((r2||{})['租金'])||0) + (parseFloat((r2||{})['出入庫'])||0);
             const prev = ledgerMap[key];
-            const 前期結餘 = prev ? (prev.月租金結餘 ?? prev.前期結餘 ?? prev.總檔租金結餘 ?? 0) : 0;
+            const 前期結餘 = prev ? (prev.月租金結餘 || prev.前期結餘 || prev.總檔租金結餘 || 0) : 0;
             const 租金總計 = 前期結餘 + 上半期租金 + 下半期租金;
 
             // 上期結存：有上半期就抓上半期，否則抓下半期
@@ -5260,7 +5272,7 @@ async function previewMonthly() {
             <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.82rem; color:#2d7a2d; font-weight:600;">
                 💡 確認無誤後點「確認導入」，系統會更新總帳並移除本期結存=0且月租金結餘=0的品項
             </div>
-            <div class="overflow-auto"><table id="previewTable" style="font-size:0.78rem;">
+            <div class="overflow-auto"><table id="previewTable" style="font-size:0.78rem;border-collapse:collapse;width:100%;">
                 <thead>
                 <tr style="background:#EEF3FD; font-weight:800; font-size:0.75rem; color:#764ba2;">`;
 
