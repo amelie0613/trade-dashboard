@@ -2593,7 +2593,10 @@ function selectAllMobChips(containerId){
   if(!el) return;
   el.querySelectorAll('.mob-chip-opt').forEach(c => c.classList.remove('sel'));
   el.querySelector('.mob-chip-all').classList.add('sel');
-  if(containerId === 'mob-chips-scope') _updateWarehouseHints();
+  if(containerId === 'mob-chips-scope') {
+    _updateWarehousePresets();
+    _updateWarehouseHints();
+  }
 }
 
 function toggleMobChip(containerId, chipEl){
@@ -2603,7 +2606,10 @@ function toggleMobChip(containerId, chipEl){
   const anySelected = el.querySelectorAll('.mob-chip-opt:not(.mob-chip-all).sel').length > 0;
   const allChip = el.querySelector('.mob-chip-all');
   if(allChip) allChip.classList.toggle('sel', !anySelected);
-  if(containerId === 'mob-chips-scope') _updateWarehouseHints();
+  if(containerId === 'mob-chips-scope') {
+    _updateWarehousePresets();
+    _updateWarehouseHints();
+  }
 }
 
 function _buildScopeWarehouseMap(){
@@ -2618,6 +2624,42 @@ function _buildScopeWarehouseMap(){
     }
   });
   return map;
+}
+
+function _updateWarehousePresets(){
+  const selectedScopes = _getMobChipValues('mob-chips-scope');
+  const whContainer = document.getElementById('mob-chips-warehouse');
+  if(!whContainer) return;
+
+  // 如果沒選核算範圍，清除所有倉庫選擇
+  if(selectedScopes.size === 0){
+    whContainer.querySelectorAll('.mob-chip-opt:not(.mob-chip-all)').forEach(c => c.classList.remove('sel'));
+    const allChip = whContainer.querySelector('.mob-chip-all');
+    if(allChip) allChip.classList.add('sel');
+    return;
+  }
+
+  // 推算屬於所選核算範圍的倉庫集合
+  const scopeMap = _buildScopeWarehouseMap();
+  const relatedWarehouses = new Set();
+  selectedScopes.forEach(sc => {
+    (scopeMap[sc] || new Set()).forEach(wh => relatedWarehouses.add(wh));
+  });
+
+  // 自動選中相關倉庫，取消無關倉庫
+  const allChip = whContainer.querySelector('.mob-chip-all');
+  whContainer.querySelectorAll('.mob-chip-opt:not(.mob-chip-all)').forEach(c => {
+    const wh = c.textContent.trim();
+    if(relatedWarehouses.has(wh)){
+      c.classList.add('sel');
+    } else {
+      c.classList.remove('sel');
+    }
+  });
+
+  // 更新「全部」chip 的狀態
+  const anySelected = whContainer.querySelectorAll('.mob-chip-opt:not(.mob-chip-all).sel').length > 0;
+  if(allChip) allChip.classList.toggle('sel', !anySelected);
 }
 
 function _updateWarehouseHints(){
