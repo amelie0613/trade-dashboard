@@ -1162,6 +1162,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="loadFile(this)" style="display:none">
 <input type="file" id="priceFileInput" accept=".xlsx,.xls" onchange="loadPriceFile(this)" style="display:none">
 <input type="file" id="weightFileInput" accept=".xlsx,.xls" onchange="loadWeightFile(this)" style="display:none">
+<input type="file" id="pendingFileInput" accept=".xlsx,.xls" onchange="loadPendingFile(this)" style="display:none">
 
 <!-- ══ APP SHELL ══════════════════════════════════════════════════ -->
 <div class="app-shell">
@@ -1433,6 +1434,41 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           </div>
 
         </div><!-- /inv-card -->
+
+        <!-- 未入庫明細上傳區 -->
+        <div class="inv-card" style="margin-top:16px;">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+            <span style="font-size:20px;">📥</span>
+            <div>
+              <div style="font-size:14px;font-weight:800;color:var(--text);">未入庫明細</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">上傳採購訂單未入庫明細，備份至 Supabase，在 Dashboard 庫存明細中以「未入庫」倉庫顯示</div>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+              <span id="pendingRecordCount" style="font-size:12px;color:var(--muted);display:none;"></span>
+              <button id="pendingUploadBtn" onclick="uploadPendingToSupabase()" style="display:none;background:#6878C0;color:white;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+                ☁️ 備份到 Supabase
+              </button>
+              <button onclick="document.getElementById('pendingFileInput').click()"
+                style="background:var(--accent-light);color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+                📂 選擇 xlsx
+              </button>
+            </div>
+          </div>
+          <div id="pendingPreviewWrap" style="display:none;padding:14px 18px;">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;">預覽（前 5 筆，倉庫將統一設為「未入庫」）</div>
+            <div class="tbl-scroll" style="max-height:200px;">
+              <table class="data-tbl" id="pendingPreviewTable" style="font-size:11px;">
+                <thead id="pendingPreviewHead"></thead>
+                <tbody id="pendingPreviewBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="pendingEmptyHint" style="padding:36px 20px;text-align:center;color:var(--muted);font-size:13px;">
+            尚未載入未入庫明細，請點擊「選擇 xlsx」上傳
+          </div>
+          <div id="pendingStatusMsg" style="padding:8px 20px;font-size:12px;font-weight:700;display:none;"></div>
+        </div>
+
       </div><!-- /view-inventory -->
 
       <!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
@@ -2395,8 +2431,9 @@ async function saveToSupabase(dataDate){
       };
     });
 
-    // 全量替換：先刪除舊資料
-    await fetch(`${SUPABASE_URL}/rest/v1/inventory?id=gte.0`, {
+    // 全量替換：先刪除舊資料（保留未入庫資料）
+    const delUrl = `${SUPABASE_URL}/rest/v1/inventory?id=gte.0&${encodeURIComponent('倉庫名稱')}=neq.${encodeURIComponent('未入庫')}`;
+    await fetch(delUrl, {
       method: 'DELETE',
       headers: {
         'apikey': SUPABASE_KEY,
@@ -4394,6 +4431,124 @@ async function writeToSheets(){
     statusEl.style.color = 'var(--red)';
     statusEl.textContent = '⚠️ 部分失敗：' + errors.join('、');
   }
+}
+
+// ── 未入庫明細 ────────────────────────────────────────────────
+let pendingRows = [];
+
+function loadPendingFile(input){
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const wb = XLSX.read(e.target.result, {type:'binary', cellDates:true});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(ws, {defval:''});
+      if(!json.length){ showToast('❌ 檔案無資料'); return; }
+
+      pendingRows = json.map(r => {
+        const expRaw = r['批號有效期至'];
+        let expDate = null;
+        if(expRaw instanceof Date) expDate = expRaw.toISOString().slice(0,10);
+        else if(expRaw){ const d = parseExcelDate ? parseExcelDate(expRaw) : null; expDate = d ? d.toISOString().slice(0,10) : String(expRaw); }
+
+        const lotRaw = r['批號'] ? String(r['批號']).trim() : '';
+        const lotDate = parseLotDate ? parseLotDate(lotRaw) : null;
+
+        return {
+          核算組織:         String(r['採購部門名稱'] || '').trim() || null,
+          產品類別:         String(r['產品類別']     || '').trim() || null,
+          產品代碼:         String(r['產品代碼']     || '').trim(),
+          產品名稱:         String(r['產品名稱']     || '').trim() || null,
+          產品規格:         String(r['產品規格']     || '').trim() || null,
+          庫存數量:         parseFloat(r['交易數量']) || 0,
+          單位:             String(r['交易單位名稱'] || '').trim() || null,
+          倉庫名稱:         '未入庫',
+          批號:             lotRaw,
+          入庫日期:         lotDate ? new Date(lotDate).toISOString().slice(0,10) : null,
+          有效期至:         expDate,
+          剩餘在庫天數:     null,
+          庫存狀態:         '正常',
+          存貨核算範圍名稱: null,
+          單價:             parseFloat(r['交易價']) || 0,
+          存貨成本:         (parseFloat(r['交易數量'])||0) * (parseFloat(r['交易價'])||0),
+          data_date:        null,
+        };
+      });
+
+      // 顯示預覽
+      const previewCols = ['產品代碼','產品名稱','產品規格','庫存數量','單位','批號','有效期至','單價'];
+      const thead = document.getElementById('pendingPreviewHead');
+      const tbody = document.getElementById('pendingPreviewBody');
+      thead.innerHTML = '<tr>' + previewCols.map(c=>`<th style="padding:6px 8px;background:#6878C0;color:#fff;font-weight:700;">${c}</th>`).join('') + '<th style="padding:6px 8px;background:#6878C0;color:#fff;font-weight:700;">倉庫</th></tr>';
+      tbody.innerHTML = pendingRows.slice(0,5).map(r =>
+        '<tr>' + previewCols.map(c=>`<td style="padding:5px 8px;border-bottom:1px solid #eef;">${r[c]??''}</td>`).join('') +
+        '<td style="padding:5px 8px;border-bottom:1px solid #eef;color:#6878C0;font-weight:700;">未入庫</td></tr>'
+      ).join('');
+
+      document.getElementById('pendingEmptyHint').style.display = 'none';
+      document.getElementById('pendingPreviewWrap').style.display = '';
+      document.getElementById('pendingRecordCount').textContent = `共 ${pendingRows.length} 筆`;
+      document.getElementById('pendingRecordCount').style.display = '';
+      document.getElementById('pendingUploadBtn').style.display = '';
+      document.getElementById('pendingStatusMsg').style.display = 'none';
+      showToast(`✅ 已讀取 ${pendingRows.length} 筆未入庫明細`);
+    }catch(err){
+      showToast('❌ 讀取失敗：' + err.message, 4000);
+    }
+    input.value = '';
+  };
+  reader.readAsBinaryString(file);
+}
+
+async function uploadPendingToSupabase(){
+  if(!pendingRows.length){ showToast('❌ 請先載入未入庫明細'); return; }
+  const btn = document.getElementById('pendingUploadBtn');
+  const msg = document.getElementById('pendingStatusMsg');
+  btn.disabled = true;
+  btn.textContent = '上傳中…';
+  msg.style.display = '';
+  msg.style.color = 'var(--muted)';
+  msg.textContent = '刪除舊的未入庫資料…';
+
+  try{
+    // 先刪除舊的未入庫記錄
+    const delUrl = `${SUPABASE_URL}/rest/v1/inventory?${encodeURIComponent('倉庫名稱')}=eq.${encodeURIComponent('未入庫')}`;
+    await fetch(delUrl, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Prefer': 'return=minimal' }
+    });
+
+    msg.textContent = `插入 ${pendingRows.length} 筆未入庫資料…`;
+
+    // 批量插入
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(pendingRows)
+    });
+
+    if(res.ok){
+      msg.style.color = 'var(--green)';
+      msg.textContent = `✅ 已備份 ${pendingRows.length} 筆未入庫明細到 Supabase`;
+      showToast(`✅ 未入庫明細已備份（${pendingRows.length} 筆）`);
+    } else {
+      const errText = await res.text();
+      msg.style.color = 'var(--red)';
+      msg.textContent = '❌ 上傳失敗：' + errText.slice(0,80);
+    }
+  }catch(e){
+    msg.style.color = 'var(--red)';
+    msg.textContent = '❌ 連線失敗：' + e.message;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '☁️ 備份到 Supabase';
 }
 
 // ── 上傳原始資料（供 dashboard.html 讀取） ───────────────────────
