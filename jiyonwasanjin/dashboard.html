@@ -166,6 +166,12 @@ td.note-cell .save-indicator.show { display: block; }
 .badge-down { background: #fef3c7; color: #92400e; }
 .badge-same { background: #f3f4f6; color: #374151; }
 .chg-badge  { display: inline-block; border-radius: 5px; font-size: 10px; font-weight: 700; padding: 1px 7px; white-space: nowrap; }
+.diff-2col-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.diff-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 0; }
+@media (max-width:700px) {
+  .diff-2col-grid  { grid-template-columns: 1fr; }
+  .diff-detail-grid { grid-template-columns: 1fr; }
+}
 .diff-section-hd {
   display: flex; align-items: center; gap: 4px;
   padding: 10px 14px; margin: 12px 0 0;
@@ -920,8 +926,8 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
     <div class="summary-card"><div class="s-label">產生時間</div><div class="s-value" style="font-size:12px;padding-top:3px;" id="d-gentime">—</div></div>
   </div>
 
-  <!-- 圖表區域：左右並排 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+  <!-- 圖表區域：左右並排（手機版單欄）-->
+  <div class="diff-2col-grid">
 
     <!-- 左：樹狀圖 -->
     <div style="padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);">
@@ -949,11 +955,11 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
 
   </div>
 
-  <!-- ── 上排：減少明細 ＋ 魚貨明細（左右並排）── -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0;">
+  <!-- ── 上排：減少明細 ＋ 魚貨明細（手機版單欄）── -->
+  <div class="diff-detail-grid">
 
     <!-- 減少明細 -->
-    <div>
+    <div style="min-width:0;overflow:hidden;">
       <div class="diff-section-hd" onclick="toggleDiffSection('diff-reduce-wrap','diff-reduce-arrow')" style="border-left-color:var(--amber);margin-top:12px;">
         <span>🟠 數量減少明細</span>
         <span id="diff-reduce-cnt" style="margin-left:8px;font-size:12px;color:var(--orange);font-weight:400;"></span>
@@ -975,7 +981,7 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
     </div>
 
     <!-- 魚貨明細 -->
-    <div>
+    <div style="min-width:0;overflow:hidden;">
       <div class="diff-section-hd" onclick="toggleDiffSection('diff-fish-wrap','diff-fish-arrow')" style="border-left-color:#0e7490;margin-top:12px;">
         <span>🐟 魚貨變化明細</span>
         <span id="diff-fish-cnt" style="margin-left:8px;font-size:12px;color:#0e7490;font-weight:400;"></span>
@@ -2730,15 +2736,17 @@ function renderDiffTreemapChart(data){
   const el = document.getElementById('diffTreemapChart');
   if(!el || !data.length) return;
 
-  // 每個核算範圍固定顏色（深色父層 + 淡色子層）
-  const SCOPE_COLORS = [
-    { base:'#6878C0', light:'rgba(104,120,192,0.55)' },
-    { base:'#0e7490', light:'rgba(14,116,144,0.55)'  },
-    { base:'#b45309', light:'rgba(180,83,9,0.55)'    },
-    { base:'#6d28d9', light:'rgba(109,40,217,0.55)'  },
-    { base:'#065f46', light:'rgba(6,95,70,0.55)'     },
-    { base:'#9f1239', light:'rgba(159,18,57,0.55)'   },
+  // 依核算範圍名稱對應顏色
+  const SCOPE_PALETTE = [
+    { match:'大漁', base:'#16a34a', light:'rgba(22,163,74,0.50)'   },  // 綠色
+    { match:'正洋', base:'#6878C0', light:'rgba(104,120,192,0.50)' },  // 藍紫
+    { match:'海和', base:'#d96b8e', light:'rgba(217,107,142,0.50)' },  // 櫻花蝦粉
+    { match:'貿易', base:'#c9a227', light:'rgba(201,162,39,0.50)'  },  // 鵝黃
   ];
+  const DEFAULT_PALETTE = { base:'#6878C0', light:'rgba(104,120,192,0.50)' };
+  function scopePalette(name){
+    return SCOPE_PALETTE.find(p => name.includes(p.match)) || DEFAULT_PALETTE;
+  }
 
   // 按核算範圍彙總
   const scopeMap = {};
@@ -2760,30 +2768,26 @@ function renderDiffTreemapChart(data){
   const treeData = Object.entries(scopeMap)
     .filter(([, v]) => v.costA > 0 || v.costB > 0)
     .sort((a, b) => b[1].costA - a[1].costA)
-    .map(([scope, v], idx) => {
-      const palette  = SCOPE_COLORS[idx % SCOPE_COLORS.length];
+    .map(([scope, v]) => {
+      const palette  = scopePalette(scope);
       const diff     = v.costA - v.costB;
       const diffPct  = v.costB > 0 ? ((diff / v.costB) * 100).toFixed(1) : '—';
-      const sign     = diff >= 0 ? '+' : '';
       return {
         name: scope,
         value: Math.round(v.costA),
-        costA: v.costA,
-        costB: v.costB,
-        diff,
-        diffPct,
+        costA: v.costA, costB: v.costB, diff, diffPct, scopeName: scope,
         itemStyle: { color: palette.base },
         children: [
           {
             name: '本期',
             value: Math.round(v.costA),
-            costA: v.costA, costB: v.costB, diff, diffPct,
+            costA: v.costA, costB: v.costB, diff, diffPct, scopeName: scope,
             itemStyle: { color: palette.base }
           },
           {
             name: '上期',
             value: Math.round(v.costB),
-            costA: v.costA, costB: v.costB, diff, diffPct,
+            costA: v.costA, costB: v.costB, diff, diffPct, scopeName: scope,
             itemStyle: { color: palette.light }
           }
         ]
@@ -2821,19 +2825,19 @@ function renderDiffTreemapChart(data){
         fontWeight: 700,
         color: '#fff',
         formatter: p => {
-          if(!p.data.costA && !p.data.costB) return p.name;
-          const sign = (p.data.diff || 0) >= 0 ? '+' : '';
-          // 父層（核算範圍）：顯示範圍名、本期、上期
-          if(p.treePathInfo && p.treePathInfo.length === 1){
-            return `${p.name}\n本期 ${fmtK(p.data.costA)}\n上期 ${fmtK(p.data.costB)}`;
+          const sn = p.data.scopeName || '';
+          // 子層（本期 / 上期）
+          if(p.name === '本期' || p.name === '上期'){
+            return `${sn}\n${p.name}\n${fmtK(p.value)}`;
           }
-          // 子層（本期 / 上期）：顯示父範圍名 + 標籤 + 金額
-          const scopeName = p.treePathInfo && p.treePathInfo.length >= 2
-            ? p.treePathInfo[0].name : '';
-          return `${scopeName ? scopeName + '\n' : ''}${p.name}\n${fmtK(p.value)}`;
+          // 父層（核算範圍，未展開時）
+          return `${p.name}\n本期 ${fmtK(p.data.costA)}\n上期 ${fmtK(p.data.costB)}`;
         }
       },
-      upperLabel: { show: true, height: 26, color: '#fff', fontWeight: 700, fontSize: 12 },
+      upperLabel: {
+        show: true, height: 32, color: '#fff', fontWeight: 700, fontSize: 13,
+        formatter: p => p.data.scopeName || p.name
+      },
       levels: [
         { itemStyle: { borderWidth: 3, borderColor: '#fff', gapWidth: 3 } },
         { itemStyle: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', gapWidth: 1 } }
@@ -2941,7 +2945,21 @@ function renderDiffWarehouseLineChart(data, mode){
     whMap[wh].costB += costB;
   });
 
-  const warehouses = Object.keys(whMap).sort();
+  // 按核算範圍順序排列倉庫（先建立倉庫→範圍對照表）
+  const whScopeMap = {};
+  data.forEach(r => {
+    const wh = _diffCol(r,'倉庫','倉庫名稱') || '未知';
+    if(!whScopeMap[wh]) whScopeMap[wh] = _diffCol(r,'核算範圍') || '';
+  });
+  const warehouses = Object.keys(whMap).sort((a, b) => {
+    const sa = whScopeMap[a] || '';
+    const sb = whScopeMap[b] || '';
+    const ia = SCOPE_ORDER.findIndex(s => sa.includes(s));
+    const ib = SCOPE_ORDER.findIndex(s => sb.includes(s));
+    const ra = ia === -1 ? 999 : ia;
+    const rb = ib === -1 ? 999 : ib;
+    return ra !== rb ? ra - rb : a.localeCompare(b, 'zh-Hant');
+  });
   const costA  = warehouses.map(w => Math.round(whMap[w].costA));
   const costB  = warehouses.map(w => Math.round(whMap[w].costB));
   const qtyA   = warehouses.map(w => Math.round(whMap[w].qA));
