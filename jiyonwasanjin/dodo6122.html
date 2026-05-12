@@ -1436,7 +1436,11 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         </div><!-- /inv-card -->
 
         <!-- 未入庫明細上傳區 -->
-        <div class="inv-card" style="margin-top:16px;">
+        <div class="inv-card" style="margin-top:16px;"
+             id="pendingCard"
+             ondragover="event.preventDefault();document.getElementById('pendingCard').style.outline='2px dashed var(--accent)';"
+             ondragleave="document.getElementById('pendingCard').style.outline='';"
+             ondrop="document.getElementById('pendingCard').style.outline='';handlePendingDrop(event);">
           <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
             <span style="font-size:20px;">📥</span>
             <div>
@@ -1464,7 +1468,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             </div>
           </div>
           <div id="pendingEmptyHint" style="padding:36px 20px;text-align:center;color:var(--muted);font-size:13px;">
-            尚未載入未入庫明細，請點擊「選擇 xlsx」上傳
+            尚未載入未入庫明細，請點擊「選擇 xlsx」或拖拉檔案到此區域
           </div>
           <div id="pendingStatusMsg" style="padding:8px 20px;font-size:12px;font-weight:700;display:none;"></div>
         </div>
@@ -2379,9 +2383,22 @@ function loadFile(input){
       // 【舊】本地顯示（用第一個工作表的資料）
       const firstSheetName = wb.SheetNames[0];
       const firstSheetJson = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], {defval:''});
-      processData(firstSheetJson);
 
-      showToast(`✅ 成功載入 ${firstSheetJson.length} 筆資料`);
+      // 確保 F 列（庫存數量）和 G 列（基本單位名稱）被正確映射
+      const processedData = firstSheetJson.map(row => {
+        // 如果列名不是預期的，嘗試從 F、G 列重新映射
+        if (!row['庫存數量'] && row['F']) {
+          row['庫存數量'] = row['F'];
+        }
+        if (!row['基本單位名稱'] && row['G']) {
+          row['基本單位名稱'] = row['G'];
+        }
+        return row;
+      });
+
+      processData(processedData);
+
+      showToast(`✅ 成功載入 ${processedData.length} 筆資料`);
     }catch(err){
       showToast('❌ 讀取失敗：'+err.message, 4000);
     }
@@ -4435,6 +4452,18 @@ async function writeToSheets(){
 
 // ── 未入庫明細 ────────────────────────────────────────────────
 let pendingRows = [];
+
+function handlePendingDrop(event){
+  event.preventDefault();
+  const file = event.dataTransfer?.files?.[0];
+  if(!file) return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){ showToast('❌ 請拖拉 xlsx / xls 檔案'); return; }
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  const input = document.getElementById('pendingFileInput');
+  input.files = dt.files;
+  loadPendingFile(input);
+}
 
 function loadPendingFile(input){
   const file = input.files[0]; if(!file) return;
