@@ -169,9 +169,17 @@ td.note-cell .save-indicator.show { display: block; }
 .diff-2col-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 .diff-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 0; }
 @media (max-width:700px) {
-  .diff-2col-grid  { grid-template-columns: 1fr; }
+  .diff-2col-grid   { grid-template-columns: 1fr; }
   .diff-detail-grid { grid-template-columns: 1fr; }
+  /* 差異報告明細表格在手機版要顯示（全站 .tbl-wrap 在手機版被 hide） */
+  #panel-diff .tbl-wrap { display:block; }
+  /* 手機版圖表高度縮小 */
+  #diffTreemapChart,
+  #diffWarehouseLineChart { height:280px !important; }
 }
+.diff-compact-tbl { table-layout: auto; min-width: unset; width: 100%; }
+.diff-compact-tbl th,
+.diff-compact-tbl td { padding: 5px 8px; white-space: nowrap; }
 .diff-section-hd {
   display: flex; align-items: center; gap: 4px;
   padding: 10px 14px; margin: 12px 0 0;
@@ -933,7 +941,7 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
     <div style="padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);">
       <h3 style="margin-bottom:4px;font-size:14px;font-weight:700;color:var(--text);">🌳 各存貨範圍成本比較</h3>
       <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">區塊大小＝本期成本，點擊展開查看明細；🔴 成本上升　🟢 成本下降</p>
-      <div id="diffTreemapChart" style="width:100%;height:400px;"></div>
+      <div id="diffTreemapChart" style="width:100%;height:clamp(260px,38vw,420px);"></div>
     </div>
 
     <!-- 右：倉庫曲線圖 -->
@@ -950,7 +958,7 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
         </div>
       </div>
       <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">實線＝本期，虛線＝上期</p>
-      <div id="diffWarehouseLineChart" style="width:100%;height:400px;"></div>
+      <div id="diffWarehouseLineChart" style="width:100%;height:clamp(260px,38vw,420px);"></div>
     </div>
 
   </div>
@@ -966,8 +974,8 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
         <span id="diff-reduce-arrow" style="margin-left:auto;font-size:13px;">▶</span>
       </div>
       <div id="diff-reduce-wrap" style="display:none;">
-        <div class="tbl-wrap" style="max-height:340px;overflow-y:auto;">
-          <table>
+        <div class="tbl-wrap" style="max-height:340px;overflow-y:auto;overflow-x:auto;">
+          <table class="diff-compact-tbl">
             <thead><tr>
               <th style="width:16%">核算範圍</th><th style="width:10%">產品類別</th>
               <th style="width:26%">產品名稱</th><th style="width:12%">本期數量</th>
@@ -988,8 +996,8 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
         <span id="diff-fish-arrow" style="margin-left:auto;font-size:13px;">▶</span>
       </div>
       <div id="diff-fish-wrap" style="display:none;">
-        <div class="tbl-wrap" style="max-height:340px;overflow-y:auto;">
-          <table>
+        <div class="tbl-wrap" style="max-height:340px;overflow-y:auto;overflow-x:auto;">
+          <table class="diff-compact-tbl">
             <thead><tr>
               <th style="width:15%">核算範圍</th><th style="width:10%">變化</th>
               <th style="width:27%">產品名稱</th><th style="width:12%">本期數量</th>
@@ -2823,19 +2831,17 @@ function renderDiffTreemapChart(data){
         show: true,
         fontSize: 12,
         fontWeight: 700,
-        color: '#fff',
+        color: '#222',
         formatter: p => {
           const sn = p.data.scopeName || '';
-          // 子層（本期 / 上期）
           if(p.name === '本期' || p.name === '上期'){
             return `${sn}\n${p.name}\n${fmtK(p.value)}`;
           }
-          // 父層（核算範圍，未展開時）
           return `${p.name}\n本期 ${fmtK(p.data.costA)}\n上期 ${fmtK(p.data.costB)}`;
         }
       },
       upperLabel: {
-        show: true, height: 32, color: '#fff', fontWeight: 700, fontSize: 13,
+        show: true, height: 32, color: '#222', fontWeight: 700, fontSize: 13,
         formatter: p => p.data.scopeName || p.name
       },
       levels: [
