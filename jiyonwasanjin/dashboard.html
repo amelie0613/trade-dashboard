@@ -913,8 +913,8 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
     </button>
   </div>
 
-  <!-- 圖表區域 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);">
+  <!-- 圖表區域 Row 1 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:16px;padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);">
     <div style="min-height:350px;">
       <h3 style="margin-bottom:12px;font-size:14px;font-weight:700;color:var(--text);">📊 按倉庫分析（堆疊柱狀圖）</h3>
       <div id="diffStackedChart" style="width:100%;height:320px;"></div>
@@ -923,6 +923,27 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
       <h3 style="margin-bottom:12px;font-size:14px;font-weight:700;color:var(--text);">📈 數量對應關係（散布圖）</h3>
       <div id="diffScatterChart" style="width:100%;height:320px;"></div>
     </div>
+  </div>
+
+  <!-- 圖表區域 Row 2 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:16px;padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);">
+    <div style="min-height:380px;">
+      <h3 style="margin-bottom:4px;font-size:14px;font-weight:700;color:var(--text);">🌊 存貨跨期橋接（瀑布圖）</h3>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">上期 → 新增 → 消失 → 增加 → 減少 → 本期</p>
+      <div id="diffWaterfallChart" style="width:100%;height:320px;"></div>
+    </div>
+    <div style="min-height:380px;">
+      <h3 style="margin-bottom:4px;font-size:14px;font-weight:700;color:var(--text);">🌳 存貨範圍價值（樹狀圖）</h3>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">區塊大小＝本期成本，顏色＝成本差異方向</p>
+      <div id="diffTreemapChart" style="width:100%;height:320px;"></div>
+    </div>
+  </div>
+
+  <!-- 圖表區域 Row 3 -->
+  <div style="padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px;">
+    <h3 style="margin-bottom:4px;font-size:14px;font-weight:700;color:var(--text);">🎯 異動敏感度矩陣（效率散布圖）</h3>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">X軸＝數量變動率，Y軸＝成本變動率；右上角＝量增成本增，左下角＝量減成本減</p>
+    <div id="diffEfficiencyChart" style="width:100%;height:360px;"></div>
   </div>
 
   <div class="tbl-wrap">
@@ -2364,6 +2385,9 @@ function renderDiff(){
   // 生成圖表
   renderDiffStackedChart(diffRows);
   renderDiffScatterChart(diffRows);
+  renderDiffWaterfallChart(diffRows);
+  renderDiffTreemapChart(diffRows);
+  renderDiffEfficiencyChart(diffRows);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2471,6 +2495,188 @@ function renderDiffScatterChart(data){
     chart.setOption(option);
     window.addEventListener('resize', () => chart.resize());
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  瀑布圖 - 存貨跨期橋接
+// ═══════════════════════════════════════════════════════════════
+function renderDiffWaterfallChart(data){
+  const el = document.getElementById('diffWaterfallChart');
+  if(!el || !data.length) return;
+
+  const chgKey = '變化類型';
+  let totalB = 0, totalNew = 0, totalGone = 0, totalUp = 0, totalDown = 0;
+
+  data.forEach(r => {
+    const type = String(r[chgKey]||'').trim();
+    const qA = parseFloat(_diffCol(r,'本期數量','期末數量','結存數量')||0);
+    const qB = parseFloat(_diffCol(r,'上期數量','期初數量','上期庫存')||0);
+    totalB    += qB;
+    if(type==='新增') totalNew  += qA;
+    if(type==='消失') totalGone += qB;
+    if(type==='增加') totalUp   += (qA - qB);
+    if(type==='減少') totalDown += (qB - qA);
+  });
+  const totalA = totalB + totalNew - totalGone + totalUp - totalDown;
+
+  // 瀑布圖資料 [起始值, 高度]
+  const series = [
+    { name:'上期結存', value: totalB,     color:'#6878C0', start: 0 },
+    { name:'新增',     value: totalNew,   color:'#22c55e', start: totalB },
+    { name:'消失',     value:-totalGone,  color:'#dc2626', start: totalB + totalNew - totalGone },
+    { name:'增加',     value: totalUp,    color:'#3b82f6', start: totalB + totalNew - totalGone },
+    { name:'減少',     value:-totalDown,  color:'#f59e0b', start: totalB + totalNew - totalGone + totalUp - totalDown },
+    { name:'本期結存', value: totalA,     color:'#7C3AED', start: 0 },
+  ];
+
+  const chart = echarts.getInstanceByDom(el) || echarts.init(el);
+  chart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      formatter: params => {
+        const p = params[1] || params[0];
+        const v = p.value >= 0 ? `+${fmtNum(p.value)}` : fmtNum(p.value);
+        return `${p.name}<br/><b>${v}</b>`;
+      }
+    },
+    grid: { top:30, right:20, bottom:60, left:70, containLabel:true },
+    xAxis: {
+      type: 'category',
+      data: series.map(s => s.name),
+      axisLabel: { fontSize:11 }
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize:11, formatter: v => fmtNum(v) },
+      splitLine: { lineStyle:{ type:'dashed', opacity:.3 } }
+    },
+    series: [
+      {
+        type: 'bar',
+        stack: 'w',
+        itemStyle: { borderColor:'transparent', color:'transparent' },
+        emphasis: { itemStyle:{ borderColor:'transparent', color:'transparent' } },
+        data: series.map((s,i) => i===5 ? 0 : s.start)
+      },
+      {
+        type: 'bar',
+        stack: 'w',
+        label: { show:true, position:'top', fontSize:10, formatter: p => fmtNum(Math.abs(p.value)) },
+        data: series.map(s => ({
+          value: s.value,
+          itemStyle: { color: s.color, borderRadius:[3,3,0,0] }
+        }))
+      }
+    ]
+  });
+  window.addEventListener('resize', () => chart.resize());
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  樹狀圖 - 存貨範圍價值
+// ═══════════════════════════════════════════════════════════════
+function renderDiffTreemapChart(data){
+  const el = document.getElementById('diffTreemapChart');
+  if(!el || !data.length) return;
+
+  // 按產品類別彙總
+  const catMap = {};
+  data.forEach(r => {
+    const cat  = r['產品類別'] || '其他';
+    const qA   = parseFloat(_diffCol(r,'本期數量','期末數量','結存數量')||0);
+    const costA = parseFloat(_diffCol(r,'本期成本','期末成本')||0);
+    const costB = parseFloat(_diffCol(r,'上期成本','期初成本')||0);
+    if(!catMap[cat]) catMap[cat] = { costA:0, costDiff:0 };
+    catMap[cat].costA    += costA;
+    catMap[cat].costDiff += (costA - costB);
+  });
+
+  const treeData = Object.entries(catMap)
+    .filter(([,v]) => v.costA > 0)
+    .map(([name, v]) => ({
+      name,
+      value: Math.round(v.costA),
+      label: { formatter: `{b}\n$${Math.round(v.costA/1000)}K` },
+      itemStyle: {
+        color: v.costDiff > 0
+          ? `rgba(220,38,38,${Math.min(0.9, 0.3 + Math.abs(v.costDiff)/v.costA)})`
+          : `rgba(34,197,94,${Math.min(0.9, 0.3 + Math.abs(v.costDiff)/v.costA)})`
+      }
+    }));
+
+  const chart = echarts.getInstanceByDom(el) || echarts.init(el);
+  chart.setOption({
+    tooltip: {
+      formatter: p => `${p.name}<br/>本期成本：$${fmtNum(p.value)}<br/>${p.data.itemStyle.color.startsWith('rgba(220') ? '🔴 成本上升' : '🟢 成本下降'}`
+    },
+    series: [{
+      type: 'treemap',
+      roam: false,
+      nodeClick: false,
+      breadcrumb: { show: false },
+      label: { show:true, fontSize:11, color:'#fff', fontWeight:700 },
+      data: treeData
+    }]
+  });
+  window.addEventListener('resize', () => chart.resize());
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  效率散布圖 - 異動敏感度矩陣
+// ═══════════════════════════════════════════════════════════════
+function renderDiffEfficiencyChart(data){
+  const el = document.getElementById('diffEfficiencyChart');
+  if(!el || !data.length) return;
+
+  const points = [];
+  data.forEach(r => {
+    const qA   = parseFloat(_diffCol(r,'本期數量','期末數量','結存數量')||0);
+    const qB   = parseFloat(_diffCol(r,'上期數量','期初數量','上期庫存')||0);
+    const costA = parseFloat(_diffCol(r,'本期成本','期末成本')||0);
+    const costB = parseFloat(_diffCol(r,'上期成本','期初成本')||0);
+    if(qB === 0 || costB === 0) return;
+
+    const qRate    = ((qA - qB) / qB) * 100;
+    const costRate = ((costA - costB) / costB) * 100;
+    if(Math.abs(qRate) > 500 || Math.abs(costRate) > 500) return; // 排除極端值
+
+    const name = _diffCol(r,'產品名稱','品名') || '';
+    const type = String(r['變化類型']||'').trim();
+    const color = type==='增加'?'#3b82f6':type==='減少'?'#f59e0b':type==='新增'?'#22c55e':type==='消失'?'#dc2626':'#9ca3af';
+    points.push({ value:[qRate, costRate], name, type, itemStyle:{ color, opacity:0.7 } });
+  });
+
+  if(!points.length) return;
+
+  const chart = echarts.getInstanceByDom(el) || echarts.init(el);
+  chart.setOption({
+    tooltip: {
+      formatter: p => `${p.data.name}<br/>數量變動：${p.value[0].toFixed(1)}%<br/>成本變動：${p.value[1].toFixed(1)}%<br/>類型：${p.data.type}`
+    },
+    legend: { data:['增加','減少','新增','消失','不變'], bottom:0, textStyle:{ fontSize:11 } },
+    grid: { top:30, right:30, bottom:60, left:60 },
+    xAxis: {
+      type:'value', name:'數量變動率(%)', nameLocation:'end',
+      axisLabel:{ fontSize:10, formatter: v => v+'%' },
+      splitLine:{ lineStyle:{ type:'dashed', opacity:.3 } },
+      axisLine:{ onZero:true }
+    },
+    yAxis: {
+      type:'value', name:'成本變動率(%)', nameLocation:'end',
+      axisLabel:{ fontSize:10, formatter: v => v+'%' },
+      splitLine:{ lineStyle:{ type:'dashed', opacity:.3 } },
+      axisLine:{ onZero:true }
+    },
+    series: ['增加','減少','新增','消失','不變'].map(type => ({
+      name: type,
+      type: 'scatter',
+      symbolSize: 8,
+      data: points.filter(p => p.type===type).map(p => ({
+        value: p.value, name: p.name, type: p.type, itemStyle: p.itemStyle
+      }))
+    }))
+  });
+  window.addEventListener('resize', () => chart.resize());
 }
 
 // ═══════════════════════════════════════════════════════════════
