@@ -908,6 +908,9 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
   <div class="summary-row">
     <div class="summary-card"><div class="s-label">顯示筆數</div><div class="s-value" id="d-count">—</div></div>
     <div class="summary-card"><div class="s-label">產生時間</div><div class="s-value" style="font-size:12px;padding-top:3px;" id="d-gentime">—</div></div>
+    <button onclick="loadDiffFromSupabase()" title="從 Supabase 讀取最新差異資料" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #0284c7;border-radius:8px;background:#fff;color:#0284c7;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.15s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#fff'">
+      ☁️ 從 Supabase 讀取
+    </button>
   </div>
 
   <!-- 圖表區域 -->
@@ -2227,6 +2230,62 @@ function toggleWhChildren(btn){
   while(row && row.classList.contains('wh-child-row')){
     row.classList.toggle('hidden');
     row = row.nextElementSibling;
+  }
+}
+
+// ─── 從 Supabase 讀取差異比較資料 ──────────────────────────────────
+async function loadDiffFromSupabase(){
+  const SUPABASE_URL = localStorage.getItem('supabaseUrl') || '';
+  const SUPABASE_KEY = localStorage.getItem('supabaseKey') || '';
+
+  if(!SUPABASE_URL || !SUPABASE_KEY){
+    console.warn('⚠️ Supabase 配置未完成');
+    return;
+  }
+
+  try{
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/diff_comparison?order=上傳時間.desc&limit=1000`,
+      {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    if(!Array.isArray(data) || data.length === 0){
+      console.log('ℹ️ Supabase 無差異比較資料');
+      return;
+    }
+
+    // 轉換 Supabase 資料格式
+    diffRows = data.map(r => ({
+      變化類型: r.變化狀態 || '',
+      產品類別: r.產品類別 || '',
+      產品代碼: r.產品代碼 || '',
+      產品名稱: r.產品名稱 || '',
+      產品規格: r.產品規格 || '',
+      倉庫: r.倉庫 || '',
+      批號: r.批號 || '',
+      本期數量: r.本期結存 || '',
+      上期數量: r.上期結存 || '',
+      數量差異: r.差異 || '',
+      本期成本: r.本期成本 || '',
+      上期成本: r.上期成本 || '',
+      成本差異: r.成本差異 || '',
+      核算範圍: r.核算範圍 || ''
+    }));
+
+    console.log(`✅ 已從 Supabase 讀取 ${diffRows.length} 筆差異資料`);
+    renderDiff();
+  }catch(err){
+    console.error('❌ Supabase 讀取失敗：', err);
   }
 }
 
