@@ -173,9 +173,7 @@ td.note-cell .save-indicator.show { display: block; }
   .diff-detail-grid { grid-template-columns: 1fr; }
   /* 差異報告明細表格在手機版要顯示（全站 .tbl-wrap 在手機版被 hide） */
   #panel-diff .tbl-wrap { display:block; }
-  /* 手機版圖表高度縮小 */
-  #diffTreemapChart,
-  #diffWarehouseLineChart { height:280px !important; }
+  /* 圖表高度由 JS 依容器寬度動態設定 */
 }
 .diff-compact-tbl { table-layout: auto; min-width: unset; width: 100%; }
 .diff-compact-tbl th,
@@ -941,7 +939,7 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
     <div style="padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);">
       <h3 style="margin-bottom:4px;font-size:14px;font-weight:700;color:var(--text);">🌳 各存貨範圍成本比較</h3>
       <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">區塊大小＝本期成本，點擊展開查看明細；🔴 成本上升　🟢 成本下降</p>
-      <div id="diffTreemapChart" style="width:100%;height:clamp(260px,38vw,420px);"></div>
+      <div id="diffTreemapChart" style="width:100%;min-height:260px;"></div>
     </div>
 
     <!-- 右：倉庫曲線圖 -->
@@ -958,7 +956,7 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
         </div>
       </div>
       <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">實線＝本期，虛線＝上期</p>
-      <div id="diffWarehouseLineChart" style="width:100%;height:clamp(260px,38vw,420px);"></div>
+      <div id="diffWarehouseLineChart" style="width:100%;min-height:260px;"></div>
     </div>
 
   </div>
@@ -2491,32 +2489,31 @@ function buildReduceHtml(rows, chgKey){
 
 function buildFishMergedHtml(rows, chgKey){
   if(!rows.length) return `<tr><td colspan="7" class="empty-msg">📭 無資料</td></tr>`;
-  // 依產品名稱合併
+  // 依「核算範圍 + 產品名稱」合併（不同核算範圍不合併）
   const merged = {};
   rows.forEach(r => {
-    const name    = _diffCol(r,'產品名稱','品名','存貨名稱') || '—';
-    const scope   = _diffCol(r,'核算範圍') || '';
-    const chg     = String(r[chgKey]||'').trim();
-    const qA      = parseFloat(_diffCol(r,'本期數量','期末數量','結存數量','本期庫存') || 0);
-    const qB      = parseFloat(_diffCol(r,'上期數量','期初數量','上期庫存') || 0);
-    const qChg    = parseFloat(_diffCol(r,'數量變化','數量差異','差異數量') || 0);
-    const cChg    = parseFloat(_diffCol(r,'成本變化','成本差異','差異成本') || 0);
-    if(!merged[name]) merged[name] = { scopes: new Set(), chgs: new Set(), qA:0, qB:0, qChg:0, cChg:0 };
-    merged[name].scopes.add(scope);
-    merged[name].chgs.add(chg);
-    merged[name].qA   += qA;
-    merged[name].qB   += qB;
-    merged[name].qChg += qChg;
-    merged[name].cChg += cChg;
+    const name  = _diffCol(r,'產品名稱','品名','存貨名稱') || '—';
+    const scope = _diffCol(r,'核算範圍') || '';
+    const key   = scope + '\x00' + name;
+    const chg   = String(r[chgKey]||'').trim();
+    const qA    = parseFloat(_diffCol(r,'本期數量','期末數量','結存數量','本期庫存') || 0);
+    const qB    = parseFloat(_diffCol(r,'上期數量','期初數量','上期庫存') || 0);
+    const qChg  = parseFloat(_diffCol(r,'數量變化','數量差異','差異數量') || 0);
+    const cChg  = parseFloat(_diffCol(r,'成本變化','成本差異','差異成本') || 0);
+    if(!merged[key]) merged[key] = { scope, name, chgs: new Set(), qA:0, qB:0, qChg:0, cChg:0 };
+    merged[key].chgs.add(chg);
+    merged[key].qA   += qA;
+    merged[key].qB   += qB;
+    merged[key].qChg += qChg;
+    merged[key].cChg += cChg;
   });
 
   const sorted = sortByScope(
-    Object.entries(merged).map(([name, v]) => ({
-      _name: name,
-      _scope: [...v.scopes].filter(Boolean).join(' / '),
+    Object.values(merged).map(v => ({
+      _name: v.name, _scope: v.scope,
       _chg:  [...v.chgs].filter(Boolean).join('/'),
       _qA: v.qA, _qB: v.qB, _qChg: v.qChg, _cChg: v.cChg,
-      核算範圍: [...v.scopes].filter(Boolean)[0] || ''
+      核算範圍: v.scope
     }))
   );
 
@@ -2788,6 +2785,7 @@ function renderDiffWaterfallChart(data){
 function renderDiffTreemapChart(data){
   const el = document.getElementById('diffTreemapChart');
   if(!el || !data.length) return;
+  el.style.height = Math.min(420, Math.max(260, el.offsetWidth * 0.62)) + 'px';
 
   // 依核算範圍名稱對應顏色
   const SCOPE_PALETTE = [
@@ -2976,6 +2974,7 @@ function renderDiffWarehouseLineChart(data, mode){
   const el = document.getElementById('diffWarehouseLineChart');
   if(!el || !data.length) return;
   _whChartData = data;
+  el.style.height = Math.min(420, Math.max(260, el.offsetWidth * 0.62)) + 'px';
 
   // 彙總各倉庫的本期/上期 成本 & 數量
   const whMap = {};
