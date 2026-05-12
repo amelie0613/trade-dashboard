@@ -1661,7 +1661,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                         </div>
                         <div class="form-group" style="margin:0;">
                           <label>計算期間</label>
-                          <select id="rentalPeriod" style="padding:0.4rem;width:100%;">
+                          <select id="rentalPeriod" style="padding:0.4rem;width:100%;" onchange="autoFillDateRange()">
                             <option value="">-- 選擇期間 --</option>
                             <option value="上期">上期（1-15日）</option>
                             <option value="下期">下期（16-月末）</option>
@@ -6560,7 +6560,14 @@ async function exportLedger() {
         const ws = window.XLSX.utils.json_to_sheet(exportData);
         const wb = window.XLSX.utils.book_new();
         window.XLSX.utils.book_append_sheet(wb, ws, '租金總帳');
-        window.XLSX.writeFile(wb, `租金總帳_${new Date().toISOString().slice(0,10)}.xlsx`);
+
+        // 根據月份標籤生成檔名
+        const monthLabelElem = document.getElementById('ledger_month_label');
+        let filename = `租金總帳_${new Date().toISOString().slice(0,10)}.xlsx`;
+        if (monthLabelElem && monthLabelElem.value) {
+            filename = `租金總帳_${monthLabelElem.value}.xlsx`;
+        }
+        window.XLSX.writeFile(wb, filename);
     } catch(e) {
         alert('匯出失敗：' + e.message);
     }
@@ -6748,6 +6755,34 @@ function getDateValue(dateId, textId) {
         return textInput.value.trim();
     }
     return null;
+}
+
+// 根據選擇的上期/下期自動填充日期範圍
+function autoFillDateRange() {
+    const startDateElem = document.getElementById('startDate');
+    const endDateElem = document.getElementById('endDate');
+    const periodElem = document.getElementById('rentalPeriod');
+
+    if (!startDateElem.value) {
+        alert('請先設定期初日期');
+        return;
+    }
+
+    // 從期初日期提取年月
+    const [year, month, day] = startDateElem.value.split('-');
+    const period = periodElem.value;
+
+    if (period === '上期') {
+        // 上期：1-15日
+        startDateElem.value = `${year}-${month}-01`;
+        endDateElem.value = `${year}-${month}-15`;
+    } else if (period === '下期') {
+        // 下期：16-月末
+        startDateElem.value = `${year}-${month}-16`;
+        // 計算該月的最後一天
+        const lastDay = new Date(year, parseInt(month), 0).getDate();
+        endDateElem.value = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+    }
 }
 
 function calculateRental(rentalData, ioData, weightData, period = '') {
