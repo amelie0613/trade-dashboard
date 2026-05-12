@@ -2426,13 +2426,12 @@ function renderDiff(){
   document.getElementById('diff-reduce-cnt').textContent = `${reduceRows.length} 筆`;
   document.getElementById('diff-body-reduce').innerHTML = buildReduceHtml(reduceRows, chgKey);
 
-  // ── 魚貨明細 ──
-  const fishRows = diffRows.filter(r => {
-    const cat = String(_diffCol(r,'產品類別','類別')||'').trim();
-    return cat.includes('魚') || cat.includes('海鮮') || cat.includes('水產');
-  });
+  // ── 魚貨明細（產品類別 === '魚貨'，合併同名品） ──
+  const fishRows = diffRows.filter(r =>
+    String(_diffCol(r,'產品類別','類別')||'').trim() === '魚貨'
+  );
   document.getElementById('diff-fish-cnt').textContent = `${fishRows.length} 筆`;
-  document.getElementById('diff-body-fish').innerHTML = buildFishHtml(fishRows, chgKey);
+  document.getElementById('diff-body-fish').innerHTML = buildFishMergedHtml(fishRows, chgKey);
 
   // ── 總覽明細主表 ──
   if(!rows.length){
@@ -2486,6 +2485,52 @@ function buildReduceHtml(rows, chgKey){
       <td style="text-align:right">${qtyB !== '' ? fmtNum(qtyB) : '—'}</td>
       <td style="text-align:right;font-weight:700;color:${qtyChgN!==null?(qtyChgN>0?'#3b82f6':qtyChgN<0?'var(--orange)':'#888'):'#888'}">${qtyChgN!==null?fmtDiff(qtyChgN):'—'}</td>
       <td style="text-align:right;font-weight:700;color:${costChgN!==null?(costChgN>0?'#3b82f6':costChgN<0?'var(--orange)':'#888'):'#888'}">${costChgN!==null?fmtCostDiff(costChgN):'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function buildFishMergedHtml(rows, chgKey){
+  if(!rows.length) return `<tr><td colspan="7" class="empty-msg">📭 無資料</td></tr>`;
+  // 依產品名稱合併
+  const merged = {};
+  rows.forEach(r => {
+    const name    = _diffCol(r,'產品名稱','品名','存貨名稱') || '—';
+    const scope   = _diffCol(r,'核算範圍') || '';
+    const chg     = String(r[chgKey]||'').trim();
+    const qA      = parseFloat(_diffCol(r,'本期數量','期末數量','結存數量','本期庫存') || 0);
+    const qB      = parseFloat(_diffCol(r,'上期數量','期初數量','上期庫存') || 0);
+    const qChg    = parseFloat(_diffCol(r,'數量變化','數量差異','差異數量') || 0);
+    const cChg    = parseFloat(_diffCol(r,'成本變化','成本差異','差異成本') || 0);
+    if(!merged[name]) merged[name] = { scopes: new Set(), chgs: new Set(), qA:0, qB:0, qChg:0, cChg:0 };
+    merged[name].scopes.add(scope);
+    merged[name].chgs.add(chg);
+    merged[name].qA   += qA;
+    merged[name].qB   += qB;
+    merged[name].qChg += qChg;
+    merged[name].cChg += cChg;
+  });
+
+  const sorted = sortByScope(
+    Object.entries(merged).map(([name, v]) => ({
+      _name: name,
+      _scope: [...v.scopes].filter(Boolean).join(' / '),
+      _chg:  [...v.chgs].filter(Boolean).join('/'),
+      _qA: v.qA, _qB: v.qB, _qChg: v.qChg, _cChg: v.cChg,
+      核算範圍: [...v.scopes].filter(Boolean)[0] || ''
+    }))
+  );
+
+  return sorted.map(r => {
+    const bcls = BADGE_CLS[r._chg.split('/')[0]] || '';
+    const qc = r._qChg, cc = r._cChg;
+    return `<tr>
+      <td>${r._scope || '—'}</td>
+      <td style="text-align:center"><span class="chg-badge ${bcls}">${r._chg||'—'}</span></td>
+      <td>${r._name}</td>
+      <td style="text-align:right">${r._qA ? fmtNum(r._qA) : '—'}</td>
+      <td style="text-align:right">${r._qB ? fmtNum(r._qB) : '—'}</td>
+      <td style="text-align:right;font-weight:700;color:${qc>0?'#3b82f6':qc<0?'var(--orange)':'#888'}">${fmtDiff(qc)}</td>
+      <td style="text-align:right;font-weight:700;color:${cc>0?'#3b82f6':cc<0?'var(--orange)':'#888'}">${fmtCostDiff(cc)}</td>
     </tr>`;
   }).join('');
 }
@@ -2820,13 +2865,9 @@ function renderDiffTreemapChart(data){
     series: [{
       type: 'treemap',
       roam: false,
-      nodeClick: 'zoomToNode',
-      squareRatio: 1,
-      breadcrumb: {
-        show: true,
-        height: 28,
-        itemStyle: { color: '#6878C0', textStyle: { color: '#fff', fontSize: 12 } }
-      },
+      nodeClick: false,
+      left: 0, right: 0, top: 0, bottom: 0,
+      breadcrumb: { show: false },
       label: {
         show: true,
         fontSize: 12,
@@ -3040,7 +3081,12 @@ function renderDiffWarehouseLineChart(data, mode){
     xAxis: {
       type:'category',
       data: warehouses,
-      axisLabel:{ interval:0, rotate: warehouses.length>6?30:0, fontSize:11 },
+      axisLabel:(()=>{
+        const w = el.offsetWidth;
+        if(w < 420) return { interval:0, rotate:60, fontSize:9,  overflow:'truncate', width:40 };
+        if(w < 600) return { interval:0, rotate:45, fontSize:10, overflow:'truncate', width:55 };
+        return { interval:0, rotate: warehouses.length>8?30:0, fontSize:11 };
+      })(),
       axisTick:{ alignWithLabel:true }
     },
     yAxis: yAxes,
