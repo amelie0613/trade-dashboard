@@ -1013,14 +1013,26 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         📋 寫入庫存總覽資料
         <div style="font-size:11px;font-weight:400;margin-top:2px;" id="writeSheetsMenuInvHint">全部庫存、過期品、長期在庫、即將到期</div>
       </button>
-      <button id="writeSheetsMenuDiffBtn" onclick="closeWriteSheetsMenu();writeDiffToSheets();"
-        style="padding:12px 16px;border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;transition:.15s;"
-        onmouseover="this.style.background='var(--accent-light)';this.style.borderColor='var(--accent)'"
-        onmouseout="this.style.background='#f8fafc';this.style.borderColor='var(--border)'">
-        🔄 寫入差異比對資料
-        <div style="font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;" id="writeSheetsMenuDiffHint">請先執行差異比較</div>
-        <div style="font-size:10px;color:#0284c7;margin-top:2px;">同步寫入 Google Sheets ＋ Supabase</div>
-      </button>
+      <!-- 差異比對按鈕：點擊後展開日期欄位 -->
+      <div id="writeSheetsMenuDiffSection" style="border:1.5px solid var(--border);border-radius:10px;background:#f8fafc;overflow:hidden;transition:.15s;">
+        <button id="writeSheetsMenuDiffBtn" onclick="toggleDiffDateSection()"
+          style="width:100%;padding:12px 16px;border:none;background:transparent;text-align:left;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;">
+          🔄 寫入差異比對資料
+          <div style="font-size:11px;font-weight:400;color:var(--muted);margin-top:2px;" id="writeSheetsMenuDiffHint">請先執行差異比較</div>
+          <div style="font-size:10px;color:#0284c7;margin-top:2px;">同步寫入 Google Sheets ＋ Supabase</div>
+        </button>
+        <!-- 展開的日期欄位 -->
+        <div id="diffDateSection" style="display:none;padding:0 16px 14px;border-top:1px solid var(--border);">
+          <label style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;margin-top:10px;">📅 資料截取日期</label>
+          <input type="date" id="diffDataDate"
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);outline:none;box-sizing:border-box;"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+          <button onclick="closeWriteSheetsMenu();writeDiffToSheets()"
+            style="margin-top:10px;width:100%;padding:9px;border:none;border-radius:8px;background:var(--accent);color:white;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+            ☁️ 確認寫入
+          </button>
+        </div>
+      </div>
     </div>
     <button onclick="closeWriteSheetsMenu()" style="margin-top:16px;width:100%;padding:8px;border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;">取消</button>
   </div>
@@ -9249,6 +9261,23 @@ function openWriteSheetsMenu(){
 function closeWriteSheetsMenu(){
   const menu = document.getElementById('writeSheetsMenu');
   if(menu) menu.style.display = 'none';
+  // 收合日期欄位
+  const sec = document.getElementById('diffDateSection');
+  if(sec) sec.style.display = 'none';
+}
+
+function toggleDiffDateSection(){
+  const sec = document.getElementById('diffDateSection');
+  if(!sec) return;
+  const isOpen = sec.style.display !== 'none';
+  sec.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen){
+    // 預設今天日期
+    const input = document.getElementById('diffDataDate');
+    if(input && !input.value){
+      input.value = new Date().toISOString().slice(0,10);
+    }
+  }
 }
 
 // 點選彈窗背景關閉
@@ -9280,16 +9309,20 @@ async function writeDiffToSheets(){
     return;
   }
 
+  // 讀取使用者填入的資料截取日期
+  const diffDataDate = document.getElementById('diffDataDate')?.value || new Date().toISOString().slice(0,10);
+
   const hasPrices = Object.values(prices).some(p => p.price > 0);
   console.log('[writeDiffToSheets] 有單價:', hasPrices);
   const chgLabel  = {new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'};
 
-  const headers = ['變化狀態','產品類別','產品代碼','產品名稱','產品規格','倉庫','批號','基本單位','本期結存(A)','上期結存(B)','差異(A-B)'];
+  const headers = ['資料日期','變化狀態','產品類別','產品代碼','產品名稱','產品規格','倉庫','批號','基本單位','本期結存(A)','上期結存(B)','差異(A-B)'];
   if(hasPrices) headers.push('單價','本期成本','上期成本','成本差異','核算範圍');
 
   // 構造資料列
   const rows = diffResults.map((r, idx) => {
     const row = [
+      diffDataDate,
       chgLabel[r._changeType]||'',
       r.產品類別||'', r.產品代碼||'', r.產品名稱||'', r.產品規格||'',
       r.倉庫||'', r.批號||'', r.基本單位||'',
@@ -9349,9 +9382,12 @@ async function writeDiffToSheets(){
 
     if(text === 'success'){
       console.log('[writeDiffToSheets] ✅ 寫入成功');
-      showToast(`✅ 已寫入「庫存差異比較」分頁，共 ${rows.length} 筆`);
-      // 同步上傳到 Supabase
-      writeDiffToSupabase();
+      // 同步上傳到 Supabase，等待結果後一起顯示
+      const sbResult = await writeDiffToSupabase();
+      const sbMsg = sbResult.ok
+        ? `✅ Supabase：${sbResult.count} 筆`
+        : `⚠️ Supabase：${sbResult.error}`;
+      showToast(`✅ Google Sheets：${rows.length} 筆　｜　${sbMsg}`, 5000);
     } else {
       console.error('[writeDiffToSheets] ⚠️ 回應不是 success：', text);
       showToast('⚠️ 寫入異常（詳見 console）：' + text.slice(0,100), 6000);
@@ -9364,25 +9400,15 @@ async function writeDiffToSheets(){
 }
 
 // ─── 寫入 SUPABASE (差異比較) ─────────────────────────────────────
+// 回傳 { ok, count } 或 { ok: false, error }，由呼叫端決定是否顯示 toast
 async function writeDiffToSupabase(){
-  if(!diffResults.length){
-    showToast('❌ 請先執行差異比較');
-    return;
-  }
-
-  const SUPABASE_URL = localStorage.getItem('supabaseUrl') || '';
-  const SUPABASE_KEY = localStorage.getItem('supabaseKey') || '';
-
-  if(!SUPABASE_URL || !SUPABASE_KEY){
-    showToast('❌ 請先在系統設定填入 Supabase 連線資訊');
-    return;
-  }
-
-  showToast('⏳ 正在上傳差異資料到 Supabase…', 4000);
+  if(!diffResults.length) return { ok: false, error: '尚無差異資料' };
+  if(!SUPABASE_URL || !SUPABASE_KEY) return { ok: false, error: '連線資訊未設定' };
 
   try{
     const hasPrices = Object.values(prices).some(p => p.price > 0);
     const chgLabel  = {new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'};
+    const diffDataDate = document.getElementById('diffDataDate')?.value || new Date().toISOString().slice(0,10);
 
     // 1️⃣ 先清除所有舊資料
     console.log('🗑️ 清除舊資料…');
@@ -9418,6 +9444,7 @@ async function writeDiffToSupabase(){
       上期成本: r._costB!==null ? Math.round(r._costB) : null,
       成本差異: r._costDiff!==null ? Math.round(r._costDiff) : null,
       核算範圍: r._scope||'',
+      資料日期: diffDataDate,
       上傳時間: new Date().toISOString(),
     }));
 
@@ -9436,15 +9463,15 @@ async function writeDiffToSupabase(){
 
     if(response.ok){
       console.log('✅ Supabase 上傳成功');
-      showToast(`✅ 已清空舊資料並上傳新資料，共 ${records.length} 筆`);
+      return { ok: true, count: records.length };
     } else {
       const errText = await response.text();
       console.error('❌ 上傳失敗：', errText);
-      showToast('❌ Supabase 上傳失敗：' + errText.slice(0,100), 5000);
+      return { ok: false, error: errText.slice(0, 60) };
     }
   }catch(err){
     console.error('❌ Supabase 上傳錯誤：', err);
-    showToast('❌ 上傳失敗：' + err.message, 5000);
+    return { ok: false, error: err.message };
   }
 }
 

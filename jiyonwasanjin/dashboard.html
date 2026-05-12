@@ -1140,6 +1140,7 @@ function switchTab(id, el){
   el.classList.add('active');
   document.getElementById('panel-' + id).classList.add('active');
   _syncMobileMergeBar(id);
+  if(id === 'diff') loadDiffFromSupabase();
 }
 
 function _syncMobileMergeBar(tabId){
@@ -2235,9 +2236,6 @@ function toggleWhChildren(btn){
 
 // ─── 從 Supabase 讀取差異比較資料 ──────────────────────────────────
 async function loadDiffFromSupabase(){
-  const SUPABASE_URL = localStorage.getItem('supabaseUrl') || '';
-  const SUPABASE_KEY = localStorage.getItem('supabaseKey') || '';
-
   if(!SUPABASE_URL || !SUPABASE_KEY){
     console.warn('⚠️ Supabase 配置未完成');
     return;
