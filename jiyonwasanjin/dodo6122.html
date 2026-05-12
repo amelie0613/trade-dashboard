@@ -3525,6 +3525,57 @@ function diffHandleDrop(e, slot){
   processFile_diff(slot, e.dataTransfer.files[0]);
 }
 
+// ─── 差異比較右鍵菜單 ────────────────────────────────────────────
+function showDiffContextMenu(e, rowIdx){
+  e.preventDefault();
+  const menu = document.getElementById('diffContextMenu');
+  if(!menu){
+    const newMenu = document.createElement('div');
+    newMenu.id = 'diffContextMenu';
+    newMenu.style.cssText = `
+      position:fixed;
+      background:#fff;
+      border:1px solid #ddd;
+      border-radius:6px;
+      box-shadow:0 2px 12px rgba(0,0,0,0.15);
+      z-index:10000;
+      min-width:120px;
+      padding:4px 0;
+    `;
+    newMenu.innerHTML = `
+      <div onclick="deleteDiffRow(this.parentElement.dataset.rowIdx)" style="padding:8px 16px;cursor:pointer;color:var(--text);font-size:14px;hover:background:#f5f5f5;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'">
+        🗑️ 刪除此行
+      </div>
+    `;
+    document.body.appendChild(newMenu);
+  }
+  const menu2 = document.getElementById('diffContextMenu');
+  menu2.dataset.rowIdx = rowIdx;
+  menu2.style.left = e.clientX + 'px';
+  menu2.style.top = e.clientY + 'px';
+  menu2.style.display = 'block';
+  document.addEventListener('click', hideDiffContextMenu);
+}
+
+function hideDiffContextMenu(){
+  const menu = document.getElementById('diffContextMenu');
+  if(menu) menu.style.display = 'none';
+  document.removeEventListener('click', hideDiffContextMenu);
+}
+
+function deleteDiffRow(rowIdxStr){
+  const rowIdx = parseInt(rowIdxStr);
+  if(isNaN(rowIdx) || rowIdx < 0 || rowIdx >= diffResults.length) return;
+  const product = diffResults[rowIdx];
+  const confirmMsg = `確定要刪除 "${product.產品名稱}" 這一筆資料嗎？`;
+  if(confirm(confirmMsg)){
+    diffResults.splice(rowIdx, 1);
+    renderDiff();
+    showToast('✅ 已刪除該筆資料');
+  }
+  hideDiffContextMenu();
+}
+
 function loadDiffFile(slot, input){
   const file = input.files[0]; if(!file) return;
   processFile_diff(slot, file);
@@ -3698,12 +3749,12 @@ function renderDiff(){
   html += `</tr></thead><tbody>`;
 
   const td = (content, extra='') => `<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${extra}" title="${String(content).replace(/"/g,'&quot;')}">${content}</td>`;
-  rows.forEach(r => {
+  rows.forEach((r, idx) => {
     const diffVal   = r._diff > 0 ? `+${fmtNum(r._diff)}` : fmtNum(r._diff);
     const diffStyle = r._diff > 0 ? 'color:#2A7A10;font-weight:700' : r._diff < 0 ? 'color:#C03030;font-weight:700' : 'color:var(--muted)';
     const qtyATxt   = r._changeType==='gone' ? '—' : fmtNum(r._qtyA);
     const qtyBTxt   = r._changeType==='new'  ? '—' : fmtNum(r._qtyB);
-    html += `<tr class="${rowCls[r._changeType]||''}">
+    html += `<tr class="${rowCls[r._changeType]||''}" oncontextmenu="showDiffContextMenu(event, ${idx})" data-diff-idx="${idx}" style="cursor:context-menu;">
       <td style="overflow:hidden;white-space:nowrap;"><span class="badge ${badgeCls[r._changeType]}">${chgLabel[r._changeType]}</span></td>
       ${td(`<span class="badge badge-gray">${r.產品類別||'—'}</span>`)}
       ${td(r.產品代碼||'—','font-weight:700;color:var(--purple);')}
