@@ -2449,7 +2449,7 @@ function renderDiff(){
 }
 
 // 核算範圍排序：大漁庫存 > 正洋 > 海和 > 貿易部 > 其他
-const SCOPE_ORDER = ['大漁庫存','正洋','海和','貿易部'];
+const SCOPE_ORDER = ['大漁','正洋','海和','貿易'];
 function sortByScope(rows){
   return [...rows].sort((a, b) => {
     const sa = _diffCol(a,'核算範圍') || '';
@@ -2494,7 +2494,7 @@ function buildFishMergedHtml(rows, chgKey){
   rows.forEach(r => {
     const name  = _diffCol(r,'產品名稱','品名','存貨名稱') || '—';
     const scope = _diffCol(r,'核算範圍') || '';
-    const key   = scope + '\x00' + name;
+    const key = scope + '\x00' + name;  // 嚴格依核算範圍分組，不同範圍絕不合併
     const chg   = String(r[chgKey]||'').trim();
     const qA    = parseFloat(_diffCol(r,'本期數量','期末數量','結存數量','本期庫存') || 0);
     const qB    = parseFloat(_diffCol(r,'上期數量','期初數量','上期庫存') || 0);
@@ -2818,7 +2818,11 @@ function renderDiffTreemapChart(data){
 
   const treeData = Object.entries(scopeMap)
     .filter(([, v]) => v.costA > 0 || v.costB > 0)
-    .sort((a, b) => b[1].costA - a[1].costA)
+    .sort((a, b) => {
+      const ia = SCOPE_ORDER.findIndex(s => a[0].includes(s));
+      const ib = SCOPE_ORDER.findIndex(s => b[0].includes(s));
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    })
     .map(([scope, v]) => {
       const palette  = scopePalette(scope);
       const diff     = v.costA - v.costB;
@@ -2879,10 +2883,7 @@ function renderDiffTreemapChart(data){
           return `${p.name}\n本期 ${fmtK(p.data.costA)}\n上期 ${fmtK(p.data.costB)}`;
         }
       },
-      upperLabel: {
-        show: true, height: 32, color: '#222', fontWeight: 700, fontSize: 13,
-        formatter: p => p.data.scopeName || p.name
-      },
+      upperLabel: { show: false },
       levels: [
         { itemStyle: { borderWidth: 3, borderColor: '#fff', gapWidth: 3 } },
         { itemStyle: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', gapWidth: 1 } }
@@ -3076,7 +3077,9 @@ function renderDiffWarehouseLineChart(data, mode){
       }
     },
     legend: { bottom:0, textStyle:{ fontSize:11 } },
-    grid: { top:30, right: dualAxis?60:20, bottom:70, left:70, containLabel:true },
+    grid: (()=>{ const mob = el.offsetWidth < 500;
+      return { top:24, right: dualAxis?(mob?44:60):16, bottom: mob?48:64, left: mob?48:64, containLabel:true };
+    })(),
     xAxis: {
       type:'category',
       data: warehouses,
