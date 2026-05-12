@@ -166,6 +166,16 @@ td.note-cell .save-indicator.show { display: block; }
 .badge-down { background: #fef3c7; color: #92400e; }
 .badge-same { background: #f3f4f6; color: #374151; }
 .chg-badge  { display: inline-block; border-radius: 5px; font-size: 10px; font-weight: 700; padding: 1px 7px; white-space: nowrap; }
+.diff-section-hd {
+  display: flex; align-items: center; gap: 4px;
+  padding: 10px 14px; margin: 12px 0 0;
+  background: #fff; border-radius: 8px;
+  border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  font-size: 13px; font-weight: 700; color: var(--text);
+  cursor: pointer; user-select: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+.diff-section-hd:hover { background: #f8f8ff; }
 
 /* ── COST TABLE ── */
 .cost-section { margin-bottom: 24px; }
@@ -898,72 +908,117 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
 <!-- ════ DIFF TAB ════ -->
 <div class="tab-panel" id="panel-diff">
   <div class="status-bar" id="diff-status-bar">
-    <div class="status-chip active" style="border-color:var(--accent);color:var(--accent);" data-d="all"  onclick="switchDiff('all',this)">全部 <span class="chip-cnt" id="d-cnt-all">0</span></div>
-    <div class="status-chip"       style="border-color:var(--green);color:var(--green);"  data-d="新增" onclick="switchDiff('新增',this)">🟢 新增 <span class="chip-cnt" id="d-cnt-new">0</span></div>
-    <div class="status-chip"       style="border-color:var(--red);color:var(--red);"     data-d="消失" onclick="switchDiff('消失',this)">🔴 消失 <span class="chip-cnt" id="d-cnt-gone">0</span></div>
-    <div class="status-chip"       style="border-color:#3b82f6;color:#3b82f6;"           data-d="增加" onclick="switchDiff('增加',this)">🔵 增加 <span class="chip-cnt" id="d-cnt-up">0</span></div>
-    <div class="status-chip"       style="border-color:var(--amber);color:var(--amber);" data-d="減少" onclick="switchDiff('減少',this)">🟡 減少 <span class="chip-cnt" id="d-cnt-down">0</span></div>
-    <div class="status-chip"       style="border-color:#9ca3af;color:#9ca3af;"           data-d="不變" onclick="switchDiff('不變',this)">⚪ 不變 <span class="chip-cnt" id="d-cnt-same">0</span></div>
+    <div class="status-chip active" style="border-color:var(--accent);color:var(--accent);"   data-d="all"    onclick="switchDiff('all',this)">全部 <span class="chip-cnt" id="d-cnt-all">0</span></div>
+    <div class="status-chip"       style="border-color:var(--green);color:var(--green);"     data-d="新增"   onclick="switchDiff('新增',this)">🟢 新增 <span class="chip-cnt" id="d-cnt-new">0</span></div>
+    <div class="status-chip"       style="border-color:var(--red);color:var(--red);"         data-d="消失"   onclick="switchDiff('消失',this)">🔴 消失 <span class="chip-cnt" id="d-cnt-gone">0</span></div>
+    <div class="status-chip"       style="border-color:#3b82f6;color:#3b82f6;"               data-d="數量增加" onclick="switchDiff('數量增加',this)">🔵 數量增加 <span class="chip-cnt" id="d-cnt-up">0</span></div>
+    <div class="status-chip"       style="border-color:var(--orange);color:var(--orange);"   data-d="數量減少" onclick="switchDiff('數量減少',this)">🟠 數量減少 <span class="chip-cnt" id="d-cnt-down">0</span></div>
+    <div class="status-chip"       style="border-color:#9ca3af;color:#9ca3af;"               data-d="無變化" onclick="switchDiff('無變化',this)">⚪ 無變化 <span class="chip-cnt" id="d-cnt-same">0</span></div>
   </div>
   <div class="summary-row">
     <div class="summary-card"><div class="s-label">顯示筆數</div><div class="s-value" id="d-count">—</div></div>
     <div class="summary-card"><div class="s-label">產生時間</div><div class="s-value" style="font-size:12px;padding-top:3px;" id="d-gentime">—</div></div>
-    <button onclick="loadDiffFromSupabase()" title="從 Supabase 讀取最新差異資料" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #0284c7;border-radius:8px;background:#fff;color:#0284c7;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.15s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#fff'">
-      ☁️ 從 Supabase 讀取
-    </button>
   </div>
 
-  <!-- 圖表區域 -->
-  <div style="padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px;">
-    <h3 style="margin-bottom:4px;font-size:14px;font-weight:700;color:var(--text);">🌳 各存貨範圍成本比較</h3>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">區塊大小＝本期成本，點擊展開查看各倉庫明細；🔴 成本上升　🟢 成本下降</p>
-    <div id="diffTreemapChart" style="width:100%;height:440px;"></div>
+  <!-- 圖表區域：左右並排 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <!-- 左：樹狀圖 -->
+    <div style="padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);">
+      <h3 style="margin-bottom:4px;font-size:14px;font-weight:700;color:var(--text);">🌳 各存貨範圍成本比較</h3>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">區塊大小＝本期成本，點擊展開查看明細；🔴 成本上升　🟢 成本下降</p>
+      <div id="diffTreemapChart" style="width:100%;height:400px;"></div>
+    </div>
+
+    <!-- 右：倉庫曲線圖 -->
+    <div style="padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <h3 style="font-size:14px;font-weight:700;color:var(--text);">📉 各倉庫本期 vs 上期變化</h3>
+        <div style="display:flex;gap:6px;">
+          <button onclick="switchWarehouseChartMode('cost')" id="whChartBtnCost"
+            style="padding:3px 10px;border-radius:6px;border:1.5px solid var(--border);background:#fff;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">成本</button>
+          <button onclick="switchWarehouseChartMode('qty')" id="whChartBtnQty"
+            style="padding:3px 10px;border-radius:6px;border:1.5px solid var(--border);background:#fff;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">數量</button>
+          <button onclick="switchWarehouseChartMode('both')" id="whChartBtnBoth"
+            style="padding:3px 10px;border-radius:6px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">成本＋數量</button>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">實線＝本期，虛線＝上期</p>
+      <div id="diffWarehouseLineChart" style="width:100%;height:400px;"></div>
+    </div>
+
   </div>
 
-  <!-- 倉庫曲線圖 -->
-  <div style="padding:16px;background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:16px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-      <h3 style="font-size:14px;font-weight:700;color:var(--text);">📉 各倉庫本期 vs 上期變化</h3>
-      <div style="display:flex;gap:8px;">
-        <button onclick="switchWarehouseChartMode('cost')" id="whChartBtnCost"
-          style="padding:4px 12px;border-radius:6px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">
-          成本
-        </button>
-        <button onclick="switchWarehouseChartMode('qty')" id="whChartBtnQty"
-          style="padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:#fff;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">
-          數量
-        </button>
-        <button onclick="switchWarehouseChartMode('both')" id="whChartBtnBoth"
-          style="padding:4px 12px;border-radius:6px;border:1.5px solid var(--border);background:#fff;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">
-          成本＋數量
-        </button>
+  <!-- ── 上排：減少明細 ＋ 魚貨明細（左右並排）── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0;">
+
+    <!-- 減少明細 -->
+    <div>
+      <div class="diff-section-hd" onclick="toggleDiffSection('diff-reduce-wrap','diff-reduce-arrow')" style="border-left-color:var(--amber);margin-top:12px;">
+        <span>🟠 數量減少明細</span>
+        <span id="diff-reduce-cnt" style="margin-left:8px;font-size:12px;color:var(--orange);font-weight:400;"></span>
+        <span id="diff-reduce-arrow" style="margin-left:auto;font-size:13px;">▶</span>
+      </div>
+      <div id="diff-reduce-wrap" style="display:none;">
+        <div class="tbl-wrap" style="max-height:340px;overflow-y:auto;">
+          <table>
+            <thead><tr>
+              <th style="width:16%">核算範圍</th><th style="width:10%">產品類別</th>
+              <th style="width:26%">產品名稱</th><th style="width:12%">本期數量</th>
+              <th style="width:12%">上期數量</th><th style="width:12%">差異數量</th>
+              <th style="width:12%">成本差異</th>
+            </tr></thead>
+            <tbody id="diff-body-reduce"></tbody>
+          </table>
+        </div>
       </div>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin-bottom:12px;">實線＝本期，虛線＝上期</p>
-    <div id="diffWarehouseLineChart" style="width:100%;height:380px;"></div>
+
+    <!-- 魚貨明細 -->
+    <div>
+      <div class="diff-section-hd" onclick="toggleDiffSection('diff-fish-wrap','diff-fish-arrow')" style="border-left-color:#0e7490;margin-top:12px;">
+        <span>🐟 魚貨變化明細</span>
+        <span id="diff-fish-cnt" style="margin-left:8px;font-size:12px;color:#0e7490;font-weight:400;"></span>
+        <span id="diff-fish-arrow" style="margin-left:auto;font-size:13px;">▶</span>
+      </div>
+      <div id="diff-fish-wrap" style="display:none;">
+        <div class="tbl-wrap" style="max-height:340px;overflow-y:auto;">
+          <table>
+            <thead><tr>
+              <th style="width:15%">核算範圍</th><th style="width:10%">變化</th>
+              <th style="width:27%">產品名稱</th><th style="width:12%">本期數量</th>
+              <th style="width:12%">上期數量</th><th style="width:12%">差異數量</th>
+              <th style="width:12%">成本差異</th>
+            </tr></thead>
+            <tbody id="diff-body-fish"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  <div class="tbl-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th style="width:7%">變化類型</th>
-          <th style="width:5%">產品類別</th>
-          <th style="width:5%">產品代碼</th>
-          <th style="width:13%">產品名稱</th>
-          <th style="width:7%">規格</th>
-          <th style="width:8%">批號</th>
-          <th style="width:7%">倉庫</th>
-          <th style="width:7%">本期數量</th>
-          <th style="width:7%">上期數量</th>
-          <th style="width:7%">數量差異</th>
-          <th style="width:9%">本期成本</th>
-          <th style="width:9%">上期成本</th>
+  <!-- ── 下排：總覽明細（全寬）── -->
+  <div class="diff-section-hd" onclick="toggleDiffSection('diff-overview-wrap','diff-overview-arrow')" style="margin-top:12px;">
+    <span>📋 總覽明細</span>
+    <span id="diff-overview-cnt" style="margin-left:8px;font-size:12px;color:var(--muted);font-weight:400;"></span>
+    <span id="diff-overview-arrow" style="margin-left:auto;font-size:13px;transition:transform .2s;">▶</span>
+  </div>
+  <div id="diff-overview-wrap" style="display:none;">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:7%">變化類型</th><th style="width:5%">產品類別</th>
+          <th style="width:5%">產品代碼</th><th style="width:13%">產品名稱</th>
+          <th style="width:7%">規格</th><th style="width:8%">批號</th>
+          <th style="width:7%">倉庫</th><th style="width:7%">本期數量</th>
+          <th style="width:7%">上期數量</th><th style="width:7%">數量差異</th>
+          <th style="width:9%">本期成本</th><th style="width:9%">上期成本</th>
           <th style="width:9%">成本差異</th>
-        </tr>
-      </thead>
-      <tbody id="diff-body"></tbody>
-    </table>
+        </tr></thead>
+        <tbody id="diff-body"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -2228,13 +2283,27 @@ function navigateToExpiring90(){
 // ═══════════════════════════════════════════════════════════════
 //  DIFF RENDER
 // ═══════════════════════════════════════════════════════════════
-const BADGE_CLS = { 新增:'badge-new', 消失:'badge-gone', 增加:'badge-up', 減少:'badge-down', 不變:'badge-same' };
+const BADGE_CLS = {
+  新增:'badge-new', 消失:'badge-gone',
+  增加:'badge-up',   數量增加:'badge-up',
+  減少:'badge-down', 數量減少:'badge-down',
+  不變:'badge-same', 無變化:'badge-same'
+};
 
 function switchDiff(f, el){
   diffFilter = f;
   document.querySelectorAll('#diff-status-bar .status-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   renderDiff();
+}
+
+function toggleDiffSection(wrapId, arrowId){
+  const wrap  = document.getElementById(wrapId);
+  const arrow = document.getElementById(arrowId);
+  if(!wrap) return;
+  const open = wrap.style.display === 'none';
+  wrap.style.display  = open ? '' : 'none';
+  if(arrow) arrow.textContent = open ? '▼' : '▶';
 }
 
 // 差異報告欄位別名：自動偵測試算表欄名
@@ -2315,7 +2384,7 @@ function renderDiff(){
     }
   }
 
-  const cnts = { 新增:0, 消失:0, 增加:0, 減少:0, 不變:0 };
+  const cnts = { 新增:0, 消失:0, 增加:0, 數量增加:0, 減少:0, 數量減少:0, 不變:0, 無變化:0 };
   diffRows.forEach(r => {
     const v = String(r[chgKey]||'').trim();
     if(cnts[v] !== undefined) cnts[v]++;
@@ -2323,23 +2392,118 @@ function renderDiff(){
   document.getElementById('d-cnt-all').textContent  = diffRows.length;
   document.getElementById('d-cnt-new').textContent  = cnts['新增'];
   document.getElementById('d-cnt-gone').textContent = cnts['消失'];
-  document.getElementById('d-cnt-up').textContent   = cnts['增加'];
-  document.getElementById('d-cnt-down').textContent = cnts['減少'];
-  document.getElementById('d-cnt-same').textContent = cnts['不變'];
+  document.getElementById('d-cnt-up').textContent   = cnts['增加'] + cnts['數量增加'];
+  document.getElementById('d-cnt-down').textContent = cnts['減少'] + cnts['數量減少'];
+  document.getElementById('d-cnt-same').textContent = cnts['不變'] + cnts['無變化'];
 
+  // 新舊欄位名稱對照（兼容舊資料）
+  const FILTER_ALIAS = { 數量增加:['增加','數量增加'], 數量減少:['減少','數量減少'], 無變化:['不變','無變化'] };
   let rows = diffFilter === 'all'
     ? diffRows
-    : diffRows.filter(r => String(r[chgKey]||'').trim() === diffFilter);
+    : diffRows.filter(r => {
+        const v = String(r[chgKey]||'').trim();
+        const aliases = FILTER_ALIAS[diffFilter];
+        return aliases ? aliases.includes(v) : v === diffFilter;
+      });
   document.getElementById('d-count').textContent = rows.length.toLocaleString() + ' 筆';
 
+  // ── 減少明細（始終從全量計算，不受主篩選影響）──
+  const reduceRows = diffRows.filter(r => ['減少','數量減少'].includes(String(r[chgKey]||'').trim()));
+  document.getElementById('diff-reduce-cnt').textContent = `${reduceRows.length} 筆`;
+  document.getElementById('diff-body-reduce').innerHTML = buildReduceHtml(reduceRows, chgKey);
+
+  // ── 魚貨明細 ──
+  const fishRows = diffRows.filter(r => {
+    const cat = String(_diffCol(r,'產品類別','類別')||'').trim();
+    return cat.includes('魚') || cat.includes('海鮮') || cat.includes('水產');
+  });
+  document.getElementById('diff-fish-cnt').textContent = `${fishRows.length} 筆`;
+  document.getElementById('diff-body-fish').innerHTML = buildFishHtml(fishRows, chgKey);
+
+  // ── 總覽明細主表 ──
   if(!rows.length){
     const hint = diffRows.length === 0
       ? '差異報告尚無資料，請從 dodo6122 產生並上傳差異報告。'
       : `已載入 ${diffRows.length} 筆，但篩選後無結果。`;
     document.getElementById('diff-body').innerHTML = `<tr><td colspan="13" class="empty-msg">📭 ${hint}</td></tr>`;
-    return;
+    document.getElementById('diff-overview-cnt').textContent = '0 筆';
+  } else {
+    document.getElementById('diff-body').innerHTML = buildDiffHtml(sortByScope(rows), chgKey);
+    document.getElementById('diff-overview-cnt').textContent = `${rows.length} 筆`;
   }
 
+  // 生成圖表
+  renderDiffTreemapChart(diffRows);
+  renderDiffWarehouseLineChart(diffRows, 'both');
+}
+
+// 核算範圍排序：大漁庫存 > 正洋 > 海和 > 貿易部 > 其他
+const SCOPE_ORDER = ['大漁庫存','正洋','海和','貿易部'];
+function sortByScope(rows){
+  return [...rows].sort((a, b) => {
+    const sa = _diffCol(a,'核算範圍') || '';
+    const sb = _diffCol(b,'核算範圍') || '';
+    const ia = SCOPE_ORDER.findIndex(s => sa.includes(s));
+    const ib = SCOPE_ORDER.findIndex(s => sb.includes(s));
+    const ra = ia === -1 ? 999 : ia;
+    const rb = ib === -1 ? 999 : ib;
+    return ra !== rb ? ra - rb : sa.localeCompare(sb, 'zh-Hant');
+  });
+}
+
+function buildReduceHtml(rows, chgKey){
+  const sorted = sortByScope(rows);
+  if(!sorted.length) return `<tr><td colspan="7" class="empty-msg">📭 無資料</td></tr>`;
+  return sorted.map(r => {
+    const scope   = _diffCol(r,'核算範圍') || '—';
+    const cat     = _diffCol(r,'產品類別','類別') || '—';
+    const name    = _diffCol(r,'產品名稱','品名','存貨名稱') || '—';
+    const qtyA    = _diffCol(r,'本期數量','期末數量','結存數量','本期庫存');
+    const qtyB    = _diffCol(r,'上期數量','期初數量','上期庫存');
+    const qtyChg  = _diffCol(r,'數量變化','數量差異','差異數量');
+    const costChg = _diffCol(r,'成本變化','成本差異','差異成本');
+    const qtyChgN  = qtyChg  !== '' ? +qtyChg  : null;
+    const costChgN = costChg !== '' ? +costChg : null;
+    return `<tr>
+      <td>${scope}</td>
+      <td>${cat}</td>
+      <td>${name}</td>
+      <td style="text-align:right">${qtyA !== '' ? fmtNum(qtyA) : '—'}</td>
+      <td style="text-align:right">${qtyB !== '' ? fmtNum(qtyB) : '—'}</td>
+      <td style="text-align:right;font-weight:700;color:${qtyChgN!==null?(qtyChgN>0?'#3b82f6':qtyChgN<0?'var(--orange)':'#888'):'#888'}">${qtyChgN!==null?fmtDiff(qtyChgN):'—'}</td>
+      <td style="text-align:right;font-weight:700;color:${costChgN!==null?(costChgN>0?'#3b82f6':costChgN<0?'var(--orange)':'#888'):'#888'}">${costChgN!==null?fmtCostDiff(costChgN):'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function buildFishHtml(rows, chgKey){
+  const sorted = sortByScope(rows);
+  if(!sorted.length) return `<tr><td colspan="7" class="empty-msg">📭 無資料</td></tr>`;
+  return sorted.map(r => {
+    const scope   = _diffCol(r,'核算範圍') || '—';
+    const chg     = String(r[chgKey]||'').trim();
+    const bcls    = BADGE_CLS[chg] || '';
+    const name    = _diffCol(r,'產品名稱','品名','存貨名稱') || '—';
+    const qtyA    = _diffCol(r,'本期數量','期末數量','結存數量','本期庫存');
+    const qtyB    = _diffCol(r,'上期數量','期初數量','上期庫存');
+    const qtyChg  = _diffCol(r,'數量變化','數量差異','差異數量');
+    const costChg = _diffCol(r,'成本變化','成本差異','差異成本');
+    const qtyChgN  = qtyChg  !== '' ? +qtyChg  : null;
+    const costChgN = costChg !== '' ? +costChg : null;
+    return `<tr>
+      <td>${scope}</td>
+      <td style="text-align:center"><span class="chg-badge ${bcls}">${chg||'—'}</span></td>
+      <td>${name}</td>
+      <td style="text-align:right">${qtyA !== '' ? fmtNum(qtyA) : '—'}</td>
+      <td style="text-align:right">${qtyB !== '' ? fmtNum(qtyB) : '—'}</td>
+      <td style="text-align:right;font-weight:700;color:${qtyChgN!==null?(qtyChgN>0?'#3b82f6':qtyChgN<0?'var(--orange)':'#888'):'#888'}">${qtyChgN!==null?fmtDiff(qtyChgN):'—'}</td>
+      <td style="text-align:right;font-weight:700;color:${costChgN!==null?(costChgN>0?'#3b82f6':costChgN<0?'var(--orange)':'#888'):'#888'}">${costChgN!==null?fmtCostDiff(costChgN):'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function buildDiffHtml(rows, chgKey){
+  if(!rows.length) return `<tr><td colspan="13" class="empty-msg">📭 無資料</td></tr>`;
   let html = '';
   rows.forEach(r => {
     const chg     = String(r[chgKey]||'').trim();
@@ -2356,10 +2520,8 @@ function renderDiff(){
     const costA   = _diffCol(r,'本期成本','期末成本','本期存貨成本');
     const costB   = _diffCol(r,'上期成本','期初成本','上期存貨成本');
     const costChg = _diffCol(r,'成本變化','成本差異','差異成本');
-
     const qtyChgN  = qtyChg  !== '' ? +qtyChg  : null;
     const costChgN = costChg !== '' ? +costChg : null;
-
     html += `<tr>
       <td style="text-align:center"><span class="chg-badge ${bcls}">${chg||'—'}</span></td>
       <td>${cat}</td>
@@ -2376,12 +2538,7 @@ function renderDiff(){
       <td style="text-align:right;font-weight:700;color:${costChgN!==null?(costChgN>0?'#3b82f6':costChgN<0?'var(--orange)':'#888'):'#888'}">${costChgN!==null?fmtCostDiff(costChgN):'—'}</td>
     </tr>`;
   });
-
-  document.getElementById('diff-body').innerHTML = html;
-
-  // 生成圖表
-  renderDiffTreemapChart(diffRows);
-  renderDiffWarehouseLineChart(diffRows, 'cost');
+  return html;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2573,6 +2730,16 @@ function renderDiffTreemapChart(data){
   const el = document.getElementById('diffTreemapChart');
   if(!el || !data.length) return;
 
+  // 每個核算範圍固定顏色（深色父層 + 淡色子層）
+  const SCOPE_COLORS = [
+    { base:'#6878C0', light:'rgba(104,120,192,0.55)' },
+    { base:'#0e7490', light:'rgba(14,116,144,0.55)'  },
+    { base:'#b45309', light:'rgba(180,83,9,0.55)'    },
+    { base:'#6d28d9', light:'rgba(109,40,217,0.55)'  },
+    { base:'#065f46', light:'rgba(6,95,70,0.55)'     },
+    { base:'#9f1239', light:'rgba(159,18,57,0.55)'   },
+  ];
+
   // 按核算範圍彙總
   const scopeMap = {};
   data.forEach(r => {
@@ -2592,11 +2759,12 @@ function renderDiffTreemapChart(data){
 
   const treeData = Object.entries(scopeMap)
     .filter(([, v]) => v.costA > 0 || v.costB > 0)
-    .map(([scope, v]) => {
+    .sort((a, b) => b[1].costA - a[1].costA)
+    .map(([scope, v], idx) => {
+      const palette  = SCOPE_COLORS[idx % SCOPE_COLORS.length];
       const diff     = v.costA - v.costB;
       const diffPct  = v.costB > 0 ? ((diff / v.costB) * 100).toFixed(1) : '—';
-      const isUp     = diff > 0;
-      const baseAlpha = Math.min(0.85, 0.35 + Math.abs(diff) / Math.max(v.costA, v.costB) * 0.8);
+      const sign     = diff >= 0 ? '+' : '';
       return {
         name: scope,
         value: Math.round(v.costA),
@@ -2604,26 +2772,23 @@ function renderDiffTreemapChart(data){
         costB: v.costB,
         diff,
         diffPct,
-        itemStyle: {
-          color: isUp
-            ? `rgba(220,38,38,${baseAlpha})`
-            : `rgba(22,163,74,${baseAlpha})`
-        },
+        itemStyle: { color: palette.base },
         children: [
           {
-            name: `本期\n${fmtK(v.costA)}`,
+            name: '本期',
             value: Math.round(v.costA),
-            itemStyle: { color: isUp ? 'rgba(220,38,38,0.75)' : 'rgba(22,163,74,0.75)' }
+            costA: v.costA, costB: v.costB, diff, diffPct,
+            itemStyle: { color: palette.base }
           },
           {
-            name: `上期\n${fmtK(v.costB)}`,
+            name: '上期',
             value: Math.round(v.costB),
-            itemStyle: { color: 'rgba(100,116,139,0.5)' }
+            costA: v.costA, costB: v.costB, diff, diffPct,
+            itemStyle: { color: palette.light }
           }
         ]
       };
-    })
-    .sort((a, b) => b.value - a.value);
+    });
 
   const chart = echarts.getInstanceByDom(el) || echarts.init(el);
   chart.setOption({
@@ -2656,9 +2821,16 @@ function renderDiffTreemapChart(data){
         fontWeight: 700,
         color: '#fff',
         formatter: p => {
-          if(!p.data.costA) return p.name;
-          const sign = p.data.diff >= 0 ? '+' : '';
-          return `${p.name}\n本期 ${fmtK(p.data.costA)}\n${sign}${fmtK(p.data.diff)}`;
+          if(!p.data.costA && !p.data.costB) return p.name;
+          const sign = (p.data.diff || 0) >= 0 ? '+' : '';
+          // 父層（核算範圍）：顯示範圍名、本期、上期
+          if(p.treePathInfo && p.treePathInfo.length === 1){
+            return `${p.name}\n本期 ${fmtK(p.data.costA)}\n上期 ${fmtK(p.data.costB)}`;
+          }
+          // 子層（本期 / 上期）：顯示父範圍名 + 標籤 + 金額
+          const scopeName = p.treePathInfo && p.treePathInfo.length >= 2
+            ? p.treePathInfo[0].name : '';
+          return `${scopeName ? scopeName + '\n' : ''}${p.name}\n${fmtK(p.value)}`;
         }
       },
       upperLabel: { show: true, height: 26, color: '#fff', fontWeight: 700, fontSize: 12 },
@@ -2734,7 +2906,7 @@ function renderDiffEfficiencyChart(data){
 //  倉庫曲線圖 - 本期 vs 上期 成本/數量
 // ═══════════════════════════════════════════════════════════════
 let _whChartData = [];
-let _whChartMode = 'cost';
+let _whChartMode = 'both';
 
 function switchWarehouseChartMode(mode){
   _whChartMode = mode;
