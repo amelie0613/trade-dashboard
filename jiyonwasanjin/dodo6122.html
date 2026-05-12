@@ -3541,6 +3541,13 @@ function processFile_diff(slot, file){
       const raw = XLSX.utils.sheet_to_json(ws, {defval:''}).map(r => {
         const code = String(r['產品代碼'] || '');
         r['產品代碼'] = code ? code.padStart(4, '0') : '';
+        // 確保 F 欄位（庫存數量）和 G 欄位（基本單位名稱）被正確映射
+        if (!r['庫存數量'] && r['F']) {
+          r['庫存數量'] = r['F'];
+        }
+        if (!r['基本單位名稱'] && r['G']) {
+          r['基本單位名稱'] = r['G'];
+        }
         return r;
       });
 
@@ -3569,9 +3576,9 @@ function runDiff(){
     const a = mapA[k];   // 本期期末
     const b = mapB[k];   // 上期期末
     const base = a || b;
-    // 讀取「本期結存」作為各期的數量快照
-    const qtyA = a ? (parseFloat(a['本期結存'])||0) : 0;
-    const qtyB = b ? (parseFloat(b['本期結存'])||0) : 0;
+    // 讀取「庫存數量」（F 欄位）作為各期的數量快照
+    const qtyA = a ? (parseFloat(a['庫存數量'])||0) : 0;
+    const qtyB = b ? (parseFloat(b['庫存數量'])||0) : 0;
     const diff = qtyA - qtyB;
     let changeType = 'same';
     if(!b && a)       changeType = 'new';
@@ -3596,7 +3603,7 @@ function runDiff(){
       產品類別: base['產品類別']||'', 產品代碼: base['產品代碼']||'',
       產品名稱: pName, 產品規格: base['產品規格']||'',
       倉庫: base['倉庫']||base['倉庫名稱']||'', 批號: pLot,
-      基本單位: base['基本單位']||'',
+      基本單位: a ? (a['基本單位名稱']||a['基本單位']||'') : (b ? (b['基本單位名稱']||b['基本單位']||'') : ''),
     });
   });
 
