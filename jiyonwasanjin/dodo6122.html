@@ -9410,20 +9410,20 @@ async function writeDiffToSupabase(){
     const chgLabel  = {new:'新增',gone:'消失',up:'數量增加',down:'數量減少',same:'無變化'};
     const diffDataDate = document.getElementById('diffDataDate')?.value || new Date().toISOString().slice(0,10);
 
-    // 1️⃣ 先清除所有舊資料
+    // 1️⃣ 先清除所有舊資料（透過 RPC 函數）
     console.log('🗑️ 清除舊資料…');
-    const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/diff_comparison`, {
-      method: 'DELETE',
+    const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/clear_diff_comparison`, {
+      method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      }
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
     });
 
     if(!deleteResponse.ok){
-      console.warn('⚠️ 清除舊資料時出現警告');
+      console.warn('⚠️ 清除舊資料時出現警告：', await deleteResponse.text());
     }
 
     // 2️⃣ 準備新資料
