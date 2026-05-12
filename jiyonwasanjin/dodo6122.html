@@ -8255,7 +8255,20 @@ function exportResults() {
     // ── 8. 生成 & 下載 ───────────────────────────────────────────────
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, ws, '租金計算結果');
-    const filename = `租金計算_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    // 根據日期月份和上/下期生成檔名
+    const startDateElem = document.getElementById('startDate');
+    const periodElem = document.getElementById('rentalPeriod');
+    let filename = `租金計算_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    if (startDateElem && startDateElem.value) {
+        const dateStr = startDateElem.value.replace(/-/g, ''); // 將 2026-04-01 轉成 20260401
+        const yearMonth = dateStr.slice(0, 6); // 取 202604
+        const period = periodElem?.value || '';
+        const periodText = period === '上期' ? '上期' : period === '下期' ? '下期' : '';
+        filename = `租金計算_${yearMonth}${periodText}.xlsx`;
+    }
+
     window.XLSX.writeFile(wb, filename);
     showStatus('✅ 彩色報表已下載！', 'success');
 }
