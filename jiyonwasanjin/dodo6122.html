@@ -4471,10 +4471,10 @@ function buildExportRows(scope){
 }
 
 // 魚貨倉庫報表：倉庫 = -35度冷凍庫 或 -50度冷凍庫，分倉庫顯示
-// 未入庫單獨一行，加工倉/在途倉庫存放在已出貨欄位
+// 未入庫數量填在冷凍庫行的未入庫欄位
+// 加工倉和在途倉分兩列顯示，按產品名稱合併
 function buildFishReport(){
   const targetWarehouses = ['-35度冷凍庫', '-50度冷凍庫'];
-  const shippingWarehouses = ['加工倉', '在途倉'];
 
   // 過濾出冷凍庫的魚貨
   const mainItems = allData.filter(r =>
@@ -4489,85 +4489,50 @@ function buildFishReport(){
     grouped[key].push(r);
   });
 
+  // 預先建立加工倉和在途倉的查詢表（按產品名稱）
+  const shippingData = {};
+  allData.filter(r => r['產品類別'] === '魚貨' && ['加工倉', '在途倉'].includes(r['倉庫名稱']))
+    .forEach(r => {
+      const name = r['產品名稱'] || '';
+      if(!shippingData[name]) shippingData[name] = { '加工倉': 0, '在途倉': 0 };
+      shippingData[name][r['倉庫名稱']] += parseFloat(r['庫存數量']) || 0;
+    });
+
   // 生成報表行
   const result = [];
 
-  // 1. 冷凍庫行
+  // 冷凍庫行 - 分倉庫顯示，包含未入庫數量
   Object.entries(grouped).forEach(([key, items]) => {
     const first = items[0];
     const code = first['產品代碼'] || '';
+    const name = first['產品名稱'] || '';
     const warehouse = first['倉庫名稱'] || '';
 
     // 庫存數量（該倉庫的合計）
     const qty = items.reduce((sum, r) => sum + (parseFloat(r['庫存數量']) || 0), 0);
 
+    // 未入庫（該產品代碼的未入庫數量）
+    const pendingQty = allData
+      .filter(r => r['產品代碼'] === code && r['倉庫名稱'] === '未入庫')
+      .reduce((sum, r) => sum + (parseFloat(r['庫存數量']) || 0), 0);
+
+    // 加工倉和在途倉數量
+    const shippingQtys = shippingData[name] || { '加工倉': 0, '在途倉': 0 };
+
     result.push([
       first['產品類別'] || '',           // 產品類別
       code,                              // 產品代碼
-      first['產品名稱'] || '',           // 產品名稱
+      name,                              // 產品名稱
       first['產品規格'] || '',           // 產品規格
       qty,                               // 庫存數量
       first['基本單位名稱'] || '',       // 基本單位名稱
       warehouse,                         // 倉庫名稱
-      '',                                // 未入庫（冷凍庫行留空）
-      qty,                               // 庫存量（冷凍庫先等於庫存數量）
-      '',                                // 已出貨（冷凍庫留空）
-      ''                                 // 備註
-    ]);
-  });
-
-  // 2. 未入庫行 - 為每個冷凍庫中的產品代碼
-  const codeSet = new Set(mainItems.map(r => r['產品代碼']));
-  codeSet.forEach(code => {
-    const pendingItems = allData.filter(r => r['產品代碼'] === code && r['倉庫名稱'] === '未入庫');
-    const firstCold = mainItems.find(r => r['產品代碼'] === code);
-
-    if(!firstCold) return;
-
-    const pendingQty = pendingItems.reduce((sum, r) => sum + (parseFloat(r['庫存數量']) || 0), 0);
-
-    // 如果有未入庫就顯示，沒有也新增一空白行
-    const qty = allData
-      .filter(r => r['產品代碼'] === code && targetWarehouses.includes(r['倉庫名稱']))
-      .reduce((sum, r) => sum + (parseFloat(r['庫存數量']) || 0), 0);
-
-    result.push([
-      firstCold['產品類別'] || '',       // 產品類別
-      code,                              // 產品代碼
-      firstCold['產品名稱'] || '',       // 產品名稱
-      firstCold['產品規格'] || '',       // 產品規格
-      '',                                // 庫存數量（未入庫行留空）
-      firstCold['基本單位名稱'] || '',   // 基本單位名稱
-      '未入庫',                          // 倉庫名稱
       pendingQty || 0,                   // 未入庫
-      qty + (pendingQty || 0),           // 庫存量 = 冷凍庫 + 未入庫
-      '',                                // 已出貨
+      qty + (pendingQty || 0),           // 庫存量 = 庫存數量 + 未入庫
+      shippingQtys['加工倉'] || 0,       // 加工倉
+      shippingQtys['在途倉'] || 0,       // 在途倉
       ''                                 // 備註
     ]);
-  });
-
-  // 3. 加工倉 / 在途倉行 - 倉庫名稱顯示，庫存數量放在已出貨欄位
-  shippingWarehouses.forEach(shippingWh => {
-    const shippingItems = allData.filter(r =>
-      r['產品類別'] === '魚貨' && r['倉庫名稱'] === shippingWh
-    );
-
-    shippingItems.forEach(r => {
-      const qty = parseFloat(r['庫存數量']) || 0;
-      result.push([
-        r['產品類別'] || '',              // 產品類別
-        r['產品代碼'] || '',              // 產品代碼
-        r['產品名稱'] || '',              // 產品名稱
-        r['產品規格'] || '',              // 產品規格
-        '',                               // 庫存數量（加工/在途留空）
-        r['基本單位名稱'] || '',          // 基本單位名稱
-        shippingWh,                       // 倉庫名稱
-        '',                               // 未入庫
-        '',                               // 庫存量
-        qty,                              // 已出貨（放入庫存數量）
-        ''                                // 備註
-      ]);
-    });
   });
 
   return result;
@@ -4587,7 +4552,7 @@ async function writeToSheets(){
 
   // 為不同分頁定義不同的表頭
   const fishHeaders = ['產品類別','產品代碼','產品名稱','產品規格','庫存數量',
-    '基本單位名稱','倉庫名稱','未入庫','庫存量','已出貨','備註'];
+    '基本單位名稱','倉庫名稱','未入庫','庫存量','加工倉','在途倉','備註'];
   const headers = ['核算組織','產品類別','產品代碼','產品名稱','產品規格',
     '庫存數量','單位','倉庫名稱','批號','入庫日期','有效期至',
     '剩餘/在庫天數','庫存狀態','存貨核算範圍名稱','單價','存貨成本'];
