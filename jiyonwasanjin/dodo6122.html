@@ -4520,6 +4520,36 @@ function buildFishReport(){
     ]);
   });
 
+  // 2. 只有未入庫、沒有冷凍庫庫存的魚貨 → 補上一行（庫存數量=0）
+  const coldCodes = new Set(mainItems.map(r => r['產品代碼']));
+  const pendingOnlyItems = allData.filter(r =>
+    r['產品類別'] === '魚貨' &&
+    r['倉庫名稱'] === '未入庫' &&
+    !coldCodes.has(r['產品代碼'])
+  );
+  // 按產品代碼分組
+  const pendingOnlyGrouped = {};
+  pendingOnlyItems.forEach(r => {
+    const code = r['產品代碼'] || '';
+    if(!pendingOnlyGrouped[code]) pendingOnlyGrouped[code] = { first: r, qty: 0 };
+    pendingOnlyGrouped[code].qty += parseFloat(r['庫存數量']) || 0;
+  });
+  Object.values(pendingOnlyGrouped).forEach(({ first, qty }) => {
+    result.push([
+      first['產品類別'] || '',           // 產品類別
+      first['產品代碼'] || '',           // 產品代碼
+      first['產品名稱'] || '',           // 產品名稱
+      first['產品規格'] || '',           // 產品規格
+      0,                                 // 庫存數量（無冷凍庫庫存）
+      first['基本單位名稱'] || '',       // 基本單位名稱
+      '未入庫',                          // 倉庫名稱
+      qty,                               // 未入庫
+      qty,                               // 庫存量 = 0 + 未入庫
+      '',                                // 已出貨
+      ''                                 // 備註
+    ]);
+  });
+
   // 2. 加工倉 / 在途倉行 - 各自以行顯示，按產品名稱合併，庫存數量放在已出貨欄位
   shippingWarehouses.forEach(wh => {
     // 按產品名稱合併
