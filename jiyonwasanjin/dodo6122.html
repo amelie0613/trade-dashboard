@@ -2011,6 +2011,31 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <input type="email" id="recipientEmail" placeholder="you@example.com"
                   style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;font-family:inherit;">
               </div>
+              <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:8px;margin-top:10px;">
+                <label style="font-weight:700;">選擇要發送通知的分頁：</label>
+                <div style="display:flex;flex-direction:column;gap:6px;width:100%;">
+                  <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;">
+                    <input type="checkbox" id="emailSheet_all" checked style="width:16px;height:16px;cursor:pointer;">
+                    <span>📋 全部庫存</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;">
+                    <input type="checkbox" id="emailSheet_expired" checked style="width:16px;height:16px;cursor:pointer;">
+                    <span>❌ 過期品</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;">
+                    <input type="checkbox" id="emailSheet_long" checked style="width:16px;height:16px;cursor:pointer;">
+                    <span>⏳ 長期在庫</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;">
+                    <input type="checkbox" id="emailSheet_soon" checked style="width:16px;height:16px;cursor:pointer;">
+                    <span>⚠️ 即將到期</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;">
+                    <input type="checkbox" id="emailSheet_fish" checked style="width:16px;height:16px;cursor:pointer;">
+                    <span>🐟 魚貨倉庫</span>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -4420,10 +4445,15 @@ function closeSheetsPanel(){
 }
 
 function buildExportRows(scope){
-  const rows = scope==='all'    ? allData
-             : scope==='expired'? allData.filter(r=>classify(r).expired)
-             : scope==='long'   ? allData.filter(r=>classify(r).long)
-             :                    allData.filter(r=>classify(r).soon);
+  let rows = scope==='all'    ? allData
+           : scope==='expired'? allData.filter(r=>classify(r).expired)
+           : scope==='long'   ? allData.filter(r=>classify(r).long)
+           : scope==='soon'   ? allData.filter(r=>classify(r).soon)
+           : scope==='fish'   ? buildFishReport()
+           :                    allData;
+
+  if(scope === 'fish') return rows; // fish 報表有特殊格式，直接返回
+
   return rows.map(r => {
     const f = classify(r);
     const {qty, price, scope: scopeVal, cost} = computeCost(r);
@@ -4444,6 +4474,63 @@ function buildExportRows(scope){
   });
 }
 
+// 魚貨倉庫報表：倉庫 = -35度冷凍庫 或 -50度冷凍庫，分倉庫顯示
+// 已出貨欄位 = 加工倉 + 在途倉的庫存數量合計
+function buildFishReport(){
+  const targetWarehouses = ['-35度冷凍庫', '-50度冷凍庫'];
+  const shippingWarehouses = ['加工倉', '在途倉'];
+
+  // 過濾出冷凍庫的魚貨
+  const mainItems = allData.filter(r =>
+    r['產品類別'] === '魚貨' && targetWarehouses.includes(r['倉庫名稱'])
+  );
+
+  // 按「產品代碼 + 倉庫名稱」分組（分倉庫顯示）
+  const grouped = {};
+  mainItems.forEach(r => {
+    const key = `${r['產品代碼']}|${r['倉庫名稱']}`;
+    if(!grouped[key]) grouped[key] = [];
+    grouped[key].push(r);
+  });
+
+  // 生成報表行
+  const result = [];
+  Object.entries(grouped).forEach(([key, items]) => {
+    const first = items[0];
+    const code = first['產品代碼'] || '';
+    const warehouse = first['倉庫名稱'] || '';
+
+    // 庫存數量（該倉庫的合計）
+    const qty = items.reduce((sum, r) => sum + (parseFloat(r['庫存數量']) || 0), 0);
+
+    // 未入庫（該產品代碼的未入庫數量）
+    const pendingQty = allData
+      .filter(r => r['產品代碼'] === code && r['倉庫名稱'] === '未入庫')
+      .reduce((sum, r) => sum + (parseFloat(r['庫存數量']) || 0), 0);
+
+    // 已出貨（加工倉 + 在途倉的該產品代碼庫存數量）
+    const shippedQty = allData
+      .filter(r => r['產品代碼'] === code && shippingWarehouses.includes(r['倉庫名稱']))
+      .reduce((sum, r) => sum + (parseFloat(r['庫存數量']) || 0), 0);
+
+    result.push([
+      first['產品類別'] || '',           // 產品類別
+      first['產品代碼'] || '',           // 產品代碼
+      first['產品名稱'] || '',           // 產品名稱
+      first['產品規格'] || '',           // 產品規格
+      qty,                               // 庫存數量
+      first['基本單位名稱'] || '',       // 基本單位名稱
+      warehouse,                         // 倉庫名稱
+      pendingQty,                        // 未入庫
+      qty + pendingQty,                  // 庫存量 = 庫存數量 + 未入庫
+      shippedQty,                        // 已出貨（加工倉 + 在途倉）
+      ''                                 // 備註（空白，可編輯）
+    ]);
+  });
+
+  return result;
+}
+
 async function writeToSheets(){
   const urlEl = document.getElementById('sheetsUrl');
   const url   = (urlEl?.value || '').trim() || (localStorage.getItem('sheetsScriptUrl')||DEFAULT_SHEETS_SCRIPT_URL).trim();
@@ -4453,19 +4540,31 @@ async function writeToSheets(){
 
   const sheetId   = document.getElementById('sheetId')?.value?.trim() || '';
   const sendEmail = document.getElementById('enableEmail')?.checked || false;
-  const emailTo   = document.getElementById('emailTo')?.value?.trim() || '';
+  const emailTo   = document.getElementById('recipientEmail')?.value?.trim() || '';
   const emailSubj = document.getElementById('emailSubject')?.value?.trim() || '庫存健康報告';
+
+  // 為不同分頁定義不同的表頭
+  const fishHeaders = ['產品類別','產品代碼','產品名稱','產品規格','庫存數量',
+    '基本單位名稱','倉庫名稱','未入庫','庫存量','已出貨','備註'];
   const headers = ['核算組織','產品類別','產品代碼','產品名稱','產品規格',
     '庫存數量','單位','倉庫名稱','批號','入庫日期','有效期至',
     '剩餘/在庫天數','庫存狀態','存貨核算範圍名稱','單價','存貨成本'];
 
-  // 4種分頁設定
+  // 分頁設定 + 郵件通知設定
   const sheets = [
-    { sheetName: '全部庫存',   scope: 'all',     color: '#7B6BAA' },
-    { sheetName: '過期品',     scope: 'expired', color: '#E07070' },
-    { sheetName: '長期在庫',   scope: 'long',    color: '#E0904A' },
-    { sheetName: '即將到期',   scope: 'soon',    color: '#D0736A' },
+    { sheetName: '全部庫存',   scope: 'all',     color: '#7B6BAA',  sheetId: 'all' },
+    { sheetName: '過期品',     scope: 'expired', color: '#E07070',  sheetId: 'expired' },
+    { sheetName: '長期在庫',   scope: 'long',    color: '#E0904A',  sheetId: 'long' },
+    { sheetName: '即將到期',   scope: 'soon',    color: '#D0736A',  sheetId: 'soon' },
+    { sheetName: '魚貨倉庫',   scope: 'fish',    color: '#4A90E2',  sheetId: 'fish' },
   ];
+
+  // 取得選中的分頁
+  const selectedSheets = sheets.filter(s => {
+    const cb = document.getElementById(`emailSheet_${s.sheetId}`);
+    return cb && cb.checked;
+  });
+  const lastSelectedIdx = selectedSheets.length > 0 ? sheets.findIndex(s => s === selectedSheets[selectedSheets.length-1]) : -1;
 
   btn.disabled = true;
   btn.textContent = '寫入中…';
@@ -4474,13 +4573,22 @@ async function writeToSheets(){
   let totalRows = 0;
   let errors = [];
 
+  // 蒐集選中的分頁名稱（用於郵件內容）
+  const selectedSheetNames = selectedSheets.map(s => s.sheetName);
+
   for(let i = 0; i < sheets.length; i++){
-    const { sheetName, scope, color } = sheets[i];
+    const { sheetName, scope, color, sheetId: sId } = sheets[i];
+    const isSelected = document.getElementById(`emailSheet_${sId}`)?.checked || false;
+    if(!isSelected) continue; // 跳過未選中的分頁
+
     const dataRows = buildExportRows(scope);
-    statusEl.textContent = `(${i+1}/4) 寫入「${sheetName}」… ${dataRows.length} 筆`;
+    const sheetHeaders = scope === 'fish' ? fishHeaders : headers;
+    statusEl.textContent = `(${i+1}/5) 寫入「${sheetName}」… ${dataRows.length} 筆`;
     try{
-      const payload = { sheetName, sheetId, headers, rows: dataRows, headerColor: color,
-        sendEmail: sendEmail && i===sheets.length-1, emailTo, emailSubject: emailSubj };
+      const isLastSelected = i === lastSelectedIdx;
+      const payload = { sheetName, sheetId, headers: sheetHeaders, rows: dataRows, headerColor: color,
+        sendEmail: sendEmail && isLastSelected, emailTo, emailSubject: emailSubj,
+        selectedSheets: isLastSelected ? selectedSheetNames : undefined };
       const resp = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
@@ -4817,8 +4925,11 @@ const APPS_SCRIPT_CODE = [
   '    if (data.sendEmail && data.emailTo) {',
   '      var emails = data.emailTo.split(",").map(function(addr){ return addr.trim(); });',
   '      var subject = data.emailSubject || "庫存健康報告";',
+  '      var sheetList = data.selectedSheets && data.selectedSheets.length > 0',
+  '        ? data.selectedSheets.join("、")  ',
+  '        : "全部庫存、過期品、長期在庫、即將到期";',
   '      var body = "庫存分析已完成，請至 Google Sheets 查看。\\n\\n"',
-  '               + "已寫入4個分頁：全部庫存、過期品、長期在庫、即將到期\\n"',
+  '               + "已寫入分頁：" + sheetList + "\\n"',
   '               + "寫入時間：" + new Date().toLocaleString() + "\\n";',
   '      emails.forEach(function(addr){',
   '        if (addr) GmailApp.sendEmail(addr, subject, body);',
