@@ -1448,30 +1448,23 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
         </div><!-- /inv-card -->
 
-        <!-- 未入庫明細上傳區 -->
-        <div class="inv-card" style="margin-top:16px;"
+        <!-- 未入庫明細上傳區（拖拉檔案） -->
+        <div class="inv-card" style="margin-top:16px;border:2px dashed var(--border);transition:all 0.2s;cursor:pointer;"
              id="pendingCard"
-             ondragover="event.preventDefault();document.getElementById('pendingCard').style.outline='2px dashed var(--accent)';"
-             ondragleave="document.getElementById('pendingCard').style.outline='';"
-             ondrop="document.getElementById('pendingCard').style.outline='';handlePendingDrop(event);">
+             ondragover="event.preventDefault();event.stopPropagation();document.getElementById('pendingCard').style.borderColor='var(--accent)';document.getElementById('pendingCard').style.background='rgba(66, 133, 244, 0.05)';"
+             ondragleave="event.preventDefault();event.stopPropagation();document.getElementById('pendingCard').style.borderColor='var(--border)';document.getElementById('pendingCard').style.background='';"
+             ondrop="event.preventDefault();event.stopPropagation();document.getElementById('pendingCard').style.borderColor='var(--border)';document.getElementById('pendingCard').style.background='';handlePendingDrop(event);">
           <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
             <span style="font-size:20px;">📥</span>
-            <div>
+            <div style="flex:1;">
               <div style="font-size:14px;font-weight:800;color:var(--text);">未入庫明細</div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px;">上傳採購訂單未入庫明細，備份至 Supabase，在 Dashboard 庫存明細中以「未入庫」倉庫顯示</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">拖拉 xlsx 檔案到此區域上傳採購訂單未入庫明細</div>
             </div>
-            <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-              <span id="pendingRecordCount" style="font-size:12px;color:var(--muted);display:none;"></span>
-              <button id="pendingUploadBtn" onclick="uploadPendingToSupabase()" style="display:none;background:#6878C0;color:white;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-                ☁️ 備份到 Supabase
-              </button>
-              <button onclick="document.getElementById('pendingFileInput').click()"
-                style="background:var(--accent-light);color:var(--accent);border:1.5px solid var(--accent);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
-                📂 選擇 xlsx
-              </button>
-            </div>
+            <button id="pendingUploadBtn" onclick="uploadPendingToSupabase()" style="display:none;background:#6878C0;color:white;border:none;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
+              ☁️ 備份到 Supabase
+            </button>
           </div>
-          <div id="pendingPreviewWrap" style="display:none;padding:14px 18px;">
+          <div id="pendingPreviewWrap" style="display:none;padding:14px 18px;border-bottom:1px solid var(--border);">
             <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;">預覽（前 5 筆，倉庫將統一設為「未入庫」）</div>
             <div class="tbl-scroll" style="max-height:200px;">
               <table class="data-tbl" id="pendingPreviewTable" style="font-size:11px;">
@@ -1480,10 +1473,13 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
               </table>
             </div>
           </div>
-          <div id="pendingEmptyHint" style="padding:36px 20px;text-align:center;color:var(--muted);font-size:13px;">
-            尚未載入未入庫明細，請點擊「選擇 xlsx」或拖拉檔案到此區域
+          <div id="pendingEmptyHint" style="padding:48px 20px;text-align:center;">
+            <div style="font-size:36px;margin-bottom:12px;">📄</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">拖拉 .xlsx 檔案到此</div>
+            <div style="font-size:11px;color:var(--muted);">備份至 Supabase，在庫存明細中以「未入庫」倉庫顯示</div>
           </div>
           <div id="pendingStatusMsg" style="padding:8px 20px;font-size:12px;font-weight:700;display:none;"></div>
+          <div id="pendingRecordCount" style="font-size:11px;color:var(--muted);padding:8px 20px;display:none;border-top:1px solid var(--border);"></div>
         </div>
 
       </div><!-- /view-inventory -->
