@@ -4588,6 +4588,43 @@ async function writeToSheets(){
   const btn      = document.getElementById('sheetsSaveBtn');
   if(!url){ statusEl.textContent = '❌ Apps Script 網址未設定'; statusEl.style.color='var(--red)'; return; }
 
+  // ── 從 Supabase 補入未入庫資料（若 allData 中沒有）──────────────
+  const hasPending = allData.some(r => r['倉庫名稱'] === '未入庫');
+  if(!hasPending && SUPABASE_URL && SUPABASE_KEY){
+    try{
+      statusEl.textContent = '⏳ 讀取未入庫資料…';
+      statusEl.style.color = 'var(--muted)';
+      const pendingUrl = `${SUPABASE_URL}/rest/v1/inventory?${encodeURIComponent('倉庫名稱')}=eq.${encodeURIComponent('未入庫')}&select=*`;
+      const pendingResp = await fetch(pendingUrl, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      if(pendingResp.ok){
+        const pendingData = await pendingResp.json();
+        if(pendingData.length){
+          const mapped = pendingData.map(r => {
+            const code = String(r['產品代碼'] || '');
+            return {
+              '產品類別':         r['產品類別'] || '',
+              '產品代碼':         code ? code.padStart(4,'0') : '',
+              '產品名稱':         r['產品名稱'] || '',
+              '產品規格':         r['產品規格'] || '',
+              '庫存數量':         parseFloat(r['庫存數量']) || 0,
+              '基本單位名稱':     r['單位'] || r['基本單位名稱'] || '',
+              '倉庫名稱':         '未入庫',
+              '批號':             r['批號'] || '',
+              '有效期至':         r['有效期至'] || '',
+              '核算組織名稱':     r['核算組織'] || '',
+              '存貨核算範圍名稱': r['存貨核算範圍名稱'] || '',
+              _expDate: null,
+              _lotDate: null,
+            };
+          });
+          allData = allData.concat(mapped);
+        }
+      }
+    }catch(e){ console.warn('未入庫補入失敗', e); }
+  }
+
   const sheetId   = document.getElementById('sheetId')?.value?.trim() || '';
   const sendEmail = document.getElementById('enableEmail')?.checked || false;
   const emailTo   = document.getElementById('recipientEmail')?.value?.trim() || '';
