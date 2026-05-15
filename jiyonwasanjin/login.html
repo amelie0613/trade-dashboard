@@ -79,17 +79,14 @@ button:disabled { background: #b0b8d8; cursor: not-allowed; }
   <div class="logo">
     <span class="logo-icon">📊</span>
     <div class="logo-title">庫存管理系統</div>
-    <div class="logo-sub">請登入以繼續使用</div>
+    <div class="logo-sub">請輸入存取密碼</div>
   </div>
-
-  <label for="email">電子郵件</label>
-  <input type="email" id="email" placeholder="your@email.com" autocomplete="username">
 
   <label for="password">密碼</label>
   <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"
     onkeydown="if(event.key==='Enter') doLogin()">
 
-  <button id="loginBtn" onclick="doLogin()">登入</button>
+  <button id="loginBtn" onclick="doLogin()">進入系統</button>
   <div class="error" id="errMsg"></div>
 </div>
 
@@ -108,36 +105,51 @@ const _sbLogin = supabase.createClient(_SB_URL, _SB_ANON);
   }
 })();
 
+// 10 組閱覽者帳號，每組可設不同密碼
+const VIEWER_ACCOUNTS = [
+  'viewer1@inventory.local',
+  'viewer2@inventory.local',
+  'viewer3@inventory.local',
+  'viewer4@inventory.local',
+  'viewer5@inventory.local',
+  'viewer6@inventory.local',
+  'viewer7@inventory.local',
+  'viewer8@inventory.local',
+  'viewer9@inventory.local',
+  'viewer10@inventory.local',
+];
+
 async function doLogin() {
-  const email    = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   const btn      = document.getElementById('loginBtn');
   const errEl    = document.getElementById('errMsg');
 
   errEl.classList.remove('show');
-  if (!email || !password) {
-    errEl.textContent = '請輸入電子郵件和密碼';
+  if (!password) {
+    errEl.textContent = '請輸入密碼';
     errEl.classList.add('show');
     return;
   }
 
   btn.disabled    = true;
-  btn.textContent = '登入中…';
+  btn.textContent = '驗證中…';
 
-  const { data, error } = await _sbLogin.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    const msg = error.message === 'Invalid login credentials' ? '帳號或密碼錯誤' : error.message;
-    errEl.textContent = '登入失敗：' + msg;
-    errEl.classList.add('show');
-    btn.disabled    = false;
-    btn.textContent = '登入';
-    return;
+  // 逐一嘗試，找到符合密碼的帳號即登入
+  for (const email of VIEWER_ACCOUNTS) {
+    const { data, error } = await _sbLogin.auth.signInWithPassword({ email, password });
+    if (!error) {
+      const redirect = localStorage.getItem('sb_redirect') || 'dashboard.html';
+      localStorage.removeItem('sb_redirect');
+      location.replace(redirect);
+      return;
+    }
   }
 
-  const redirect = localStorage.getItem('sb_redirect') || 'dashboard.html';
-  localStorage.removeItem('sb_redirect');
-  location.replace(redirect);
+  // 全部嘗試後仍失敗
+  errEl.textContent = '密碼錯誤，請重新輸入';
+  errEl.classList.add('show');
+  btn.disabled    = false;
+  btn.textContent = '進入系統';
 }
 </script>
 </body>
