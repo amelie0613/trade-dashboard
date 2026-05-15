@@ -10076,11 +10076,11 @@ async function syncBothToSupabase() {
     return;
   }
 
-  // 更新 token 為 authenticated session token（讓 RLS 識別已登入身份）
-  window.SUPABASE_KEY = session.access_token;
+  // 保持使用 ANON_KEY 進行 Data API 調用（ANON_KEY 對 RLS disabled 的表有效）
+  window.SUPABASE_KEY = window.SUPABASE_ANON_KEY;
   window.SB_HEADERS = {
     'apikey':        window.SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${session.access_token}`,
+    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
     'Content-Type':  'application/json',
   };
 
