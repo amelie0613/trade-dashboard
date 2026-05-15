@@ -2533,7 +2533,7 @@ async function saveToSupabase(dataDate){
     await fetch(delUrl, {
       method: 'DELETE',
       headers: {
-        'apikey': SUPABASE_KEY,
+        'apikey': SUPABASE_ANON_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Prefer': 'return=minimal'
       }
@@ -2543,7 +2543,7 @@ async function saveToSupabase(dataDate){
     const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory`, {
       method: 'POST',
       headers: {
-        'apikey': SUPABASE_KEY,
+        'apikey': SUPABASE_ANON_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
@@ -4644,7 +4644,7 @@ async function writeToSheets(){
       statusEl.style.color = 'var(--muted)';
       const pendingUrl = `${SUPABASE_URL}/rest/v1/inventory?${encodeURIComponent('倉庫名稱')}=eq.${encodeURIComponent('未入庫')}&select=*`;
       const pendingResp = await fetch(pendingUrl, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
       });
       if(pendingResp.ok){
         const pendingData = await pendingResp.json();
@@ -4858,7 +4858,7 @@ async function uploadPendingToSupabase(){
     const delUrl = `${SUPABASE_URL}/rest/v1/inventory?${encodeURIComponent('倉庫名稱')}=eq.${encodeURIComponent('未入庫')}`;
     await fetch(delUrl, {
       method: 'DELETE',
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Prefer': 'return=minimal' }
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Prefer': 'return=minimal' }
     });
 
     msg.textContent = `插入 ${pendingRows.length} 筆未入庫資料…`;
@@ -4867,7 +4867,7 @@ async function uploadPendingToSupabase(){
     const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory`, {
       method: 'POST',
       headers: {
-        'apikey': SUPABASE_KEY,
+        'apikey': SUPABASE_ANON_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
@@ -9719,7 +9719,7 @@ async function writeDiffToSupabase(){
     const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/clear_diff_comparison`, {
       method: 'POST',
       headers: {
-        'apikey': SUPABASE_KEY,
+        'apikey': SUPABASE_ANON_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json'
       },
@@ -9757,7 +9757,7 @@ async function writeDiffToSupabase(){
     const response = await fetch(`${SUPABASE_URL}/rest/v1/diff_comparison`, {
       method: 'POST',
       headers: {
-        'apikey': SUPABASE_KEY,
+        'apikey': SUPABASE_ANON_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
