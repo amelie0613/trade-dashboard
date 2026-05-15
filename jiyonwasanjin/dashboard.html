@@ -12,6 +12,7 @@
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap');
 
@@ -178,6 +179,10 @@ td.note-cell .save-indicator.show { display: block; }
 .diff-compact-tbl { table-layout: auto; min-width: unset; width: 100%; }
 .diff-compact-tbl th,
 .diff-compact-tbl td { padding: 5px 8px; white-space: nowrap; }
+.sort-th { cursor:pointer; user-select:none; }
+.sort-th:hover { background:#7a88cc !important; }
+.sort-th.sort-asc::after  { content:' ▲'; font-size:9px; opacity:.9; }
+.sort-th.sort-desc::after { content:' ▼'; font-size:9px; opacity:.9; }
 .diff-section-hd {
   display: flex; align-items: center; gap: 4px;
   padding: 10px 14px; margin: 12px 0 0;
@@ -739,6 +744,7 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
   <button class="btn btn-ghost topbar-hide-mobile" onclick="refreshData()">🔄 重新整理</button>
   <button class="btn btn-blue topbar-hide-mobile" onclick="exportToExcel()">💾 匯出 Excel</button>
   <button class="btn btn-ghost topbar-hide-mobile" onclick="openConfig()">⚙️ 設定</button>
+  <button class="btn btn-ghost topbar-hide-mobile" onclick="sbSignOut()" style="color:#ffcdd2;">🔒 登出</button>
   <button class="mob-menu-btn" onclick="openMobMenu()">☰</button>
 </div>
 
@@ -753,6 +759,7 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
     <div class="mob-menu-item" onclick="exportToExcel();closeMobMenu()">💾 匯出 Excel</div>
     <div class="mob-menu-divider"></div>
     <div class="mob-menu-item" onclick="openConfig();closeMobMenu()">⚙️ 設定</div>
+    <div class="mob-menu-item" onclick="sbSignOut()" style="color:#ef4444;">🔒 登出</div>
   </div>
 </div>
 
@@ -1019,14 +1026,20 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
   <div id="diff-overview-wrap" style="display:none;">
     <div class="tbl-wrap">
       <table>
-        <thead><tr>
-          <th style="width:7%">變化類型</th><th style="width:5%">產品類別</th>
-          <th style="width:5%">產品代碼</th><th style="width:13%">產品名稱</th>
-          <th style="width:7%">規格</th><th style="width:8%">批號</th>
-          <th style="width:7%">倉庫</th><th style="width:7%">本期數量</th>
-          <th style="width:7%">上期數量</th><th style="width:7%">數量差異</th>
-          <th style="width:9%">本期成本</th><th style="width:9%">上期成本</th>
-          <th style="width:9%">成本差異</th>
+        <thead><tr id="diff-overview-thead">
+          <th class="sort-th" style="width:7%"  onclick="sortDiffTable('變化類型')">變化類型</th>
+          <th class="sort-th" style="width:5%"  onclick="sortDiffTable('產品類別')">產品類別</th>
+          <th class="sort-th" style="width:5%"  onclick="sortDiffTable('產品代碼')">產品代碼</th>
+          <th class="sort-th" style="width:13%" onclick="sortDiffTable('產品名稱')">產品名稱</th>
+          <th class="sort-th" style="width:7%"  onclick="sortDiffTable('規格')">規格</th>
+          <th class="sort-th" style="width:8%"  onclick="sortDiffTable('批號')">批號</th>
+          <th class="sort-th" style="width:7%"  onclick="sortDiffTable('倉庫')">倉庫</th>
+          <th class="sort-th" style="width:7%"  onclick="sortDiffTable('本期數量')">本期數量</th>
+          <th class="sort-th" style="width:7%"  onclick="sortDiffTable('上期數量')">上期數量</th>
+          <th class="sort-th" style="width:7%"  onclick="sortDiffTable('數量差異')">數量差異</th>
+          <th class="sort-th" style="width:9%"  onclick="sortDiffTable('本期成本')">本期成本</th>
+          <th class="sort-th" style="width:9%"  onclick="sortDiffTable('上期成本')">上期成本</th>
+          <th class="sort-th" style="width:9%"  onclick="sortDiffTable('成本差異')">成本差異</th>
         </tr></thead>
         <tbody id="diff-body"></tbody>
       </table>
@@ -1163,8 +1176,10 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
 //  CONFIG
 // ═══════════════════════════════════════════════════════════════
 // ── Supabase 設定 ──
-const SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
+const SUPABASE_URL  = 'https://yeposcucdppwkjmmoidi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
+let SUPABASE_KEY = SUPABASE_ANON_KEY; // auth 後會更新為 session.access_token
+let _sbClient;
 
 let CFG = {
   soonDays:  +(localStorage.getItem('dash_soonDays')  || 210),
@@ -3607,10 +3622,26 @@ window.addEventListener('resize', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════════════════
+async function sbSignOut() {
+  if (_sbClient) await _sbClient.auth.signOut();
+  location.replace('login.html');
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-  _syncMobileMergeBar('cost'); // 預設在成本分析頁，隱藏按鈕
+document.addEventListener('DOMContentLoaded', async () => {
+  _sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data: { session } } = await _sbClient.auth.getSession();
+  if (!session) {
+    localStorage.setItem('sb_redirect', 'dashboard.html');
+    location.replace('login.html');
+    return;
+  }
+  SUPABASE_KEY = session.access_token; // 改用 authenticated token，RLS 才能識別身份
+  _syncMobileMergeBar('cost');
   refreshData();
 });
 </script>

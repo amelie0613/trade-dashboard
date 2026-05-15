@@ -6,6 +6,7 @@
 <title>庫存暨租金管理系統</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=DM+Sans:wght@400;500;700&family=Nunito:wght@400;600;700;800&display=swap');
 
@@ -1089,6 +1090,51 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         style="width:100%;border:2px solid #fcd9a0;border-radius:8px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;background:white;"
         onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#fcd9a0'">
     </div>
+    <!-- 郵件通知設定 -->
+    <div style="margin-top:14px;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;">
+      <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none';this.querySelector('.email-arrow').textContent=this.nextElementSibling.style.display===''?'▲':'▼';"
+        style="display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;background:#f8fafc;user-select:none;">
+        <span>📧</span>
+        <span style="font-size:12px;font-weight:700;color:var(--text);">Email 通知設定</span>
+        <span class="email-arrow" style="margin-left:auto;font-size:11px;color:var(--muted);">▼</span>
+      </div>
+      <div style="display:none;padding:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px;" id="sheetsPanelEmailSection">
+        <!-- 啟用 + 收件人 -->
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="panelEnableEmail" style="width:16px;height:16px;cursor:pointer;"
+            onchange="document.getElementById('panelEmailFields').style.display=this.checked?'flex':'none'">
+          <label for="panelEnableEmail" style="font-size:12px;font-weight:700;cursor:pointer;">啟用郵件通知</label>
+        </div>
+        <div id="panelEmailFields" style="display:none;flex-direction:column;gap:8px;">
+          <input type="email" id="panelRecipientEmail" placeholder="收件人 Email（多個用逗號分隔）"
+            style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;font-family:inherit;"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+          <input type="text" id="panelEmailSubject" placeholder="郵件主旨（預設：庫存健康報告）"
+            style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;font-family:inherit;"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+          <!-- 分頁選擇 -->
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin-top:2px;">選擇要通知的分頁：</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
+              <input type="checkbox" id="panelSheet_all" checked style="cursor:pointer;"> 📋 全部庫存
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
+              <input type="checkbox" id="panelSheet_expired" checked style="cursor:pointer;"> ❌ 過期品
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
+              <input type="checkbox" id="panelSheet_long" checked style="cursor:pointer;"> ⏳ 長期在庫
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
+              <input type="checkbox" id="panelSheet_soon" checked style="cursor:pointer;"> ⚠️ 即將到期
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">
+              <input type="checkbox" id="panelSheet_fish" checked style="cursor:pointer;"> 🐟 魚貨倉庫
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
       <button class="btn btn-ghost" onclick="closeSheetsPanel()">取消</button>
       <button class="btn btn-primary" onclick="writeToSheets()" id="sheetsSaveBtn">☁️ 寫入分析結果</button>
@@ -2450,7 +2496,9 @@ function toISODate(v){
 async function saveToSupabase(dataDate){
   if(!allData || !allData.length) return { ok: false, error: '尚無資料' };
   try{
-    const records = allData.map(r => {
+    // 排除未入庫資料，避免與 Supabase 的未入庫資料重複
+    const mainData = allData.filter(r => r['倉庫名稱'] !== '未入庫');
+    const records = mainData.map(r => {
       const f = classify(r);
       const { qty, price, scope: scopeVal, cost } = computeCost(r);
       let daysLabel = null;
@@ -4626,9 +4674,14 @@ async function writeToSheets(){
   }
 
   const sheetId   = document.getElementById('sheetId')?.value?.trim() || '';
-  const sendEmail = document.getElementById('enableEmail')?.checked || false;
-  const emailTo   = document.getElementById('recipientEmail')?.value?.trim() || '';
-  const emailSubj = document.getElementById('emailSubject')?.value?.trim() || '庫存健康報告';
+  // 優先讀取彈窗的郵件設定，fallback 到設定頁
+  const sendEmail = document.getElementById('panelEnableEmail')?.checked
+                 || document.getElementById('enableEmail')?.checked || false;
+  const emailTo   = document.getElementById('panelRecipientEmail')?.value?.trim()
+                 || document.getElementById('recipientEmail')?.value?.trim() || '';
+  const emailSubj = document.getElementById('panelEmailSubject')?.value?.trim()
+                 || document.getElementById('emailSubject')?.value?.trim()
+                 || '庫存健康報告';
 
   // 為不同分頁定義不同的表頭
   const fishHeaders = ['產品類別','產品代碼','產品名稱','產品規格','庫存數量',
@@ -4646,11 +4699,12 @@ async function writeToSheets(){
     { sheetName: '魚貨倉庫',   scope: 'fish',    color: '#4A90E2',  sheetId: 'fish' },
   ];
 
-  // 取得選中的分頁
-  const selectedSheets = sheets.filter(s => {
-    const cb = document.getElementById(`emailSheet_${s.sheetId}`);
-    return cb && cb.checked;
-  });
+  // 取得選中的分頁（優先讀彈窗，fallback 到設定頁）
+  const getSheetChecked = id =>
+    document.getElementById(`panelSheet_${id}`)?.checked
+    ?? document.getElementById(`emailSheet_${id}`)?.checked
+    ?? true;
+  const selectedSheets = sheets.filter(s => getSheetChecked(s.sheetId));
   const lastSelectedIdx = selectedSheets.length > 0 ? sheets.findIndex(s => s === selectedSheets[selectedSheets.length-1]) : -1;
 
   btn.disabled = true;
@@ -4665,7 +4719,7 @@ async function writeToSheets(){
 
   for(let i = 0; i < sheets.length; i++){
     const { sheetName, scope, color, sheetId: sId } = sheets[i];
-    const isSelected = document.getElementById(`emailSheet_${sId}`)?.checked || false;
+    const isSelected = getSheetChecked(sId);
     if(!isSelected) continue; // 跳過未選中的分頁
 
     const dataRows = buildExportRows(scope);
@@ -8506,12 +8560,23 @@ function exportResults() {
     showStatus('✅ 彩色報表已下載！', 'success');
 }
 // ─── SUPABASE 單價表 & 重量表 ────────────────────────────────────
-window.SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
-window.SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
+window.SUPABASE_URL      = 'https://yeposcucdppwkjmmoidi.supabase.co';
+window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
+window.SUPABASE_KEY      = window.SUPABASE_ANON_KEY; // auth 後更新為 session.access_token
+
+// SB_HEADERS 以函數動態產生，確保每次都用最新 token
+window.getSBHeaders = function(extra) {
+    return Object.assign({
+        'apikey':        window.SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${window.SUPABASE_KEY}`,
+        'Content-Type':  'application/json',
+    }, extra || {});
+};
+// 向後相容：保留 SB_HEADERS 物件供直接引用（auth 後由 initSupabaseAuth 更新）
 window.SB_HEADERS = {
-    'apikey': window.SUPABASE_KEY,
+    'apikey':        window.SUPABASE_ANON_KEY,
     'Authorization': `Bearer ${window.SUPABASE_KEY}`,
-    'Content-Type': 'application/json',
+    'Content-Type':  'application/json',
 };
 
 // ── 上傳單價表 ──────────────────────────────────────────────────
@@ -9996,6 +10061,36 @@ async function syncBothToSupabase() {
 
 <!-- 計算公式 Tooltip -->
 <div id="calc_formula_tooltip"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  SUPABASE AUTH 初始化
+// ═══════════════════════════════════════════════════════════════
+(async function initSupabaseAuth() {
+  const _sbClient = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+  const { data: { session } } = await _sbClient.auth.getSession();
+
+  if (!session) {
+    localStorage.setItem('sb_redirect', 'dodo6122.html');
+    location.replace('login.html');
+    return;
+  }
+
+  // 更新 token 為 authenticated session token（讓 RLS 識別已登入身份）
+  window.SUPABASE_KEY = session.access_token;
+  window.SB_HEADERS = {
+    'apikey':        window.SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${session.access_token}`,
+    'Content-Type':  'application/json',
+  };
+
+  // 登出函數
+  window.sbSignOut = async function() {
+    await _sbClient.auth.signOut();
+    location.replace('login.html');
+  };
+})();
+</script>
 
 </body>
 </html>
