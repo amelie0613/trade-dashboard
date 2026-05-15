@@ -8564,18 +8564,18 @@ window.SUPABASE_URL      = 'https://yeposcucdppwkjmmoidi.supabase.co';
 window.SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
 window.SUPABASE_KEY      = window.SUPABASE_ANON_KEY;
 
-// getSBHeaders 每次動態產生，確保永遠使用 ANON_KEY
+// getSBHeaders 每次動態產生，Authorization 使用最新的 SUPABASE_KEY（auth 後為 session token）
 window.getSBHeaders = function(extra) {
     return Object.assign({
         'apikey':        window.SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+        'Authorization': `Bearer ${window.SUPABASE_KEY}`,
         'Content-Type':  'application/json',
     }, extra || {});
 };
-// SB_HEADERS 也永遠使用 ANON_KEY（不被 session token 覆寫）
+// SB_HEADERS：auth 後由 initSupabaseAuth 更新 Authorization 為 session token
 window.SB_HEADERS = {
     'apikey':        window.SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${window.SUPABASE_ANON_KEY}`,
+    'Authorization': `Bearer ${window.SUPABASE_KEY}`,
     'Content-Type':  'application/json',
 };
 
@@ -10076,7 +10076,13 @@ async function syncBothToSupabase() {
     return;
   }
 
-  // 不覆寫 SUPABASE_KEY 與 SB_HEADERS，永遠使用 ANON_KEY 進行 Data API 調用
+  // 更新為 session token，讓 RLS 識別為 authenticated 使用者
+  window.SUPABASE_KEY = session.access_token;
+  window.SB_HEADERS = {
+    'apikey':        window.SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${session.access_token}`,
+    'Content-Type':  'application/json',
+  };
 
   // 登出函數
   window.sbSignOut = async function() {
