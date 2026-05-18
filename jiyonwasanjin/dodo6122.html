@@ -8025,13 +8025,41 @@ function deleteResultRow(rowIdx) {
 
 // ===== 出庫記錄表 =====
 let _obSortCol = null, _obSortAsc = true, _obActiveContainer = 'outbound_results';
+let _obWarehouseFilter = ''; // 空字串 = 全部；否則為分倉類型名稱
+
+// 渲染分倉類型統計 chips（可點擊篩選）
+function _renderObSummaryChips() {
+    const summaryEl = document.getElementById('ob_summary');
+    if (!summaryEl) return;
+    const records = window._outboundRecords || [];
+    const col = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3', '未分類':'#aaa' };
+    const cnt = { '銷貨': 0, '加工原料': 0, '再途銷貨': 0, '未分類': 0 };
+    records.forEach(r => {
+        if (cnt[r.分倉類型] !== undefined) cnt[r.分倉類型]++;
+        else cnt['未分類']++;
+    });
+
+    const allActive = _obWarehouseFilter === '';
+    let html = `<span onclick="_obFilterByType('')" style="cursor:pointer;border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:700;border:1.5px solid #6878C0;${allActive ? 'background:#6878C0;color:#fff;' : 'background:#f0f2ff;color:#6878C0;'}">全部 ${records.length}</span>`;
+    html += Object.entries(cnt).map(([k, v]) => {
+        const c = col[k];
+        const active = _obWarehouseFilter === k;
+        return `<span onclick="_obFilterByType('${k}')" style="cursor:pointer;border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:700;border:1.5px solid ${c};${active ? `background:${c};color:#fff;` : `background:${c}18;color:${c};`}">${k} ${v}</span>`;
+    }).join('');
+    summaryEl.innerHTML = html;
+}
+window._renderObSummaryChips = _renderObSummaryChips;
 
 function displayOutboundRecords(containerId) {
     _obActiveContainer = containerId || 'outbound_results';
     const el = document.getElementById(_obActiveContainer);
     if (!el) return;
-    const records = window._outboundRecords || [];
-    if (records.length === 0) { el.innerHTML = ''; return; }
+    const allRecords = window._outboundRecords || [];
+    if (allRecords.length === 0) { el.innerHTML = ''; return; }
+    // 依分倉類型篩選
+    const records = _obWarehouseFilter
+        ? allRecords.filter(r => r.分倉類型 === _obWarehouseFilter)
+        : allRecords;
 
     const typeColor = { '調撥':'#7ec8e3', '拆解':'#c9a8e0', '銷售':'#8dcc7a', '其他':'#f7a35c' };
     const wtColors  = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3' };
@@ -8149,7 +8177,12 @@ async function _obSetType(type) {
     for (const idx of indices) await setWarehouseType(idx, type);
     displayOutboundRecords(_obActiveContainer);
 }
-['_obSort','_obToggleAll','_obUpdateCount','_obSetType'].forEach(fn => window[fn] = eval(fn));
+function _obFilterByType(type) {
+    _obWarehouseFilter = type;
+    _renderObSummaryChips();
+    displayOutboundRecords(_obActiveContainer);
+}
+['_obSort','_obToggleAll','_obUpdateCount','_obSetType','_obFilterByType'].forEach(fn => window[fn] = eval(fn));
 
 async function setWarehouseType(idx, val) {
     const records = window._outboundRecords || [];
@@ -8217,18 +8250,8 @@ async function _loadOutboundRecords(monthLabel, containerId) {
             分倉類型: r.warehouse_type || _autoWarehouseType(r.outbound_type, r.notes),
         }));
 
-        // 分倉統計 chips（只在出庫管理頁有 ob_summary）
-        if (summaryEl) {
-            const cnt = { '銷貨': 0, '加工原料': 0, '再途銷貨': 0, '未分類': 0 };
-            window._outboundRecords.forEach(r => {
-                if (cnt[r.分倉類型] !== undefined) cnt[r.分倉類型]++;
-                else cnt['未分類']++;
-            });
-            const col = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3', '未分類':'#aaa' };
-            summaryEl.innerHTML = Object.entries(cnt).map(([k, v]) =>
-                `<span style="background:${col[k]}18;color:${col[k]};border:1px solid ${col[k]};border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:700;">${k} ${v}</span>`
-            ).join('');
-        }
+        // 分倉統計 chips → 渲染為可點擊篩選按鈕
+        _renderObSummaryChips();
 
         if (statusEl) statusEl.textContent = `✅ 共 ${rows.length} 筆`;
         _obActiveContainer = containerId;
