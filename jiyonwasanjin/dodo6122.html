@@ -10183,10 +10183,20 @@ async function _pgCalcFile(file) {
   _pgResults = [];
 
   try {
-    // 1. 讀取 Excel
-    const buf  = await file.arrayBuffer();
-    const wb   = XLSX.read(buf, { type: 'array' });
-    const ws   = wb.Sheets[wb.SheetNames[0]];
+    // 1. 讀取 Excel（自動找有資料的工作表）
+    const buf = await file.arrayBuffer();
+    const wb  = XLSX.read(buf, { type: 'array' });
+    let ws = null;
+    for (const sn of wb.SheetNames) {
+      const candidate = wb.Sheets[sn];
+      const testRows  = XLSX.utils.sheet_to_json(candidate, { header: 1, defval: '' });
+      // 有超過一行且第二行（index 1）有非空值視為有資料的工作表
+      if (testRows.length > 1 && testRows[1].some(c => String(c).trim())) {
+        ws = candidate;
+        break;
+      }
+    }
+    if (!ws) { status.textContent = '⚠️ 找不到有效資料的工作表'; return; }
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
     // 2. 解析加工單（跳過 row 0 表頭）
@@ -10227,8 +10237,8 @@ async function _pgCalcFile(file) {
         });
       }
       const m = motherMap.get(key);
-      // 同一子件只加一次（去除重複行）
-      if (!m.children.find(c => c.childBatch === line.childBatch)) {
+      // 同一子件（批號+名稱）只加一次（去除重複行）
+      if (!m.children.find(c => c.childBatch === line.childBatch && c.childName === line.childName)) {
         m.children.push({ childBatch: line.childBatch, childName: line.childName, childQty: line.childQty });
       }
     }
@@ -10265,8 +10275,9 @@ async function _pgCalcFile(file) {
       const isMulti         = m.children.length > 1;
 
       for (const child of m.children) {
-        if (!childMap.has(child.childBatch)) {
-          childMap.set(child.childBatch, {
+        const childKey = `${child.childBatch}|${child.childName}`;
+        if (!childMap.has(childKey)) {
+          childMap.set(childKey, {
             childBatch: child.childBatch,
             childName:  child.childName,
             childQty:   child.childQty,
@@ -10274,7 +10285,7 @@ async function _pgCalcFile(file) {
             mothers:    []
           });
         }
-        const c     = childMap.get(child.childBatch);
+        const c     = childMap.get(childKey);
         const ratio   = totalChildQty > 0 ? child.childQty / totalChildQty : 1;
         const portion = m.found ? totalMotherCost * ratio : null;
         c.totalCost += portion ?? 0;
