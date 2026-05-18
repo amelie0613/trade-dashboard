@@ -7996,7 +7996,7 @@ function displayOutboundRecords() {
     const thStyle = `position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;font-weight:700;border:1px solid #4a5a9f;padding:6px 10px;white-space:nowrap;font-size:11px;`;
     const tdBase = `border:1px solid #c8d8ea;font-size:11px;padding:5px 10px;white-space:nowrap;`;
 
-    const cols = ['產品名稱','批號','期間','出庫日期','出庫類型','業務屬性','出庫數量','分攤單價','出庫金額','備註'];
+    const cols = ['產品名稱','批號','期間','出庫日期','出庫類型','業務屬性','出庫數量','分攤單價','出庫金額','備註','分倉類型'];
     const thRow = cols.map(c => `<th style="${thStyle}">${c}</th>`).join('');
 
     let rows = '';
@@ -8028,6 +8028,17 @@ function displayOutboundRecords() {
             ? (noteText || '<span style="color:#ccc;">—</span>')
             : '<span style="color:#eee;">—</span>';
 
+        const wtVal = r.分倉類型 || '';
+        const wtColor = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3' }[wtVal] || '#ccc';
+        const wtBg   = wtVal ? `${wtColor}18` : '#fafafa';
+        const wtSelect = `<select onchange="setWarehouseType(${i},this.value)"
+          style="border:1px solid ${wtVal ? wtColor : '#ddd'};border-radius:5px;padding:2px 4px;font-size:10px;background:${wtBg};color:${wtVal ? wtColor : '#999'};font-weight:700;cursor:pointer;width:76px;">
+          <option value="" ${!wtVal?'selected':''}>— 未分類 —</option>
+          <option value="銷貨" ${wtVal==='銷貨'?'selected':''}>銷貨</option>
+          <option value="加工原料" ${wtVal==='加工原料'?'selected':''}>加工原料</option>
+          <option value="再途銷貨" ${wtVal==='再途銷貨'?'selected':''}>再途銷貨</option>
+        </select>`;
+
         rows += `<tr style="background:${bg};">
             <td style="${tdBase}font-weight:600;">${r.產品名稱}</td>
             <td style="${tdBase}color:#666;">${r.批號}</td>
@@ -8039,6 +8050,7 @@ function displayOutboundRecords() {
             <td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;${hasPrice?'cursor:context-menu;' :''}" ${priceFormula} title="${hasPrice?'右鍵查看計算公式':''}">${單價display}</td>
             <td style="${tdBase}text-align:right;font-weight:700;color:#c0507a;font-variant-numeric:tabular-nums;${hasPrice?'cursor:context-menu;':''}" ${amtFormula} title="${hasPrice?'右鍵查看計算公式':''}">${金額display}</td>
             <td style="${noteTdStyle}">${noteDisplay}</td>
+            <td style="${tdBase}text-align:center;padding:4px 6px;">${wtSelect}</td>
         </tr>`;
     });
 
@@ -8057,6 +8069,39 @@ function displayOutboundRecords() {
         </div>
     </div>`;
 }
+
+async function setWarehouseType(idx, val) {
+    const records = window._outboundRecords || [];
+    const r = records[idx];
+    if (!r) return;
+    r.分倉類型 = val;
+
+    // 即時更新選單樣式
+    const sel = document.querySelectorAll('#outbound_results select')[idx];
+    if (sel) {
+        const c = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3' }[val] || '#ccc';
+        sel.style.borderColor = val ? c : '#ddd';
+        sel.style.color       = val ? c : '#999';
+        sel.style.background  = val ? `${c}18` : '#fafafa';
+    }
+
+    // 若有 Supabase id，即時 PATCH
+    if (r._id) {
+        try {
+            await fetch(
+                `${SUPABASE_URL}/rest/v1/outbound_records?id=eq.${r._id}`,
+                {
+                    method: 'PATCH',
+                    headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ warehouse_type: val || null })
+                }
+            );
+        } catch(e) {
+            console.warn('分倉類型儲存失敗：', e.message);
+        }
+    }
+}
+window.setWarehouseType = setWarehouseType;
 
 async function exportOutboundExcel() {
     const records = window._outboundRecords || [];
@@ -8151,6 +8196,7 @@ async function syncOutboundToSupabase(records, label) {
         notes:           r.備註 || '',
         month_label:     label || r.month_label || '',
         period:          r.period || '',
+        warehouse_type:  r.分倉類型 || null,
         created_at:      new Date().toISOString(),
     }));
 
@@ -8209,6 +8255,7 @@ async function viewOutboundFromSupabase(monthLabel) {
 
         // 轉換回中文欄位
         window._outboundRecords = rows.map(r => ({
+            _id:      r.id,
             產品名稱: r.product_name,
             批號:     r.batch_no,
             出庫日期: r.outbound_date,
@@ -8220,6 +8267,7 @@ async function viewOutboundFromSupabase(monthLabel) {
             備註:     r.notes || '',
             month_label: r.month_label,
             period: r.period,
+            分倉類型: r.warehouse_type || '',
         }));
 
         displayOutboundRecords();
@@ -10251,6 +10299,7 @@ async function _pgCalcFile(file) {
       const url = `${SUPABASE_URL}/rest/v1/outbound_records`
         + `?product_name=eq.${encodeURIComponent(m.motherName)}`
         + `&batch_no=eq.${encodeURIComponent(m.motherBatch)}`
+        + `&allocated_price=gt.0`
         + `&select=allocated_price`
         + `&order=outbound_date.desc&limit=1`;
       const resp = await fetch(url, { headers: getSBHeaders() });
