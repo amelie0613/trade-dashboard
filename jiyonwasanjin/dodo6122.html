@@ -8571,7 +8571,6 @@ async function importMaterialsFromOutbound() {
     const statusEl = document.getElementById('mat_status');
     statusEl.textContent = '讀取出庫記錄中…';
     try {
-        // 讀取所有 warehouse_type = 加工原料 的出庫記錄
         const resp = await fetch(
             `${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.加工原料&select=*`,
             { headers: getSBHeaders() }
@@ -8580,30 +8579,46 @@ async function importMaterialsFromOutbound() {
         const rows = await resp.json();
         if (!rows.length) { statusEl.textContent = '出庫記錄中找不到加工原料類型的記錄'; return; }
 
-        // 轉換格式，已存在的略過（不覆蓋已加工數量）
-        const ledgerRows = rows.map(r => ({
-            product_name:  r.product_name,
-            batch_no:      r.batch_no,
-            outbound_date: r.outbound_date || '',
-            original_qty:  r.quantity || 0,
+        // 依 product_name + batch_no 彙總
+        const aggMap = new Map();
+        rows.forEach(r => {
+            const key = `${r.product_name}|${r.batch_no}`;
+            if (!aggMap.has(key)) {
+                aggMap.set(key, {
+                    product_name:  r.product_name,
+                    batch_no:      r.batch_no,
+                    original_qty:  0,
+                    total_cost:    0,
+                    month_label:   r.month_label || '',
+                    notes:         r.notes || '',
+                });
+            }
+            const a = aggMap.get(key);
+            a.original_qty += r.quantity || 0;
+            a.total_cost   += r.outbound_amount || 0;
+        });
+
+        const ledgerRows = Array.from(aggMap.values()).map(a => ({
+            product_name:  a.product_name,
+            batch_no:      a.batch_no,
+            original_qty:  a.original_qty,
             processed_qty: 0,
-            remaining_qty: r.quantity || 0,
-            unit_price:    r.allocated_price || 0,
-            total_cost:    r.outbound_amount || 0,
+            remaining_qty: a.original_qty,
+            unit_price:    a.original_qty > 0 ? Math.round(a.total_cost / a.original_qty * 10000) / 10000 : 0,
+            total_cost:    Math.round(a.total_cost),
             status:        '未加工',
-            month_label:   r.month_label || '',
-            period:        r.period || '',
-            notes:         r.notes || '',
+            month_label:   a.month_label,
+            notes:         a.notes,
         }));
 
-        statusEl.textContent = `寫入台帳中（${ledgerRows.length} 筆）…`;
+        statusEl.textContent = `寫入台帳中（${ledgerRows.length} 筆，共彙總 ${rows.length} 筆明細）…`;
         const writeResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/processing_materials_ledger?on_conflict=product_name,batch_no,outbound_date,period`,
+            `${SUPABASE_URL}/rest/v1/processing_materials_ledger?on_conflict=product_name,batch_no`,
             { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'resolution=ignore-duplicates' }, body:JSON.stringify(ledgerRows) }
         );
         if (!writeResp.ok) throw new Error(await writeResp.text());
 
-        statusEl.textContent = `✅ 匯入完成，共 ${ledgerRows.length} 筆（已存在的略過）`;
+        statusEl.textContent = `✅ 匯入完成：${ledgerRows.length} 個批號（明細 ${rows.length} 筆彙總）`;
         await loadMaterialsLedger();
     } catch(e) {
         statusEl.textContent = `❌ 匯入失敗：${e.message}`;
@@ -8624,30 +8639,47 @@ async function importTransitFromOutbound() {
         const rows = await resp.json();
         if (!rows.length) { statusEl.textContent = '出庫記錄中找不到再途銷貨類型的記錄'; return; }
 
-        const ledgerRows = rows.map(r => ({
-            product_name:  r.product_name,
-            batch_no:      r.batch_no,
-            outbound_date: r.outbound_date || '',
-            original_qty:  r.quantity || 0,
+        // 依 product_name + batch_no 彙總
+        const aggMap = new Map();
+        rows.forEach(r => {
+            const key = `${r.product_name}|${r.batch_no}`;
+            if (!aggMap.has(key)) {
+                aggMap.set(key, {
+                    product_name: r.product_name,
+                    batch_no:     r.batch_no,
+                    original_qty: 0,
+                    total_cost:   0,
+                    month_label:  r.month_label || '',
+                    notes:        r.notes || '',
+                });
+            }
+            const a = aggMap.get(key);
+            a.original_qty += r.quantity || 0;
+            a.total_cost   += r.outbound_amount || 0;
+        });
+
+        const ledgerRows = Array.from(aggMap.values()).map(a => ({
+            product_name:  a.product_name,
+            batch_no:      a.batch_no,
+            original_qty:  a.original_qty,
             offset_qty:    0,
-            remaining_qty: r.quantity || 0,
-            unit_price:    r.allocated_price || 0,
-            total_cost:    r.outbound_amount || 0,
+            remaining_qty: a.original_qty,
+            unit_price:    a.original_qty > 0 ? Math.round(a.total_cost / a.original_qty * 10000) / 10000 : 0,
+            total_cost:    Math.round(a.total_cost),
             source:        '原始出庫',
             status:        '未核銷',
-            month_label:   r.month_label || '',
-            period:        r.period || '',
-            notes:         r.notes || '',
+            month_label:   a.month_label,
+            notes:         a.notes,
         }));
 
-        statusEl.textContent = `寫入台帳中（${ledgerRows.length} 筆）…`;
+        statusEl.textContent = `寫入台帳中（${ledgerRows.length} 筆，共彙總 ${rows.length} 筆明細）…`;
         const writeResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?on_conflict=product_name,batch_no,outbound_date,period,source`,
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?on_conflict=product_name,batch_no,source`,
             { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'resolution=ignore-duplicates' }, body:JSON.stringify(ledgerRows) }
         );
         if (!writeResp.ok) throw new Error(await writeResp.text());
 
-        statusEl.textContent = `✅ 匯入完成，共 ${ledgerRows.length} 筆（已存在的略過）`;
+        statusEl.textContent = `✅ 匯入完成：${ledgerRows.length} 個批號（明細 ${rows.length} 筆彙總）`;
         await loadTransitLedger();
     } catch(e) {
         statusEl.textContent = `❌ 匯入失敗：${e.message}`;
