@@ -1647,6 +1647,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           <button class="rsn-btn" id="rsn-ledger" onclick="switchPage('ledger')">📊 月結算總帳</button>
           <button class="rsn-btn" id="rsn-profit" onclick="switchPage('profit')">💹 利潤分析</button>
           <button class="rsn-btn" id="rsn-pairing" onclick="switchPage('pairing')">📦 轉加工配對</button>
+          <button class="rsn-btn" id="rsn-outbound" onclick="switchPage('outbound')">📋 出庫管理</button>
         </div>
         <div class="rental-content">
 
@@ -1973,6 +1974,35 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
             </div>
           </div><!-- end page_pairing -->
+
+          <!-- PAGE: OUTBOUND MANAGEMENT -->
+          <div id="page_outbound" style="display:none; padding:1rem;">
+            <div style="max-width:1400px; margin:0 auto;">
+              <div style="margin-bottom:1.2rem;">
+                <h2 style="font-size:1.3rem; font-weight:800; color:#1a2540; margin:0;">📋 出庫記錄管理</h2>
+                <p style="font-size:0.85rem; color:#64748b; margin:0.4rem 0 0;">查看 Supabase 出庫記錄，設定分倉類型（銷貨 / 加工原料 / 再途銷貨）</p>
+              </div>
+              <!-- 篩選 + 操作列 -->
+              <div style="background:white; border:1.5px solid #dde6ef; border-radius:12px; padding:1rem; margin-bottom:1rem; display:flex; gap:0.8rem; align-items:center; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                  <label style="font-size:0.82rem; color:#64748b; font-weight:700; white-space:nowrap;">月份篩選</label>
+                  <input type="text" id="ob_month_filter" placeholder="例：4月（留空查全部）"
+                    style="padding:0.4rem 0.8rem; border:1.5px solid #dde6ef; border-radius:8px; font-size:0.82rem; width:170px;" />
+                </div>
+                <button onclick="loadOutboundPage()"
+                  style="padding:0.5rem 1.2rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">
+                  🔍 讀取記錄
+                </button>
+                <div id="ob_page_status" style="font-size:0.82rem; color:#64748b;"></div>
+                <!-- 分倉統計 chips -->
+                <div id="ob_summary" style="display:flex; gap:0.5rem; margin-left:auto; flex-wrap:wrap; align-items:center;"></div>
+              </div>
+              <!-- 記錄表 -->
+              <div id="ob_page_results" style="background:white; border:1.5px solid #dde6ef; border-radius:12px; padding:1rem; min-height:180px;">
+                <p style="text-align:center; color:#999; padding:2rem; font-size:0.85rem;">點擊「讀取記錄」載入出庫記錄</p>
+              </div>
+            </div>
+          </div><!-- end page_outbound -->
 
         </div><!-- /rental-content -->
       </div><!-- /view-rental -->
@@ -5344,7 +5374,7 @@ function syncDatePicker(textId, dateId) {
 // ===== 頁面切換 =====
 window.switchPage = function(page) {
     // 隱藏所有頁面
-    ['page_calc','page_ledger','page_profit','page_pairing'].forEach(id => {
+    ['page_calc','page_ledger','page_profit','page_pairing','page_outbound'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -5373,7 +5403,7 @@ window.switchPage = function(page) {
     });
     if (page === 'ledger') refreshLedgerStatus();
     // Update rental subnav buttons
-    ['calc','ledger','profit','pairing'].forEach(p => {
+    ['calc','ledger','profit','pairing','outbound'].forEach(p => {
         const rsnBtn = document.getElementById('rsn-'+p);
         if(rsnBtn) rsnBtn.classList.toggle('active', p===page);
     });
@@ -7986,89 +8016,132 @@ function deleteResultRow(rowIdx) {
 }
 
 // ===== 出庫記錄表 =====
-function displayOutboundRecords() {
-    const el = document.getElementById('outbound_results');
+let _obSortCol = null, _obSortAsc = true, _obActiveContainer = 'outbound_results';
+
+function displayOutboundRecords(containerId) {
+    _obActiveContainer = containerId || 'outbound_results';
+    const el = document.getElementById(_obActiveContainer);
     if (!el) return;
     const records = window._outboundRecords || [];
     if (records.length === 0) { el.innerHTML = ''; return; }
 
     const typeColor = { '調撥':'#7ec8e3', '拆解':'#c9a8e0', '銷售':'#8dcc7a', '其他':'#f7a35c' };
-    const thStyle = `position:sticky;top:0;z-index:2;background:var(--accent);color:#fff;font-weight:700;border:1px solid #4a5a9f;padding:6px 10px;white-space:nowrap;font-size:11px;`;
-    const tdBase = `border:1px solid #c8d8ea;font-size:11px;padding:5px 10px;white-space:nowrap;`;
+    const wtColors  = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3' };
+    const thS = `background:var(--accent);color:#fff;font-weight:700;border:1px solid #4a5a9f;padding:6px 8px;white-space:nowrap;font-size:11px;`;
+    const tdBase = `border:1px solid #c8d8ea;font-size:11px;padding:5px 8px;white-space:nowrap;`;
 
-    const cols = ['產品名稱','批號','期間','出庫日期','出庫類型','業務屬性','出庫數量','分攤單價','出庫金額','備註','分倉類型'];
-    const thRow = cols.map(c => `<th style="${thStyle}">${c}</th>`).join('');
+    // 排序
+    const sorted = records.map((r, i) => ({ ...r, _origIdx: i }));
+    if (_obSortCol) {
+        sorted.sort((a, b) => {
+            const va = a[_obSortCol] ?? '', vb = b[_obSortCol] ?? '';
+            if (typeof va === 'number' && typeof vb === 'number') return _obSortAsc ? va - vb : vb - va;
+            return _obSortAsc ? String(va).localeCompare(String(vb),'zh-TW') : String(vb).localeCompare(String(va),'zh-TW');
+        });
+    }
+    const arrow = c => _obSortCol === c ? (_obSortAsc ? ' ↑' : ' ↓') : ' <span style="opacity:.35">↕</span>';
+    const thSort = (col, label, align='left') =>
+        `<th onclick="_obSort('${col}')" style="${thS}text-align:${align};cursor:pointer;user-select:none;">${label}${arrow(col)}</th>`;
 
     let rows = '';
-    records.forEach((r, i) => {
-        const bg = i % 2 === 0 ? '#fff' : '#fafbfc';
+    sorted.forEach((r, di) => {
+        const oi = r._origIdx;
+        const bg = di % 2 === 0 ? '#fff' : '#fafbfc';
         const tagColor = typeColor[r.出庫類型] || '#ccc';
         const tag = `<span style="background:${tagColor}20;color:${tagColor};border:1px solid ${tagColor};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">${r.出庫類型}</span>`;
         const hasPrice = r.分攤單價 != null && r.分攤單價 > 0;
         const 單價display = hasPrice ? r.分攤單價.toFixed(5) : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
-        const 金額display = r.出庫金額 != null && r.出庫金額 > 0 ? r.出庫金額.toLocaleString() : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
+        const 金額display = r.出庫金額 > 0 ? r.出庫金額.toLocaleString() : '<span style="color:#bbb;font-size:10px;">月結後填入</span>';
         const periodBg = r.period === '上期' ? '#d4e8f7' : r.period === '下期' ? '#f0e6f7' : '#fff';
-
-        // 右鍵公式 for 分攤單價
-        const priceFormula = hasPrice
-            ? `oncontextmenu="showCalcFormula(event,'分攤單價',['來自月結算總帳','出庫金額 = 分攤單價 × 出庫數量','${r.分攤單價.toFixed(5)} × ${r.出庫數量} = ${r.出庫金額||0}'],'${r.分攤單價.toFixed(5)}');return false;"`
-            : '';
-        // 右鍵公式 for 出庫金額
-        const amtFormula = (hasPrice && r.出庫金額)
-            ? `oncontextmenu="showCalcFormula(event,'出庫金額',['分攤單價 × 出庫數量','${r.分攤單價.toFixed(5)} × ${r.出庫數量}'],'${(r.出庫金額||0).toLocaleString()}');return false;"`
-            : '';
-
-        // 備註：只有調撥/拆解才顯示，且有值才加底色
+        const priceFormula = hasPrice ? `oncontextmenu="showCalcFormula(event,'分攤單價',['來自月結算總帳','${r.分攤單價.toFixed(5)} × ${r.出庫數量} = ${r.出庫金額||0}'],'${r.分攤單價.toFixed(5)}');return false;"` : '';
+        const amtFormula   = (hasPrice && r.出庫金額) ? `oncontextmenu="showCalcFormula(event,'出庫金額',['分攤單價 × 出庫數量','${r.分攤單價.toFixed(5)} × ${r.出庫數量}'],'${(r.出庫金額||0).toLocaleString()}');return false;"` : '';
         const needsNote = r.出庫類型 === '調撥' || r.出庫類型 === '拆解';
         const noteText  = needsNote ? (r.備註 || '') : '';
-        const noteTdStyle = needsNote && noteText
-            ? `${tdBase}font-size:10px;color:#5a3a7a;background:#f5f0ff;min-width:120px;white-space:normal;`
-            : `${tdBase}color:#ccc;font-size:10px;`;
-        const noteDisplay = needsNote
-            ? (noteText || '<span style="color:#ccc;">—</span>')
-            : '<span style="color:#eee;">—</span>';
+        const noteTdStyle = needsNote && noteText ? `${tdBase}font-size:10px;color:#5a3a7a;background:#f5f0ff;min-width:100px;white-space:normal;` : `${tdBase}color:#ccc;font-size:10px;`;
+        const noteDisplay = needsNote ? (noteText || '<span style="color:#ccc;">—</span>') : '<span style="color:#eee;">—</span>';
 
-        const wtVal = r.分倉類型 || '';
-        const wtColor = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3' }[wtVal] || '#ccc';
-        const wtBg   = wtVal ? `${wtColor}18` : '#fafafa';
-        const wtSelect = `<select onchange="setWarehouseType(${i},this.value)"
-          style="border:1px solid ${wtVal ? wtColor : '#ddd'};border-radius:5px;padding:2px 4px;font-size:10px;background:${wtBg};color:${wtVal ? wtColor : '#999'};font-weight:700;cursor:pointer;width:76px;">
-          <option value="" ${!wtVal?'selected':''}>— 未分類 —</option>
-          <option value="銷貨" ${wtVal==='銷貨'?'selected':''}>銷貨</option>
-          <option value="加工原料" ${wtVal==='加工原料'?'selected':''}>加工原料</option>
-          <option value="再途銷貨" ${wtVal==='再途銷貨'?'selected':''}>再途銷貨</option>
-        </select>`;
+        // 分倉 badge
+        const wt = r.分倉類型 || '';
+        const wc = wtColors[wt] || '#bbb';
+        const wtBadge = wt
+            ? `<span style="background:${wc}20;color:${wc};border:1px solid ${wc};border-radius:5px;padding:1px 8px;font-size:10px;font-weight:700;">${wt}</span>`
+            : `<span style="color:#ccc;font-size:10px;">—</span>`;
 
         rows += `<tr style="background:${bg};">
+            <td style="${tdBase}text-align:center;padding:2px 4px;width:26px;"><input type="checkbox" class="ob-check" data-ob-idx="${oi}" onchange="_obUpdateCount()"></td>
             <td style="${tdBase}font-weight:600;">${r.產品名稱}</td>
             <td style="${tdBase}color:#666;">${r.批號}</td>
             <td style="${tdBase}text-align:center;background:${periodBg};font-weight:600;color:#555;">${r.period||'-'}</td>
-            <td style="${tdBase}font-variant-numeric:tabular-nums;">${r.出庫日期||'-'}</td>
+            <td style="${tdBase}">${r.出庫日期||'-'}</td>
             <td style="${tdBase}text-align:center;">${tag}</td>
             <td style="${tdBase}color:#888;font-size:10px;">${r.業務屬性}</td>
-            <td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;">${r.出庫數量.toLocaleString()}</td>
-            <td style="${tdBase}text-align:right;font-variant-numeric:tabular-nums;${hasPrice?'cursor:context-menu;' :''}" ${priceFormula} title="${hasPrice?'右鍵查看計算公式':''}">${單價display}</td>
-            <td style="${tdBase}text-align:right;font-weight:700;color:#c0507a;font-variant-numeric:tabular-nums;${hasPrice?'cursor:context-menu;':''}" ${amtFormula} title="${hasPrice?'右鍵查看計算公式':''}">${金額display}</td>
+            <td style="${tdBase}text-align:right;">${r.出庫數量.toLocaleString()}</td>
+            <td style="${tdBase}text-align:right;${hasPrice?'cursor:context-menu;':''}" ${priceFormula}>${單價display}</td>
+            <td style="${tdBase}text-align:right;font-weight:700;color:#c0507a;${hasPrice?'cursor:context-menu;':''}" ${amtFormula}>${金額display}</td>
             <td style="${noteTdStyle}">${noteDisplay}</td>
-            <td style="${tdBase}text-align:center;padding:4px 6px;">${wtSelect}</td>
+            <td style="${tdBase}text-align:center;">${wtBadge}</td>
         </tr>`;
     });
 
-    el.innerHTML = `<div class="result-section" style="margin-top:1.5rem;">
-        <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.8rem;">
+    el.innerHTML = `<div class="result-section" style="margin-top:0.5rem;">
+        <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.5rem;">
             <div style="font-size:0.95rem;font-weight:800;color:#764ba2;">📦 出庫記錄表（共 ${records.length} 筆）</div>
-            <span style="font-size:0.78rem;color:#999;">分攤單價與出庫金額將於月結算確認後自動填入</span>
-            <button onclick="saveOutboundNow()" style="margin-left:auto;background:#7ec8e3;color:white;border:none;border-radius:8px;padding:0.4rem 0.9rem;font-weight:800;cursor:pointer;font-size:0.82rem;">☁️ 儲存到 Supabase</button>
-            <button onclick="exportOutboundExcel()" style="background:#8dcc7a;color:white;border:none;border-radius:8px;padding:0.4rem 0.9rem;font-weight:800;cursor:pointer;font-size:0.82rem;">📥 匯出 Excel</button>
+            <button onclick="saveOutboundNow()" style="margin-left:auto;background:#7ec8e3;color:white;border:none;border-radius:8px;padding:0.35rem 0.9rem;font-weight:800;cursor:pointer;font-size:0.82rem;">☁️ 儲存到 Supabase</button>
+            <button onclick="exportOutboundExcel()" style="background:#8dcc7a;color:white;border:none;border-radius:8px;padding:0.35rem 0.9rem;font-weight:800;cursor:pointer;font-size:0.82rem;">📥 匯出 Excel</button>
         </div>
-        <div class="overflow-auto" style="max-height:400px;overflow-y:auto;">
-            <table style="border-collapse:collapse;width:100%;min-width:900px;font-size:12px;font-family:'Noto Sans TC',sans-serif;">
-                <thead><tr>${thRow}</tr></thead>
+        <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;padding:0.45rem 0.8rem;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;flex-wrap:wrap;">
+            <span style="font-size:0.8rem;color:#64748b;font-weight:700;">已勾選 <span id="ob_selected_count">0</span> 筆　設為：</span>
+            <button onclick="_obSetType('加工原料')" style="padding:2px 12px;background:#f7a35c20;color:#d97000;border:1.5px solid #f7a35c;border-radius:6px;font-size:0.8rem;font-weight:700;cursor:pointer;">🏭 加工原料</button>
+            <button onclick="_obSetType('再途銷貨')" style="padding:2px 12px;background:#7ec8e320;color:#1e7fa8;border:1.5px solid #7ec8e3;border-radius:6px;font-size:0.8rem;font-weight:700;cursor:pointer;">🚢 再途銷貨</button>
+            <button onclick="_obSetType('銷貨')"    style="padding:2px 12px;background:#22c55e20;color:#16a34a;border:1.5px solid #22c55e;border-radius:6px;font-size:0.8rem;font-weight:700;cursor:pointer;">💰 銷貨</button>
+            <button onclick="_obSetType('')"         style="padding:2px 10px;background:#f5f5f5;color:#999;border:1.5px solid #ddd;border-radius:6px;font-size:0.8rem;cursor:pointer;">✕ 清除</button>
+        </div>
+        <div style="max-height:480px;overflow:auto;">
+            <table style="border-collapse:collapse;width:100%;min-width:960px;font-size:12px;font-family:'Noto Sans TC',sans-serif;">
+                <thead style="position:sticky;top:0;z-index:2;">
+                    <tr>
+                        <th style="${thS}width:26px;text-align:center;"><input type="checkbox" id="ob_check_all" onchange="_obToggleAll(this.checked)"></th>
+                        ${thSort('產品名稱','產品名稱')}
+                        ${thSort('批號','批號')}
+                        ${thSort('period','期間','center')}
+                        ${thSort('出庫日期','出庫日期')}
+                        <th style="${thS}">出庫類型</th>
+                        <th style="${thS}">業務屬性</th>
+                        ${thSort('出庫數量','出庫數量','right')}
+                        ${thSort('分攤單價','分攤單價','right')}
+                        ${thSort('出庫金額','出庫金額','right')}
+                        <th style="${thS}">備註</th>
+                        ${thSort('分倉類型','分倉類型','center')}
+                    </tr>
+                </thead>
                 <tbody>${rows}</tbody>
             </table>
         </div>
     </div>`;
 }
+function _obSort(col) {
+    _obSortCol === col ? _obSortAsc = !_obSortAsc : (_obSortCol = col, _obSortAsc = true);
+    displayOutboundRecords(_obActiveContainer);
+}
+function _obToggleAll(checked) {
+    document.querySelectorAll('.ob-check').forEach(el => el.checked = checked);
+    _obUpdateCount();
+}
+function _obUpdateCount() {
+    const n = document.querySelectorAll('.ob-check:checked').length;
+    const cnt = document.getElementById('ob_selected_count');
+    if (cnt) cnt.textContent = n;
+    const allBox = document.getElementById('ob_check_all');
+    if (allBox) { const t = document.querySelectorAll('.ob-check').length; allBox.indeterminate = n > 0 && n < t; allBox.checked = n === t && t > 0; }
+}
+async function _obSetType(type) {
+    const checked = [...document.querySelectorAll('.ob-check:checked')];
+    if (!checked.length) { alert('請先勾選要分類的記錄'); return; }
+    const indices = checked.map(el => parseInt(el.dataset.obIdx));
+    for (const idx of indices) await setWarehouseType(idx, type);
+    displayOutboundRecords(_obActiveContainer);
+}
+['_obSort','_obToggleAll','_obUpdateCount','_obSetType'].forEach(fn => window[fn] = eval(fn));
 
 async function setWarehouseType(idx, val) {
     const records = window._outboundRecords || [];
@@ -8077,7 +8150,7 @@ async function setWarehouseType(idx, val) {
     r.分倉類型 = val;
 
     // 即時更新選單樣式
-    const sel = document.querySelectorAll('#outbound_results select')[idx];
+    const sel = document.querySelector(`select[data-ob-idx="${idx}"]`);
     if (sel) {
         const c = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3' }[val] || '#ccc';
         sel.style.borderColor = val ? c : '#ddd';
@@ -8102,6 +8175,67 @@ async function setWarehouseType(idx, val) {
     }
 }
 window.setWarehouseType = setWarehouseType;
+
+async function loadOutboundPage() {
+    const status    = document.getElementById('ob_page_status');
+    const container = document.getElementById('ob_page_results');
+    const summary   = document.getElementById('ob_summary');
+    const month     = (document.getElementById('ob_month_filter')?.value || '').trim();
+
+    status.textContent = '讀取中…';
+    container.innerHTML = '<p style="padding:2rem;text-align:center;color:#64748b;">⏳ 讀取中…</p>';
+    summary.innerHTML = '';
+
+    try {
+        let url = `${SUPABASE_URL}/rest/v1/outbound_records?select=*&order=outbound_date.asc,product_name.asc`;
+        if (month) url += `&month_label=eq.${encodeURIComponent(month)}`;
+
+        const resp = await fetch(url, { headers: getSBHeaders() });
+        if (!resp.ok) throw new Error(await resp.text());
+        const rows = await resp.json();
+
+        if (!rows.length) {
+            status.textContent = '查無記錄';
+            container.innerHTML = '<p style="padding:2rem;text-align:center;color:#999;">查無出庫記錄</p>';
+            return;
+        }
+
+        window._outboundRecords = rows.map(r => ({
+            _id:      r.id,
+            產品名稱: r.product_name,
+            批號:     r.batch_no,
+            出庫日期: r.outbound_date,
+            出庫類型: r.outbound_type,
+            業務屬性: r.biz_type,
+            出庫數量: r.quantity,
+            分攤單價: r.allocated_price,
+            出庫金額: r.outbound_amount,
+            備註:     r.notes || '',
+            month_label: r.month_label,
+            period:   r.period,
+            分倉類型: r.warehouse_type || '',
+        }));
+
+        // 分倉統計
+        const cnt = { '銷貨': 0, '加工原料': 0, '再途銷貨': 0, '未分類': 0 };
+        window._outboundRecords.forEach(r => {
+            if (cnt[r.分倉類型] !== undefined) cnt[r.分倉類型]++;
+            else cnt['未分類']++;
+        });
+        const col = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3', '未分類':'#aaa' };
+        summary.innerHTML = Object.entries(cnt).map(([k, v]) =>
+            `<span style="background:${col[k]}18;color:${col[k]};border:1px solid ${col[k]};border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:700;">${k} ${v}</span>`
+        ).join('');
+
+        status.textContent = `✅ 共 ${rows.length} 筆`;
+        displayOutboundRecords('ob_page_results');
+
+    } catch(e) {
+        status.textContent = `❌ ${e.message}`;
+        container.innerHTML = `<p style="color:#ef4444;padding:1rem;">❌ ${e.message}</p>`;
+    }
+}
+window.loadOutboundPage = loadOutboundPage;
 
 async function exportOutboundExcel() {
     const records = window._outboundRecords || [];
