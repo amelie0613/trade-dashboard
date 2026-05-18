@@ -10173,8 +10173,8 @@ async function pgCalcDrop(event) {
 
 // ─── 核心計算流程 ──────────────────────────────────────────────
 async function _pgCalcFile(file) {
-  const status  = document.getElementById('pg_status');
-  const sumBox  = document.getElementById('pg_sum_box');
+  const status    = document.getElementById('pg_status');
+  const sumBox    = document.getElementById('pg_sum_box');
   const container = document.getElementById('pg_result_table');
 
   status.textContent = '讀取加工單中…';
@@ -10189,7 +10189,7 @@ async function _pgCalcFile(file) {
     const ws   = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-    // 2. 解析加工單（跳過表頭 row 0）
+    // 2. 解析加工單（跳過 row 0 表頭）
     // D(3)=母件名稱  E(4)=母件批號  F(5)=母件數量
     // I(8)=子件名稱  J(9)=子件批號  K(10)=子件數量
     const orderLines = [];
@@ -10211,60 +10211,95 @@ async function _pgCalcFile(file) {
       return;
     }
 
-    // 3. 查詢 Supabase，逐行取得母件分攤單價
-    status.textContent = `查詢租金資料中（共 ${orderLines.length} 筆）…`;
-    let totalOk = 0, totalMiss = 0;
-    const enriched = [];
-
+    // 3. 收集唯一母件（去重），建立 母件→子件 對應關係
+    // 同一母件批號可能對應多個子件（需按比例分攤）
+    const motherMap = new Map(); // key: "名稱|批號"
     for (const line of orderLines) {
-      const url = `${SUPABASE_URL}/rest/v1/outbound_records`
-        + `?product_name=eq.${encodeURIComponent(line.motherName)}`
-        + `&batch_no=eq.${encodeURIComponent(line.motherBatch)}`
-        + `&select=allocated_price,quantity`
-        + `&order=outbound_date.desc&limit=1`;
+      const key = `${line.motherName}|${line.motherBatch}`;
+      if (!motherMap.has(key)) {
+        motherMap.set(key, {
+          motherName:  line.motherName,
+          motherBatch: line.motherBatch,
+          motherQty:   line.motherQty,
+          allocated_price: null,
+          found: false,
+          children: []
+        });
+      }
+      const m = motherMap.get(key);
+      // 同一子件只加一次（去除重複行）
+      if (!m.children.find(c => c.childBatch === line.childBatch)) {
+        m.children.push({ childBatch: line.childBatch, childName: line.childName, childQty: line.childQty });
+      }
+    }
 
+    // 4. 查詢 Supabase（每個唯一母件只查一次）
+    status.textContent = `查詢租金資料中（${motherMap.size} 種母件）…`;
+    let totalOk = 0, totalMiss = 0;
+
+    for (const [, m] of motherMap) {
+      const url = `${SUPABASE_URL}/rest/v1/outbound_records`
+        + `?product_name=eq.${encodeURIComponent(m.motherName)}`
+        + `&batch_no=eq.${encodeURIComponent(m.motherBatch)}`
+        + `&select=allocated_price`
+        + `&order=outbound_date.desc&limit=1`;
       const resp = await fetch(url, { headers: getSBHeaders() });
       const data = await resp.json();
-
       if (data.length > 0 && data[0].allocated_price != null) {
-        enriched.push({ ...line, allocated_price: data[0].allocated_price, found: true });
+        m.allocated_price = data[0].allocated_price;
+        m.found = true;
         totalOk++;
       } else {
-        enriched.push({ ...line, allocated_price: null, found: false });
         totalMiss++;
       }
     }
 
-    // 4. 依子件批號分組
-    const childMap = {};
-    for (const line of enriched) {
-      if (!childMap[line.childBatch]) {
-        childMap[line.childBatch] = {
-          childName:  line.childName,
-          childBatch: line.childBatch,
-          childQty:   line.childQty,
-          totalCost:  0,
-          mothers:    []
-        };
+    // 5. 分攤計算
+    // ● 一母件→多子件：母件成本按各子件數量比例分攤
+    // ● 多母件→一子件：各母件分攤成本加總
+    const childMap = new Map();
+
+    for (const [, m] of motherMap) {
+      const totalMotherCost = m.found ? m.allocated_price * m.motherQty : 0;
+      const totalChildQty   = m.children.reduce((s, c) => s + c.childQty, 0);
+      const isMulti         = m.children.length > 1;
+
+      for (const child of m.children) {
+        if (!childMap.has(child.childBatch)) {
+          childMap.set(child.childBatch, {
+            childBatch: child.childBatch,
+            childName:  child.childName,
+            childQty:   child.childQty,
+            totalCost:  0,
+            mothers:    []
+          });
+        }
+        const c     = childMap.get(child.childBatch);
+        const ratio   = totalChildQty > 0 ? child.childQty / totalChildQty : 1;
+        const portion = m.found ? totalMotherCost * ratio : null;
+        c.totalCost += portion ?? 0;
+        c.mothers.push({
+          name:            m.motherName,
+          batch:           m.motherBatch,
+          qty:             m.motherQty,
+          price:           m.allocated_price,
+          totalMotherCost: m.found ? totalMotherCost : null,
+          portion,
+          ratio,
+          isMulti,
+          found:           m.found
+        });
       }
-      const cost = line.found ? line.allocated_price * line.motherQty : null;
-      childMap[line.childBatch].totalCost += cost ?? 0;
-      childMap[line.childBatch].mothers.push({
-        name: line.motherName, batch: line.motherBatch,
-        qty:  line.motherQty,  price: line.allocated_price,
-        cost, found: line.found
-      });
     }
 
-    // 5. 計算成品單價
-    _pgResults = Object.values(childMap).map(c => {
-      const someFound = c.mothers.some(m => m.found);
-      const allFound  = c.mothers.every(m => m.found);
-      const unitPrice = c.childQty > 0 && someFound ? c.totalCost / c.childQty : null;
-      return { ...c, unitPrice, allFound, someFound };
-    });
+    // 6. 整理最終結果
+    _pgResults = Array.from(childMap.values()).map(c => ({
+      ...c,
+      unitPrice: c.childQty > 0 && c.mothers.some(m => m.found) ? c.totalCost / c.childQty : null,
+      allFound:  c.mothers.every(m => m.found)
+    }));
 
-    // 6. 更新摘要卡
+    // 7. 更新摘要卡
     document.getElementById('pg_sum_rows').textContent     = orderLines.length;
     document.getElementById('pg_sum_ok').textContent       = totalOk;
     document.getElementById('pg_sum_products').textContent = _pgResults.length;
@@ -10273,7 +10308,7 @@ async function _pgCalcFile(file) {
 
     _pgRenderResult();
     status.textContent = totalMiss > 0
-      ? `⚠️ 完成，${totalMiss} 筆母件未找到租金記錄`
+      ? `⚠️ 完成，${totalMiss} 種母件未找到租金記錄`
       : '✅ 計算完成';
 
   } catch(e) {
@@ -10303,7 +10338,9 @@ function _pgRenderResult() {
         <th style="${ths}">母件批號</th>
         <th style="${thr}">母件數量</th>
         <th style="${thr}">分攤單價</th>
-        <th style="${thr}">母件成本</th>
+        <th style="${thr}">母件總成本</th>
+        <th style="${thc}">分攤比</th>
+        <th style="${thr}">分攤成本</th>
         <th style="${thr}">成品單價</th>
         <th style="${thc}">狀態</th>
       </tr>
@@ -10311,7 +10348,7 @@ function _pgRenderResult() {
 
   for (const c of _pgResults) {
     const rs = c.mothers.length;
-    const priceHtml = c.unitPrice != null
+    const priceCell = c.unitPrice != null
       ? `<td rowspan="${rs}" style="padding:0.5rem 0.7rem;text-align:right;font-weight:700;color:#22c55e;vertical-align:top;border-left:1px solid #eee;">$${c.unitPrice.toFixed(4)}</td>`
       : `<td rowspan="${rs}" style="padding:0.5rem 0.7rem;text-align:right;color:#ef4444;vertical-align:top;border-left:1px solid #eee;">-</td>`;
 
@@ -10320,6 +10357,9 @@ function _pgRenderResult() {
       const rowBg   = m.found ? '' : 'background:#fff5f5;';
       const stColor = m.found ? '#22c55e' : '#ef4444';
       const stText  = m.found ? '✅ 已配對' : '❌ 未找到';
+      const ratioStr    = m.isMulti ? `${(m.ratio * 100).toFixed(1)}%` : '—';
+      const portionStr  = m.portion != null ? `$${m.portion.toFixed(2)}` : '-';
+      const totalCStr   = m.totalMotherCost != null ? `$${m.totalMotherCost.toFixed(2)}` : '-';
 
       html += `<tr style="border-bottom:1px solid #f0f4f8;${rowBg}">`;
       if (first) {
@@ -10331,8 +10371,10 @@ function _pgRenderResult() {
       html += `<td style="padding:0.5rem 0.7rem;font-family:monospace;font-size:0.78rem;">${m.batch}</td>`;
       html += `<td style="padding:0.5rem 0.7rem;text-align:right;">${m.qty.toLocaleString()}</td>`;
       html += `<td style="padding:0.5rem 0.7rem;text-align:right;">${m.price != null ? '$' + m.price.toFixed(4) : '<span style="color:#ef4444">未找到</span>'}</td>`;
-      html += `<td style="padding:0.5rem 0.7rem;text-align:right;">${m.cost != null ? '$' + m.cost.toFixed(2) : '-'}</td>`;
-      if (first) html += priceHtml;
+      html += `<td style="padding:0.5rem 0.7rem;text-align:right;">${totalCStr}</td>`;
+      html += `<td style="padding:0.5rem 0.7rem;text-align:center;color:${m.isMulti ? '#b07020' : '#999'};">${ratioStr}</td>`;
+      html += `<td style="padding:0.5rem 0.7rem;text-align:right;font-weight:${m.isMulti ? '700' : 'normal'};">${portionStr}</td>`;
+      if (first) html += priceCell;
       html += `<td style="padding:0.5rem 0.7rem;text-align:center;font-size:0.75rem;color:${stColor};font-weight:700;">${stText}</td>`;
       html += `</tr>`;
     });
@@ -10347,7 +10389,7 @@ function pgExport() {
   if (!_pgResults.length) { alert('請先上傳加工單並完成計算'); return; }
 
   const sheetData = [
-    ['子件批號','成品名稱','子件數量','成品單價','母件名稱','母件批號','母件數量','母件分攤單價','母件成本','狀態']
+    ['子件批號','成品名稱','子件數量','成品單價','母件名稱','母件批號','母件數量','分攤單價','母件總成本','分攤比例','分攤成本','狀態']
   ];
   for (const c of _pgResults) {
     for (const m of c.mothers) {
@@ -10355,7 +10397,10 @@ function pgExport() {
         c.childBatch, c.childName, c.childQty,
         c.unitPrice ?? '',
         m.name, m.batch, m.qty,
-        m.price ?? '', m.cost ?? '',
+        m.price ?? '',
+        m.totalMotherCost ?? '',
+        m.isMulti ? m.ratio : '',
+        m.portion ?? '',
         m.found ? '已配對' : '未找到租金'
       ]);
     }
@@ -10363,7 +10408,7 @@ function pgExport() {
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(sheetData);
-  ws['!cols'] = [20,16,10,12,16,20,10,12,12,12].map(w => ({ wch: w }));
+  ws['!cols'] = [20,16,10,12,16,20,10,12,12,10,12,12].map(w => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws, '轉加工配對報表');
   XLSX.writeFile(wb, `轉加工配對報表_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
