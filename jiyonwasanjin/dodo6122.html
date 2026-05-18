@@ -1934,7 +1934,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                     <span style="font-size:1.3rem;">1️⃣</span>
                     <h3 style="font-size:0.9rem; font-weight:700; color:#1a2540; margin:0;">掃描未配對記錄</h3>
                   </div>
-                  <p style="font-size:0.78rem; color:#64748b; margin-bottom:1rem;">從 Supabase 找出所有標記「加工」但尚未配對的出庫記錄</p>
+                  <p style="font-size:0.78rem; color:#64748b; margin-bottom:1rem;">掃描兩種記錄：① 備註=「加工」→ 待配對　② 備註含大漁加工單號 → 自動配對</p>
                   <button onclick="pairingStep1Scan()" style="width:100%; padding:0.65rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">🔍 掃描未配對記錄</button>
                   <div id="pairing_scan_status" style="margin-top:0.6rem; font-size:0.78rem; color:#64748b; text-align:center; min-height:1.2rem;"></div>
                 </div>
@@ -10174,27 +10174,41 @@ async function syncBothToSupabase() {
 
 <!-- ══ 轉加工配對模組 ═══════════════════════════════════════════ -->
 <script>
+// ─── 從備註抽取加工單號（格式：大漁 E20260416-01...）──────────
+function _extractOrderId(notes) {
+  if (!notes) return null;
+  const m = notes.match(/E\d{8}-\d+/);
+  return m ? m[0] : null;
+}
+
 // ─── Step 1：掃描未配對記錄 ───────────────────────────────────
 async function pairingStep1Scan() {
   const status = document.getElementById('pairing_scan_status');
   status.textContent = '掃描中...';
   try {
-    // 先從 outbound_records 取出 notes 含「加工」的記錄
-    const resp = await fetch(
-      `${SUPABASE_URL}/rest/v1/outbound_records?notes=ilike.%25加工%25&select=id,product_name,batch_no,quantity,outbound_date,allocated_price,tracking_code,record_status`,
-      { headers: getSBHeaders() }
-    );
-    const records = await resp.json();
+    // 同時抓兩種：notes='加工' 和 notes 含大漁加工單號（拆解加工）
+    const [resp1, resp2] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/outbound_records?notes=eq.加工&select=id,product_name,batch_no,quantity,outbound_date,allocated_price,tracking_code,record_status,notes`,
+        { headers: getSBHeaders() }),
+      fetch(`${SUPABASE_URL}/rest/v1/outbound_records?notes=ilike.%25大漁 E%25&select=id,product_name,batch_no,quantity,outbound_date,allocated_price,tracking_code,record_status,notes`,
+        { headers: getSBHeaders() })
+    ]);
 
-    // 篩選尚未有 tracking_code 的
-    const untracked = records.filter(r => !r.tracking_code);
+    const [recs1, recs2] = await Promise.all([resp1.json(), resp2.json()]);
+
+    // 合併並標記類型，過濾已有 tracking_code 的
+    const allRecords = [
+      ...recs1.map(r => ({ ...r, scanType: 'processing' })),
+      ...recs2.map(r => ({ ...r, scanType: 'disassembly' }))
+    ].filter(r => !r.tracking_code);
+
     const nowStr = new Date().toISOString().slice(0,7).replace('-','');
-
-    // 為未追蹤的記錄產生 tracking_code 並寫入 Supabase
     let created = 0;
-    for (let i = 0; i < untracked.length; i++) {
-      const r = untracked[i];
+
+    for (let i = 0; i < allRecords.length; i++) {
+      const r = allRecords[i];
       const tCode = `TG-${nowStr}-${String(i+1).padStart(3,'0')}`;
+      const orderId = _extractOrderId(r.notes); // 拆解加工有加工單號
 
       // 更新 outbound_records
       await fetch(
@@ -10206,7 +10220,7 @@ async function pairingStep1Scan() {
         }
       );
 
-      // 寫入 processing_pairing
+      // 寫入 processing_pairing（拆解加工直接帶入加工單號，狀態設為 paired）
       await fetch(
         `${SUPABASE_URL}/rest/v1/processing_pairing`,
         {
@@ -10218,7 +10232,9 @@ async function pairingStep1Scan() {
             mother_batch_no: r.batch_no,
             mother_qty: r.quantity,
             mother_outbound_date: r.outbound_date,
-            pairing_status: 'unpaired'
+            pairing_status: orderId ? 'paired' : 'unpaired',
+            processing_order_id: orderId || null,
+            paired_date: orderId ? new Date().toISOString() : null
           })
         }
       );
@@ -10227,10 +10243,11 @@ async function pairingStep1Scan() {
 
     // 顯示清單
     await pairingRenderUnpairedList();
-    const msg = created > 0
-      ? `✅ 掃描完成，新增 ${created} 筆追蹤碼`
+    const paired   = allRecords.filter(r => _extractOrderId(r.notes)).length;
+    const unpaired = allRecords.length - paired;
+    status.textContent = created > 0
+      ? `✅ 掃描完成：${unpaired} 筆待配對、${paired} 筆拆解加工已自動配對`
       : `✅ 掃描完成，所有記錄均已追蹤`;
-    status.textContent = msg;
   } catch(e) {
     status.textContent = `❌ 失敗：${e.message}`;
   }
