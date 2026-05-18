@@ -1979,9 +1979,12 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
               <!-- 配對報表 -->
               <div style="background:white; border:1.5px solid #dde6ef; border-radius:12px; padding:1.2rem;">
-                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.8rem;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.8rem; flex-wrap:wrap; gap:0.5rem;">
                   <h3 style="font-size:0.9rem; font-weight:700; color:#1a2540; margin:0;">📊 配對報表</h3>
-                  <button onclick="pairingLoadReport()" style="font-size:0.75rem; padding:0.3rem 0.8rem; background:#f0f4f8; border:1px solid #dde6ef; border-radius:6px; cursor:pointer;">載入報表</button>
+                  <div style="display:flex; gap:0.5rem;">
+                    <button onclick="pairingLoadReport()" style="font-size:0.75rem; padding:0.3rem 0.8rem; background:#f0f4f8; border:1px solid #dde6ef; border-radius:6px; cursor:pointer;">載入報表</button>
+                    <button onclick="pairingReset()" style="font-size:0.75rem; padding:0.3rem 0.8rem; background:#fee2e2; border:1px solid #fca5a5; border-radius:6px; cursor:pointer; color:#ef4444; font-weight:700;">🔄 復原未配對</button>
+                  </div>
                 </div>
                 <div id="pairing_report_table" style="overflow-x:auto;">
                   <p style="text-align:center; color:#999; padding:1.5rem; font-size:0.85rem;">完成配對後點擊「載入報表」</p>
@@ -10379,6 +10382,54 @@ async function pairingStep3Calculate() {
     await pairingLoadReport();
   } catch(e) {
     status.textContent = `❌ 失敗：${e.message}`;
+  }
+}
+
+// ─── 復原所有記錄至未配對狀態 ────────────────────────────────
+async function pairingReset() {
+  const confirmed = confirm('確定要將所有記錄復原為「未配對」狀態嗎？\n此操作會清除所有子件資訊和計算結果。');
+  if (!confirmed) return;
+
+  const status = document.getElementById('pairing_calc_status');
+  status.textContent = '復原中...';
+
+  try {
+    // 1. 重置 processing_pairing 所有記錄
+    const r1 = await fetch(
+      `${SUPABASE_URL}/rest/v1/processing_pairing?pairing_status=in.(paired,calculated)`,
+      {
+        method: 'PATCH',
+        headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+        body: JSON.stringify({
+          child_batch_no: null,
+          child_product_name: null,
+          child_qty: null,
+          allocated_unit_price: null,
+          pairing_status: 'unpaired',
+          paired_date: null,
+          calculated_date: null
+        })
+      }
+    );
+
+    // 2. 重置 outbound_records 的配對欄位
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/outbound_records?record_status=eq.processing`,
+      {
+        method: 'PATCH',
+        headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+        body: JSON.stringify({
+          paired_child_batch: null,
+          paired_date: null
+        })
+      }
+    );
+
+    status.textContent = '✅ 復原完成，所有記錄已回到未配對狀態';
+    await pairingRenderUnpairedList();
+    await pairingLoadReport();
+  } catch(e) {
+    status.textContent = `❌ 復原失敗：${e.message}`;
   }
 }
 
