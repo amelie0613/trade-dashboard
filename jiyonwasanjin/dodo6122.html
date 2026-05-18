@@ -1648,6 +1648,8 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           <button class="rsn-btn" id="rsn-profit" onclick="switchPage('profit')">💹 利潤分析</button>
           <button class="rsn-btn" id="rsn-pairing" onclick="switchPage('pairing')">📦 轉加工配對</button>
           <button class="rsn-btn" id="rsn-outbound" onclick="switchPage('outbound')">📋 出庫管理</button>
+          <button class="rsn-btn" id="rsn-proc-mat" onclick="switchPage('proc-mat')">🏭 加工原料台帳</button>
+          <button class="rsn-btn" id="rsn-transit" onclick="switchPage('transit')">🚢 在途銷貨台帳</button>
         </div>
         <div class="rental-content">
 
@@ -2008,6 +2010,63 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
               </div>
             </div>
           </div><!-- end page_outbound -->
+
+          <!-- PAGE: 加工原料台帳 -->
+          <div id="page_proc-mat" style="display:none; padding:1rem;">
+            <div style="max-width:1400px; margin:0 auto;">
+              <div style="margin-bottom:1rem;">
+                <h2 style="font-size:1.15rem;font-weight:800;color:#1a2540;margin:0;">🏭 加工原料台帳</h2>
+                <p style="font-size:0.82rem;color:#64748b;margin:0.3rem 0 0;">追蹤所有加工原料的出庫紀錄與加工進度，剩餘數量滾動延續至下月</p>
+              </div>
+              <!-- 操作列 -->
+              <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;margin-bottom:1rem;display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
+                <button onclick="loadMaterialsLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
+                <div style="display:flex;gap:0.4rem;" id="mat_filter_btns">
+                  <button onclick="_matFilter('')"    class="mat-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">全部</button>
+                  <button onclick="_matFilter('未加工')" class="mat-filter-btn"      style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未加工</button>
+                  <button onclick="_matFilter('部分加工')" class="mat-filter-btn"   style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #f7a35c;background:#fffaf0;color:#f7a35c;font-size:0.78rem;font-weight:700;cursor:pointer;">部分加工</button>
+                  <button onclick="_matFilter('已完成')" class="mat-filter-btn"     style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #22c55e;background:#f0faf0;color:#22c55e;font-size:0.78rem;font-weight:700;cursor:pointer;">已完成</button>
+                </div>
+                <div id="mat_status" style="font-size:0.82rem;color:#64748b;"></div>
+                <div id="mat_summary" style="display:flex;gap:0.5rem;margin-left:auto;flex-wrap:wrap;align-items:center;"></div>
+              </div>
+              <!-- 台帳表格 -->
+              <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;min-height:200px;">
+                <div id="mat_table" style="overflow-x:auto;">
+                  <p style="text-align:center;color:#999;padding:2rem;font-size:0.85rem;">點擊「讀取台帳」載入加工原料清單</p>
+                </div>
+              </div>
+            </div>
+          </div><!-- end page_proc-mat -->
+
+          <!-- PAGE: 在途銷貨台帳 -->
+          <div id="page_transit" style="display:none; padding:1rem;">
+            <div style="max-width:1400px; margin:0 auto;">
+              <div style="margin-bottom:1rem;">
+                <h2 style="font-size:1.15rem;font-weight:800;color:#1a2540;margin:0;">🚢 在途銷貨台帳</h2>
+                <p style="font-size:0.82rem;color:#64748b;margin:0.3rem 0 0;">追蹤在途銷貨餘額，與利潤分析表自動比對核銷</p>
+              </div>
+              <!-- 操作列 -->
+              <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;margin-bottom:1rem;display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
+                <button onclick="loadTransitLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
+                <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
+                <div style="display:flex;gap:0.4rem;" id="transit_filter_btns">
+                  <button onclick="_transitFilter('')"      class="transit-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">全部</button>
+                  <button onclick="_transitFilter('未核銷')"  class="transit-filter-btn"      style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未核銷</button>
+                  <button onclick="_transitFilter('部分核銷')" class="transit-filter-btn"     style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #f7a35c;background:#fffaf0;color:#f7a35c;font-size:0.78rem;font-weight:700;cursor:pointer;">部分核銷</button>
+                  <button onclick="_transitFilter('已核銷')"  class="transit-filter-btn"      style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #22c55e;background:#f0faf0;color:#22c55e;font-size:0.78rem;font-weight:700;cursor:pointer;">已核銷</button>
+                </div>
+                <div id="transit_status" style="font-size:0.82rem;color:#64748b;"></div>
+                <div id="transit_summary" style="display:flex;gap:0.5rem;margin-left:auto;flex-wrap:wrap;align-items:center;"></div>
+              </div>
+              <!-- 台帳表格 -->
+              <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;min-height:200px;">
+                <div id="transit_table" style="overflow-x:auto;">
+                  <p style="text-align:center;color:#999;padding:2rem;font-size:0.85rem;">點擊「讀取台帳」載入在途銷貨清單</p>
+                </div>
+              </div>
+            </div>
+          </div><!-- end page_transit -->
 
         </div><!-- /rental-content -->
       </div><!-- /view-rental -->
@@ -5379,7 +5438,7 @@ function syncDatePicker(textId, dateId) {
 // ===== 頁面切換 =====
 window.switchPage = function(page) {
     // 隱藏所有頁面
-    ['page_calc','page_ledger','page_profit','page_pairing','page_outbound'].forEach(id => {
+    ['page_calc','page_ledger','page_profit','page_pairing','page_outbound','page_proc-mat','page_transit'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -5408,7 +5467,7 @@ window.switchPage = function(page) {
     });
     if (page === 'ledger') refreshLedgerStatus();
     // Update rental subnav buttons
-    ['calc','ledger','profit','pairing','outbound'].forEach(p => {
+    ['calc','ledger','profit','pairing','outbound','proc-mat','transit'].forEach(p => {
         const rsnBtn = document.getElementById('rsn-'+p);
         if(rsnBtn) rsnBtn.classList.toggle('active', p===page);
     });
@@ -8447,6 +8506,9 @@ async function syncOutboundToSupabase(records, label) {
         console.error('出庫記錄備份失敗：', e);
         throw e;
     }
+    // 同步更新兩個台帳（不阻塞主流程）
+    syncToMaterialsLedger(records).catch(e => console.warn('加工原料台帳同步失敗：', e));
+    syncToTransitLedger(records).catch(e => console.warn('在途銷貨台帳同步失敗：', e));
 }
 
 // 月結頁 / 舊入口：自動選擇可用容器，呼叫統一核心
@@ -8455,6 +8517,366 @@ function viewOutboundFromSupabase(monthLabel) {
     return _loadOutboundRecords(monthLabel, containerId);
 }
 window.viewOutboundFromSupabase = viewOutboundFromSupabase;
+
+// ═══════════════════════════════════════════════════════════════
+// 🏭 加工原料台帳 & 🚢 在途銷貨台帳
+// ═══════════════════════════════════════════════════════════════
+
+let _matFilter   = '';
+let _transitFilter = '';
+let _matRecords     = [];
+let _transitRecords = [];
+
+// ── 工具：計算狀態 ──────────────────────────────────────────────
+function _matStatus(orig, processed) {
+    if (processed <= 0)           return '未加工';
+    if (processed >= orig)        return '已完成';
+    return '部分加工';
+}
+function _transitStatus(orig, offset) {
+    if (offset <= 0)              return '未核銷';
+    if (offset >= orig)           return '已核銷';
+    return '部分核銷';
+}
+
+// ── 同步：出庫記錄 → 加工原料台帳 ────────────────────────────────
+async function syncToMaterialsLedger(records) {
+    const mats = (records || []).filter(r => r.分倉類型 === '加工原料');
+    if (!mats.length) return;
+    const rows = mats.map(r => ({
+        product_name:  r.產品名稱,
+        batch_no:      r.批號,
+        outbound_date: r.出庫日期 || '',
+        original_qty:  r.出庫數量 || 0,
+        processed_qty: 0,
+        remaining_qty: r.出庫數量 || 0,
+        unit_price:    r.分攤單價 || 0,
+        total_cost:    r.出庫金額 || 0,
+        status:        '未加工',
+        month_label:   r.month_label || '',
+        period:        r.period || '',
+        notes:         r.備註 || '',
+    }));
+    await fetch(
+        `${SUPABASE_URL}/rest/v1/processing_materials_ledger?on_conflict=product_name,batch_no,outbound_date,period`,
+        { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'resolution=ignore-duplicates' }, body:JSON.stringify(rows) }
+    );
+}
+window.syncToMaterialsLedger = syncToMaterialsLedger;
+
+// ── 同步：出庫記錄 → 在途銷貨台帳 ────────────────────────────────
+async function syncToTransitLedger(records) {
+    const transits = (records || []).filter(r => r.分倉類型 === '再途銷貨');
+    if (!transits.length) return;
+    const rows = transits.map(r => ({
+        product_name:  r.產品名稱,
+        batch_no:      r.批號,
+        outbound_date: r.出庫日期 || '',
+        original_qty:  r.出庫數量 || 0,
+        offset_qty:    0,
+        remaining_qty: r.出庫數量 || 0,
+        unit_price:    r.分攤單價 || 0,
+        total_cost:    r.出庫金額 || 0,
+        source:        '原始出庫',
+        status:        '未核銷',
+        month_label:   r.month_label || '',
+        period:        r.period || '',
+        notes:         r.備註 || '',
+    }));
+    await fetch(
+        `${SUPABASE_URL}/rest/v1/transit_sales_ledger?on_conflict=product_name,batch_no,outbound_date,period,source`,
+        { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'resolution=ignore-duplicates' }, body:JSON.stringify(rows) }
+    );
+}
+window.syncToTransitLedger = syncToTransitLedger;
+
+// ── 加工配對確認：扣減加工原料台帳 + 子件轉入在途銷貨台帳 ──────────
+async function confirmProcessingToLedgers(pgResults) {
+    if (!pgResults || !pgResults.length) return;
+    const status = document.getElementById('calculate_status') || { textContent:'' };
+    status.textContent = '更新台帳中…';
+    let matUpdated = 0, transitAdded = 0;
+
+    for (const c of pgResults) {
+        if (!c.allFound) continue; // 未完整配對的略過
+
+        // 1. 每個母件 → 扣減加工原料台帳
+        for (const m of c.mothers) {
+            if (!m.found) continue;
+            // 查詢台帳中對應的母件記錄
+            const resp = await fetch(
+                `${SUPABASE_URL}/rest/v1/processing_materials_ledger?product_name=eq.${encodeURIComponent(m.name)}&batch_no=eq.${encodeURIComponent(m.batch)}&select=id,original_qty,processed_qty,remaining_qty`,
+                { headers: getSBHeaders() }
+            );
+            const rows = await resp.json();
+            if (!rows.length) continue;
+            const rec = rows[0];
+            const newProcessed = Math.min(rec.original_qty, (rec.processed_qty || 0) + m.qty);
+            const newRemaining = rec.original_qty - newProcessed;
+            await fetch(
+                `${SUPABASE_URL}/rest/v1/processing_materials_ledger?id=eq.${rec.id}`,
+                {
+                    method: 'PATCH',
+                    headers: { ...getSBHeaders(), 'Prefer':'return=minimal' },
+                    body: JSON.stringify({
+                        processed_qty: newProcessed,
+                        remaining_qty: newRemaining,
+                        status: _matStatus(rec.original_qty, newProcessed),
+                    })
+                }
+            );
+            matUpdated++;
+        }
+
+        // 2. 子件 → 新增到在途銷貨台帳（來源：加工子件）
+        if (c.unitPrice != null) {
+            const transitRow = {
+                product_name:  c.childName,
+                batch_no:      c.childBatch,
+                outbound_date: new Date().toISOString().slice(0,10),
+                original_qty:  c.childQty,
+                offset_qty:    0,
+                remaining_qty: c.childQty,
+                unit_price:    c.unitPrice,
+                total_cost:    Math.round(c.unitPrice * c.childQty * 10000) / 10000,
+                source:        '加工子件',
+                status:        '未核銷',
+                month_label:   '',
+                period:        '',
+                notes:         `由 ${c.mothers.map(m=>m.batch).join('/')} 加工而來`,
+            };
+            await fetch(
+                `${SUPABASE_URL}/rest/v1/transit_sales_ledger?on_conflict=product_name,batch_no,outbound_date,period,source`,
+                { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'resolution=ignore-duplicates' }, body:JSON.stringify([transitRow]) }
+            );
+            transitAdded++;
+        }
+    }
+    status.textContent = `✅ 台帳更新完成：原料扣減 ${matUpdated} 筆，子件轉入在途 ${transitAdded} 筆`;
+}
+window.confirmProcessingToLedgers = confirmProcessingToLedgers;
+
+// ── 讀取並顯示：加工原料台帳 ──────────────────────────────────────
+async function loadMaterialsLedger() {
+    const statusEl = document.getElementById('mat_status');
+    const tableEl  = document.getElementById('mat_table');
+    statusEl.textContent = '讀取中…';
+    tableEl.innerHTML = '<p style="text-align:center;color:#64748b;padding:2rem;">⏳ 讀取中…</p>';
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/processing_materials_ledger?select=*&order=outbound_date.desc`,
+            { headers: getSBHeaders() }
+        );
+        _matRecords = await resp.json();
+        statusEl.textContent = `✅ 共 ${_matRecords.length} 筆`;
+        _renderMatSummary();
+        _renderMatTable();
+    } catch(e) {
+        statusEl.textContent = `❌ ${e.message}`;
+    }
+}
+window.loadMaterialsLedger = loadMaterialsLedger;
+
+function _renderMatSummary() {
+    const el = document.getElementById('mat_summary');
+    if (!el) return;
+    const cnt = { '未加工':0, '部分加工':0, '已完成':0 };
+    _matRecords.forEach(r => { if (cnt[r.status] !== undefined) cnt[r.status]++; });
+    const col = { '未加工':'#ef4444', '部分加工':'#f7a35c', '已完成':'#22c55e' };
+    el.innerHTML = Object.entries(cnt).map(([k,v]) =>
+        `<span style="border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:700;border:1.5px solid ${col[k]};background:${col[k]}18;color:${col[k]};">${k} ${v}</span>`
+    ).join('');
+}
+
+function _renderMatTable() {
+    const el = document.getElementById('mat_table');
+    const data = _matFilter ? _matRecords.filter(r => r.status === _matFilter) : _matRecords;
+    if (!data.length) { el.innerHTML = '<p style="text-align:center;color:#999;padding:2rem;">查無記錄</p>'; return; }
+    const stCol = { '未加工':'#ef4444', '部分加工':'#f7a35c', '已完成':'#22c55e' };
+    const th = `padding:6px 10px;font-size:11px;font-weight:700;background:#f5f7ff;border-bottom:2px solid #dde6ef;white-space:nowrap;`;
+    const td = `padding:6px 10px;font-size:11px;border-bottom:1px solid #f0f4f8;white-space:nowrap;`;
+    let html = `<table style="width:100%;border-collapse:collapse;">
+      <thead><tr>
+        <th style="${th}">產品名稱</th><th style="${th}">批號</th><th style="${th}">出庫日期</th>
+        <th style="${th}text-align:right">原始數量</th><th style="${th}text-align:right">已加工</th>
+        <th style="${th}text-align:right">剩餘數量</th><th style="${th}text-align:right">單價</th>
+        <th style="${th}text-align:right">總成本</th><th style="${th}">狀態</th><th style="${th}">備註</th>
+      </tr></thead><tbody>`;
+    data.forEach((r,i) => {
+        const bg = i%2===0?'#fff':'#fafbfc';
+        const sc = stCol[r.status]||'#aaa';
+        const pct = r.original_qty > 0 ? Math.round(r.processed_qty/r.original_qty*100) : 0;
+        html += `<tr style="background:${bg}">
+          <td style="${td}font-weight:600">${r.product_name}</td>
+          <td style="${td}font-family:monospace;font-size:10px;color:#6878C0">${r.batch_no}</td>
+          <td style="${td}">${r.outbound_date||''}</td>
+          <td style="${td}text-align:right">${(r.original_qty||0).toLocaleString()}</td>
+          <td style="${td}text-align:right">${(r.processed_qty||0).toLocaleString()}</td>
+          <td style="${td}text-align:right;font-weight:700;color:${r.remaining_qty>0?'#ef4444':'#22c55e'}">${(r.remaining_qty||0).toLocaleString()}</td>
+          <td style="${td}text-align:right">${r.unit_price>0?'$'+Number(r.unit_price).toFixed(4):'-'}</td>
+          <td style="${td}text-align:right">${r.total_cost>0?'$'+Number(r.total_cost).toLocaleString():'-'}</td>
+          <td style="${td}"><span style="color:${sc};font-weight:700;font-size:10px;border:1px solid ${sc};border-radius:4px;padding:1px 6px;">${r.status}</span>
+            ${r.status!=='已完成'?`<div style="background:#eee;border-radius:3px;height:4px;width:60px;margin-top:3px;display:inline-block;vertical-align:middle;"><div style="background:${sc};height:4px;border-radius:3px;width:${pct}%"></div></div>`:''}
+          </td>
+          <td style="${td}font-size:10px;color:#64748b">${r.notes||''}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+function _matFilterFn(status) {
+    _matFilter = status;
+    document.querySelectorAll('.mat-filter-btn').forEach(b => {
+        const isActive = b.textContent.trim().startsWith(status||'全部');
+        b.style.background = isActive ? (status?({未加工:'#ef4444',部分加工:'#f7a35c',已完成:'#22c55e'}[status]||'#6878C0'):'#6878C0') : '';
+        b.style.color = isActive ? '#fff' : '';
+    });
+    _renderMatTable();
+}
+window._matFilter = _matFilterFn;
+
+// ── 讀取並顯示：在途銷貨台帳 ──────────────────────────────────────
+async function loadTransitLedger() {
+    const statusEl = document.getElementById('transit_status');
+    const tableEl  = document.getElementById('transit_table');
+    statusEl.textContent = '讀取中…';
+    tableEl.innerHTML = '<p style="text-align:center;color:#64748b;padding:2rem;">⏳ 讀取中…</p>';
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=*&order=outbound_date.desc`,
+            { headers: getSBHeaders() }
+        );
+        _transitRecords = await resp.json();
+        statusEl.textContent = `✅ 共 ${_transitRecords.length} 筆`;
+        _renderTransitSummary();
+        _renderTransitTable();
+    } catch(e) {
+        statusEl.textContent = `❌ ${e.message}`;
+    }
+}
+window.loadTransitLedger = loadTransitLedger;
+
+function _renderTransitSummary() {
+    const el = document.getElementById('transit_summary');
+    if (!el) return;
+    const cnt = { '未核銷':0, '部分核銷':0, '已核銷':0 };
+    _transitRecords.forEach(r => { if (cnt[r.status] !== undefined) cnt[r.status]++; });
+    const col = { '未核銷':'#ef4444', '部分核銷':'#f7a35c', '已核銷':'#22c55e' };
+    el.innerHTML = Object.entries(cnt).map(([k,v]) =>
+        `<span style="border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:700;border:1.5px solid ${col[k]};background:${col[k]}18;color:${col[k]};">${k} ${v}</span>`
+    ).join('');
+}
+
+function _renderTransitTable() {
+    const el = document.getElementById('transit_table');
+    const data = _transitFilter ? _transitRecords.filter(r => r.status === _transitFilter) : _transitRecords;
+    if (!data.length) { el.innerHTML = '<p style="text-align:center;color:#999;padding:2rem;">查無記錄</p>'; return; }
+    const stCol = { '未核銷':'#ef4444', '部分核銷':'#f7a35c', '已核銷':'#22c55e' };
+    const srcCol = { '原始出庫':'#7ec8e3', '加工子件':'#c9a8e0' };
+    const th = `padding:6px 10px;font-size:11px;font-weight:700;background:#f5f7ff;border-bottom:2px solid #dde6ef;white-space:nowrap;`;
+    const td = `padding:6px 10px;font-size:11px;border-bottom:1px solid #f0f4f8;white-space:nowrap;`;
+    let html = `<table style="width:100%;border-collapse:collapse;">
+      <thead><tr>
+        <th style="${th}">產品名稱</th><th style="${th}">批號</th><th style="${th}">出庫日期</th>
+        <th style="${th}text-align:right">原始數量</th><th style="${th}text-align:right">已核銷</th>
+        <th style="${th}text-align:right">剩餘數量</th><th style="${th}text-align:right">單價</th>
+        <th style="${th}text-align:right">總成本</th><th style="${th}">來源</th>
+        <th style="${th}">狀態</th><th style="${th}">最後核銷</th>
+      </tr></thead><tbody>`;
+    data.forEach((r,i) => {
+        const bg = i%2===0?'#fff':'#fafbfc';
+        const sc = stCol[r.status]||'#aaa';
+        const src = r.source||'原始出庫';
+        const srcC = srcCol[src]||'#aaa';
+        html += `<tr style="background:${bg}">
+          <td style="${td}font-weight:600">${r.product_name}</td>
+          <td style="${td}font-family:monospace;font-size:10px;color:#6878C0">${r.batch_no}</td>
+          <td style="${td}">${r.outbound_date||''}</td>
+          <td style="${td}text-align:right">${(r.original_qty||0).toLocaleString()}</td>
+          <td style="${td}text-align:right">${(r.offset_qty||0).toLocaleString()}</td>
+          <td style="${td}text-align:right;font-weight:700;color:${r.remaining_qty>0?'#ef4444':'#22c55e'}">${(r.remaining_qty||0).toLocaleString()}</td>
+          <td style="${td}text-align:right">${r.unit_price>0?'$'+Number(r.unit_price).toFixed(4):'-'}</td>
+          <td style="${td}text-align:right">${r.total_cost>0?'$'+Number(r.total_cost).toLocaleString():'-'}</td>
+          <td style="${td}"><span style="color:${srcC};font-size:10px;border:1px solid ${srcC};border-radius:4px;padding:1px 6px;font-weight:700;">${src}</span></td>
+          <td style="${td}"><span style="color:${sc};font-weight:700;font-size:10px;border:1px solid ${sc};border-radius:4px;padding:1px 6px;">${r.status}</span></td>
+          <td style="${td}font-size:10px;color:#64748b">${r.last_offset_date||'—'}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+function _transitFilterFn(status) {
+    _transitFilter = status;
+    document.querySelectorAll('.transit-filter-btn').forEach(b => {
+        const isActive = b.textContent.trim().startsWith(status||'全部');
+        b.style.background = isActive ? (status?({未核銷:'#ef4444',部分核銷:'#f7a35c',已核銷:'#22c55e'}[status]||'#6878C0'):'#6878C0') : '';
+        b.style.color = isActive ? '#fff' : '';
+    });
+    _renderTransitTable();
+}
+window._transitFilter = _transitFilterFn;
+
+// ── 自動比對核銷：在途銷貨 × 利潤分析 ────────────────────────────
+async function autoMatchTransitSales() {
+    const statusEl = document.getElementById('transit_status');
+    if (!profitCalcData || !profitCalcData.length) {
+        alert('請先到「💹 利潤分析」頁上傳並試算利潤明細表，再回來執行比對');
+        return;
+    }
+    // 取欄位設定
+    const nameCol  = (document.getElementById('pcol_name')?.value  || '產品名稱').trim();
+    const batchCol = (document.getElementById('pcol_batch')?.value || '批號').trim();
+    const qtyCol   = (document.getElementById('pcol_qty')?.value   || '數量').trim();
+
+    statusEl.textContent = '比對中…';
+
+    // 建立利潤分析索引：key = 產品名稱|批號 → 累計銷售數量
+    const profitMap = {};
+    profitCalcData.forEach(r => {
+        const key = `${(r[nameCol]||'').trim()}|${(r[batchCol]||'').trim()}`;
+        profitMap[key] = (profitMap[key] || 0) + (parseFloat(r[qtyCol]) || 0);
+    });
+
+    // 讀取在途銷貨台帳（未核銷 + 部分核銷）
+    const resp = await fetch(
+        `${SUPABASE_URL}/rest/v1/transit_sales_ledger?status=neq.已核銷&select=*`,
+        { headers: getSBHeaders() }
+    );
+    const pending = await resp.json();
+    let matched = 0;
+    const today = new Date().toISOString().slice(0,10);
+
+    for (const rec of pending) {
+        const key = `${rec.product_name}|${rec.batch_no}`;
+        const saleQty = profitMap[key] || 0;
+        if (saleQty <= 0) continue;
+
+        const newOffset    = Math.min(rec.original_qty, (rec.offset_qty || 0) + saleQty);
+        const newRemaining = rec.original_qty - newOffset;
+        const newStatus    = _transitStatus(rec.original_qty, newOffset);
+
+        await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${rec.id}`,
+            {
+                method: 'PATCH',
+                headers: { ...getSBHeaders(), 'Prefer':'return=minimal' },
+                body: JSON.stringify({
+                    offset_qty:       newOffset,
+                    remaining_qty:    newRemaining,
+                    status:           newStatus,
+                    last_offset_date: today,
+                })
+            }
+        );
+        matched++;
+    }
+
+    statusEl.textContent = `✅ 比對完成：核銷 ${matched} 筆`;
+    await loadTransitLedger();
+}
+window.autoMatchTransitSales = autoMatchTransitSales;
 
 function showFormulaDetail(event, rowIdx, col) {
     const row = calculatedData[rowIdx];
@@ -10619,10 +11041,12 @@ function _pgRenderResult() {
 }
 
 // ─── 確認並移除已配對（保留未找到租金的）──────────────────────
-function pgConfirmPaired() {
+async function pgConfirmPaired() {
   if (!_pgResults.length) { alert('請先上傳加工單並完成計算'); return; }
 
   const before = _pgResults.length;
+  // 收集所有已完整配對的項目，準備更新台帳
+  const confirmed = _pgResults.filter(c => c.allFound);
   // allFound = 所有母件都已配對成功 → 移除；有任一母件未找到 → 保留
   _pgResults = _pgResults.filter(c => !c.allFound);
   const removed = before - _pgResults.length;
@@ -10638,7 +11062,15 @@ function pgConfirmPaired() {
   document.getElementById('pg_sum_miss').textContent     = missCount;
 
   _pgRenderResult();
-  alert(`已移除 ${removed} 筆配對完成記錄，剩餘 ${_pgResults.length} 筆未找到租金`);
+
+  // 同步更新加工原料台帳 & 在途銷貨台帳
+  try {
+    await confirmProcessingToLedgers(confirmed);
+  } catch(e) {
+    console.warn('台帳更新失敗：', e);
+  }
+
+  alert(`已確認 ${removed} 筆配對，加工原料台帳已扣減，子件已轉入在途銷貨台帳。\n剩餘 ${_pgResults.length} 筆未找到租金。`);
 }
 window.pgConfirmPaired = pgConfirmPaired;
 
