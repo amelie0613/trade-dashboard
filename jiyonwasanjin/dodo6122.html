@@ -10344,7 +10344,7 @@ function _unpairSort(key) {
   _renderUnpairedTable();
 }
 
-// ─── Step 2：上傳加工單並自動配對 ────────────────────────────
+// ─── Step 2：上傳加工單並自動配對（產品名稱 + 批號）────────────
 async function pairingStep2Upload(input) {
   const file = input.files[0];
   if (!file) return;
@@ -10357,43 +10357,57 @@ async function pairingStep2Upload(input) {
     const sheetName = workbook.SheetNames[0];
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
 
-    let matched = 0, skipped = 0;
+    let matched = 0, skipped = 0, notFound = [];
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
+      const motherName  = String(row[3] || '').trim();  // D欄 - 母件名稱
       const motherBatch = String(row[4] || '').trim();  // E欄 - 母件批號
       const childBatch  = String(row[9] || '').trim();  // J欄 - 子件批號
       const childQty    = parseFloat(String(row[10] || '').replace(/,/g,'')) || 0; // K欄
       const childName   = String(row[8] || '').trim();  // I欄 - 子件名稱
 
-      if (!motherBatch || !childBatch) { skipped++; continue; }
+      if (!motherName || !motherBatch || !childBatch) { skipped++; continue; }
 
-      // 查詢 processing_pairing 中對應的記錄
+      // 用「產品名稱 + 批號」精確配對
       const findResp = await fetch(
-        `${SUPABASE_URL}/rest/v1/processing_pairing?mother_batch_no=eq.${encodeURIComponent(motherBatch)}&pairing_status=eq.unpaired&select=id`,
+        `${SUPABASE_URL}/rest/v1/processing_pairing?mother_product_name=eq.${encodeURIComponent(motherName)}&mother_batch_no=eq.${encodeURIComponent(motherBatch)}&pairing_status=eq.unpaired&select=id`,
         { headers: getSBHeaders() }
       );
       const found = await findResp.json();
-      if (!found.length) { skipped++; continue; }
 
-      // 更新配對資訊
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/processing_pairing?id=eq.${found[0].id}`,
-        {
-          method: 'PATCH',
-          headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
-          body: JSON.stringify({
-            child_batch_no: childBatch,
-            child_product_name: childName,
-            child_qty: childQty,
-            pairing_status: 'paired',
-            paired_date: new Date().toISOString()
-          })
-        }
-      );
-      matched++;
+      if (!found.length) {
+        notFound.push(`${motherName}|${motherBatch}`);
+        skipped++;
+        continue;
+      }
+
+      // 同一批號可能多筆（同產品同批號不同數量），逐筆配對
+      for (const rec of found) {
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/processing_pairing?id=eq.${rec.id}`,
+          {
+            method: 'PATCH',
+            headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+            body: JSON.stringify({
+              child_batch_no: childBatch,
+              child_product_name: childName,
+              child_qty: childQty,
+              pairing_status: 'paired',
+              paired_date: new Date().toISOString()
+            })
+          }
+        );
+        matched++;
+      }
     }
 
-    status.textContent = `✅ 配對完成：${matched} 筆成功，${skipped} 筆略過`;
+    let msg = `✅ 配對完成：${matched} 筆成功`;
+    if (skipped > 0) msg += `，${skipped} 筆略過`;
+    if (notFound.length > 0) {
+      const unique = [...new Set(notFound)];
+      msg += `\n⚠️ 找不到對應記錄：${unique.slice(0,3).join('、')}${unique.length > 3 ? '...' : ''}`;
+    }
+    status.textContent = msg;
     await pairingRenderUnpairedList();
   } catch(e) {
     status.textContent = `❌ 失敗：${e.message}`;
