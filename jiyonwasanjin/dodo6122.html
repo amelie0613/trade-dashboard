@@ -10187,10 +10187,11 @@ async function pairingStep1Scan() {
   status.textContent = '掃描中...';
   try {
     // 同時抓兩種：notes='加工' 和 notes 含大漁加工單號（拆解加工）
+    const sel = 'select=id,product_name,batch_no,quantity,outbound_date,allocated_price,tracking_code,record_status,notes';
     const [resp1, resp2] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/outbound_records?notes=eq.加工&select=id,product_name,batch_no,quantity,outbound_date,allocated_price,tracking_code,record_status,notes`,
+      fetch(`${SUPABASE_URL}/rest/v1/outbound_records?notes=eq.${encodeURIComponent('加工')}&${sel}`,
         { headers: getSBHeaders() }),
-      fetch(`${SUPABASE_URL}/rest/v1/outbound_records?notes=ilike.%25大漁 E%25&select=id,product_name,batch_no,quantity,outbound_date,allocated_price,tracking_code,record_status,notes`,
+      fetch(`${SUPABASE_URL}/rest/v1/outbound_records?notes=ilike.${encodeURIComponent('%大漁%')}&${sel}`,
         { headers: getSBHeaders() })
     ]);
 
