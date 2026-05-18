@@ -2053,6 +2053,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <button onclick="loadTransitLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
                 <button onclick="importTransitFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入</button>
                 <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
+                <button onclick="resetTransitOffset()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷核銷</button>
                 <div style="display:flex;gap:0.4rem;" id="transit_filter_btns">
                   <button onclick="_transitFilter('')"      class="transit-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">全部</button>
                   <button onclick="_transitFilter('未核銷')"  class="transit-filter-btn"      style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未核銷</button>
@@ -8632,15 +8633,25 @@ async function importTransitFromOutbound() {
     const statusEl = document.getElementById('transit_status');
     statusEl.textContent = '讀取出庫記錄中…';
     try {
-        const resp = await fetch(
+        // 1. 取出庫記錄（再途銷貨）
+        const outResp = await fetch(
             `${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.再途銷貨&select=*`,
             { headers: getSBHeaders() }
         );
-        if (!resp.ok) throw new Error(await resp.text());
-        const rows = await resp.json();
+        if (!outResp.ok) throw new Error(await outResp.text());
+        const rows = await outResp.json();
         if (!rows.length) { statusEl.textContent = '出庫記錄中找不到再途銷貨類型的記錄'; return; }
 
-        // 依 product_name + batch_no 彙總
+        // 2. 取台帳現有記錄（保留核銷進度）
+        const ledResp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=eq.原始出庫&select=id,product_name,batch_no,offset_qty,status`,
+            { headers: getSBHeaders() }
+        );
+        if (!ledResp.ok) throw new Error(await ledResp.text());
+        const existing = await ledResp.json();
+        const existMap = new Map(existing.map(r => [`${r.product_name}|${r.batch_no}`, r]));
+
+        // 3. 依 product_name + batch_no 彙總出庫明細
         const aggMap = new Map();
         rows.forEach(r => {
             const key = `${r.product_name}|${r.batch_no}`;
@@ -8659,28 +8670,63 @@ async function importTransitFromOutbound() {
             a.total_cost   += r.outbound_amount || 0;
         });
 
-        const ledgerRows = Array.from(aggMap.values()).map(a => ({
-            product_name:  a.product_name,
-            batch_no:      a.batch_no,
-            original_qty:  a.original_qty,
-            offset_qty:    0,
-            remaining_qty: a.original_qty,
-            unit_price:    a.original_qty > 0 ? Math.round(a.total_cost / a.original_qty * 10000) / 10000 : 0,
-            total_cost:    Math.round(a.total_cost),
-            source:        '原始出庫',
-            status:        '未核銷',
-            month_label:   a.month_label,
-            notes:         a.notes,
+        // 4. 分成「新批號」vs「已存在批號」
+        const toInsert = [];
+        const toUpdate = [];
+        aggMap.forEach((a, key) => {
+            const unitPrice   = a.original_qty > 0 ? Math.round(a.total_cost / a.original_qty * 10000) / 10000 : 0;
+            const totalCost   = Math.round(a.total_cost);
+            const ex          = existMap.get(key);
+            if (!ex) {
+                toInsert.push({
+                    product_name:  a.product_name,
+                    batch_no:      a.batch_no,
+                    original_qty:  a.original_qty,
+                    offset_qty:    0,
+                    remaining_qty: a.original_qty,
+                    unit_price:    unitPrice,
+                    total_cost:    totalCost,
+                    source:        '原始出庫',
+                    status:        '未核銷',
+                    month_label:   a.month_label,
+                    notes:         a.notes,
+                });
+            } else {
+                // 保留已核銷進度，只更新數量與成本
+                const newRemaining = Math.max(0, a.original_qty - (ex.offset_qty || 0));
+                toUpdate.push({
+                    id:            ex.id,
+                    original_qty:  a.original_qty,
+                    remaining_qty: newRemaining,
+                    unit_price:    unitPrice,
+                    total_cost:    totalCost,
+                    status:        _transitStatus(a.original_qty, ex.offset_qty || 0),
+                });
+            }
+        });
+
+        statusEl.textContent = `新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆…`;
+
+        // 5. 批量插入新批號
+        if (toInsert.length) {
+            const insResp = await fetch(
+                `${SUPABASE_URL}/rest/v1/transit_sales_ledger`,
+                { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'return=minimal' }, body:JSON.stringify(toInsert) }
+            );
+            if (!insResp.ok) throw new Error(await insResp.text());
+        }
+
+        // 6. 逐筆更新已存在批號（保留核銷進度）
+        await Promise.all(toUpdate.map(u => {
+            const { id, ...fields } = u;
+            return fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${id}`, {
+                method: 'PATCH',
+                headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                body: JSON.stringify(fields),
+            });
         }));
 
-        statusEl.textContent = `寫入台帳中（${ledgerRows.length} 筆，共彙總 ${rows.length} 筆明細）…`;
-        const writeResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?on_conflict=product_name,batch_no,source`,
-            { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'resolution=ignore-duplicates' }, body:JSON.stringify(ledgerRows) }
-        );
-        if (!writeResp.ok) throw new Error(await writeResp.text());
-
-        statusEl.textContent = `✅ 匯入完成：${ledgerRows.length} 個批號（明細 ${rows.length} 筆彙總）`;
+        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（共彙總 ${rows.length} 筆明細）`;
         await loadTransitLedger();
     } catch(e) {
         statusEl.textContent = `❌ 匯入失敗：${e.message}`;
@@ -9001,6 +9047,41 @@ async function autoMatchTransitSales() {
     await loadTransitLedger();
 }
 window.autoMatchTransitSales = autoMatchTransitSales;
+
+async function resetTransitOffset() {
+    if (!confirm('確定要撤銷所有核銷記錄？\n所有「部分核銷」與「已核銷」的資料將還原為「未核銷」。')) return;
+    const statusEl = document.getElementById('transit_status');
+    statusEl.textContent = '撤銷中…';
+    try {
+        // 取出所有已核銷/部分核銷的記錄（含 original_qty）
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?status=neq.未核銷&select=id,original_qty`,
+            { headers: getSBHeaders() }
+        );
+        if (!resp.ok) throw new Error(await resp.text());
+        const records = await resp.json();
+        if (!records.length) { statusEl.textContent = '目前沒有已核銷的記錄'; return; }
+
+        // 逐筆還原 remaining_qty = original_qty
+        await Promise.all(records.map(r =>
+            fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${r.id}`, {
+                method: 'PATCH',
+                headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                body: JSON.stringify({
+                    offset_qty:       0,
+                    remaining_qty:    r.original_qty,
+                    status:           '未核銷',
+                    last_offset_date: null,
+                })
+            })
+        ));
+        statusEl.textContent = `✅ 撤銷完成：${records.length} 筆已還原為未核銷`;
+        await loadTransitLedger();
+    } catch (e) {
+        statusEl.textContent = `❌ 撤銷失敗：${e.message}`;
+    }
+}
+window.resetTransitOffset = resetTransitOffset;
 
 function showFormulaDetail(event, rowIdx, col) {
     const row = calculatedData[rowIdx];
