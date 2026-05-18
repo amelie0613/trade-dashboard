@@ -1960,6 +1960,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <div id="pg_sum_miss" style="font-size:1.4rem; font-weight:800; color:#c0507a;">-</div>
                     </div>
                     <button onclick="pgExport()" style="padding:0.6rem 1.2rem; background:#22c55e; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; align-self:center;">📤 匯出報表</button>
+                    <button onclick="pgConfirmPaired()" style="padding:0.6rem 1.2rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; align-self:center;">✅ 確認並移除已配對</button>
                   </div>
                 </div>
               </div>
@@ -10593,6 +10594,30 @@ function _pgRenderResult() {
   html += '</tbody></table>';
   container.innerHTML = html;
 }
+
+// ─── 確認並移除已配對（保留未找到租金的）──────────────────────
+function pgConfirmPaired() {
+  if (!_pgResults.length) { alert('請先上傳加工單並完成計算'); return; }
+
+  const before = _pgResults.length;
+  // allFound = 所有母件都已配對成功 → 移除；有任一母件未找到 → 保留
+  _pgResults = _pgResults.filter(c => !c.allFound);
+  const removed = before - _pgResults.length;
+
+  if (removed === 0) {
+    alert('目前沒有可移除的已配對記錄（所有記錄都有未找到的母件）');
+    return;
+  }
+
+  // 更新摘要計數
+  const missCount = _pgResults.reduce((s, c) => s + c.mothers.filter(m => !m.found).length, 0);
+  document.getElementById('pg_sum_products').textContent = _pgResults.length;
+  document.getElementById('pg_sum_miss').textContent     = missCount;
+
+  _pgRenderResult();
+  alert(`已移除 ${removed} 筆配對完成記錄，剩餘 ${_pgResults.length} 筆未找到租金`);
+}
+window.pgConfirmPaired = pgConfirmPaired;
 
 // ─── 匯出報表 ──────────────────────────────────────────────────
 function pgExport() {
