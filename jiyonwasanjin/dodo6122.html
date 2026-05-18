@@ -10237,39 +10237,73 @@ async function pairingStep1Scan() {
 }
 
 // ─── 顯示待配對清單 ───────────────────────────────────────────
+let _unpairRows = [];
+let _unpairSortCol = null;
+let _unpairSortAsc = true;
+
 async function pairingRenderUnpairedList() {
   const container = document.getElementById('pairing_unpaired_list');
   const resp = await fetch(
     `${SUPABASE_URL}/rest/v1/processing_pairing?pairing_status=in.(unpaired,paired)&select=*&order=created_at.asc`,
     { headers: getSBHeaders() }
   );
-  const rows = await resp.json();
+  _unpairRows = await resp.json();
+  _renderUnpairedTable();
+}
 
-  if (!rows.length) {
+function _renderUnpairedTable() {
+  const container = document.getElementById('pairing_unpaired_list');
+  if (!_unpairRows.length) {
     container.innerHTML = '<p style="text-align:center;color:#22c55e;padding:1.5rem;font-size:0.85rem;">所有記錄已完成配對</p>';
     return;
   }
 
+  const cols = [
+    { key: 'mother_tracking_code', label: '追蹤碼',  align: 'left'   },
+    { key: 'mother_product_name',  label: '產品名稱', align: 'left'   },
+    { key: 'mother_batch_no',      label: '母件批號', align: 'left'   },
+    { key: 'mother_qty',           label: '數量',     align: 'right'  },
+    { key: 'child_batch_no',       label: '子件批號', align: 'left'   },
+    { key: 'pairing_status',       label: '狀態',     align: 'center' },
+  ];
+
+  const thStyle = (col) => {
+    const isActive = _unpairSortCol === col.key;
+    return `padding:0.5rem 0.7rem; text-align:${col.align}; border-bottom:2px solid #ddd;
+            white-space:nowrap; cursor:pointer; user-select:none;
+            color:${isActive ? '#6878C0' : '#374151'}; font-weight:700;`;
+  };
+  const arrow = (key) => {
+    if (_unpairSortCol !== key) return ' ↕';
+    return _unpairSortAsc ? ' ↑' : ' ↓';
+  };
+
+  let sorted = [..._unpairRows];
+  if (_unpairSortCol) {
+    sorted.sort((a, b) => {
+      let va = a[_unpairSortCol] ?? '';
+      let vb = b[_unpairSortCol] ?? '';
+      if (typeof va === 'number' && typeof vb === 'number') return _unpairSortAsc ? va - vb : vb - va;
+      return _unpairSortAsc ? String(va).localeCompare(String(vb), 'zh-TW') : String(vb).localeCompare(String(va), 'zh-TW');
+    });
+  }
+
   let html = `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
     <thead style="background:#f0f4f8;">
-      <tr>
-        <th style="padding:0.5rem 0.7rem;text-align:left;border-bottom:2px solid #ddd;white-space:nowrap;">追蹤碼</th>
-        <th style="padding:0.5rem 0.7rem;text-align:left;border-bottom:2px solid #ddd;">產品名稱</th>
-        <th style="padding:0.5rem 0.7rem;text-align:left;border-bottom:2px solid #ddd;white-space:nowrap;">母件批號</th>
-        <th style="padding:0.5rem 0.7rem;text-align:right;border-bottom:2px solid #ddd;">數量</th>
-        <th style="padding:0.5rem 0.7rem;text-align:left;border-bottom:2px solid #ddd;white-space:nowrap;">子件批號</th>
-        <th style="padding:0.5rem 0.7rem;text-align:center;border-bottom:2px solid #ddd;">狀態</th>
-      </tr>
-    </thead><tbody>`;
+      <tr>`;
+  cols.forEach(col => {
+    html += `<th style="${thStyle(col)}" onclick="_unpairSort('${col.key}')">${col.label}${arrow(col.key)}</th>`;
+  });
+  html += `</tr></thead><tbody>`;
 
-  rows.forEach(r => {
+  sorted.forEach(r => {
     const isUnpaired = r.pairing_status === 'unpaired';
     const statusColor = isUnpaired ? '#ef4444' : '#f7a35c';
     const statusText  = isUnpaired ? '待配對' : '已配對';
     html += `<tr style="border-bottom:1px solid #f0f4f8;">
-      <td style="padding:0.5rem 0.7rem;font-weight:600;color:#6878C0;">${r.mother_tracking_code}</td>
+      <td style="padding:0.5rem 0.7rem;font-weight:600;color:#6878C0;white-space:nowrap;">${r.mother_tracking_code}</td>
       <td style="padding:0.5rem 0.7rem;">${r.mother_product_name}</td>
-      <td style="padding:0.5rem 0.7rem;font-family:monospace;font-size:0.78rem;">${r.mother_batch_no}</td>
+      <td style="padding:0.5rem 0.7rem;font-family:monospace;font-size:0.78rem;white-space:nowrap;">${r.mother_batch_no}</td>
       <td style="padding:0.5rem 0.7rem;text-align:right;">${r.mother_qty}</td>
       <td style="padding:0.5rem 0.7rem;font-family:monospace;font-size:0.78rem;color:#6878C0;">${r.child_batch_no || '-'}</td>
       <td style="padding:0.5rem 0.7rem;text-align:center;">
@@ -10280,6 +10314,16 @@ async function pairingRenderUnpairedList() {
 
   html += '</tbody></table>';
   container.innerHTML = html;
+}
+
+function _unpairSort(key) {
+  if (_unpairSortCol === key) {
+    _unpairSortAsc = !_unpairSortAsc;
+  } else {
+    _unpairSortCol = key;
+    _unpairSortAsc = true;
+  }
+  _renderUnpairedTable();
 }
 
 // ─── Step 2：上傳加工單並自動配對 ────────────────────────────
@@ -10338,7 +10382,7 @@ async function pairingStep2Upload(input) {
   }
 }
 
-// ─── Step 3：計算成品單價 ─────────────────────────────────────
+// ─── Step 3：計算成品單價（支援多筆母件 → 同一成品） ──────────
 async function pairingStep3Calculate() {
   const status = document.getElementById('pairing_calc_status');
   status.textContent = '計算中...';
@@ -10349,36 +10393,52 @@ async function pairingStep3Calculate() {
       { headers: getSBHeaders() }
     );
     const pairs = await resp.json();
-    let done = 0;
 
+    // 按 child_batch_no 分組，合併計算總租金成本
+    const childGroups = {};
     for (const p of pairs) {
-      // 從 outbound_records 查詢母件租金單價
+      const key = p.child_batch_no;
+      if (!key) continue;
+      if (!childGroups[key]) childGroups[key] = { totalCost: 0, childQty: p.child_qty || 0, ids: [] };
+
+      // 查詢母件的租金單價（用 tracking_code 精確比對）
       const oResp = await fetch(
-        `${SUPABASE_URL}/rest/v1/outbound_records?batch_no=eq.${encodeURIComponent(p.mother_batch_no)}&notes=ilike.%25加工%25&select=allocated_price,quantity&limit=1`,
+        `${SUPABASE_URL}/rest/v1/outbound_records?tracking_code=eq.${encodeURIComponent(p.mother_tracking_code)}&select=allocated_price,quantity`,
         { headers: getSBHeaders() }
       );
       const oData = await oResp.json();
-      if (!oData.length || !oData[0].allocated_price) continue;
+      if (!oData.length || !oData[0].allocated_price) { childGroups[key].ids.push({ id: p.id, cost: 0 }); continue; }
 
-      const motherRental = oData[0].allocated_price * (p.mother_qty || oData[0].quantity);
-      const unitPrice    = p.child_qty > 0 ? motherRental / p.child_qty : 0;
-
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/processing_pairing?id=eq.${p.id}`,
-        {
-          method: 'PATCH',
-          headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
-          body: JSON.stringify({
-            allocated_unit_price: Math.round(unitPrice * 10000) / 10000,
-            pairing_status: 'calculated',
-            calculated_date: new Date().toISOString()
-          })
-        }
-      );
-      done++;
+      // 累加這筆母件的租金成本
+      const cost = oData[0].allocated_price * (p.mother_qty || oData[0].quantity);
+      childGroups[key].totalCost += cost;
+      childGroups[key].ids.push({ id: p.id, cost });
     }
 
-    status.textContent = `✅ 計算完成：${done} 筆成品單價已更新`;
+    // 計算每個成品批號的單價，回寫到所有關聯的母件記錄
+    let done = 0;
+    for (const [childBatch, group] of Object.entries(childGroups)) {
+      const unitPrice = group.childQty > 0 ? group.totalCost / group.childQty : 0;
+      const rounded   = Math.round(unitPrice * 10000) / 10000;
+
+      for (const { id } of group.ids) {
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/processing_pairing?id=eq.${id}`,
+          {
+            method: 'PATCH',
+            headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+            body: JSON.stringify({
+              allocated_unit_price: rounded,
+              pairing_status: 'calculated',
+              calculated_date: new Date().toISOString()
+            })
+          }
+        );
+        done++;
+      }
+    }
+
+    status.textContent = `✅ 計算完成：${done} 筆已更新（按成品批號合併計算）`;
     await pairingLoadReport();
   } catch(e) {
     status.textContent = `❌ 失敗：${e.message}`;
