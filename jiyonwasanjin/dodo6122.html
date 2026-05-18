@@ -1881,6 +1881,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       </div>
                       <div style="display:flex; gap:0.7rem;">
                         <button onclick="calcProfit()" class="btn-primary" style="flex:2;">🔍 試算租金費用</button>
+                        <button onclick="calcProfitAndMatch()" class="btn-primary" style="flex:3;background:#7ec8e3;">🔗 試算並核銷在途銷貨</button>
                       </div>
                       <div id="profit_calc_status" style="margin-top:0.5rem; font-size:0.82rem;"></div>
                     </div>
@@ -9932,6 +9933,12 @@ async function calcProfit() {
     }
 }
 window.calcProfit = calcProfit;
+
+async function calcProfitAndMatch() {
+    await calcProfit();
+    await autoMatchTransitSales();
+}
+window.calcProfitAndMatch = calcProfitAndMatch;
 
 function renderProfitTable() {
     const keyword = (document.getElementById('profit_filter')?.value || '').toLowerCase().trim();
