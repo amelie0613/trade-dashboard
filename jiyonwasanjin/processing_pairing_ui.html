@@ -1,0 +1,97 @@
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 轉加工配對管理頁籤 (插入到租金計算頁面的 tab 中) -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+
+<div id="processing_pairing_page" style="display:none;padding:1rem;">
+  <div style="max-width:1400px;margin:0 auto;">
+
+    <!-- ══ 頁面標題 ══ -->
+    <div style="margin-bottom:1.5rem;">
+      <h2 style="font-size:1.3rem;font-weight:800;color:#1a2540;margin:0;">📦 轉加工配對管理</h2>
+      <p style="font-size:0.85rem;color:#64748b;margin:0.5rem 0 0;">自動配對原料批號與成品批號，計算成品租金單價</p>
+    </div>
+
+    <!-- ══ 三步流程 ══ -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:1rem;margin-bottom:2rem;">
+
+      <!-- Step 1: 掃描未配對 -->
+      <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1.2rem;box-shadow:0 1px 4px rgba(30,50,100,0.08);">
+        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+          <div style="font-size:1.5rem;">1️⃣</div>
+          <h3 style="font-size:0.95rem;font-weight:700;color:#1a2540;margin:0;">掃描未配對記錄</h3>
+        </div>
+
+        <p style="font-size:0.8rem;color:#64748b;margin-bottom:1rem;">從 Supabase 掃描所有 notes 標記為「加工」但尚未配對的出庫記錄</p>
+
+        <button id="scan_btn" onclick="scanUnpairedRecords()"
+          style="width:100%;padding:0.7rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">
+          🔍 掃描未配對記錄
+        </button>
+
+        <div id="scan_status" style="margin-top:0.8rem;font-size:0.8rem;color:#64748b;text-align:center;min-height:1.5rem;"></div>
+      </div>
+
+      <!-- Step 2: 上傳加工單 -->
+      <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1.2rem;box-shadow:0 1px 4px rgba(30,50,100,0.08);">
+        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+          <div style="font-size:1.5rem;">2️⃣</div>
+          <h3 style="font-size:0.95rem;font-weight:700;color:#1a2540;margin:0;">上傳加工單並配對</h3>
+        </div>
+
+        <p style="font-size:0.8rem;color:#64748b;margin-bottom:1rem;">上傳加工單 Excel，自動比對母件批號並配對成品批號</p>
+
+        <div style="border:2px dashed #f7a35c;border-radius:10px;padding:0.8rem;background:#fffaf0;margin-bottom:0.8rem;"
+          ondragover="event.preventDefault();event.currentTarget.style.background='#fff4e6';"
+          ondragleave="event.currentTarget.style.background='#fffaf0';"
+          ondrop="event.preventDefault();document.getElementById('processing_order_file').click();">
+          <input type="file" id="processing_order_file" accept=".xlsx" style="display:none;" />
+          <div style="text-align:center;cursor:pointer;" onclick="document.getElementById('processing_order_file').click();">
+            <div style="font-size:1.2rem;margin-bottom:0.4rem;">📄</div>
+            <p style="font-size:0.8rem;color:#d97a3a;margin:0;font-weight:700;">點擊上傳或拖拉檔案</p>
+            <p style="font-size:0.75rem;color:#c97a2a;margin:0.3rem 0 0;">支援格式：.xlsx</p>
+          </div>
+        </div>
+
+        <div id="processing_order_status" style="font-size:0.8rem;color:#64748b;text-align:center;min-height:1.5rem;"></div>
+      </div>
+
+      <!-- Step 3: 計算成品單價 -->
+      <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1.2rem;box-shadow:0 1px 4px rgba(30,50,100,0.08);">
+        <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+          <div style="font-size:1.5rem;">3️⃣</div>
+          <h3 style="font-size:0.95rem;font-weight:700;color:#1a2540;margin:0;">計算成品單價</h3>
+        </div>
+
+        <p style="font-size:0.8rem;color:#64748b;margin-bottom:1rem;">根據原料租金成本，自動計算成品的分攤單價</p>
+
+        <button id="calculate_btn" onclick="calculateProductPrice()"
+          style="width:100%;padding:0.7rem;background:#22c55e;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">
+          📊 計算成品單價
+        </button>
+
+        <div id="calculate_status" style="margin-top:0.8rem;font-size:0.8rem;color:#64748b;text-align:center;min-height:1.5rem;"></div>
+      </div>
+
+    </div>
+
+    <!-- ══ 未配對清單 ══ -->
+    <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1.2rem;margin-bottom:2rem;box-shadow:0 1px 4px rgba(30,50,100,0.08);">
+      <h3 style="font-size:0.95rem;font-weight:700;color:#1a2540;margin:0 0 1rem;">📋 待配對清單</h3>
+      <div id="unpaired_list" style="overflow-x:auto;">
+        <p style="text-align:center;color:#999;padding:2rem;">點擊「掃描未配對記錄」以顯示清單</p>
+      </div>
+    </div>
+
+    <!-- ══ 配對報表 ══ -->
+    <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1.2rem;box-shadow:0 1px 4px rgba(30,50,100,0.08);">
+      <h3 style="font-size:0.95rem;font-weight:700;color:#1a2540;margin:0 0 1rem;">📊 配對報表</h3>
+      <div id="pairing_report" style="overflow-x:auto;">
+        <p style="text-align:center;color:#999;padding:2rem;">完成配對後將顯示報表</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ 將此 script 標籤加在 HTML 的 </body> 前 ══ -->
+<script src="processing_pairing_module.js"></script>
