@@ -1993,6 +1993,10 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                   style="padding:0.5rem 1.2rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">
                   🔍 讀取記錄
                 </button>
+                <button onclick="autoClassifyAndSave()"
+                  style="padding:0.5rem 1.2rem; background:#f7a35c; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">
+                  🤖 一鍵自動分類
+                </button>
                 <div id="ob_page_status" style="font-size:0.82rem; color:#64748b;"></div>
                 <!-- 分倉統計 chips -->
                 <div id="ob_summary" style="display:flex; gap:0.5rem; margin-left:auto; flex-wrap:wrap; align-items:center;"></div>
@@ -6593,17 +6597,19 @@ async function confirmMonthly() {
                     const sbRecs = await resp.json();
                     if (sbRecs.length > 0) {
                         window._outboundRecords = sbRecs.map(r => ({
+                            _id:      r.id,
                             產品名稱: r.product_name,
-                            批號: r.batch_no,
+                            批號:     r.batch_no,
                             出庫日期: r.outbound_date,
                             出庫類型: r.outbound_type,
                             業務屬性: r.biz_type,
                             出庫數量: r.quantity,
                             分攤單價: r.allocated_price,
                             出庫金額: r.outbound_amount,
-                            備註: r.notes || '',
+                            備註:     r.notes || '',
                             month_label: r.month_label,
-                            period: r.period,
+                            period:   r.period,
+                            分倉類型: r.warehouse_type || _autoWarehouseType(r.outbound_type, r.notes),
                         }));
                         console.log(`📦 從 Supabase 讀取 ${window._outboundRecords.length} 筆出庫記錄`);
                     }
@@ -7285,6 +7291,7 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
                 備註: noteVal,
                 month_label: '',
                 period: period,
+                分倉類型: _autoWarehouseType(outType, noteVal),
             });
         }
 
@@ -8149,15 +8156,6 @@ async function setWarehouseType(idx, val) {
     if (!r) return;
     r.分倉類型 = val;
 
-    // 即時更新選單樣式
-    const sel = document.querySelector(`select[data-ob-idx="${idx}"]`);
-    if (sel) {
-        const c = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3' }[val] || '#ccc';
-        sel.style.borderColor = val ? c : '#ddd';
-        sel.style.color       = val ? c : '#999';
-        sel.style.background  = val ? `${c}18` : '#fafafa';
-    }
-
     // 若有 Supabase id，即時 PATCH
     if (r._id) {
         try {
@@ -8176,27 +8174,29 @@ async function setWarehouseType(idx, val) {
 }
 window.setWarehouseType = setWarehouseType;
 
-async function loadOutboundPage() {
-    const status    = document.getElementById('ob_page_status');
-    const container = document.getElementById('ob_page_results');
-    const summary   = document.getElementById('ob_summary');
-    const month     = (document.getElementById('ob_month_filter')?.value || '').trim();
+// 統一核心：從 Supabase 讀取出庫記錄並渲染到指定容器
+async function _loadOutboundRecords(monthLabel, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
 
-    status.textContent = '讀取中…';
+    const statusEl  = document.getElementById('ob_page_status');
+    const summaryEl = document.getElementById('ob_summary');
+
+    if (statusEl)  statusEl.textContent = '讀取中…';
+    if (summaryEl) summaryEl.innerHTML  = '';
     container.innerHTML = '<p style="padding:2rem;text-align:center;color:#64748b;">⏳ 讀取中…</p>';
-    summary.innerHTML = '';
 
     try {
         let url = `${SUPABASE_URL}/rest/v1/outbound_records?select=*&order=outbound_date.asc,product_name.asc`;
-        if (month) url += `&month_label=eq.${encodeURIComponent(month)}`;
+        if (monthLabel) url += `&month_label=eq.${encodeURIComponent(monthLabel)}`;
 
         const resp = await fetch(url, { headers: getSBHeaders() });
         if (!resp.ok) throw new Error(await resp.text());
         const rows = await resp.json();
 
         if (!rows.length) {
-            status.textContent = '查無記錄';
-            container.innerHTML = '<p style="padding:2rem;text-align:center;color:#999;">查無出庫記錄</p>';
+            if (statusEl) statusEl.textContent = '查無記錄';
+            container.innerHTML = `<p style="color:#999;text-align:center;padding:1rem;">Supabase 無出庫記錄${monthLabel ? '（' + monthLabel + '）' : ''}</p>`;
             return;
         }
 
@@ -8213,29 +8213,74 @@ async function loadOutboundPage() {
             備註:     r.notes || '',
             month_label: r.month_label,
             period:   r.period,
-            分倉類型: r.warehouse_type || '',
+            分倉類型: r.warehouse_type || _autoWarehouseType(r.outbound_type, r.notes),
         }));
 
-        // 分倉統計
-        const cnt = { '銷貨': 0, '加工原料': 0, '再途銷貨': 0, '未分類': 0 };
-        window._outboundRecords.forEach(r => {
-            if (cnt[r.分倉類型] !== undefined) cnt[r.分倉類型]++;
-            else cnt['未分類']++;
-        });
-        const col = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3', '未分類':'#aaa' };
-        summary.innerHTML = Object.entries(cnt).map(([k, v]) =>
-            `<span style="background:${col[k]}18;color:${col[k]};border:1px solid ${col[k]};border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:700;">${k} ${v}</span>`
-        ).join('');
+        // 分倉統計 chips（只在出庫管理頁有 ob_summary）
+        if (summaryEl) {
+            const cnt = { '銷貨': 0, '加工原料': 0, '再途銷貨': 0, '未分類': 0 };
+            window._outboundRecords.forEach(r => {
+                if (cnt[r.分倉類型] !== undefined) cnt[r.分倉類型]++;
+                else cnt['未分類']++;
+            });
+            const col = { '銷貨':'#22c55e', '加工原料':'#f7a35c', '再途銷貨':'#7ec8e3', '未分類':'#aaa' };
+            summaryEl.innerHTML = Object.entries(cnt).map(([k, v]) =>
+                `<span style="background:${col[k]}18;color:${col[k]};border:1px solid ${col[k]};border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:700;">${k} ${v}</span>`
+            ).join('');
+        }
 
-        status.textContent = `✅ 共 ${rows.length} 筆`;
-        displayOutboundRecords('ob_page_results');
+        if (statusEl) statusEl.textContent = `✅ 共 ${rows.length} 筆`;
+        _obActiveContainer = containerId;
+        displayOutboundRecords(containerId);
+
+        // 非出庫管理頁時自動捲到表格
+        if (containerId !== 'ob_page_results') {
+            setTimeout(() => container.scrollIntoView({ behavior: 'smooth' }), 100);
+        }
 
     } catch(e) {
-        status.textContent = `❌ ${e.message}`;
+        if (statusEl) statusEl.textContent = `❌ ${e.message}`;
         container.innerHTML = `<p style="color:#ef4444;padding:1rem;">❌ ${e.message}</p>`;
     }
 }
+
+// 出庫管理頁按鈕用
+function loadOutboundPage() {
+    const month = (document.getElementById('ob_month_filter')?.value || '').trim();
+    return _loadOutboundRecords(month, 'ob_page_results');
+}
 window.loadOutboundPage = loadOutboundPage;
+
+// 一鍵自動分類：根據備註規則重新計算所有記錄的分倉類型，並批次更新 Supabase
+async function autoClassifyAndSave() {
+    const records = window._outboundRecords || [];
+    if (!records.length) { alert('請先點擊「讀取記錄」載入資料'); return; }
+
+    const status = document.getElementById('ob_page_status');
+    status.textContent = '自動分類中…';
+
+    let updated = 0;
+    try {
+        for (const r of records) {
+            const newType = _autoWarehouseType(r.出庫類型, r.備註);
+            if (newType === r.分倉類型) continue; // 無變動略過
+            r.分倉類型 = newType;
+            if (r._id) {
+                await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?id=eq.${r._id}`, {
+                    method: 'PATCH',
+                    headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ warehouse_type: newType }),
+                });
+            }
+            updated++;
+        }
+        status.textContent = `✅ 自動分類完成，更新 ${updated} 筆`;
+        displayOutboundRecords('ob_page_results');
+    } catch(e) {
+        status.textContent = `❌ 自動分類失敗：${e.message}`;
+    }
+}
+window.autoClassifyAndSave = autoClassifyAndSave;
 
 async function exportOutboundExcel() {
     const records = window._outboundRecords || [];
@@ -8257,6 +8302,7 @@ async function exportOutboundExcel() {
             { header:'出庫金額', key:'I', width:14 },
             { header:'備註',     key:'J', width:26 },
             { header:'月份',     key:'K', width:10 },
+            { header:'分倉類型', key:'L', width:12 },
         ];
 
         // 標題列樣式
@@ -8280,6 +8326,7 @@ async function exportOutboundExcel() {
                 r.出庫金額 != null && r.出庫金額 > 0 ? r.出庫金額 : '',
                 r.備註      || '',
                 r.month_label || '',
+                r.分倉類型  || '',
             ]);
             // 備註欄若有值且是調撥/拆解，加底色
             if (r.備註 && (r.出庫類型 === '調撥' || r.出庫類型 === '拆解')) {
@@ -8316,6 +8363,15 @@ async function saveOutboundNow() {
     }
 }
 
+// 根據出庫類型 + 備註自動判斷分倉類型
+// 規則：備註含「加工」或拆解出庫 → 加工原料；調撥（不含加工）→ 再途銷貨；其餘 → 銷貨
+function _autoWarehouseType(outType, noteText) {
+    const note = (noteText || '').toString().trim();
+    if (note.includes('加工') || outType === '拆解') return '加工原料';
+    if (outType === '調撥') return '再途銷貨';
+    return '銷貨';
+}
+
 async function syncOutboundToSupabase(records, label) {
     if (!records || records.length === 0) return;
     const raw = records.map(r => ({
@@ -8335,9 +8391,10 @@ async function syncOutboundToSupabase(records, label) {
     }));
 
     // 去除重複記錄（同一 UNIQUE 組合保留最後一筆，以最新值為準）
+    // quantity 納入 key，允許同一批號同日期不同數量（分批出庫）各自保存
     const dedupeMap = new Map();
     raw.forEach(row => {
-        const key = `${row.product_name}|${row.batch_no}|${row.outbound_date}|${row.biz_type}|${row.period}`;
+        const key = `${row.product_name}|${row.batch_no}|${row.outbound_date}|${row.biz_type}|${row.period}|${row.quantity}`;
         dedupeMap.set(key, row);
     });
     const data = Array.from(dedupeMap.values());
@@ -8351,7 +8408,7 @@ async function syncOutboundToSupabase(records, label) {
         for (let i = 0; i < data.length; i += BATCH) {
             const chunk = data.slice(i, i + BATCH);
             const resp = await fetch(
-                `${SUPABASE_URL}/rest/v1/outbound_records?on_conflict=product_name,batch_no,outbound_date,biz_type,period`,
+                `${SUPABASE_URL}/rest/v1/outbound_records?on_conflict=product_name,batch_no,outbound_date,biz_type,period,quantity`,
                 {
                     method: 'POST',
                     headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
@@ -8368,55 +8425,10 @@ async function syncOutboundToSupabase(records, label) {
     }
 }
 
-// ===== 從 Supabase 讀取出庫記錄（可按月份查詢）=====
-async function viewOutboundFromSupabase(monthLabel) {
-    const targetEl = document.getElementById('outbound_results') || document.getElementById('ledger_results');
-    if (!targetEl) return;
-    targetEl.innerHTML = '<p style="text-align:center;padding:1rem;color:#2a6a82;">⏳ 讀取出庫記錄...</p>';
-
-    try {
-        let url = `${SUPABASE_URL}/rest/v1/outbound_records?select=*&order=outbound_date.asc`;
-        if (monthLabel) url += `&month_label=eq.${encodeURIComponent(monthLabel)}`;
-
-        const resp = await fetch(url, { headers: SB_HEADERS });
-        if (!resp.ok) throw new Error(await resp.text());
-        const rows = await resp.json();
-
-        if (!rows || rows.length === 0) {
-            targetEl.innerHTML = `<p style="color:#999;text-align:center;padding:1rem;">Supabase 無出庫記錄${monthLabel ? '（' + monthLabel + '）' : ''}</p>`;
-            return;
-        }
-
-        // 轉換回中文欄位
-        window._outboundRecords = rows.map(r => ({
-            _id:      r.id,
-            產品名稱: r.product_name,
-            批號:     r.batch_no,
-            出庫日期: r.outbound_date,
-            出庫類型: r.outbound_type,
-            業務屬性: r.biz_type,
-            出庫數量: r.quantity,
-            分攤單價: r.allocated_price,
-            出庫金額: r.outbound_amount,
-            備註:     r.notes || '',
-            month_label: r.month_label,
-            period: r.period,
-            分倉類型: r.warehouse_type || '',
-        }));
-
-        displayOutboundRecords();
-
-        // 若在月結算頁，也在 ledger_results 顯示
-        if (targetEl.id === 'ledger_results') {
-            const el = document.getElementById('outbound_results');
-            if (el && el.innerHTML) targetEl.innerHTML = el.innerHTML;
-        }
-
-        // 自動捲到出庫記錄表
-        setTimeout(() => targetEl.scrollIntoView({ behavior: 'smooth' }), 100);
-    } catch(e) {
-        targetEl.innerHTML = `<p style="color:#e8836a;text-align:center;padding:1rem;">❌ 讀取失敗：${e.message}</p>`;
-    }
+// 月結頁 / 舊入口：自動選擇可用容器，呼叫統一核心
+function viewOutboundFromSupabase(monthLabel) {
+    const containerId = document.getElementById('outbound_results') ? 'outbound_results' : 'ledger_results';
+    return _loadOutboundRecords(monthLabel, containerId);
 }
 window.viewOutboundFromSupabase = viewOutboundFromSupabase;
 
@@ -10419,9 +10431,12 @@ async function _pgCalcFile(file) {
         });
       }
       const m = motherMap.get(key);
-      // 同一子件（批號+名稱）只加一次（去除重複行）
-      if (!m.children.find(c => c.childBatch === line.childBatch && c.childName === line.childName)) {
+      // 同一子件（批號+名稱）累加數量（支援同母件多行產出同子件）
+      const existingChild = m.children.find(c => c.childBatch === line.childBatch && c.childName === line.childName);
+      if (!existingChild) {
         m.children.push({ childBatch: line.childBatch, childName: line.childName, childQty: line.childQty });
+      } else {
+        existingChild.childQty += line.childQty;
       }
     }
 
@@ -10463,12 +10478,13 @@ async function _pgCalcFile(file) {
           childMap.set(childKey, {
             childBatch: child.childBatch,
             childName:  child.childName,
-            childQty:   child.childQty,
+            childQty:   0,   // 從各母件累加
             totalCost:  0,
             mothers:    []
           });
         }
         const c     = childMap.get(childKey);
+        c.childQty += child.childQty;   // 多母件→同一子件時累加產出數量
         const ratio   = totalChildQty > 0 ? child.childQty / totalChildQty : 1;
         const portion = m.found ? totalMotherCost * ratio : null;
         c.totalCost += portion ?? 0;
