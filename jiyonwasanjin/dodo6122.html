@@ -8539,6 +8539,30 @@ let _matFilter   = '';
 let _transitFilter = '';
 let _matRecords     = [];
 let _transitRecords = [];
+let _matSort = { key: 'outbound_date', asc: false };
+let _transitSort = { key: 'outbound_date', asc: false };
+
+function _sortValue(v) {
+    if (v == null) return '';
+    if (typeof v === 'number') return v;
+    const s = String(v).trim();
+    const n = Number(s.replace(/[$,]/g, ''));
+    if (s !== '' && !Number.isNaN(n)) return n;
+    return s;
+}
+function _sortRows(rows, state) {
+    if (!state?.key) return rows;
+    return [...rows].sort((a, b) => {
+        const av = _sortValue(a[state.key]);
+        const bv = _sortValue(b[state.key]);
+        if (typeof av === 'number' && typeof bv === 'number') return state.asc ? av - bv : bv - av;
+        const cmp = String(av).localeCompare(String(bv), 'zh-TW', { numeric: true });
+        return state.asc ? cmp : -cmp;
+    });
+}
+function _sortArrow(state, key) {
+    return state?.key === key ? (state.asc ? ' ↑' : ' ↓') : ' <span style="opacity:.35">↕</span>';
+}
 
 // ── 工具：計算狀態 ──────────────────────────────────────────────
 function _matStatus(orig, processed) {
@@ -9136,17 +9160,19 @@ function _renderMatSummary() {
 
 function _renderMatTable() {
     const el = document.getElementById('mat_table');
-    const data = _matFilter ? _matRecords.filter(r => r.status === _matFilter) : _matRecords;
+    const filtered = _matFilter ? _matRecords.filter(r => r.status === _matFilter) : _matRecords;
+    const data = _sortRows(filtered, _matSort);
     if (!data.length) { el.innerHTML = '<p style="text-align:center;color:#999;padding:2rem;">查無記錄</p>'; return; }
     const stCol = { '未加工':'#ef4444', '部分加工':'#f7a35c', '已完成':'#22c55e' };
     const th = `padding:6px 10px;font-size:11px;font-weight:700;background:#f5f7ff;border-bottom:2px solid #dde6ef;white-space:nowrap;`;
+    const thSort = (key, label, align='left') => `<th onclick="_matSortBy('${key}')" style="${th}text-align:${align};cursor:pointer;user-select:none;">${label}${_sortArrow(_matSort, key)}</th>`;
     const td = `padding:6px 10px;font-size:11px;border-bottom:1px solid #f0f4f8;white-space:nowrap;`;
     let html = `<table style="width:100%;border-collapse:collapse;">
       <thead><tr>
-        <th style="${th}">產品名稱</th><th style="${th}">批號</th><th style="${th}">出庫日期</th>
-        <th style="${th}text-align:right">原始數量</th><th style="${th}text-align:right">已加工</th>
-        <th style="${th}text-align:right">剩餘數量</th><th style="${th}text-align:right">單價</th>
-        <th style="${th}text-align:right">總成本</th><th style="${th}">狀態</th><th style="${th}">備註</th>
+        ${thSort('product_name','產品名稱')}${thSort('batch_no','批號')}${thSort('outbound_date','出庫日期')}
+        ${thSort('original_qty','原始數量','right')}${thSort('processed_qty','已加工','right')}
+        ${thSort('remaining_qty','剩餘數量','right')}${thSort('unit_price','單價','right')}
+        ${thSort('total_cost','總成本','right')}${thSort('status','狀態')}${thSort('notes','備註')}
       </tr></thead><tbody>`;
     data.forEach((r,i) => {
         const bg = i%2===0?'#fff':'#fafbfc';
@@ -9170,6 +9196,13 @@ function _renderMatTable() {
     html += '</tbody></table>';
     el.innerHTML = html;
 }
+
+function _matSortBy(key) {
+    if (_matSort.key === key) _matSort.asc = !_matSort.asc;
+    else _matSort = { key, asc: true };
+    _renderMatTable();
+}
+window._matSortBy = _matSortBy;
 
 function _matFilterFn(status) {
     _matFilter = status;
@@ -9216,25 +9249,34 @@ function _renderTransitSummary() {
 
 function _renderTransitTable() {
     const el = document.getElementById('transit_table');
-    const data = _transitFilter ? _transitRecords.filter(r => r.status === _transitFilter) : _transitRecords;
+    const filtered = _transitFilter ? _transitRecords.filter(r => r.status === _transitFilter) : _transitRecords;
+    const data = _sortRows(filtered, _transitSort);
     if (!data.length) { el.innerHTML = '<p style="text-align:center;color:#999;padding:2rem;">查無記錄</p>'; return; }
     const stCol = { '未核銷':'#ef4444', '部分核銷':'#f7a35c', '已核銷':'#22c55e' };
     const srcCol = { '原始出庫':'#7ec8e3', '加工子件':'#c9a8e0' };
     const th = `padding:6px 10px;font-size:11px;font-weight:700;background:#f5f7ff;border-bottom:2px solid #dde6ef;white-space:nowrap;`;
+    const thSort = (key, label, align='left') => `<th onclick="_transitSortBy('${key}')" style="${th}text-align:${align};cursor:pointer;user-select:none;">${label}${_sortArrow(_transitSort, key)}</th>`;
     const td = `padding:6px 10px;font-size:11px;border-bottom:1px solid #f0f4f8;white-space:nowrap;`;
     let html = `<table style="width:100%;border-collapse:collapse;">
       <thead><tr>
-        <th style="${th}">產品名稱</th><th style="${th}">批號</th><th style="${th}">出庫日期</th>
-        <th style="${th}text-align:right">原始數量</th><th style="${th}text-align:right">已核銷</th>
-        <th style="${th}text-align:right">剩餘數量</th><th style="${th}text-align:right">單價</th>
-        <th style="${th}text-align:right">總成本</th><th style="${th}">來源</th>
-        <th style="${th}">狀態</th><th style="${th}">最後核銷</th>
+        ${thSort('product_name','產品名稱')}${thSort('batch_no','批號')}${thSort('outbound_date','出庫日期')}
+        ${thSort('original_qty','原始數量','right')}${thSort('offset_qty','已核銷','right')}
+        ${thSort('remaining_qty','剩餘數量','right')}${thSort('unit_price','單價','right')}
+        ${thSort('total_cost','總成本','right')}${thSort('source','來源')}
+        ${thSort('status','狀態')}${thSort('last_offset_date','最後核銷')}${thSort('id','操作')}
       </tr></thead><tbody>`;
     data.forEach((r,i) => {
         const bg = i%2===0?'#fff':'#fafbfc';
         const sc = stCol[r.status]||'#aaa';
         const src = r.source||'原始出庫';
         const srcC = srcCol[src]||'#aaa';
+        const done = r.status === '已核銷' || Number(r.remaining_qty || 0) <= 0;
+        const actionBtn = done
+          ? '<span style="font-size:10px;color:#94a3b8;">已完成</span>'
+          : `<button onclick="manualTransitOffset('${r.id}')" style="padding:2px 8px;border:1px solid #22c55e;background:#f0faf0;color:#16a34a;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;">手動核銷</button>`;
+        const deleteBtn = src === '加工子件'
+          ? `<button onclick="deleteTransitRow('${r.id}')" style="margin-left:4px;padding:2px 8px;border:1px solid #ef4444;background:#fff5f5;color:#ef4444;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;">刪除</button>`
+          : '';
         html += `<tr style="background:${bg}">
           <td style="${td}font-weight:600">${r.product_name}</td>
           <td style="${td}font-family:monospace;font-size:10px;color:#6878C0">${r.batch_no}</td>
@@ -9247,11 +9289,19 @@ function _renderTransitTable() {
           <td style="${td}"><span style="color:${srcC};font-size:10px;border:1px solid ${srcC};border-radius:4px;padding:1px 6px;font-weight:700;">${src}</span></td>
           <td style="${td}"><span style="color:${sc};font-weight:700;font-size:10px;border:1px solid ${sc};border-radius:4px;padding:1px 6px;">${r.status}</span></td>
           <td style="${td}font-size:10px;color:#64748b">${r.last_offset_date||'—'}</td>
+          <td style="${td}text-align:center">${actionBtn}${deleteBtn}</td>
         </tr>`;
     });
     html += '</tbody></table>';
     el.innerHTML = html;
 }
+
+function _transitSortBy(key) {
+    if (_transitSort.key === key) _transitSort.asc = !_transitSort.asc;
+    else _transitSort = { key, asc: true };
+    _renderTransitTable();
+}
+window._transitSortBy = _transitSortBy;
 
 function _transitFilterFn(status) {
     _transitFilter = status;
@@ -9278,10 +9328,7 @@ async function cleanupTransitDuplicates() {
         rows.forEach(r => {
             const key = [
                 String(r.product_name || '').trim(),
-                String(r.batch_no || '').trim(),
-                Number(r.original_qty || 0).toFixed(6),
-                Number(r.unit_price || 0).toFixed(6),
-                String(r.notes || '').trim(),
+                String(r.batch_no || '').trim()
             ].join('|');
             if (!groups.has(key)) groups.set(key, []);
             groups.get(key).push(r);
@@ -9294,6 +9341,9 @@ async function cleanupTransitDuplicates() {
                 const ao = parseFloat(a.offset_qty) || 0;
                 const bo = parseFloat(b.offset_qty) || 0;
                 if (bo !== ao) return bo - ao;
+                const ar = parseFloat(a.remaining_qty) || 0;
+                const br = parseFloat(b.remaining_qty) || 0;
+                if (br !== ar) return br - ar;
                 return String(a.created_at || a.outbound_date || '').localeCompare(String(b.created_at || b.outbound_date || ''));
             });
             sorted.slice(1).forEach(r => {
@@ -9319,6 +9369,54 @@ async function cleanupTransitDuplicates() {
     }
 }
 window.cleanupTransitDuplicates = cleanupTransitDuplicates;
+
+async function manualTransitOffset(id) {
+    const row = (_transitRecords || []).find(r => String(r.id) === String(id));
+    if (!row) { alert('找不到這筆在途資料，請先重新讀取台帳'); return; }
+    const name = `${row.product_name || ''} / ${row.batch_no || ''}`;
+    if (!confirm(`確定要手動核銷這筆在途資料？\n${name}\n剩餘數量會歸零，狀態改為已核銷。`)) return;
+    const originalQty = parseFloat(row.original_qty) || 0;
+    const resp = await fetch(
+        `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${id}`,
+        {
+            method: 'PATCH',
+            headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+            body: JSON.stringify({
+                offset_qty: originalQty,
+                remaining_qty: 0,
+                status: '已核銷',
+                last_offset_date: new Date().toISOString().slice(0,10),
+            })
+        }
+    );
+    if (!resp.ok) {
+        alert(`手動核銷失敗：${await resp.text()}`);
+        return;
+    }
+    await loadTransitLedger();
+}
+window.manualTransitOffset = manualTransitOffset;
+
+async function deleteTransitRow(id) {
+    const row = (_transitRecords || []).find(r => String(r.id) === String(id));
+    if (!row) { alert('找不到這筆在途資料，請先重新讀取台帳'); return; }
+    if ((row.source || '') !== '加工子件') {
+        alert('目前只允許直接刪除加工子件，原始出庫請用核銷處理。');
+        return;
+    }
+    const name = `${row.product_name || ''} / ${row.batch_no || ''}`;
+    if (!confirm(`確定刪除這筆加工子件重複資料？\n${name}\n此動作會從在途銷貨台帳移除。`)) return;
+    const resp = await fetch(
+        `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${id}`,
+        { method: 'DELETE', headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' } }
+    );
+    if (!resp.ok && resp.status !== 204) {
+        alert(`刪除失敗：${await resp.text()}`);
+        return;
+    }
+    await loadTransitLedger();
+}
+window.deleteTransitRow = deleteTransitRow;
 
 // ── 自動比對核銷：在途銷貨 × 利潤分析 ────────────────────────────
 async function autoMatchTransitSales() {
@@ -11347,6 +11445,7 @@ async function syncBothToSupabase() {
 <script>
 // ─── Direction C: 直接計算，不需 processing_pairing 表 ────────
 let _pgResults = [];
+let _pgSort = { key: '', asc: true };
 
 // ─── 上傳加工單（onchange 觸發）────────────────────────────────
 async function pgCalc(input) {
@@ -11537,27 +11636,53 @@ function _pgRenderResult() {
   const ths = 'padding:0.5rem 0.7rem;border-bottom:2px solid #dde6ef;white-space:nowrap;font-size:0.82rem;color:#1a2540;text-align:left;';
   const thr = ths + 'text-align:right;';
   const thc = ths + 'text-align:center;';
+  const thSort = (key, label, align='left') => `<th onclick="_pgSortBy('${key}')" style="${ths}text-align:${align};cursor:pointer;user-select:none;">${label}${_sortArrow(_pgSort, key)}</th>`;
+  const pgValue = (c, key) => {
+    const m = c.mothers?.[0] || {};
+    return ({
+      motherName: m.name,
+      motherBatch: m.batch,
+      motherQty: m.qty,
+      motherPrice: m.price,
+      motherCost: m.totalMotherCost,
+      ratio: m.ratio,
+      portion: m.portion,
+      childBatch: c.childBatch,
+      childName: c.childName,
+      childQty: c.childQty,
+      unitPrice: c.unitPrice,
+      status: c.allFound ? '已配對' : '未找到',
+      selected: c.selected ? 1 : 0,
+    })[key];
+  };
+  const results = _pgSort.key ? [..._pgResults].sort((a, b) => {
+    const av = _sortValue(pgValue(a, _pgSort.key));
+    const bv = _sortValue(pgValue(b, _pgSort.key));
+    if (typeof av === 'number' && typeof bv === 'number') return _pgSort.asc ? av - bv : bv - av;
+    const cmp = String(av ?? '').localeCompare(String(bv ?? ''), 'zh-TW', { numeric: true });
+    return _pgSort.asc ? cmp : -cmp;
+  }) : _pgResults;
 
   let html = `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
     <thead style="background:#f5f7ff;position:sticky;top:0;">
       <tr>
-        <th style="${ths}">母件名稱</th>
-        <th style="${ths}">母件批號</th>
-        <th style="${thr}">母件分攤量</th>
-        <th style="${thr}">分攤單價</th>
-        <th style="${thr}">母件總成本</th>
-        <th style="${thc}">分攤比</th>
-        <th style="${thr}">分攤成本</th>
-        <th style="${ths}">子件批號</th>
-        <th style="${ths}">成品名稱</th>
-        <th style="${thr}">子件數量</th>
-        <th style="${thr}">成品單價</th>
-        <th style="${thc}">狀態</th>
-        <th style="${thc}">確認</th>
+        ${thSort('motherName','母件名稱')}
+        ${thSort('motherBatch','母件批號')}
+        ${thSort('motherQty','母件分攤量','right')}
+        ${thSort('motherPrice','分攤單價','right')}
+        ${thSort('motherCost','母件總成本','right')}
+        ${thSort('ratio','分攤比','center')}
+        ${thSort('portion','分攤成本','right')}
+        ${thSort('childBatch','子件批號')}
+        ${thSort('childName','成品名稱')}
+        ${thSort('childQty','子件數量','right')}
+        ${thSort('unitPrice','成品單價','right')}
+        ${thSort('status','狀態','center')}
+        ${thSort('selected','確認','center')}
       </tr>
     </thead><tbody>`;
 
-  for (const c of _pgResults) {
+  for (const c of results) {
     const rs = c.mothers.length;
     const priceCell = c.unitPrice != null
       ? `<td rowspan="${rs}" style="padding:0.5rem 0.7rem;text-align:right;font-weight:700;color:#22c55e;vertical-align:top;border-left:1px solid #eee;">$${c.unitPrice.toFixed(4)}</td>`
@@ -11614,6 +11739,13 @@ function pgToggleSelect(childBatch, childName, checked) {
   item.selected = !!checked;
 }
 window.pgToggleSelect = pgToggleSelect;
+
+function _pgSortBy(key) {
+  if (_pgSort.key === key) _pgSort.asc = !_pgSort.asc;
+  else _pgSort = { key, asc: true };
+  _pgRenderResult();
+}
+window._pgSortBy = _pgSortBy;
 
 // ─── 確認並移除已勾選配對（保留未勾選與未找到租金的）────────────
 async function pgConfirmPaired() {
