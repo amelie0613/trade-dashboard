@@ -2057,6 +2057,8 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
                 <button onclick="cleanupTransitDuplicates()" style="padding:0.5rem 1.2rem;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🧹 清理重複</button>
                 <button onclick="resetTransitOffset()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷核銷</button>
+                <button onclick="document.getElementById('transitHistoryFileInput').click()" style="padding:0.5rem 1.2rem;background:#764ba2;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📂 匯入歷史 Excel</button>
+                <input type="file" id="transitHistoryFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importTransitFromExcel(this)">
                 <div style="display:flex;gap:0.4rem;" id="transit_filter_btns">
                   <button onclick="_transitFilter('')"      class="transit-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">全部</button>
                   <button onclick="_transitFilter('未核銷')"  class="transit-filter-btn"      style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未核銷</button>
@@ -8990,6 +8992,210 @@ async function importTransitFromOutbound() {
     }
 }
 window.importTransitFromOutbound = importTransitFromOutbound;
+
+// ── 歷史 Excel 匯入 → 在途銷貨台帳 ──────────────────────────────
+async function importTransitFromExcel(input) {
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+
+    // 讀取 Excel
+    const buf = await file.arrayBuffer();
+    const wb  = XLSX.read(buf, { type: 'array' });
+    const ws  = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    if (!raw.length) { alert('找不到資料，請確認 Excel 格式'); return; }
+
+    // 欄位自動辨識（支援不同命名）
+    const firstRow = raw[0];
+    const keys = Object.keys(firstRow);
+    function findCol(...candidates) {
+        for (const c of candidates) {
+            const k = keys.find(k => k.includes(c));
+            if (k) return k;
+        }
+        return null;
+    }
+    const COL = {
+        month:    findCol('月份', '月'),
+        name:     findCol('子件名稱', '品名', '產品名稱', '名稱'),
+        batch:    findCol('批號', '批次'),
+        qty:      findCol('加總-交易數', '交易數量', '數量', '出庫數'),
+        unit:     findCol('交易單位', '單位'),
+        price:    findCol('單價(租金)', '單價', '租金單價'),
+        cost:     findCol('加總(租金)', '總租金', '總成本', '租金'),
+        remain:   findCol('庫存量', '剩餘', '餘量', '在途餘量'),
+        notes:    findCol('出貨備註', '備註', '備注'),
+        finished: findCol('結束', '已完成', '核銷'),
+    };
+
+    // 解析成 rows
+    const parsed = [];
+    raw.forEach((r, i) => {
+        const name  = String(r[COL.name]  || '').trim();
+        const batch = String(r[COL.batch] || '').trim();
+        if (!name || !batch) return;
+
+        const monthRaw = String(r[COL.month] || '').trim();  // e.g. "202501"
+        let month_label = '';
+        let outbound_date = '';
+        if (/^\d{6}$/.test(monthRaw)) {
+            month_label   = monthRaw.slice(4) + '月';        // "01" → "1月"
+            const y = monthRaw.slice(0, 4), m = monthRaw.slice(4);
+            outbound_date = `${y}-${m}-01`;
+        } else {
+            month_label = monthRaw;
+        }
+        const period = monthRaw;
+
+        const orig_qty   = parseFloat(r[COL.qty]    || 0) || 0;
+        const unit_price = parseFloat(r[COL.price]  || 0) || 0;
+        const total_cost = parseFloat(r[COL.cost]   || 0) || 0;
+        const rem_qty    = parseFloat(r[COL.remain] || 0) || 0;
+        const offset_qty = Math.max(0, orig_qty - rem_qty);
+
+        const finVal = r[COL.finished];
+        const isDone = finVal === true || finVal === 1 || String(finVal).trim() === '1' || String(finVal).trim() === '是';
+        const status = isDone || rem_qty === 0 ? '已核銷'
+                     : offset_qty > 0          ? '部分核銷'
+                     : '未核銷';
+
+        parsed.push({
+            product_name:  name,
+            batch_no:      batch,
+            outbound_date: outbound_date || null,
+            original_qty:  orig_qty,
+            offset_qty:    offset_qty,
+            remaining_qty: isDone ? 0 : rem_qty,
+            unit_price:    unit_price,
+            total_cost:    total_cost,
+            source:        '歷史匯入',
+            status:        status,
+            period:        period,
+            month_label:   month_label,
+            notes:         String(r[COL.notes] || '').trim(),
+        });
+    });
+
+    if (!parsed.length) { alert('解析後沒有有效資料，請確認欄位名稱'); return; }
+
+    // 顯示預覽 overlay
+    const existing = document.getElementById('transitExcelPreviewOverlay');
+    if (existing) existing.remove();
+
+    const rows_html = parsed.slice(0, 10).map(r =>
+        `<tr style="font-size:11px;border-bottom:1px solid #f0f0f0;">
+          <td style="padding:3px 6px;">${r.month_label}</td>
+          <td style="padding:3px 6px;">${r.product_name}</td>
+          <td style="padding:3px 6px;color:#6878C0;">${r.batch_no}</td>
+          <td style="padding:3px 6px;text-align:right;">${r.original_qty}</td>
+          <td style="padding:3px 6px;text-align:right;">${r.remaining_qty}</td>
+          <td style="padding:3px 6px;text-align:right;">${r.unit_price}</td>
+          <td style="padding:3px 6px;"><span style="color:${r.status==='已核銷'?'#22c55e':r.status==='部分核銷'?'#f7a35c':'#ef4444'};font-weight:700;">${r.status}</span></td>
+        </tr>`
+    ).join('');
+
+    const overlay = document.createElement('div');
+    overlay.id = 'transitExcelPreviewOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(30,42,80,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `
+      <div style="background:white;border-radius:20px;padding:28px 32px;width:min(700px,95vw);max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(104,120,192,.3);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <span style="font-size:24px;">📂</span>
+          <div>
+            <h3 style="font-size:15px;font-weight:900;color:#764ba2;margin:0;">匯入歷史在途台帳</h3>
+            <p style="font-size:11px;color:#8090B8;margin:0;">共解析 ${parsed.length} 筆，以下為前 10 筆預覽</p>
+          </div>
+          <button onclick="document.getElementById('transitExcelPreviewOverlay').remove()"
+            style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:#8090B8;">✕</button>
+        </div>
+        <div style="background:#f8f4ff;border:1.5px solid #c4a8e0;border-radius:10px;padding:10px 14px;font-size:11.5px;color:#764ba2;margin-bottom:14px;line-height:1.8;">
+          <b>欄位對應：</b><br>
+          月份→<b>${COL.month||'—'}</b>　產品名稱→<b>${COL.name||'—'}</b>　批號→<b>${COL.batch||'—'}</b>
+          數量→<b>${COL.qty||'—'}</b>　單價→<b>${COL.price||'—'}</b>　總成本→<b>${COL.cost||'—'}</b>
+          庫存量→<b>${COL.remain||'—'}</b>　備註→<b>${COL.notes||'—'}</b>
+        </div>
+        <div style="overflow-x:auto;margin-bottom:16px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f0e6f7;font-size:11px;font-weight:700;color:#764ba2;">
+                <th style="padding:4px 6px;text-align:left;">月份</th>
+                <th style="padding:4px 6px;text-align:left;">產品名稱</th>
+                <th style="padding:4px 6px;text-align:left;">批號</th>
+                <th style="padding:4px 6px;text-align:right;">原始數量</th>
+                <th style="padding:4px 6px;text-align:right;">剩餘數量</th>
+                <th style="padding:4px 6px;text-align:right;">單價</th>
+                <th style="padding:4px 6px;">狀態</th>
+              </tr>
+            </thead>
+            <tbody>${rows_html}</tbody>
+          </table>
+          ${parsed.length > 10 ? `<p style="text-align:center;color:#8090B8;font-size:11px;margin-top:6px;">…還有 ${parsed.length - 10} 筆</p>` : ''}
+        </div>
+        <div id="transitExcelImportStatus" style="font-size:12px;color:#64748b;margin-bottom:10px;min-height:1.2rem;"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button onclick="document.getElementById('transitExcelPreviewOverlay').remove()"
+            style="padding:9px 18px;border-radius:12px;border:2px solid #DCE6F8;background:#DCE6F8;color:#2A3870;font-weight:700;cursor:pointer;font-family:inherit;">取消</button>
+          <button id="transitExcelConfirmBtn" onclick="doImportTransitExcel(window._pendingTransitExcel)"
+            style="padding:9px 18px;border-radius:12px;border:none;background:#764ba2;color:white;font-weight:700;cursor:pointer;font-family:inherit;">
+            ☁️ 匯入 ${parsed.length} 筆到 Supabase
+          </button>
+        </div>
+      </div>`;
+    window._pendingTransitExcel = parsed;
+    document.body.appendChild(overlay);
+}
+window.importTransitFromExcel = importTransitFromExcel;
+
+async function doImportTransitExcel(parsed) {
+    const statusEl = document.getElementById('transitExcelImportStatus');
+    const confirmBtn = document.getElementById('transitExcelConfirmBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '⏳ 匯入中…';
+    try {
+        const h = getSBHeaders();
+        // 取台帳現有記錄，避免重複（以 product_name + batch_no + source='歷史匯入' 為鍵）
+        const ledResp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=eq.歷史匯入&select=id,product_name,batch_no,period`,
+            { headers: h }
+        );
+        const existing = await ledResp.json();
+        const existSet = new Set(existing.map(r => `${r.product_name}|${r.batch_no}|${r.period||''}`));
+
+        const toInsert = parsed.filter(r => !existSet.has(`${r.product_name}|${r.batch_no}|${r.period||''}`));
+        const toSkip   = parsed.length - toInsert.length;
+
+        if (!toInsert.length) {
+            statusEl.textContent = `⚠️ 全部 ${parsed.length} 筆已存在，無需重複匯入`;
+            confirmBtn.textContent = '已完成';
+            return;
+        }
+
+        const BATCH = 50;
+        let inserted = 0;
+        for (let i = 0; i < toInsert.length; i += BATCH) {
+            const chunk = toInsert.slice(i, i + BATCH);
+            const resp = await fetch(
+                `${SUPABASE_URL}/rest/v1/transit_sales_ledger`,
+                { method: 'POST', headers: { ...h, 'Prefer': 'return=minimal' }, body: JSON.stringify(chunk) }
+            );
+            if (!resp.ok) throw new Error(await resp.text());
+            inserted += chunk.length;
+            statusEl.textContent = `⏳ 已匯入 ${inserted} / ${toInsert.length} 筆…`;
+        }
+
+        statusEl.textContent = `✅ 匯入完成：新增 ${inserted} 筆${toSkip ? `，略過 ${toSkip} 筆重複` : ''}`;
+        confirmBtn.textContent = '✅ 完成';
+        confirmBtn.style.background = '#22c55e';
+        window._pendingTransitExcel = null;
+        if (typeof loadTransitLedger === 'function') loadTransitLedger();
+    } catch(e) {
+        statusEl.textContent = `❌ 匯入失敗：${e.message}`;
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '重試';
+    }
+}
+window.doImportTransitExcel = doImportTransitExcel;
 
 // ── 同步：出庫記錄 → 在途銷貨台帳 ────────────────────────────────
 async function syncToTransitLedger(records) {
