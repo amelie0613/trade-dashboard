@@ -11341,18 +11341,53 @@ function renderProfitTable() {
 }
 window.applyProfitFilter = renderProfitTable;
 
-function toggleOutboundComparison() {
+async function toggleOutboundComparison() {
     if (!profitCalcData || profitCalcData.length === 0) {
         alert('請先試算利潤分析（點擊「試算租金費用」）');
         return;
     }
-    if (!Array.isArray(window._outboundRecords) || window._outboundRecords.length === 0) {
-        alert('請先上傳並處理出庫記錄（租金計算頁面），或從 Supabase 讀取出庫記錄');
-        return;
-    }
-    window._showOutboundComparison = !window._showOutboundComparison;
-    const btn = document.getElementById('btn_outbound_comp');
+
+    const btn      = document.getElementById('btn_outbound_comp');
     const compNote = document.getElementById('profit_comp_note');
+
+    // 如果要開啟比對，但記憶體裡沒有出庫記錄 → 自動從 Supabase 抓
+    const needFetch = !window._showOutboundComparison &&
+                      (!Array.isArray(window._outboundRecords) || window._outboundRecords.length === 0);
+    if (needFetch) {
+        if (btn) { btn.textContent = '⏳ 載入出庫中…'; btn.disabled = true; btn.style.background = '#999'; }
+        if (compNote) compNote.textContent = '正在從 Supabase 讀取出庫記錄…';
+        try {
+            const url = `${SUPABASE_URL}/rest/v1/outbound_records?select=*&order=outbound_date.asc,product_name.asc`;
+            const resp = await fetch(url, { headers: getSBHeaders() });
+            if (!resp.ok) throw new Error(await resp.text());
+            const rows = await resp.json();
+            window._outboundRecords = rows.map(r => ({
+                _id:      r.id,
+                產品名稱: r.product_name,
+                批號:     r.batch_no,
+                出庫日期: r.outbound_date,
+                出庫類型: r.outbound_type,
+                業務屬性: r.biz_type,
+                出庫數量: r.quantity,
+                分攤單價: r.allocated_price,
+                出庫金額: r.outbound_amount,
+                備註:     r.notes || '',
+                month_label: r.month_label,
+                period:   r.period,
+                分倉類型: r.warehouse_type || _autoWarehouseType(r.outbound_type, r.notes),
+            }));
+            if (compNote) compNote.textContent = `✅ 已從 Supabase 載入 ${rows.length} 筆出庫記錄`;
+        } catch(e) {
+            if (btn) { btn.textContent = '📊 帶入銷貨比對'; btn.disabled = false; btn.style.background = '#6878C0'; }
+            if (compNote) compNote.textContent = `❌ Supabase 讀取失敗：${e.message}`;
+            return;
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    window._showOutboundComparison = !window._showOutboundComparison;
+
     if (window._showOutboundComparison) {
         if (btn) { btn.textContent = '🔴 隱藏銷貨比對'; btn.style.background = '#e05a5a'; }
         // 統計銷貨組合數
