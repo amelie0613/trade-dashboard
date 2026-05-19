@@ -6220,7 +6220,8 @@ async function previewMonthly() {
                 ${numCell('租金總計','font-weight:700;')}
                 ${numCell('分攤單價')}
                 ${numCell('月租金(出庫)')}
-                ${numCell('月租金(結餘)',`color:${willDel?'#bbb':'#c0507a'};font-weight:700;`)}
+                ${numCell('月租金(結餘)',`color:${willDel?'#bbb':(r.月租金結餘<0?'#ef4444':'#c0507a')};font-weight:700;${r.月租金結餘<0?'background:#fff0f0;border-radius:4px;':''}`)}
+                ${r.月租金結餘 < 0 ? `<!-- ⚠️ 負數警示 -->` : ''}
                 <td>${tag}</td>
                 <td style="padding:0;"><input type="text" value="${r.備註||''}" data-prow="${rowIdx}" data-pcol="備註" onchange="onPreviewEdit(this)" style="${noteStyle}" ${eFocus} placeholder="備註..." /></td>
             </tr>`;
@@ -6395,8 +6396,13 @@ window.sortPreviewTable = function(colIdx) {
     previewSortState.asc = (previewSortState.col === colIdx) ? !previewSortState.asc : true;
     previewSortState.col = colIdx;
     rows.sort((a, b) => {
-        const aVal = a.cells[colIdx]?.textContent.replace(/,/g,'').trim() || '';
-        const bVal = b.cells[colIdx]?.textContent.replace(/,/g,'').trim() || '';
+        const cell = (tr) => {
+            const c = tr.cells[colIdx];
+            if (!c) return '';
+            const inp = c.querySelector('input');
+            return (inp ? inp.value : c.textContent).replace(/,/g,'').trim();
+        };
+        const aVal = cell(a), bVal = cell(b);
         const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
         if (!isNaN(aNum) && !isNaN(bNum)) return previewSortState.asc ? aNum - bNum : bNum - aNum;
         return previewSortState.asc ? aVal.localeCompare(bVal,'zh-TW') : bVal.localeCompare(aVal,'zh-TW');
