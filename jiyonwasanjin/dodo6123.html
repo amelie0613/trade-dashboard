@@ -11192,66 +11192,19 @@ function renderProfitTable() {
     const note = document.getElementById('profit_filter_note');
     if (note) note.textContent = (keyword || showUnmatched) ? `顯示 ${filtered.length} / ${profitCalcData.length} 筆` : '';
 
-    // ── 銷貨比對模式 ──────────────────────────────────────────────
-    const showComp = window._showOutboundComparison === true;
-
-    // 出庫彙總：key = "產品名稱|批號" → 數量（只取銷貨）
-    const outboundMap = {};
-    if (showComp && Array.isArray(window._outboundRecords) && window._outboundRecords.length > 0) {
-        window._outboundRecords.forEach(rec => {
-            const wType = rec.分倉類型 || _autoWarehouseType(rec.出庫類型 || '', rec.備註 || '');
-            if (wType !== '銷貨') return;
-            const name  = String(rec.產品名稱 || '').trim();
-            const batch = String(rec.批號 || '').trim();
-            const qty   = Math.abs(parseFloat(String(rec.出庫數量 ?? 0).toString().replace(/,/g,'')) || 0);
-            const key   = `${name}|${batch}`;
-            outboundMap[key] = (outboundMap[key] || 0) + qty;
-        });
-    }
-
-    // 利潤彙總：key = "產品名稱|批號" → 數量（從全部 profitCalcData 加總，非 filtered）
-    // 比對要用總量對總量，不能每筆交易對總量
-    const profitQtyMap = {};
-    if (showComp) {
-        profitCalcData.forEach(r => {
-            const name  = String(r[nameCol] || '').trim();
-            const batch = String(r[batchCol] || '').trim();
-            const qty   = parseFloat(String(r[qtyCol] ?? '').replace(/,/g,'')) || 0;
-            const key   = `${name}|${batch}`;
-            profitQtyMap[key] = (profitQtyMap[key] || 0) + qty;
-        });
-    }
-
-    const extraCols = showComp ? ['出庫數量(銷貨)', '利潤合計數量', '數量差異', '比對狀態'] : [];
-    const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源', '來源備註', ...extraCols];
+    const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源', '來源備註'];
     const highlightCols = new Set(['租金單價', '租金費用', '租金來源', '來源備註']);
-    const compColSet = new Set(extraCols);
 
     let html = `<div class="result-section"><div class="overflow-auto"><table style="font-size:12px;"><thead><tr>`;
     allCols.forEach(col => {
-        if (compColSet.has(col)) {
-            html += `<th style="white-space:nowrap; background:#ede9ff; color:#5048a0; border-bottom:2px solid #6878C0;">${col}</th>`;
-        } else {
-            const hl = highlightCols.has(col) ? ' highlight' : '';
-            html += `<th class="${hl}" style="white-space:nowrap;">${col}</th>`;
-        }
+        const hl = highlightCols.has(col) ? ' highlight' : '';
+        html += `<th class="${hl}" style="white-space:nowrap;">${col}</th>`;
     });
     html += `</tr></thead><tbody>`;
-
-    // 已顯示的 key（避免同一 combo 重複顯示合計列）
-    const renderedComboKeys = new Set();
 
     filtered.forEach((r) => {
         const hasRent = r.租金費用 !== '';
         const rowBg = hasRent ? '' : 'background:#fafafa; color:#bbb;';
-
-        const rName  = String(r[nameCol] || '').trim();
-        const rBatch = String(r[batchCol] || '').trim();
-        const mapKey = `${rName}|${rBatch}`;
-        const obQty       = showComp ? outboundMap[mapKey] : undefined;
-        const profitTotal = showComp ? (profitQtyMap[mapKey] || 0) : 0;
-        renderedComboKeys.add(mapKey);
-
         html += `<tr style="${rowBg}">`;
         allCols.forEach(col => {
             const val = r[col] !== undefined && r[col] !== '' ? r[col] : '';
@@ -11267,66 +11220,12 @@ function renderProfitTable() {
                 html += `<td style="text-align:center; white-space:nowrap; color:${sourceColor}; font-weight:${hasRent?'700':'400'}; font-size:0.7rem;">${display}</td>`;
             } else if (col === '來源備註') {
                 html += `<td style="white-space:nowrap; color:#64748b; font-size:0.78rem;">${val || ''}</td>`;
-            } else if (col === '出庫數量(銷貨)') {
-                if (obQty !== undefined) {
-                    html += `<td style="text-align:right; white-space:nowrap; background:#f0eeff; color:#5048a0; font-weight:700;">${obQty.toLocaleString()}</td>`;
-                } else {
-                    html += `<td style="text-align:center; background:#f9f8ff; color:#bbb; font-size:0.75rem;">未找到出庫</td>`;
-                }
-            } else if (col === '利潤合計數量') {
-                if (obQty !== undefined) {
-                    html += `<td style="text-align:right; white-space:nowrap; background:#f0eeff; color:#5048a0;">${profitTotal.toLocaleString()}</td>`;
-                } else {
-                    html += `<td style="background:#f9f8ff;"></td>`;
-                }
-            } else if (col === '數量差異') {
-                if (obQty !== undefined) {
-                    const diff = profitTotal - obQty;
-                    const color = diff === 0 ? '#4a9a37' : '#e05a5a';
-                    const sign  = diff > 0 ? '+' : '';
-                    html += `<td style="text-align:right; white-space:nowrap; background:#f0eeff; color:${color}; font-weight:800;">${sign}${diff.toLocaleString()}</td>`;
-                } else {
-                    html += `<td style="background:#f9f8ff;"></td>`;
-                }
-            } else if (col === '比對狀態') {
-                if (obQty === undefined) {
-                    html += `<td style="text-align:center; background:#f9f8ff; color:#aaa; font-size:0.78rem;">— 無出庫紀錄</td>`;
-                } else {
-                    const diff = profitTotal - obQty;
-                    if (diff === 0) {
-                        html += `<td style="text-align:center; background:#f0fff4; color:#4a9a37; font-weight:800; font-size:0.82rem;">✅ 一致</td>`;
-                    } else {
-                        html += `<td style="text-align:center; background:#fff0f0; color:#e05a5a; font-weight:800; font-size:0.82rem;">❌ 差異</td>`;
-                    }
-                }
             } else {
                 html += `<td style="white-space:nowrap;">${val}</td>`;
             }
         });
         html += `</tr>`;
     });
-
-    // ── 出庫有但利潤表找不到的補充行 ──────────────────────────────
-    if (showComp) {
-        const missingKeys = Object.keys(outboundMap).filter(k => !renderedComboKeys.has(k));
-        if (missingKeys.length > 0) {
-            html += `<tr style="background:#fff8e0;"><td colspan="${allCols.length}" style="padding:4px 8px; font-size:0.78rem; font-weight:700; color:#b07020;">⚠️ 以下出庫銷貨記錄在利潤表中找不到對應（篩選後可能被隱藏，請清除搜尋條件後再確認）</td></tr>`;
-            missingKeys.sort().forEach(k => {
-                const [mName, mBatch] = k.split('|');
-                html += `<tr style="background:#fffdf0;">`;
-                allCols.forEach((col, i) => {
-                    if (i === 0) html += `<td style="color:#b07020; font-weight:700; white-space:nowrap;">${mName}</td>`;
-                    else if (col === batchCol || col === '批號') html += `<td style="color:#b07020; white-space:nowrap;">${mBatch}</td>`;
-                    else if (col === '出庫數量(銷貨)') html += `<td style="text-align:right; background:#fff3c0; color:#b07020; font-weight:700;">${outboundMap[k].toLocaleString()}</td>`;
-                    else if (col === '利潤合計數量') html += `<td style="text-align:center; background:#fff3c0; color:#aaa;">—</td>`;
-                    else if (col === '數量差異') html += `<td style="background:#fff3c0;"></td>`;
-                    else if (col === '比對狀態') html += `<td style="text-align:center; background:#fff3c0; color:#b07020; font-weight:800; font-size:0.82rem;">⚠️ 利潤表無此品</td>`;
-                    else html += `<td style="color:#ccc; font-size:0.75rem;">-</td>`;
-                });
-                html += `</tr>`;
-            });
-        }
-    }
 
     // 合計列
     const totalRent = filtered.reduce((s, r) => s + (parseFloat(r.租金費用)||0), 0);
@@ -11340,6 +11239,141 @@ function renderProfitTable() {
     document.getElementById('profit_results').innerHTML = html;
 }
 window.applyProfitFilter = renderProfitTable;
+
+// ── 銷貨核對面板（獨立呈現，仿在途台帳預覽風格）─────────────────────
+function _renderSalesCompPanel() {
+    const nameCol  = document.getElementById('pcol_name')?.value.trim()  || '產品名稱';
+    const batchCol = document.getElementById('pcol_batch')?.value.trim() || '批號';
+    const qtyCol   = document.getElementById('pcol_qty')?.value.trim()   || '數量';
+
+    // 1. 出庫彙總 map（銷貨 only）: key → total qty
+    const outboundMap = {};
+    // 出庫明細 map: key → [{出庫日期, 數量, 備註}]
+    const outboundDetailMap = {};
+    (window._outboundRecords || []).forEach(rec => {
+        const wType = rec.分倉類型 || _autoWarehouseType(rec.出庫類型 || '', rec.備註 || '');
+        if (wType !== '銷貨') return;
+        const name  = String(rec.產品名稱 || '').trim();
+        const batch = String(rec.批號 || '').trim();
+        const qty   = Math.abs(parseFloat(String(rec.出庫數量 ?? 0).toString().replace(/,/g,'')) || 0);
+        const key   = `${name}|${batch}`;
+        outboundMap[key] = (outboundMap[key] || 0) + qty;
+        if (!outboundDetailMap[key]) outboundDetailMap[key] = [];
+        outboundDetailMap[key].push({ date: rec.出庫日期 || '', qty, note: rec.備註 || '' });
+    });
+
+    // 2. 利潤彙總 map: key → total qty
+    //    利潤專案 map: key → { projectName → qty }
+    const profitQtyMap = {};
+    const profitProjMap = {};  // key → { 專案名稱 → qty }
+    profitCalcData.forEach(r => {
+        const name  = String(r[nameCol] || '').trim();
+        const batch = String(r[batchCol] || '').trim();
+        const qty   = parseFloat(String(r[qtyCol] ?? '').replace(/,/g,'')) || 0;
+        const key   = `${name}|${batch}`;
+        profitQtyMap[key] = (profitQtyMap[key] || 0) + qty;
+        if (!profitProjMap[key]) profitProjMap[key] = {};
+        const proj = String(r['專案名稱'] || r['專案'] || '').trim() || '(未知專案)';
+        profitProjMap[key][proj] = (profitProjMap[key][proj] || 0) + qty;
+    });
+
+    // 3. 統計
+    let cntOk = 0, cntDiff = 0, cntMissing = 0;
+    const obKeys = Object.keys(outboundMap);
+    obKeys.forEach(k => {
+        if (profitQtyMap[k] === undefined) { cntMissing++; return; }
+        const diff = profitQtyMap[k] - outboundMap[k];
+        if (Math.abs(diff) < 0.001) cntOk++; else cntDiff++;
+    });
+
+    // 4. 出庫有但利潤找不到
+    const missingInProfit = obKeys.filter(k => profitQtyMap[k] === undefined);
+
+    const thStyle = 'padding:6px 10px; white-space:nowrap; font-size:0.78rem; font-weight:700; border-bottom:2px solid #d8d0f0; background:#ede9ff; color:#5048a0; text-align:center;';
+    const tdBase  = 'padding:5px 10px; font-size:0.82rem; border-bottom:1px solid #f0eeff; vertical-align:middle;';
+
+    let html = `
+    <div id="sales_comp_panel" style="margin-top:1.5rem; border:2px solid #6878C0; border-radius:14px; overflow:hidden;">
+      <div style="background:linear-gradient(90deg,#6878C0,#8a7ed8); padding:0.75rem 1.2rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+        <span style="font-size:1rem; font-weight:800; color:#fff;">📊 銷貨核對報告</span>
+        <span style="font-size:0.82rem; color:#e0d8ff;">共 ${obKeys.length} 組（產品＋批號）</span>
+        <span style="background:#d4f7dc; color:#2a7a3a; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:700;">✅ 一致 ${cntOk}</span>
+        <span style="background:#ffd8d8; color:#a03030; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:700;">❌ 差異 ${cntDiff}</span>
+        ${missingInProfit.length > 0 ? `<span style="background:#fff0b0; color:#7a5a00; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:700;">⚠️ 利潤表無此品 ${missingInProfit.length}</span>` : ''}
+      </div>
+      <div style="overflow-x:auto;">
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead><tr>
+          <th style="${thStyle} text-align:left;">產品名稱</th>
+          <th style="${thStyle}">批號</th>
+          <th style="${thStyle}">出庫數量</th>
+          <th style="${thStyle}">利潤合計數量</th>
+          <th style="${thStyle}">數量差異</th>
+          <th style="${thStyle}">比對狀態</th>
+          <th style="${thStyle} text-align:left;">比對到的利潤專案</th>
+        </tr></thead>
+        <tbody>`;
+
+    // 排序：先顯示差異，再一致，再無利潤
+    const sortedKeys = [...obKeys].sort((a, b) => {
+        const getOrder = k => {
+            if (profitQtyMap[k] === undefined) return 2;
+            return Math.abs((profitQtyMap[k] || 0) - outboundMap[k]) < 0.001 ? 1 : 0;
+        };
+        return getOrder(a) - getOrder(b);
+    });
+
+    sortedKeys.forEach(k => {
+        const parts = k.indexOf('|');
+        const pName  = k.slice(0, parts);
+        const pBatch = k.slice(parts + 1);
+        const obQty  = outboundMap[k];
+        const prQty  = profitQtyMap[k];
+        const diff   = prQty !== undefined ? prQty - obQty : null;
+        const isOk   = diff !== null && Math.abs(diff) < 0.001;
+        const isMiss = prQty === undefined;
+
+        const rowBg = isMiss ? '#fffce8' : isOk ? '' : '#fff5f5';
+
+        // 利潤專案清單
+        let projHtml = '';
+        if (!isMiss && profitProjMap[k]) {
+            const entries = Object.entries(profitProjMap[k]).sort((a,b) => b[1]-a[1]);
+            projHtml = entries.map(([proj, q]) =>
+                `<span style="display:inline-block; margin:1px 3px 1px 0; background:#ede9ff; color:#5048a0; border-radius:4px; padding:1px 6px; font-size:0.75rem; white-space:nowrap;">${proj} <b>(${q.toLocaleString()})</b></span>`
+            ).join('');
+        }
+
+        let statusHtml = '';
+        if (isMiss) {
+            statusHtml = `<td style="${tdBase} text-align:center; background:#fff8d0;"><span style="color:#b07020; font-weight:800; font-size:0.82rem;">⚠️ 利潤表無此品</span></td>`;
+        } else if (isOk) {
+            statusHtml = `<td style="${tdBase} text-align:center; background:#f0fff5;"><span style="color:#2a7a3a; font-weight:800; font-size:0.9rem;">✅ 一致</span></td>`;
+        } else {
+            statusHtml = `<td style="${tdBase} text-align:center; background:#fff0f0;"><span style="color:#c03030; font-weight:800; font-size:0.9rem;">❌ 差異</span></td>`;
+        }
+
+        html += `<tr style="background:${rowBg};">
+          <td style="${tdBase} font-weight:700; color:#1a2540;">${pName}</td>
+          <td style="${tdBase} text-align:center; color:#6878C0; font-size:0.78rem;">${pBatch}</td>
+          <td style="${tdBase} text-align:right; font-weight:700; color:#5048a0;">${obQty.toLocaleString()}</td>
+          <td style="${tdBase} text-align:right; color:#444;">${prQty !== undefined ? prQty.toLocaleString() : '<span style="color:#bbb;">—</span>'}</td>
+          <td style="${tdBase} text-align:right; font-weight:800; color:${isOk?'#2a7a3a':isMiss?'#bbb':'#c03030'};">
+            ${diff === null ? '<span style="color:#bbb;">—</span>' : (diff >= 0 ? '+' : '') + diff.toLocaleString()}
+          </td>
+          ${statusHtml}
+          <td style="${tdBase}">${projHtml || '<span style="color:#bbb; font-size:0.75rem;">—</span>'}</td>
+        </tr>`;
+    });
+
+    html += `</tbody></table></div></div>`;
+
+    // 插入到 profit_results 後面（或替換舊的 panel）
+    const existing = document.getElementById('sales_comp_panel');
+    if (existing) existing.remove();
+    const resultsDiv = document.getElementById('profit_results');
+    if (resultsDiv) resultsDiv.insertAdjacentHTML('afterend', html);
+}
 
 async function toggleOutboundComparison() {
     if (!profitCalcData || profitCalcData.length === 0) {
@@ -11390,21 +11424,14 @@ async function toggleOutboundComparison() {
 
     if (window._showOutboundComparison) {
         if (btn) { btn.textContent = '🔴 隱藏銷貨比對'; btn.style.background = '#e05a5a'; }
-        // 統計銷貨組合數
-        const salesMap = {};
-        (window._outboundRecords || []).forEach(r => {
-            const wt = r.分倉類型 || _autoWarehouseType(r.出庫類型 || '', r.備註 || '');
-            if (wt !== '銷貨') return;
-            const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
-            salesMap[k] = true;
-        });
-        const comboCount = Object.keys(salesMap).length;
-        if (compNote) compNote.textContent = `出庫銷貨 ${comboCount} 組（產品+批號），比對利潤合計數量`;
+        if (compNote) compNote.textContent = '';
+        _renderSalesCompPanel();
     } else {
         if (btn) { btn.textContent = '📊 帶入銷貨比對'; btn.style.background = '#6878C0'; }
         if (compNote) compNote.textContent = '';
+        const panel = document.getElementById('sales_comp_panel');
+        if (panel) panel.remove();
     }
-    renderProfitTable();
 }
 window.toggleOutboundComparison = toggleOutboundComparison;
 
