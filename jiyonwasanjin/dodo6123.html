@@ -1717,6 +1717,38 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
                   </div>
 
+                  <!-- 可選檔案（完整分析用）-->
+                  <div style="margin-top:0.9rem;padding-top:0.8rem;border-top:1px dashed var(--border);">
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+                      <span style="font-size:0.78rem;font-weight:700;color:#6878C0;letter-spacing:0.04em;">🚀 完整分析 — 可選檔案</span>
+                      <span style="font-size:0.72rem;color:#94a3b8;">（上傳後點「完整分析」可自動跑 Stage 3–5）</span>
+                    </div>
+                    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+                      <div class="form-group" style="margin:0;min-width:148px;">
+                        <label style="font-size:0.75rem;color:#6878C0;">利潤明細表 <span style="color:#94a3b8;font-weight:400;">→ Stage 4</span></label>
+                        <div class="file-input-label" id="label_profit_main"
+                             onclick="document.getElementById('profit_file_main').click()"
+                             ondragover="dragOver(event,this)" ondragleave="dragLeave(this)"
+                             ondrop="_dropIntegrated(event,'profit_file_main','label_profit_main','profit_file')"
+                             style="cursor:pointer;border-color:#a5b4fc;">拖拉或點擊</div>
+                        <input type="file" id="profit_file_main" accept=".xlsx"
+                               onchange="_integratedFileChanged(this,'label_profit_main','profit_file')"
+                               style="display:none;" />
+                      </div>
+                      <div class="form-group" style="margin:0;min-width:148px;">
+                        <label style="font-size:0.75rem;color:#d97a3a;">加工單 <span style="color:#94a3b8;font-weight:400;">→ Stage 3</span></label>
+                        <div class="file-input-label" id="label_processing_main"
+                             onclick="document.getElementById('processing_file_main').click()"
+                             ondragover="dragOver(event,this)" ondragleave="dragLeave(this)"
+                             ondrop="_dropIntegrated(event,'processing_file_main','label_processing_main','processing_form_file')"
+                             style="cursor:pointer;border-color:#fbbf24;">拖拉或點擊</div>
+                        <input type="file" id="processing_file_main" accept=".xlsx"
+                               onchange="_integratedFileChanged(this,'label_processing_main','processing_form_file')"
+                               style="display:none;" />
+                      </div>
+                    </div>
+                  </div>
+
                   <!-- 按鈕列 -->
                   <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border);">
                     <button class="btn-primary" onclick="processFiles()">計算</button>
@@ -12659,6 +12691,48 @@ async function pairingLoadReport() {
     container.innerHTML = `<p style="color:#ef4444;padding:1rem;">❌ 載入失敗：${e.message}</p>`;
   }
 }
+
+// ══ INTEGRATED FILE UPLOAD HELPERS ══════════════════════════════
+// 讓主頁的可選上傳區直接寫入共用的 ledgerFiles
+
+function _integratedFileChanged(input, labelId, ledgerKey) {
+  if (!input.files[0]) return;
+  const file = input.files[0];
+  ledgerFiles[ledgerKey] = file;
+  const lbl = document.getElementById(labelId);
+  if (lbl) {
+    lbl.textContent = '✅ ' + file.name;
+    lbl.style.color = ledgerKey === 'profit_file' ? '#6878C0' : '#d97a3a';
+    lbl.style.fontSize = '0.72rem';
+    lbl.style.fontWeight = '700';
+  }
+  // 若利潤分析頁的同名 input 存在，同步更新顯示（不影響 ledgerFiles，已統一）
+  if (ledgerKey === 'profit_file') {
+    const lbl2 = document.getElementById('profit_label');
+    if (lbl2) { lbl2.textContent = '✅ ' + file.name; lbl2.style.color = '#6878C0'; }
+  }
+  if (ledgerKey === 'processing_form_file') {
+    const lbl2 = document.getElementById('processing_form_label');
+    if (lbl2) { lbl2.textContent = '✅ ' + file.name; lbl2.style.color = '#d97a3a'; }
+  }
+}
+window._integratedFileChanged = _integratedFileChanged;
+
+function _dropIntegrated(event, inputId, labelId, ledgerKey) {
+  event.preventDefault();
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  const dt = event.dataTransfer;
+  if (dt && dt.files && dt.files[0]) {
+    // 建立假 input 觸發
+    const fakeInput = { files: dt.files };
+    _integratedFileChanged(fakeInput, labelId, ledgerKey);
+    // 同步到真實 input（無法直接賦值，但 ledgerFiles 已更新）
+  }
+  const lbl = event.currentTarget;
+  if (lbl) lbl.style.borderColor = '';
+}
+window._dropIntegrated = _dropIntegrated;
 
 // ══ ORCHESTRATION LAYER ══════════════════════════════════════════
 // RentalAnalysisPipeline：統一協調層，串聯 5 個分析階段
