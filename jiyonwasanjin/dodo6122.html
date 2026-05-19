@@ -1962,7 +1962,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <div id="pg_sum_miss" style="font-size:1.4rem; font-weight:800; color:#c0507a;">-</div>
                     </div>
                     <button onclick="pgExport()" style="padding:0.6rem 1.2rem; background:#22c55e; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; align-self:center;">📤 匯出報表</button>
-                    <button onclick="pgConfirmPaired()" style="padding:0.6rem 1.2rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; align-self:center;">✅ 確認入帳並隱藏已完成</button>
+                    <button onclick="pgConfirmPaired()" style="padding:0.6rem 1.2rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; align-self:center;">✅ 入帳已勾選項目</button>
                   </div>
                 </div>
               </div>
@@ -11505,7 +11505,8 @@ async function _pgCalcFile(file) {
     _pgResults = Array.from(childMap.values()).map(c => ({
       ...c,
       unitPrice: c.childQty > 0 && c.mothers.some(m => m.found) ? c.totalCost / c.childQty : null,
-      allFound:  c.mothers.every(m => m.found)
+      allFound:  c.mothers.every(m => m.found),
+      selected:  false
     }));
 
     // 7. 更新摘要卡
@@ -11552,6 +11553,7 @@ function _pgRenderResult() {
         <th style="${thr}">子件數量</th>
         <th style="${thr}">成品單價</th>
         <th style="${thc}">狀態</th>
+        <th style="${thc}">確認</th>
       </tr>
     </thead><tbody>`;
 
@@ -11590,6 +11592,14 @@ function _pgRenderResult() {
         html += priceCell;
       }
       html += `<td style="padding:0.5rem 0.7rem;text-align:center;font-size:0.75rem;color:${stColor};font-weight:700;">${stText}</td>`;
+      if (first) {
+        const disabled = c.allFound ? '' : 'disabled';
+        const checked = c.selected ? 'checked' : '';
+        const opacity = c.allFound ? '1' : '0.45';
+        html += `<td rowspan="${rs}" style="padding:0.5rem 0.7rem;text-align:center;vertical-align:top;opacity:${opacity};">
+          <input type="checkbox" ${checked} ${disabled} onchange="pgToggleSelect('${c.childBatch.replace(/'/g, "\\'")}','${c.childName.replace(/'/g, "\\'")}',this.checked)" style="width:18px;height:18px;cursor:pointer;">
+        </td>`;
+      }
       html += `</tr>`;
     });
   }
@@ -11598,13 +11608,20 @@ function _pgRenderResult() {
   container.innerHTML = html;
 }
 
-// ─── 確認並移除已配對（保留未找到租金的）──────────────────────
+function pgToggleSelect(childBatch, childName, checked) {
+  const item = _pgResults.find(c => c.childBatch === childBatch && c.childName === childName);
+  if (!item || !item.allFound) return;
+  item.selected = !!checked;
+}
+window.pgToggleSelect = pgToggleSelect;
+
+// ─── 確認並移除已勾選配對（保留未勾選與未找到租金的）────────────
 async function pgConfirmPaired() {
   if (!_pgResults.length) { alert('請先上傳加工單並完成計算'); return; }
 
-  const confirmed = _pgResults.filter(c => c.allFound);
+  const confirmed = _pgResults.filter(c => c.allFound && c.selected);
   if (confirmed.length === 0) {
-    alert('目前沒有可以入帳的已配對記錄（所有記錄都有未找到的母件）');
+    alert('請先勾選要入帳的已配對記錄');
     return;
   }
 
@@ -11631,7 +11648,12 @@ async function pgConfirmPaired() {
 
   const skipped = ledgerResult?.skipped || 0;
   const skippedMsg = skipped ? `\n另有 ${skipped} 筆因加工原料不足或資料不完整，已保留在畫面。` : '';
-  alert(`已入帳並隱藏 ${removed} 筆完成項目，加工原料台帳已扣減，子件已轉入在途銷貨台帳。\n畫面剩餘 ${_pgResults.length} 筆待處理。${skippedMsg}`);
+  const stockMsg = ledgerResult?.stockFallbackCount ? `\n另有 ${ledgerResult.stockFallbackCount} 筆台帳不足差額已視為庫存補用。` : '';
+  await Promise.all([
+    window.loadMaterialsLedger ? loadMaterialsLedger() : Promise.resolve(),
+    window.loadTransitLedger ? loadTransitLedger() : Promise.resolve(),
+  ]);
+  alert(`已入帳並隱藏 ${removed} 筆完成項目，加工原料台帳已扣減，子件已轉入在途銷貨台帳。\n畫面剩餘 ${_pgResults.length} 筆待處理。${skippedMsg}${stockMsg}`);
 }
 window.pgConfirmPaired = pgConfirmPaired;
 
