@@ -5984,11 +5984,10 @@ async function previewMonthly() {
             const 本期出庫 = (parseFloat((r1||{})['本期出庫'])||0) + (parseFloat((r2||{})['本期出庫'])||0);
             // 本期結存：有下半期就抓下半期，否則抓上半期
             const 本期結存 = parseFloat((r2||r1||{})['本期結存'])||0;
-            const 分攤單價 = 上期結存 === 0
-                ? (本期入庫 > 0 ? Math.round((租金總計 / 本期入庫) * 100000) / 100000 : 0)
-                : (Math.round((租金總計 / 上期結存) * 100000) / 100000);
-            const 月租金出庫 = Math.round(分攤單價 * 本期出庫);
-            const 月租金結餘 = Math.round(租金總計 - 月租金出庫);
+            const _分攤基數 = 上期結存 + 本期入庫;
+            const 分攤單價 = _分攤基數 > 0 ? Math.round((租金總計 / _分攤基數) * 100000) / 100000 : 0;
+            const 月租金出庫 = Math.min(Math.round(分攤單價 * 本期出庫), Math.max(0, Math.round(租金總計)));
+            const 月租金結餘 = Math.max(0, Math.round(租金總計 - 月租金出庫));
             preview.push({
                 產品類別: (base||{})['產品類別']||(prev&&prev.產品類別)||'',
                 產品代碼: String((base||{})['產品代碼']||(prev&&prev.產品代碼)||'').padStart(4,'0'),
@@ -10530,19 +10529,28 @@ async function calcProfit() {
             if (name && batch) ledgerPriceMap[`${name}|${batch}`] = r.分攤單價 || 0;
         });
 
-        // 第2層：讀取租金計算結果，建立 產品名稱|批號 -> 分攤單價 的對應表
+        // 第2層：讀取租金計算結果，只用業務屬性明細含「銷貨」的列
         const rentalFile = ledgerFiles['rental_result_file'];
-        const rentalPriceMap = {}; // 產品名稱|批號 -> 分攤單價（從租金計算結果讀）
+        const rentalPriceMap = {}; // 產品名稱|批號 -> 分攤單價
+        const rentalNotesMap = {}; // 產品名稱|批號 -> 備註（來源單）
         if (rentalFile) {
             try {
                 const rentalRows = await readExcelSheet(rentalFile, null);
+                let usedCount = 0;
                 rentalRows.forEach(r => {
-                    const name  = String(r['產品名稱']||'').trim();
-                    const batch = String(r['批號']||'').trim();
-                    const price = parseFloat(r['分攤單價']) || 0;
-                    if (name && batch && price > 0) rentalPriceMap[`${name}|${batch}`] = price;
+                    const name   = String(r['產品名稱']||'').trim();
+                    const batch  = String(r['批號']||'').trim();
+                    const price  = parseFloat(r['分攤單價']) || 0;
+                    const bizDetail = String(r['業務屬性明細']||'');
+                    // 只使用「銷貨」類型的列（業務屬性明細含「銷貨」，或欄位為空時保留相容）
+                    const isSales = bizDetail === '' || bizDetail.includes('銷貨');
+                    if (name && batch && price > 0 && isSales) {
+                        rentalPriceMap[`${name}|${batch}`] = price;
+                        rentalNotesMap[`${name}|${batch}`] = String(r['備註']||'').trim();
+                        usedCount++;
+                    }
                 });
-                document.getElementById('rental_result_status').textContent = `✅ 已載入 ${rentalRows.length} 筆`;
+                document.getElementById('rental_result_status').textContent = `✅ 已載入 ${usedCount} 筆（銷貨）`;
             } catch(e) {
                 document.getElementById('rental_result_status').textContent = `⚠️ 讀取失敗`;
             }
@@ -10550,18 +10558,22 @@ async function calcProfit() {
             document.getElementById('rental_result_status').textContent = '';
         }
 
-        // 第2.5層：從在途銷貨台帳讀取 unit_price，補充租金來源
+        // 第2.5層：從在途銷貨台帳讀取 unit_price 及 notes（來源備註）
         const transitPriceMap = {};
+        const transitNotesMap = {};
         try {
             const tResp = await fetch(
-                `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=product_name,batch_no,unit_price&unit_price=gt.0`,
+                `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=product_name,batch_no,unit_price,notes&unit_price=gt.0`,
                 { headers: getSBHeaders() }
             );
             if (tResp.ok) {
                 const tRows = await tResp.json();
                 tRows.forEach(r => {
                     const key = `${String(r.product_name||'').trim()}|${String(r.batch_no||'').trim()}`;
-                    if (!transitPriceMap[key]) transitPriceMap[key] = r.unit_price;
+                    if (!transitPriceMap[key]) {
+                        transitPriceMap[key] = r.unit_price;
+                        transitNotesMap[key] = String(r.notes||'').trim();
+                    }
                 });
             }
         } catch(_) {}
@@ -10637,24 +10649,22 @@ async function calcProfit() {
             let rentPrice = '', rentCost = '', rentSource = '';
             
             // 查加工成品單價
+            let rentNotes = '';
             if (processingUnitPriceMap[batch]) {
-                rentPrice = processingUnitPriceMap[batch];
+                rentPrice  = processingUnitPriceMap[batch];
                 rentSource = '加工成品';
             }
-            // 查租金計算結果
+            // 查租金結果（銷貨）
             else if (rentalPriceMap[key]) {
-                rentPrice = rentalPriceMap[key];
+                rentPrice  = rentalPriceMap[key];
                 rentSource = '租金結果';
+                rentNotes  = rentalNotesMap[key] || '';
             }
             // 查在途銷貨台帳
             else if (transitPriceMap[key]) {
-                rentPrice = transitPriceMap[key];
+                rentPrice  = transitPriceMap[key];
                 rentSource = '在途台帳';
-            }
-            // 查總帳
-            else if (ledgerPriceMap[key]) {
-                rentPrice = ledgerPriceMap[key];
-                rentSource = '總帳';
+                rentNotes  = transitNotesMap[key] || '';
             }
             
             if (rentPrice !== '') {
@@ -10664,7 +10674,7 @@ async function calcProfit() {
             } else {
                 unmatched++;
             }
-            return { ...r, 租金單價: rentPrice, 租金費用: rentCost, 租金來源: rentSource };
+            return { ...r, 租金單價: rentPrice, 租金費用: rentCost, 租金來源: rentSource, 來源備註: rentNotes };
         });
 
         // 更新合計卡片
@@ -10708,8 +10718,8 @@ function renderProfitTable() {
     const note = document.getElementById('profit_filter_note');
     if (note) note.textContent = (keyword || showUnmatched) ? `顯示 ${filtered.length} / ${profitCalcData.length} 筆` : '';
 
-    const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源'];
-    const highlightCols = new Set(['租金單價', '租金費用', '租金來源']);
+    const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源', '來源備註'];
+    const highlightCols = new Set(['租金單價', '租金費用', '租金來源', '來源備註']);
 
     let html = `<div class="result-section"><div class="overflow-auto"><table style="font-size:12px;"><thead><tr>`;
     allCols.forEach(col => {
@@ -10731,9 +10741,11 @@ function renderProfitTable() {
                 const display = val !== '' ? Number(val).toLocaleString() : '-';
                 html += `<td style="text-align:right; white-space:nowrap; color:${hasRent?'#c0507a':'#ccc'}; font-weight:${hasRent?'800':'400'};">${display}</td>`;
             } else if (col === '租金來源') {
-                const sourceColor = val === '加工成品' ? '#f7a35c' : (val === '租金結果' ? '#8dcc7a' : (val === '總帳' ? '#7ec8e3' : '#ddd'));
+                const sourceColor = val === '加工成品' ? '#f7a35c' : val === '租金結果' ? '#8dcc7a' : val === '在途台帳' ? '#7ec8e3' : '#ddd';
                 const display = val || '-';
                 html += `<td style="text-align:center; white-space:nowrap; color:${sourceColor}; font-weight:${hasRent?'700':'400'}; font-size:0.7rem;">${display}</td>`;
+            } else if (col === '來源備註') {
+                html += `<td style="white-space:nowrap; color:#64748b; font-size:0.78rem;">${val || ''}</td>`;
             } else {
                 html += `<td style="white-space:nowrap;">${val}</td>`;
             }
@@ -10756,7 +10768,7 @@ window.applyProfitFilter = renderProfitTable;
 
 async function exportProfit() {
     if (!profitCalcData || profitCalcData.length === 0) { alert('請先試算'); return; }
-    const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源'];
+    const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源', '來源備註'];
     const exportData = profitCalcData.map(r => {
         const row = {};
         allCols.forEach(col => { row[col] = r[col] !== undefined ? r[col] : ''; });
