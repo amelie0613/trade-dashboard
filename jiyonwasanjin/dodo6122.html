@@ -2051,6 +2051,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <button onclick="loadTransitLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
                 <button onclick="importTransitFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入</button>
                 <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
+                <button onclick="cleanupTransitDuplicates()" style="padding:0.5rem 1.2rem;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🧹 清理重複</button>
                 <button onclick="resetTransitOffset()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷核銷</button>
                 <div style="display:flex;gap:0.4rem;" id="transit_filter_btns">
                   <button onclick="_transitFilter('')"      class="transit-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">全部</button>
@@ -8561,6 +8562,34 @@ function _matLineKey(r) {
         String(parseFloat(r.original_qty ?? r.quantity ?? r.出庫數量 ?? 0) || 0)
     ].join('|');
 }
+function _matBatchKey(r) {
+    return [
+        String(r.product_name || r.產品名稱 || '').trim(),
+        String(r.batch_no || r.批號 || '').trim()
+    ].join('|');
+}
+function _mergeMaterialBatch(target, row) {
+    const oldQty = parseFloat(target.original_qty) || 0;
+    const addQty = parseFloat(row.original_qty) || 0;
+    target.original_qty = oldQty + addQty;
+    target.total_cost = Math.round((parseFloat(target.total_cost) || 0) + (parseFloat(row.total_cost) || 0));
+    target.unit_price = target.original_qty > 0 ? Math.round(target.total_cost / target.original_qty * 10000) / 10000 : 0;
+    target.remaining_qty = target.original_qty;
+    const dates = new Set(String(target.outbound_date || '').split(' / ').filter(Boolean));
+    if (row.outbound_date) dates.add(row.outbound_date);
+    target.outbound_date = [...dates].join(' / ');
+    const labels = new Set(String(target.month_label || '').split(' / ').filter(Boolean));
+    if (row.month_label) labels.add(row.month_label);
+    target.month_label = [...labels].join(' / ');
+    const notes = new Set(String(target.notes || '').split('；').map(s => s.trim()).filter(Boolean));
+    if (row.notes) notes.add(row.notes);
+    target.notes = [...notes].join('；');
+    return target;
+}
+function _dateFromBatchNo(batchNo) {
+    const m = String(batchNo || '').match(/(\d{4})(\d{2})(\d{2})/);
+    return m ? `${m[1]}-${m[2]}-${m[3]}` : new Date().toISOString().slice(0,10);
+}
 
 // ── 同步：出庫記錄 → 加工原料台帳 ────────────────────────────────
 async function syncToMaterialsLedger(records) {
@@ -8595,19 +8624,18 @@ async function syncToMaterialsLedger(records) {
     );
     if (!ledResp.ok) throw new Error(await ledResp.text());
     const existing = await ledResp.json();
-    const existMap = new Map(existing.map(r => [_matLineKey(r), r]));
+    const existMap = new Map(existing.map(r => [_matBatchKey(r), r]));
     const legacyProgress = {};
     const legacyIds = [];
     existing.forEach(r => {
         if (!r.outbound_date) {
-            const key = `${String(r.product_name||'').trim()}|${String(r.batch_no||'').trim()}`;
+            const key = _matBatchKey(r);
             legacyProgress[key] = (legacyProgress[key] || 0) + (parseFloat(r.processed_qty) || 0);
             legacyIds.push(r.id);
         }
     });
 
-    const toInsert = [];
-    const toUpdate = [];
+    const proposedMap = new Map();
     mats.forEach(a => {
         const originalQty = parseFloat(a.出庫數量) || 0;
         const totalCost = Math.round(parseFloat(a.出庫金額) || 0);
@@ -8626,10 +8654,18 @@ async function syncToMaterialsLedger(records) {
             month_label:   a.month_label || '',
             notes:         a.備註 || '',
         };
-        const key = _matLineKey(row);
+        const key = _matBatchKey(row);
+        if (proposedMap.has(key)) _mergeMaterialBatch(proposedMap.get(key), row);
+        else proposedMap.set(key, row);
+    });
+
+    const toInsert = [];
+    const toUpdate = [];
+    proposedMap.forEach(row => {
+        const key = _matBatchKey(row);
         const ex = existMap.get(key);
         if (!ex) {
-            const legacyKey = `${row.product_name}|${row.batch_no}`;
+            const legacyKey = _matBatchKey(row);
             const applied = Math.min(legacyProgress[legacyKey] || 0, row.original_qty);
             legacyProgress[legacyKey] = Math.max(0, (legacyProgress[legacyKey] || 0) - applied);
             row.processed_qty = applied;
@@ -8653,8 +8689,8 @@ async function syncToMaterialsLedger(records) {
 
     if (toInsert.length) {
         const insResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/processing_materials_ledger`,
-            { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'return=minimal' }, body:JSON.stringify(toInsert) }
+            `${SUPABASE_URL}/rest/v1/processing_materials_ledger?on_conflict=product_name,batch_no`,
+            { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'resolution=merge-duplicates,return=minimal' }, body:JSON.stringify(toInsert) }
         );
         if (!insResp.ok) throw new Error(await insResp.text());
     }
@@ -8666,14 +8702,6 @@ async function syncToMaterialsLedger(records) {
             body: JSON.stringify(fields),
         });
     }));
-    if (legacyIds.length) {
-        await Promise.all(legacyIds.map(id =>
-            fetch(`${SUPABASE_URL}/rest/v1/processing_materials_ledger?id=eq.${id}`, {
-                method: 'DELETE',
-                headers: { ...getSBHeaders(), 'Prefer':'return=minimal' },
-            })
-        ));
-    }
 }
 window.syncToMaterialsLedger = syncToMaterialsLedger;
 
@@ -8698,20 +8726,19 @@ async function importMaterialsFromOutbound() {
         );
         if (!ledResp.ok) throw new Error(await ledResp.text());
         const existing = await ledResp.json();
-        const existMap = new Map(existing.map(r => [_matLineKey(r), r]));
+        const existMap = new Map(existing.map(r => [_matBatchKey(r), r]));
         const legacyProgress = {};
         const legacyIds = [];
         existing.forEach(r => {
             if (!r.outbound_date) {
-                const key = `${String(r.product_name||'').trim()}|${String(r.batch_no||'').trim()}`;
+                const key = _matBatchKey(r);
                 legacyProgress[key] = (legacyProgress[key] || 0) + (parseFloat(r.processed_qty) || 0);
                 legacyIds.push(r.id);
             }
         });
 
-        // 3. 逐筆匯入出庫明細，讓加工原料可以 FIFO 逐筆核銷。
-        const toInsert = [];
-        const toUpdate = [];
+        // 3. 匯入出庫明細。資料庫目前限制 product_name + batch_no 唯一，因此同批號先合併後再寫入。
+        const proposedMap = new Map();
         rows.forEach(r => {
             const originalQty = parseFloat(r.quantity) || 0;
             if (originalQty <= 0) return;
@@ -8730,9 +8757,17 @@ async function importMaterialsFromOutbound() {
                 month_label:   r.month_label || '',
                 notes:         r.notes || '',
             };
-            const ex = existMap.get(_matLineKey(row));
+            const key = _matBatchKey(row);
+            if (proposedMap.has(key)) _mergeMaterialBatch(proposedMap.get(key), row);
+            else proposedMap.set(key, row);
+        });
+
+        const toInsert = [];
+        const toUpdate = [];
+        proposedMap.forEach(row => {
+            const ex = existMap.get(_matBatchKey(row));
             if (!ex) {
-                const legacyKey = `${row.product_name}|${row.batch_no}`;
+                const legacyKey = _matBatchKey(row);
                 const applied = Math.min(legacyProgress[legacyKey] || 0, row.original_qty);
                 legacyProgress[legacyKey] = Math.max(0, (legacyProgress[legacyKey] || 0) - applied);
                 row.processed_qty = applied;
@@ -8742,14 +8777,17 @@ async function importMaterialsFromOutbound() {
             } else {
                 // 保留已加工進度，只更新這一筆出庫的數量與成本
                 const processed = ex.processed_qty || 0;
-                const newRemaining = Math.max(0, originalQty - processed);
+                const newRemaining = Math.max(0, row.original_qty - processed);
                 toUpdate.push({
                     id:            ex.id,
-                    original_qty:  originalQty,
+                    original_qty:  row.original_qty,
                     remaining_qty: newRemaining,
-                    unit_price:    unitPrice,
-                    total_cost:    totalCost,
-                    status:        _matStatus(originalQty, processed),
+                    unit_price:    row.unit_price,
+                    total_cost:    row.total_cost,
+                    outbound_date: row.outbound_date,
+                    month_label:   row.month_label,
+                    notes:         row.notes,
+                    status:        _matStatus(row.original_qty, processed),
                 });
             }
         });
@@ -8759,8 +8797,8 @@ async function importMaterialsFromOutbound() {
         // 5. 批量插入新批號
         if (toInsert.length) {
             const insResp = await fetch(
-                `${SUPABASE_URL}/rest/v1/processing_materials_ledger`,
-                { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'return=minimal' }, body:JSON.stringify(toInsert) }
+                `${SUPABASE_URL}/rest/v1/processing_materials_ledger?on_conflict=product_name,batch_no`,
+                { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'resolution=merge-duplicates,return=minimal' }, body:JSON.stringify(toInsert) }
             );
             if (!insResp.ok) throw new Error(await insResp.text());
         }
@@ -8774,15 +8812,6 @@ async function importMaterialsFromOutbound() {
                 body: JSON.stringify(fields),
             });
         }));
-
-        if (legacyIds.length) {
-            await Promise.all(legacyIds.map(id =>
-                fetch(`${SUPABASE_URL}/rest/v1/processing_materials_ledger?id=eq.${id}`, {
-                    method: 'DELETE',
-                    headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
-                })
-            ));
-        }
 
         statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（共檢查 ${rows.length} 筆出庫明細）`;
         await loadMaterialsLedger();
@@ -9047,10 +9076,11 @@ async function confirmProcessingToLedgers(pgResults) {
 
         // 2. 子件 → 新增到在途銷貨台帳（來源：加工子件）
         if (c.unitPrice != null) {
+            const procDate = _dateFromBatchNo(c.childBatch);
             const transitRow = {
                 product_name:  c.childName,
                 batch_no:      c.childBatch,
-                outbound_date: new Date().toISOString().slice(0,10),
+                outbound_date: procDate,
                 original_qty:  c.childQty,
                 offset_qty:    0,
                 remaining_qty: c.childQty,
@@ -9059,7 +9089,7 @@ async function confirmProcessingToLedgers(pgResults) {
                 source:        '加工子件',
                 status:        '未核銷',
                 month_label:   '',
-                period:        `PROC-${Date.now()}`,
+                period:        `PROC-${c.childBatch}`,
                 notes:         `由 ${c.mothers.map(m=>m.batch).join('/')} 加工而來`,
             };
             const transitResp = await fetch(
@@ -9239,6 +9269,62 @@ function _transitFilterFn(status) {
     _renderTransitTable();
 }
 window._transitFilter = _transitFilterFn;
+
+async function cleanupTransitDuplicates() {
+    const statusEl = document.getElementById('transit_status');
+    statusEl.textContent = '清理加工子件重複列中…';
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=eq.加工子件&select=id,product_name,batch_no,original_qty,offset_qty,remaining_qty,unit_price,total_cost,notes,outbound_date,created_at,status&order=created_at.asc`,
+            { headers: getSBHeaders() }
+        );
+        if (!resp.ok) throw new Error(await resp.text());
+        const rows = await resp.json();
+        const groups = new Map();
+        rows.forEach(r => {
+            const key = [
+                String(r.product_name || '').trim(),
+                String(r.batch_no || '').trim(),
+                Number(r.original_qty || 0).toFixed(6),
+                Number(r.unit_price || 0).toFixed(6),
+                String(r.notes || '').trim(),
+            ].join('|');
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(r);
+        });
+
+        const deleteIds = [];
+        groups.forEach(group => {
+            if (group.length <= 1) return;
+            const sorted = [...group].sort((a, b) => {
+                const ao = parseFloat(a.offset_qty) || 0;
+                const bo = parseFloat(b.offset_qty) || 0;
+                if (bo !== ao) return bo - ao;
+                return String(a.created_at || a.outbound_date || '').localeCompare(String(b.created_at || b.outbound_date || ''));
+            });
+            sorted.slice(1).forEach(r => {
+                const offset = parseFloat(r.offset_qty) || 0;
+                if (offset <= 0.000001) deleteIds.push(r.id);
+            });
+        });
+
+        if (!deleteIds.length) {
+            statusEl.textContent = '✅ 沒有可清理的加工子件重複列';
+            return;
+        }
+        await Promise.all(deleteIds.map(id =>
+            fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${id}`, {
+                method: 'DELETE',
+                headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+            })
+        ));
+        statusEl.textContent = `✅ 已清理 ${deleteIds.length} 筆加工子件重複列`;
+        await loadTransitLedger();
+    } catch(e) {
+        statusEl.textContent = `❌ 清理失敗：${e.message}`;
+    }
+}
+window.cleanupTransitDuplicates = cleanupTransitDuplicates;
 
 // ── 自動比對核銷：在途銷貨 × 利潤分析 ────────────────────────────
 async function autoMatchTransitSales() {
