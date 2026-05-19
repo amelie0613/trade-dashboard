@@ -8510,21 +8510,31 @@ async function syncOutboundToSupabase(records, label) {
             else console.log(`🗑️ 已清除 ${monthLabel} 舊出庫記錄`);
         }
 
-        // 插入，遇到唯一鍵衝突時略過（同 6 欄組合視為同一筆）
-        for (let i = 0; i < raw.length; i += BATCH) {
-            const chunk = raw.slice(i, i + BATCH);
+        // 去除批次內部真正重複（key 含 notes，保留同天同批不同備註的多筆）
+        const dedupeMap = new Map();
+        raw.forEach(row => {
+            const key = `${row.product_name}|${row.batch_no}|${row.outbound_date}|${row.biz_type}|${row.period}|${row.quantity}|${row.notes}`;
+            dedupeMap.set(key, row);
+        });
+        const data = Array.from(dedupeMap.values());
+        if (raw.length !== data.length)
+            console.warn(`⚠️ 去重：${raw.length} → ${data.length} 筆（移除 ${raw.length - data.length} 筆完全相同的記錄）`);
+
+        // 直接插入（舊資料已刪除，無需 on_conflict）
+        for (let i = 0; i < data.length; i += BATCH) {
+            const chunk = data.slice(i, i + BATCH);
             const resp = await fetch(
-                `${SUPABASE_URL}/rest/v1/outbound_records?on_conflict=product_name,batch_no,outbound_date,biz_type,period,quantity`,
+                `${SUPABASE_URL}/rest/v1/outbound_records`,
                 {
                     method: 'POST',
-                    headers: { ...SB_HEADERS, 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
+                    headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' },
                     body: JSON.stringify(chunk),
                 }
             );
             if (!resp.ok) throw new Error(await resp.text());
-            console.log(`✅ 出庫記錄已備份 ${i + chunk.length} / ${raw.length} 筆`);
+            console.log(`✅ 出庫記錄已備份 ${i + chunk.length} / ${data.length} 筆`);
         }
-        console.log(`✅ 出庫記錄全部備份完成（${raw.length} 筆）`);
+        console.log(`✅ 出庫記錄全部備份完成（${data.length} 筆）`);
     } catch(e) {
         console.error('出庫記錄備份失敗：', e);
         throw e;
