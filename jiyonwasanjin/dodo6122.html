@@ -6789,7 +6789,7 @@ async function viewLedger() {
 
         // 轉換為本地格式，只保留目前租金結餘 > 0 的品項
         const allRows  = _normalizeLedgerForDisplay(sbRows.map(sbRowToLedger));
-        const activeRows = allRows.filter(r => _ledgerBalanceValue(r) > 0);
+        const activeRows = allRows.filter(r => _ledgerBalanceValue(r) !== 0);
 
         // 緩存供搜尋篩選使用
         window._ledgerData = activeRows;
@@ -8553,6 +8553,17 @@ function _transitStatus(orig, offset) {
     return '部分核銷';
 }
 
+function _matLineKey(r) {
+    return [
+        String(r.product_name || r.產品名稱 || '').trim(),
+        String(r.batch_no || r.批號 || '').trim(),
+        String(r.outbound_date || r.出庫日期 || '').trim(),
+        String(r.month_label || '').trim(),
+        String(r.notes || r.備註 || '').trim(),
+        String(parseFloat(r.original_qty ?? r.quantity ?? r.出庫數量 ?? 0) || 0)
+    ].join('|');
+}
+
 // ── 同步：出庫記錄 → 加工原料台帳 ────────────────────────────────
 async function syncToMaterialsLedger(records) {
     let mats = (records || []).filter(r => r.分倉類型 === '加工原料');
@@ -8567,6 +8578,7 @@ async function syncToMaterialsLedger(records) {
                 mats = dbRows.map(r => ({
                     產品名稱: r.product_name,
                     批號: r.batch_no,
+                    出庫日期: r.outbound_date || '',
                     出庫數量: r.quantity || 0,
                     出庫金額: r.outbound_amount || 0,
                     month_label: r.month_label || '',
@@ -8580,62 +8592,63 @@ async function syncToMaterialsLedger(records) {
     if (!mats.length) return;
 
     const ledResp = await fetch(
-        `${SUPABASE_URL}/rest/v1/processing_materials_ledger?select=id,product_name,batch_no,processed_qty`,
+        `${SUPABASE_URL}/rest/v1/processing_materials_ledger?select=id,product_name,batch_no,outbound_date,original_qty,processed_qty,remaining_qty,month_label,notes`,
         { headers: getSBHeaders() }
     );
     if (!ledResp.ok) throw new Error(await ledResp.text());
     const existing = await ledResp.json();
-    const existMap = new Map(existing.map(r => [`${r.product_name}|${r.batch_no}`, r]));
-
-    // 依 product_name + batch_no 彙總，並保留既有加工進度。
-    const aggMap = new Map();
-    mats.forEach(r => {
-        const key = `${r.產品名稱}|${r.批號}`;
-        if (!aggMap.has(key)) {
-            aggMap.set(key, {
-                product_name: r.產品名稱,
-                batch_no:     r.批號,
-                original_qty: 0,
-                total_cost:   0,
-                month_label:  r.month_label || '',
-                notes:        r.備註 || '',
-            });
+    const existMap = new Map(existing.map(r => [_matLineKey(r), r]));
+    const legacyProgress = {};
+    const legacyIds = [];
+    existing.forEach(r => {
+        if (!r.outbound_date) {
+            const key = `${String(r.product_name||'').trim()}|${String(r.batch_no||'').trim()}`;
+            legacyProgress[key] = (legacyProgress[key] || 0) + (parseFloat(r.processed_qty) || 0);
+            legacyIds.push(r.id);
         }
-        const a = aggMap.get(key);
-        a.original_qty += r.出庫數量 || 0;
-        a.total_cost   += r.出庫金額 || 0;
     });
 
     const toInsert = [];
     const toUpdate = [];
-    aggMap.forEach((a, key) => {
-        const unitPrice = a.original_qty > 0 ? Math.round(a.total_cost / a.original_qty * 10000) / 10000 : 0;
-        const totalCost = Math.round(a.total_cost);
+    mats.forEach(a => {
+        const originalQty = parseFloat(a.出庫數量) || 0;
+        const totalCost = Math.round(parseFloat(a.出庫金額) || 0);
+        if (originalQty <= 0) return;
+        const unitPrice = originalQty > 0 ? Math.round(totalCost / originalQty * 10000) / 10000 : 0;
+        const row = {
+            product_name:  String(a.產品名稱 || '').trim(),
+            batch_no:      String(a.批號 || '').trim(),
+            outbound_date: a.出庫日期 || '',
+            original_qty:  originalQty,
+            processed_qty: 0,
+            remaining_qty: originalQty,
+            unit_price:    unitPrice,
+            total_cost:    totalCost,
+            status:        '未加工',
+            month_label:   a.month_label || '',
+            notes:         a.備註 || '',
+        };
+        const key = _matLineKey(row);
         const ex = existMap.get(key);
         if (!ex) {
-            toInsert.push({
-                product_name:  a.product_name,
-                batch_no:      a.batch_no,
-                original_qty:  a.original_qty,
-                processed_qty: 0,
-                remaining_qty: a.original_qty,
-                unit_price:    unitPrice,
-                total_cost:    totalCost,
-                status:        '未加工',
-                month_label:   a.month_label,
-                notes:         a.notes,
-            });
+            const legacyKey = `${row.product_name}|${row.batch_no}`;
+            const applied = Math.min(legacyProgress[legacyKey] || 0, row.original_qty);
+            legacyProgress[legacyKey] = Math.max(0, (legacyProgress[legacyKey] || 0) - applied);
+            row.processed_qty = applied;
+            row.remaining_qty = Math.max(0, row.original_qty - applied);
+            row.status = _matStatus(row.original_qty, applied);
+            if (row.remaining_qty > 0) toInsert.push(row);
         } else {
             const processed = ex.processed_qty || 0;
             toUpdate.push({
                 id:            ex.id,
-                original_qty:  a.original_qty,
-                remaining_qty: Math.max(0, a.original_qty - processed),
+                original_qty:  originalQty,
+                remaining_qty: Math.max(0, originalQty - processed),
                 unit_price:    unitPrice,
                 total_cost:    totalCost,
-                status:        _matStatus(a.original_qty, processed),
-                month_label:   a.month_label,
-                notes:         a.notes,
+                status:        _matStatus(originalQty, processed),
+                month_label:   row.month_label,
+                notes:         row.notes,
             });
         }
     });
@@ -8655,6 +8668,14 @@ async function syncToMaterialsLedger(records) {
             body: JSON.stringify(fields),
         });
     }));
+    if (legacyIds.length) {
+        await Promise.all(legacyIds.map(id =>
+            fetch(`${SUPABASE_URL}/rest/v1/processing_materials_ledger?id=eq.${id}`, {
+                method: 'DELETE',
+                headers: { ...getSBHeaders(), 'Prefer':'return=minimal' },
+            })
+        ));
+    }
 }
 window.syncToMaterialsLedger = syncToMaterialsLedger;
 
@@ -8674,62 +8695,63 @@ async function importMaterialsFromOutbound() {
 
         // 2. 取台帳現有記錄（保留加工進度）
         const ledResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/processing_materials_ledger?select=id,product_name,batch_no,processed_qty,status`,
+            `${SUPABASE_URL}/rest/v1/processing_materials_ledger?select=id,product_name,batch_no,outbound_date,original_qty,processed_qty,remaining_qty,month_label,notes,status`,
             { headers: getSBHeaders() }
         );
         if (!ledResp.ok) throw new Error(await ledResp.text());
         const existing = await ledResp.json();
-        const existMap = new Map(existing.map(r => [`${r.product_name}|${r.batch_no}`, r]));
-
-        // 3. 依 product_name + batch_no 彙總出庫明細
-        const aggMap = new Map();
-        rows.forEach(r => {
-            const key = `${r.product_name}|${r.batch_no}`;
-            if (!aggMap.has(key)) {
-                aggMap.set(key, {
-                    product_name: r.product_name,
-                    batch_no:     r.batch_no,
-                    original_qty: 0,
-                    total_cost:   0,
-                    month_label:  r.month_label || '',
-                    notes:        r.notes || '',
-                });
+        const existMap = new Map(existing.map(r => [_matLineKey(r), r]));
+        const legacyProgress = {};
+        const legacyIds = [];
+        existing.forEach(r => {
+            if (!r.outbound_date) {
+                const key = `${String(r.product_name||'').trim()}|${String(r.batch_no||'').trim()}`;
+                legacyProgress[key] = (legacyProgress[key] || 0) + (parseFloat(r.processed_qty) || 0);
+                legacyIds.push(r.id);
             }
-            const a = aggMap.get(key);
-            a.original_qty += r.quantity || 0;
-            a.total_cost   += r.outbound_amount || 0;
         });
 
-        // 4. 分成新批號 vs 已存在批號
+        // 3. 逐筆匯入出庫明細，讓加工原料可以 FIFO 逐筆核銷。
         const toInsert = [];
         const toUpdate = [];
-        aggMap.forEach((a, key) => {
-            const unitPrice = a.original_qty > 0 ? Math.round(a.total_cost / a.original_qty * 10000) / 10000 : 0;
-            const totalCost = Math.round(a.total_cost);
-            const ex        = existMap.get(key);
+        rows.forEach(r => {
+            const originalQty = parseFloat(r.quantity) || 0;
+            if (originalQty <= 0) return;
+            const totalCost = Math.round(parseFloat(r.outbound_amount) || 0);
+            const unitPrice = originalQty > 0 ? Math.round(totalCost / originalQty * 10000) / 10000 : 0;
+            const row = {
+                product_name:  r.product_name,
+                batch_no:      r.batch_no,
+                outbound_date: r.outbound_date || '',
+                original_qty:  originalQty,
+                processed_qty: 0,
+                remaining_qty: originalQty,
+                unit_price:    unitPrice,
+                total_cost:    totalCost,
+                status:        '未加工',
+                month_label:   r.month_label || '',
+                notes:         r.notes || '',
+            };
+            const ex = existMap.get(_matLineKey(row));
             if (!ex) {
-                toInsert.push({
-                    product_name:  a.product_name,
-                    batch_no:      a.batch_no,
-                    original_qty:  a.original_qty,
-                    processed_qty: 0,
-                    remaining_qty: a.original_qty,
-                    unit_price:    unitPrice,
-                    total_cost:    totalCost,
-                    status:        '未加工',
-                    month_label:   a.month_label,
-                    notes:         a.notes,
-                });
+                const legacyKey = `${row.product_name}|${row.batch_no}`;
+                const applied = Math.min(legacyProgress[legacyKey] || 0, row.original_qty);
+                legacyProgress[legacyKey] = Math.max(0, (legacyProgress[legacyKey] || 0) - applied);
+                row.processed_qty = applied;
+                row.remaining_qty = Math.max(0, row.original_qty - applied);
+                row.status = _matStatus(row.original_qty, applied);
+                if (row.remaining_qty > 0) toInsert.push(row);
             } else {
-                // 保留已加工進度，只更新數量與成本
-                const newRemaining = Math.max(0, a.original_qty - (ex.processed_qty || 0));
+                // 保留已加工進度，只更新這一筆出庫的數量與成本
+                const processed = ex.processed_qty || 0;
+                const newRemaining = Math.max(0, originalQty - processed);
                 toUpdate.push({
                     id:            ex.id,
-                    original_qty:  a.original_qty,
+                    original_qty:  originalQty,
                     remaining_qty: newRemaining,
                     unit_price:    unitPrice,
                     total_cost:    totalCost,
-                    status:        _matStatus(a.original_qty, ex.processed_qty || 0),
+                    status:        _matStatus(originalQty, processed),
                 });
             }
         });
@@ -8755,7 +8777,16 @@ async function importMaterialsFromOutbound() {
             });
         }));
 
-        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（共彙總 ${rows.length} 筆明細）`;
+        if (legacyIds.length) {
+            await Promise.all(legacyIds.map(id =>
+                fetch(`${SUPABASE_URL}/rest/v1/processing_materials_ledger?id=eq.${id}`, {
+                    method: 'DELETE',
+                    headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                })
+            ));
+        }
+
+        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（共檢查 ${rows.length} 筆出庫明細）`;
         await loadMaterialsLedger();
     } catch(e) {
         statusEl.textContent = `❌ 匯入失敗：${e.message}`;
@@ -8956,46 +8987,63 @@ async function confirmProcessingToLedgers(pgResults) {
     for (const c of pgResults) {
         if (!c.allFound) continue; // 未完整配對的略過
 
-        // 先檢查所有母件剩餘量，避免原料不足仍生成完整子件。
+        // 先檢查所有母件剩餘量，並建立 FIFO 逐筆扣帳計畫。
         const consumePlan = [];
         for (const m of c.mothers) {
             if (!m.found) continue;
             const resp = await fetch(
-                `${SUPABASE_URL}/rest/v1/processing_materials_ledger?product_name=eq.${encodeURIComponent(m.name)}&batch_no=eq.${encodeURIComponent(m.batch)}&select=id,original_qty,processed_qty,remaining_qty,unit_price&order=id.asc`,
+                `${SUPABASE_URL}/rest/v1/processing_materials_ledger?product_name=eq.${encodeURIComponent(m.name)}&batch_no=eq.${encodeURIComponent(m.batch)}&remaining_qty=gt.0&select=id,original_qty,processed_qty,remaining_qty,unit_price,outbound_date&order=outbound_date.asc,id.asc`,
                 { headers: getSBHeaders() }
             );
+            if (!resp.ok) throw new Error(await resp.text());
             const rows = await resp.json();
-            const rec = rows.find(r => (r.remaining_qty || 0) > 0) || rows[0];
-            const available = rec ? (parseFloat(rec.remaining_qty) || 0) : 0;
+            const available = rows.reduce((s, r) => s + (parseFloat(r.remaining_qty) || 0), 0);
             const needQty = parseFloat(m.qty) || 0;
-            if (!rec || available + 0.000001 < needQty) {
+            if (available + 0.000001 < needQty) {
                 shortageCount++;
                 console.warn(`加工原料不足：${m.name}|${m.batch} 需要 ${needQty}，剩餘 ${available}`);
                 consumePlan.length = 0;
                 break;
             }
-            consumePlan.push({ rec, mother: m, qty: needQty });
+
+            let left = needQty;
+            for (const rec of rows) {
+                if (left <= 0) break;
+                const remaining = parseFloat(rec.remaining_qty) || 0;
+                const qty = Math.min(left, remaining);
+                if (qty <= 0) continue;
+                consumePlan.push({ rec, mother: m, qty });
+                left -= qty;
+            }
         }
         if (!consumePlan.length && c.mothers.some(m => m.found)) continue;
 
-        // 1. 每個母件 → 只扣實際加工數量，剩餘繼續留在加工原料台帳
+        // 1. 每個母件 → FIFO 逐筆核銷；已用完的出庫列直接移除，只保留未核銷完的列。
         for (const item of consumePlan) {
             const { rec, qty } = item;
             const newProcessed = (parseFloat(rec.processed_qty) || 0) + qty;
             const newRemaining = rec.original_qty - newProcessed;
-            const patchResp = await fetch(
-                `${SUPABASE_URL}/rest/v1/processing_materials_ledger?id=eq.${rec.id}`,
-                {
-                    method: 'PATCH',
-                    headers: { ...getSBHeaders(), 'Prefer':'return=minimal' },
-                    body: JSON.stringify({
-                        processed_qty: newProcessed,
-                        remaining_qty: Math.max(0, newRemaining),
-                        status: _matStatus(rec.original_qty, newProcessed),
-                    })
-                }
-            );
-            if (!patchResp.ok) throw new Error(await patchResp.text());
+            if (newRemaining <= 0.000001) {
+                const delResp = await fetch(
+                    `${SUPABASE_URL}/rest/v1/processing_materials_ledger?id=eq.${rec.id}`,
+                    { method: 'DELETE', headers: { ...getSBHeaders(), 'Prefer':'return=minimal' } }
+                );
+                if (!delResp.ok && delResp.status !== 204) throw new Error(await delResp.text());
+            } else {
+                const patchResp = await fetch(
+                    `${SUPABASE_URL}/rest/v1/processing_materials_ledger?id=eq.${rec.id}`,
+                    {
+                        method: 'PATCH',
+                        headers: { ...getSBHeaders(), 'Prefer':'return=minimal' },
+                        body: JSON.stringify({
+                            processed_qty: newProcessed,
+                            remaining_qty: Math.max(0, newRemaining),
+                            status: _matStatus(rec.original_qty, newProcessed),
+                        })
+                    }
+                );
+                if (!patchResp.ok) throw new Error(await patchResp.text());
+            }
             matUpdated++;
         }
 
@@ -11358,11 +11406,13 @@ async function _pgCalcFile(file) {
         c.childQty += child.childQty;   // 多母件→同一子件時累加產出數量
         const ratio   = totalChildQty > 0 ? child.childQty / totalChildQty : 1;
         const portion = m.found ? totalMotherCost * ratio : null;
+        const allocatedMotherQty = m.motherQty * ratio;
         c.totalCost += portion ?? 0;
         c.mothers.push({
           name:            m.motherName,
           batch:           m.motherBatch,
-          qty:             m.motherQty,
+          qty:             allocatedMotherQty,
+          originalQty:     m.motherQty,
           price:           m.allocated_price,
           totalMotherCost: m.found ? totalMotherCost : null,
           portion,
@@ -11412,16 +11462,16 @@ function _pgRenderResult() {
   let html = `<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
     <thead style="background:#f5f7ff;position:sticky;top:0;">
       <tr>
-        <th style="${ths}">子件批號</th>
-        <th style="${ths}">成品名稱</th>
-        <th style="${thr}">子件數量</th>
         <th style="${ths}">母件名稱</th>
         <th style="${ths}">母件批號</th>
-        <th style="${thr}">母件數量</th>
+        <th style="${thr}">母件分攤量</th>
         <th style="${thr}">分攤單價</th>
         <th style="${thr}">母件總成本</th>
         <th style="${thc}">分攤比</th>
         <th style="${thr}">分攤成本</th>
+        <th style="${ths}">子件批號</th>
+        <th style="${ths}">成品名稱</th>
+        <th style="${thr}">子件數量</th>
         <th style="${thr}">成品單價</th>
         <th style="${thc}">狀態</th>
       </tr>
@@ -11441,21 +11491,26 @@ function _pgRenderResult() {
       const ratioStr    = m.isMulti ? `${(m.ratio * 100).toFixed(1)}%` : '—';
       const portionStr  = m.portion != null ? `$${m.portion.toFixed(2)}` : '-';
       const totalCStr   = m.totalMotherCost != null ? `$${m.totalMotherCost.toFixed(2)}` : '-';
+      const qtyStr      = (Number(m.qty) || 0).toLocaleString(undefined, { maximumFractionDigits: 3 });
+      const originalQty = Number(m.originalQty) || Number(m.qty) || 0;
+      const qtyCell     = m.isMulti
+        ? `${qtyStr}<div style="font-size:0.72rem;color:#8a94a6;line-height:1.2;">原 ${originalQty.toLocaleString(undefined, { maximumFractionDigits: 3 })}</div>`
+        : qtyStr;
 
       html += `<tr style="border-bottom:1px solid #f0f4f8;${rowBg}">`;
-      if (first) {
-        html += `<td rowspan="${rs}" style="padding:0.5rem 0.7rem;font-family:monospace;font-size:0.78rem;color:#6878C0;vertical-align:top;border-right:1px solid #eee;">${c.childBatch}</td>`;
-        html += `<td rowspan="${rs}" style="padding:0.5rem 0.7rem;vertical-align:top;border-right:1px solid #eee;">${c.childName}</td>`;
-        html += `<td rowspan="${rs}" style="padding:0.5rem 0.7rem;text-align:right;vertical-align:top;border-right:1px solid #eee;">${c.childQty.toLocaleString()}</td>`;
-      }
       html += `<td style="padding:0.5rem 0.7rem;">${m.name}</td>`;
       html += `<td style="padding:0.5rem 0.7rem;font-family:monospace;font-size:0.78rem;">${m.batch}</td>`;
-      html += `<td style="padding:0.5rem 0.7rem;text-align:right;">${m.qty.toLocaleString()}</td>`;
+      html += `<td style="padding:0.5rem 0.7rem;text-align:right;">${qtyCell}</td>`;
       html += `<td style="padding:0.5rem 0.7rem;text-align:right;">${m.price != null ? '$' + m.price.toFixed(4) : '<span style="color:#ef4444">未找到</span>'}</td>`;
       html += `<td style="padding:0.5rem 0.7rem;text-align:right;">${totalCStr}</td>`;
       html += `<td style="padding:0.5rem 0.7rem;text-align:center;color:${m.isMulti ? '#b07020' : '#999'};">${ratioStr}</td>`;
       html += `<td style="padding:0.5rem 0.7rem;text-align:right;font-weight:${m.isMulti ? '700' : 'normal'};">${portionStr}</td>`;
-      if (first) html += priceCell;
+      if (first) {
+        html += `<td rowspan="${rs}" style="padding:0.5rem 0.7rem;font-family:monospace;font-size:0.78rem;color:#6878C0;vertical-align:top;border-left:1px solid #eee;">${c.childBatch}</td>`;
+        html += `<td rowspan="${rs}" style="padding:0.5rem 0.7rem;vertical-align:top;border-left:1px solid #eee;">${c.childName}</td>`;
+        html += `<td rowspan="${rs}" style="padding:0.5rem 0.7rem;text-align:right;vertical-align:top;border-left:1px solid #eee;">${c.childQty.toLocaleString()}</td>`;
+        html += priceCell;
+      }
       html += `<td style="padding:0.5rem 0.7rem;text-align:center;font-size:0.75rem;color:${stColor};font-weight:700;">${stText}</td>`;
       html += `</tr>`;
     });
@@ -11507,18 +11562,18 @@ function pgExport() {
   if (!_pgResults.length) { alert('請先上傳加工單並完成計算'); return; }
 
   const sheetData = [
-    ['子件批號','成品名稱','子件數量','成品單價','母件名稱','母件批號','母件數量','分攤單價','母件總成本','分攤比例','分攤成本','狀態']
+    ['母件名稱','母件批號','母件分攤量','母件原始量','分攤單價','母件總成本','分攤比例','分攤成本','子件批號','成品名稱','子件數量','成品單價','狀態']
   ];
   for (const c of _pgResults) {
     for (const m of c.mothers) {
       sheetData.push([
-        c.childBatch, c.childName, c.childQty,
-        c.unitPrice ?? '',
-        m.name, m.batch, m.qty,
+        m.name, m.batch, m.qty, m.originalQty ?? m.qty,
         m.price ?? '',
         m.totalMotherCost ?? '',
         m.isMulti ? m.ratio : '',
         m.portion ?? '',
+        c.childBatch, c.childName, c.childQty,
+        c.unitPrice ?? '',
         m.found ? '已配對' : '未找到租金'
       ]);
     }
@@ -11526,7 +11581,7 @@ function pgExport() {
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(sheetData);
-  ws['!cols'] = [20,16,10,12,16,20,10,12,12,10,12,12].map(w => ({ wch: w }));
+  ws['!cols'] = [20,16,10,12,16,20,12,12,12,12,10,12,12].map(w => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws, '轉加工配對報表');
   XLSX.writeFile(wb, `轉加工配對報表_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
