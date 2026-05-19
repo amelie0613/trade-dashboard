@@ -8954,19 +8954,25 @@ async function importTransitFromOutbound() {
         const rows = [...(await resp1.json()), ...(await resp2.json())];
         if (!rows.length) { statusEl.textContent = '出庫記錄中找不到銷貨或再途銷貨類型的記錄'; return; }
 
-        // 2. 取台帳現有記錄（保留核銷進度）
+        // 2. 取台帳現有記錄（銷貨出庫 + 在途出庫 兩種 source 都要保留）
         const ledResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=eq.原始出庫&select=id,product_name,batch_no,outbound_date,period,offset_qty,status`,
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=in.(在途出庫,銷貨出庫)&select=id,product_name,batch_no,outbound_date,period,source,offset_qty,status`,
             { headers: getSBHeaders() }
         );
         if (!ledResp.ok) throw new Error(await ledResp.text());
         const existing = await ledResp.json();
-        const existMap = new Map(existing.map(r => [`${r.product_name}|${r.batch_no}|${r.outbound_date || ''}|${r.period || ''}|原始出庫`, r]));
+        // existMap key 含 source，區分兩種類型，避免互相覆蓋
+        const existMap = new Map(existing.map(r => [
+            `${r.product_name}|${r.batch_no}|${r.outbound_date || ''}|${r.period || ''}|${r.source}`, r
+        ]));
 
-        // 3. 依資料庫唯一鍵彙總出庫明細，保留 FIFO 需要的日期/期間顆粒度。
+        // 3. 依資料庫唯一鍵彙總出庫明細
+        //    銷貨 → source='銷貨出庫'（優先核銷）
+        //    再途銷貨 → source='在途出庫'（次要核銷）
         const aggMap = new Map();
         rows.forEach(r => {
-            const key = `${r.product_name}|${r.batch_no}|${r.outbound_date || ''}|${r.period || ''}|原始出庫`;
+            const src = (r.warehouse_type === '銷貨') ? '銷貨出庫' : '在途出庫';
+            const key = `${r.product_name}|${r.batch_no}|${r.outbound_date || ''}|${r.period || ''}|${src}`;
             if (!aggMap.has(key)) {
                 aggMap.set(key, {
                     product_name: r.product_name,
@@ -8977,6 +8983,7 @@ async function importTransitFromOutbound() {
                     period:       r.period || '',
                     month_label:  r.month_label || '',
                     notes:        r.notes || '',
+                    source:       src,
                 });
             }
             const a = aggMap.get(key);
@@ -9001,7 +9008,7 @@ async function importTransitFromOutbound() {
                     remaining_qty: a.original_qty,
                     unit_price:    unitPrice,
                     total_cost:    totalCost,
-                    source:        '原始出庫',
+                    source:        a.source,   // '銷貨出庫' 或 '在途出庫'
                     status:        '未核銷',
                     period:        a.period,
                     month_label:   a.month_label,
@@ -9017,11 +9024,13 @@ async function importTransitFromOutbound() {
                     unit_price:    unitPrice,
                     total_cost:    totalCost,
                     status:        _transitStatus(a.original_qty, ex.offset_qty || 0),
-                    notes:         a.notes,   // 同步備註（出庫記錄備註有改時一起更新）
+                    notes:         a.notes,
                 });
             }
         });
 
+        const salesCnt   = [...aggMap.values()].filter(a => a.source === '銷貨出庫').length;
+        const transitCnt = [...aggMap.values()].filter(a => a.source === '在途出庫').length;
         statusEl.textContent = `新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆…`;
 
         // 5. 批量插入新批號
@@ -9043,7 +9052,7 @@ async function importTransitFromOutbound() {
             });
         }));
 
-        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（銷貨+再途銷貨 共 ${rows.length} 筆明細彙總）`;
+        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（銷貨出庫 ${salesCnt} 組 / 在途出庫 ${transitCnt} 組）`;
         await loadTransitLedger();
     } catch(e) {
         statusEl.textContent = `❌ 匯入失敗：${e.message}`;
@@ -9260,10 +9269,11 @@ async function syncToTransitLedger(records) {
     const transits = (records || []).filter(r => r.分倉類型 === '再途銷貨' || r.分倉類型 === '銷貨');
     if (!transits.length) return;
 
-    // 與資料庫唯一鍵一致先彙總，避免同一天同批號多筆出庫被 ignore-duplicates 吃掉。
+    // 依分倉類型決定 source：銷貨→'銷貨出庫'，再途銷貨→'在途出庫'
     const aggMap = new Map();
     transits.forEach(r => {
-        const key = `${r.產品名稱}|${r.批號}|${r.出庫日期 || ''}|${r.period || ''}|原始出庫`;
+        const src = r.分倉類型 === '銷貨' ? '銷貨出庫' : '在途出庫';
+        const key = `${r.產品名稱}|${r.批號}|${r.出庫日期 || ''}|${r.period || ''}|${src}`;
         if (!aggMap.has(key)) {
             aggMap.set(key, {
                 product_name:  r.產品名稱,
@@ -9271,7 +9281,7 @@ async function syncToTransitLedger(records) {
                 outbound_date: r.出庫日期 || '',
                 original_qty:  0,
                 total_cost:    0,
-                source:        '原始出庫',
+                source:        src,
                 status:        '未核銷',
                 month_label:   r.month_label || '',
                 period:        r.period || '',
@@ -9521,7 +9531,7 @@ function _renderTransitTable() {
     const data = _sortRows(filtered, _transitSort);
     if (!data.length) { el.innerHTML = '<p style="text-align:center;color:#999;padding:2rem;">查無記錄</p>'; return; }
     const stCol = { '未核銷':'#ef4444', '部分核銷':'#f7a35c', '已核銷':'#22c55e' };
-    const srcCol = { '原始出庫':'#7ec8e3', '加工子件':'#c9a8e0' };
+    const srcCol = { '銷貨出庫':'#22c55e', '在途出庫':'#7ec8e3', '加工子件':'#c9a8e0', '歷史匯入':'#f7a35c' };
     const th = `padding:6px 10px;font-size:11px;font-weight:700;background:#f5f7ff;border-bottom:2px solid #dde6ef;white-space:nowrap;`;
     const thSort = (key, label, align='left') => `<th onclick="_transitSortBy('${key}')" style="${th}text-align:${align};cursor:pointer;user-select:none;">${label}${_sortArrow(_transitSort, key)}</th>`;
     const td = `padding:6px 10px;font-size:11px;border-bottom:1px solid #f0f4f8;white-space:nowrap;`;
@@ -9540,7 +9550,7 @@ function _renderTransitTable() {
     data.forEach((r,i) => {
         const bg = i%2===0?'#fff':'#fafbfc';
         const sc = stCol[r.status]||'#aaa';
-        const src = r.source||'原始出庫';
+        const src = r.source||'在途出庫';
         const srcC = srcCol[src]||'#aaa';
         const done = r.status === '已核銷' || Number(r.remaining_qty || 0) <= 0;
         const actionBtn = done
@@ -9714,7 +9724,7 @@ async function deleteTransitRow(id) {
     const row = (_transitRecords || []).find(r => String(r.id) === String(id));
     if (!row) { alert('找不到這筆在途資料，請先重新讀取台帳'); return; }
     if ((row.source || '') !== '加工子件') {
-        alert('目前只允許直接刪除加工子件，原始出庫請用核銷處理。');
+        alert('目前只允許直接刪除加工子件，在途出庫請用核銷處理。');
         return;
     }
     const name = `${row.product_name || ''} / ${row.batch_no || ''}`;
@@ -9769,7 +9779,17 @@ async function autoMatchTransitSales() {
         { headers: getSBHeaders() }
     );
     if (!resp.ok) throw new Error(await resp.text());
-    const pending = await resp.json();
+    const pendingRaw = await resp.json();
+
+    // ── 核銷優先順序：銷貨出庫 → 在途出庫（再途銷貨）→ 其他
+    //    同類型內依出庫日期 FIFO 排列
+    const srcOrder = s => s === '銷貨出庫' ? 0 : s === '在途出庫' ? 1 : 2;
+    const pending = [...pendingRaw].sort((a, b) => {
+        const so = srcOrder(a.source) - srcOrder(b.source);
+        if (so !== 0) return so;
+        return (a.outbound_date || '').localeCompare(b.outbound_date || '');
+    });
+
     const today = new Date().toISOString().slice(0,10);
 
     // ── DRY RUN：先計算所有變動，不寫入 Supabase ───────────────────
@@ -12140,7 +12160,7 @@ async function clearOutboundWithCheck() {
         // 3. 在途銷貨出庫筆數 vs 在途台帳筆數
         const r3a = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.再途銷貨&select=id`, { headers: h });
         const transitOutCount = (await r3a.json()).length;
-        const r3b = await fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=eq.原始出庫&select=id`, { headers: h });
+        const r3b = await fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=eq.在途出庫&select=id`, { headers: h });
         const transitLedCount = (await r3b.json()).length;
 
         // 4. 出庫記錄總筆數
