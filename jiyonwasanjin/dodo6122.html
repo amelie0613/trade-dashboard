@@ -9008,13 +9008,13 @@ async function confirmProcessingToLedgers(pgResults) {
     if (!pgResults || !pgResults.length) return;
     const status = document.getElementById('calculate_status') || { textContent:'' };
     status.textContent = '更新台帳中…';
-    let matUpdated = 0, transitAdded = 0, shortageCount = 0;
+    let matUpdated = 0, transitAdded = 0, stockFallbackCount = 0;
     const completed = [];
 
     for (const c of pgResults) {
         if (!c.allFound) continue; // 未完整配對的略過
 
-        // 先檢查所有母件剩餘量，並建立 FIFO 逐筆扣帳計畫。
+        // 建立 FIFO 逐筆扣帳計畫；台帳不足的差額視為由庫存補用，不阻擋加工入帳。
         const consumePlan = [];
         for (const m of c.mothers) {
             if (!m.found) continue;
@@ -9026,12 +9026,7 @@ async function confirmProcessingToLedgers(pgResults) {
             const rows = await resp.json();
             const available = rows.reduce((s, r) => s + (parseFloat(r.remaining_qty) || 0), 0);
             const needQty = parseFloat(m.qty) || 0;
-            if (available + 0.000001 < needQty) {
-                shortageCount++;
-                console.warn(`加工原料不足：${m.name}|${m.batch} 需要 ${needQty}，剩餘 ${available}`);
-                consumePlan.length = 0;
-                break;
-            }
+            if (available + 0.000001 < needQty) stockFallbackCount++;
 
             let left = needQty;
             for (const rec of rows) {
@@ -9043,7 +9038,6 @@ async function confirmProcessingToLedgers(pgResults) {
                 left -= qty;
             }
         }
-        if (!consumePlan.length && c.mothers.some(m => m.found)) continue;
 
         // 1. 每個母件 → FIFO 逐筆核銷；已用完的出庫列直接移除，只保留未核銷完的列。
         for (const item of consumePlan) {
@@ -9101,10 +9095,10 @@ async function confirmProcessingToLedgers(pgResults) {
             completed.push(c);
         }
     }
-    status.textContent = shortageCount
-        ? `⚠️ 台帳更新完成：原料扣減 ${matUpdated} 筆，子件轉入在途 ${transitAdded} 筆；${shortageCount} 筆因原料不足略過`
+    status.textContent = stockFallbackCount
+        ? `✅ 台帳更新完成：原料扣減 ${matUpdated} 筆，子件轉入在途 ${transitAdded} 筆；${stockFallbackCount} 筆台帳不足差額視為庫存補用`
         : `✅ 台帳更新完成：原料扣減 ${matUpdated} 筆，子件轉入在途 ${transitAdded} 筆`;
-    return { completed, skipped: shortageCount, matUpdated, transitAdded };
+    return { completed, skipped: 0, stockFallbackCount, matUpdated, transitAdded };
 }
 window.confirmProcessingToLedgers = confirmProcessingToLedgers;
 
