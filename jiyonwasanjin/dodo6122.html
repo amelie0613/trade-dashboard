@@ -1646,9 +1646,8 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           <button class="rsn-btn active" id="rsn-calc" onclick="switchPage('calc')">📋 租金計算</button>
           <button class="rsn-btn" id="rsn-ledger" onclick="switchPage('ledger')">📊 月結算總帳</button>
           <button class="rsn-btn" id="rsn-profit" onclick="switchPage('profit')">💹 利潤分析</button>
-          <button class="rsn-btn" id="rsn-pairing" onclick="switchPage('pairing')">📦 轉加工配對</button>
+          <button class="rsn-btn" id="rsn-pairing" onclick="switchPage('pairing')">📦 轉加工 / 原料台帳</button>
           <button class="rsn-btn" id="rsn-outbound" onclick="switchPage('outbound')">📋 出庫管理</button>
-          <button class="rsn-btn" id="rsn-proc-mat" onclick="switchPage('proc-mat')">🏭 加工原料台帳</button>
           <button class="rsn-btn" id="rsn-transit" onclick="switchPage('transit')">🚢 在途銷貨台帳</button>
         </div>
         <div class="rental-content">
@@ -1976,6 +1975,32 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 </div>
               </div>
 
+              <!-- 加工原料台帳 -->
+              <div style="margin-top:1.2rem;">
+                <div style="margin-bottom:1rem;">
+                  <h2 style="font-size:1.05rem;font-weight:800;color:#1a2540;margin:0;">🏭 加工原料台帳</h2>
+                  <p style="font-size:0.82rem;color:#64748b;margin:0.3rem 0 0;">追蹤加工原料出庫、逐筆加工核銷，只保留尚未核銷完的原料數量</p>
+                </div>
+                <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;margin-bottom:1rem;display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
+                  <button onclick="loadMaterialsLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
+                  <button onclick="importMaterialsFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入</button>
+                  <button onclick="resetMaterialsProcessed()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷加工</button>
+                  <div style="display:flex;gap:0.4rem;" id="mat_filter_btns">
+                    <button onclick="_matFilter('')"    class="mat-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">全部</button>
+                    <button onclick="_matFilter('未加工')" class="mat-filter-btn"      style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未加工</button>
+                    <button onclick="_matFilter('部分加工')" class="mat-filter-btn"   style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #f7a35c;background:#fffaf0;color:#f7a35c;font-size:0.78rem;font-weight:700;cursor:pointer;">部分加工</button>
+                    <button onclick="_matFilter('已完成')" class="mat-filter-btn"     style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #22c55e;background:#f0faf0;color:#22c55e;font-size:0.78rem;font-weight:700;cursor:pointer;">已完成</button>
+                  </div>
+                  <div id="mat_status" style="font-size:0.82rem;color:#64748b;"></div>
+                  <div id="mat_summary" style="display:flex;gap:0.5rem;margin-left:auto;flex-wrap:wrap;align-items:center;"></div>
+                </div>
+                <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;min-height:200px;">
+                  <div id="mat_table" style="overflow-x:auto;">
+                    <p style="text-align:center;color:#999;padding:2rem;font-size:0.85rem;">點擊「讀取台帳」載入加工原料清單</p>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div><!-- end page_pairing -->
 
@@ -2012,35 +2037,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             </div>
           </div><!-- end page_outbound -->
 
-          <!-- PAGE: 加工原料台帳 -->
-          <div id="page_proc-mat" style="display:none; padding:1rem;">
-            <div style="max-width:1400px; margin:0 auto;">
-              <div style="margin-bottom:1rem;">
-                <h2 style="font-size:1.15rem;font-weight:800;color:#1a2540;margin:0;">🏭 加工原料台帳</h2>
-                <p style="font-size:0.82rem;color:#64748b;margin:0.3rem 0 0;">追蹤所有加工原料的出庫紀錄與加工進度，剩餘數量滾動延續至下月</p>
-              </div>
-              <!-- 操作列 -->
-              <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;margin-bottom:1rem;display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
-                <button onclick="loadMaterialsLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
-                <button onclick="importMaterialsFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入</button>
-                <button onclick="resetMaterialsProcessed()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷加工</button>
-                <div style="display:flex;gap:0.4rem;" id="mat_filter_btns">
-                  <button onclick="_matFilter('')"    class="mat-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">全部</button>
-                  <button onclick="_matFilter('未加工')" class="mat-filter-btn"      style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未加工</button>
-                  <button onclick="_matFilter('部分加工')" class="mat-filter-btn"   style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #f7a35c;background:#fffaf0;color:#f7a35c;font-size:0.78rem;font-weight:700;cursor:pointer;">部分加工</button>
-                  <button onclick="_matFilter('已完成')" class="mat-filter-btn"     style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #22c55e;background:#f0faf0;color:#22c55e;font-size:0.78rem;font-weight:700;cursor:pointer;">已完成</button>
-                </div>
-                <div id="mat_status" style="font-size:0.82rem;color:#64748b;"></div>
-                <div id="mat_summary" style="display:flex;gap:0.5rem;margin-left:auto;flex-wrap:wrap;align-items:center;"></div>
-              </div>
-              <!-- 台帳表格 -->
-              <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;min-height:200px;">
-                <div id="mat_table" style="overflow-x:auto;">
-                  <p style="text-align:center;color:#999;padding:2rem;font-size:0.85rem;">點擊「讀取台帳」載入加工原料清單</p>
-                </div>
-              </div>
-            </div>
-          </div><!-- end page_proc-mat -->
+          <div id="page_proc-mat" style="display:none;"></div><!-- merged into page_pairing -->
 
           <!-- PAGE: 在途銷貨台帳 -->
           <div id="page_transit" style="display:none; padding:1rem;">
@@ -5442,6 +5439,7 @@ function syncDatePicker(textId, dateId) {
 
 // ===== 頁面切換 =====
 window.switchPage = function(page) {
+    if (page === 'proc-mat') page = 'pairing';
     // 隱藏所有頁面
     ['page_calc','page_ledger','page_profit','page_pairing','page_outbound','page_proc-mat','page_transit'].forEach(id => {
         const el = document.getElementById(id);
@@ -5472,7 +5470,7 @@ window.switchPage = function(page) {
     });
     if (page === 'ledger') refreshLedgerStatus();
     // Update rental subnav buttons
-    ['calc','ledger','profit','pairing','outbound','proc-mat','transit'].forEach(p => {
+    ['calc','ledger','profit','pairing','outbound','transit'].forEach(p => {
         const rsnBtn = document.getElementById('rsn-'+p);
         if(rsnBtn) rsnBtn.classList.toggle('active', p===page);
     });
