@@ -10550,6 +10550,22 @@ async function calcProfit() {
             document.getElementById('rental_result_status').textContent = '';
         }
 
+        // 第2.5層：從在途銷貨台帳讀取 unit_price，補充租金來源
+        const transitPriceMap = {};
+        try {
+            const tResp = await fetch(
+                `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=product_name,batch_no,unit_price&unit_price=gt.0`,
+                { headers: getSBHeaders() }
+            );
+            if (tResp.ok) {
+                const tRows = await tResp.json();
+                tRows.forEach(r => {
+                    const key = `${String(r.product_name||'').trim()}|${String(r.batch_no||'').trim()}`;
+                    if (!transitPriceMap[key]) transitPriceMap[key] = r.unit_price;
+                });
+            }
+        } catch(_) {}
+
         // 第3層：讀取加工單，計算每個子件批號的租金單價
         // 邏輯：母件名稱+批號 → 查 rentalPriceMap 得分攤單價 → × 母件數量 = 母件租金成本
         //       相同子件批號的所有母件租金成本加總 ÷ 子件總數量 = 子件租金單價
@@ -10629,6 +10645,11 @@ async function calcProfit() {
             else if (rentalPriceMap[key]) {
                 rentPrice = rentalPriceMap[key];
                 rentSource = '租金結果';
+            }
+            // 查在途銷貨台帳
+            else if (transitPriceMap[key]) {
+                rentPrice = transitPriceMap[key];
+                rentSource = '在途台帳';
             }
             // 查總帳
             else if (ledgerPriceMap[key]) {
