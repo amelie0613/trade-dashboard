@@ -2102,6 +2102,9 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <div id="transit_status" style="font-size:0.82rem;color:#64748b;"></div>
                 <div id="transit_summary" style="display:flex;gap:0.5rem;margin-left:auto;flex-wrap:wrap;align-items:center;"></div>
               </div>
+              <!-- 比對預覽確認區（比對後顯示，確認才寫入）-->
+              <div id="transit_preview" style="display:none;background:white;border:2px solid #6878C0;border-radius:12px;padding:1rem 1.2rem;margin-bottom:1rem;"></div>
+
               <!-- 台帳表格 -->
               <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;min-height:200px;">
                 <div id="transit_table" style="overflow-x:auto;">
@@ -9519,10 +9522,12 @@ function _renderTransitTable() {
     const th = `padding:6px 10px;font-size:11px;font-weight:700;background:#f5f7ff;border-bottom:2px solid #dde6ef;white-space:nowrap;`;
     const thSort = (key, label, align='left') => `<th onclick="_transitSortBy('${key}')" style="${th}text-align:${align};cursor:pointer;user-select:none;">${label}${_sortArrow(_transitSort, key)}</th>`;
     const td = `padding:6px 10px;font-size:11px;border-bottom:1px solid #f0f4f8;white-space:nowrap;`;
+    const periodMap = window._periodOffsetMap || {};
     let html = `<table style="width:100%;border-collapse:collapse;">
       <thead><tr>
         ${thSort('product_name','產品名稱')}${thSort('batch_no','批號')}${thSort('outbound_date','出庫日期')}
-        ${thSort('original_qty','原始數量','right')}${thSort('offset_qty','已核銷','right')}
+        ${thSort('original_qty','原始數量','right')}${thSort('offset_qty','累計核銷','right')}
+        <th style="${th}text-align:right;color:#6878C0;background:#eef3fd;">本期核銷</th>
         ${thSort('remaining_qty','剩餘數量','right')}${thSort('unit_price','單價','right')}
         ${thSort('total_cost','總成本','right')}${thSort('source','來源')}
         ${thSort('status','狀態')}${thSort('last_offset_date','最後核銷')}${thSort('id','操作')}
@@ -9539,12 +9544,17 @@ function _renderTransitTable() {
         const deleteBtn = src === '加工子件'
           ? `<button onclick="deleteTransitRow('${r.id}')" style="margin-left:4px;padding:2px 8px;border:1px solid #ef4444;background:#fff5f5;color:#ef4444;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;">刪除</button>`
           : '';
+        const periodQty = periodMap[String(r.id)];
+        const periodCell = periodQty != null
+          ? `<span style="color:#6878C0;font-weight:800;">+${Number(periodQty).toLocaleString()}</span>`
+          : '<span style="color:#d1d5db;">—</span>';
         html += `<tr style="background:${bg}">
           <td style="${td}font-weight:600">${r.product_name}</td>
           <td style="${td}font-family:monospace;font-size:10px;color:#6878C0">${r.batch_no}</td>
           <td style="${td}">${r.outbound_date||''}</td>
           <td style="${td}text-align:right">${(r.original_qty||0).toLocaleString()}</td>
           <td style="${td}text-align:right">${(r.offset_qty||0).toLocaleString()}</td>
+          <td style="${td}text-align:right;background:#f8f6ff;">${periodCell}</td>
           <td style="${td}text-align:right;font-weight:700;color:${r.remaining_qty>0?'#ef4444':'#22c55e'}">${(r.remaining_qty||0).toLocaleString()}</td>
           <td style="${td}text-align:right">${r.unit_price>0?'$'+Number(r.unit_price).toFixed(4):'-'}</td>
           <td style="${td}text-align:right">${r.total_cost>0?'$'+Number(r.total_cost).toLocaleString():'-'}</td>
@@ -9692,32 +9702,37 @@ async function autoMatchTransitSales() {
     const batchCol = (document.getElementById('pcol_batch')?.value || '批號').trim();
     const qtyCol   = (document.getElementById('pcol_qty')?.value   || '數量').trim();
 
-    statusEl.textContent = '比對中…';
+    statusEl.textContent = '⏳ 比對計算中，請稍候…';
 
     // 建立利潤分析索引：key = 產品名稱|批號 → 累計銷售數量
+    // 注意：數量欄位可能含千分位逗號（如 "2,000.00000"），需先移除再解析
     const profitMap = {};
     profitCalcData.forEach(r => {
         const key = `${(r[nameCol]||'').trim()}|${(r[batchCol]||'').trim()}`;
-        profitMap[key] = (profitMap[key] || 0) + Math.abs(parseFloat(r[qtyCol]) || 0);
+        const qty = Math.abs(parseFloat(String(r[qtyCol]||'').replace(/,/g,'')) || 0);
+        profitMap[key] = (profitMap[key] || 0) + qty;
     });
 
-    // 讀取在途銷貨台帳（未核銷 + 部分核銷），用 FIFO 逐筆消耗銷售數量。
+    // 讀取在途銷貨台帳（未核銷 + 部分核銷）
     const resp = await fetch(
         `${SUPABASE_URL}/rest/v1/transit_sales_ledger?status=neq.已核銷&select=*&order=outbound_date.asc,id.asc`,
         { headers: getSBHeaders() }
     );
     if (!resp.ok) throw new Error(await resp.text());
     const pending = await resp.json();
-    let matched = 0, offsetQtyTotal = 0;
     const today = new Date().toISOString().slice(0,10);
+
+    // ── DRY RUN：先計算所有變動，不寫入 Supabase ───────────────────
+    const profitMapCopy = { ...profitMap };
+    const plannedChanges = [];
 
     for (const rec of pending) {
         const key = `${rec.product_name}|${rec.batch_no}`;
-        let saleQtyLeft = profitMap[key] || 0;
+        let saleQtyLeft = profitMapCopy[key] || 0;
         if (saleQtyLeft <= 0) continue;
 
-        const originalQty  = parseFloat(rec.original_qty) || 0;
-        const currentOffset = parseFloat(rec.offset_qty) || 0;
+        const originalQty     = parseFloat(rec.original_qty) || 0;
+        const currentOffset   = parseFloat(rec.offset_qty)   || 0;
         const currentRemaining = Math.max(0, originalQty - currentOffset);
         const consumeQty = Math.min(saleQtyLeft, currentRemaining);
         if (consumeQty <= 0) continue;
@@ -9726,28 +9741,142 @@ async function autoMatchTransitSales() {
         const newRemaining = Math.max(0, originalQty - newOffset);
         const newStatus    = _transitStatus(rec.original_qty, newOffset);
 
-        await fetch(
-            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${rec.id}`,
-            {
-                method: 'PATCH',
-                headers: { ...getSBHeaders(), 'Prefer':'return=minimal' },
-                body: JSON.stringify({
-                    offset_qty:       newOffset,
-                    remaining_qty:    newRemaining,
-                    status:           newStatus,
-                    last_offset_date: today,
-                })
-            }
-        );
-        profitMap[key] = saleQtyLeft - consumeQty;
-        offsetQtyTotal += consumeQty;
-        matched++;
+        plannedChanges.push({
+            id: rec.id,
+            product_name:   rec.product_name,
+            batch_no:       rec.batch_no,
+            outbound_date:  rec.outbound_date,
+            original_qty:   originalQty,
+            old_offset:     currentOffset,
+            old_remaining:  currentRemaining,
+            old_status:     rec.status,
+            consume_qty:    consumeQty,
+            new_offset:     newOffset,
+            new_remaining:  newRemaining,
+            new_status:     newStatus,
+        });
+        profitMapCopy[key] = saleQtyLeft - consumeQty;
     }
 
-    statusEl.textContent = `✅ 比對完成：核銷 ${matched} 筆，數量 ${offsetQtyTotal.toLocaleString()}`;
-    await loadTransitLedger();
+    // ── 顯示預覽確認面板 ─────────────────────────────────────────────
+    window._transitPendingChanges = plannedChanges;
+    _showTransitPreview(plannedChanges, today, statusEl);
 }
 window.autoMatchTransitSales = autoMatchTransitSales;
+
+// 顯示比對預覽 —— 等待使用者確認後才寫入
+function _showTransitPreview(changes, today, statusEl) {
+    const previewEl = document.getElementById('transit_preview');
+    if (!previewEl) return;
+
+    if (!changes.length) {
+        statusEl.textContent = '✅ 比對完成：無需更新的記錄';
+        previewEl.style.display = 'none';
+        return;
+    }
+
+    const totalConsume = changes.reduce((s, c) => s + c.consume_qty, 0);
+    statusEl.textContent = `📋 比對完成：找到 ${changes.length} 筆待更新，請確認後再寫入`;
+
+    const statusColor = s => s === '已核銷' ? '#22c55e' : s === '部分核銷' ? '#f7a35c' : '#ef4444';
+    const fmt = n => Number(n).toLocaleString(undefined, {maximumFractionDigits: 2});
+
+    previewEl.style.display = '';
+    previewEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem;">
+        <div>
+          <span style="font-weight:800;color:#6878C0;font-size:0.95rem;">📋 核銷預覽 — 請確認無誤後再寫入</span>
+          <span style="font-size:0.78rem;color:#94a3b8;margin-left:0.6rem;">共 ${changes.length} 筆，合計核銷數量 ${fmt(totalConsume)}</span>
+        </div>
+        <div style="display:flex;gap:0.5rem;">
+          <button onclick="_commitTransitChanges()" style="padding:0.45rem 1.2rem;background:#22c55e;color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;font-size:0.88rem;box-shadow:0 2px 6px rgba(34,197,94,.3);">✅ 確認寫入 Supabase</button>
+          <button onclick="_cancelTransitPreview()" style="padding:0.45rem 1rem;background:#ef4444;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">✖ 取消</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.79rem;">
+          <thead>
+            <tr style="background:#eef3fd;text-align:left;">
+              <th style="padding:0.45rem 0.6rem;white-space:nowrap;border-bottom:2px solid #c7d9f0;">產品名稱</th>
+              <th style="padding:0.45rem 0.6rem;white-space:nowrap;border-bottom:2px solid #c7d9f0;">批號</th>
+              <th style="padding:0.45rem 0.6rem;white-space:nowrap;border-bottom:2px solid #c7d9f0;">出庫日期</th>
+              <th style="padding:0.45rem 0.6rem;text-align:right;border-bottom:2px solid #c7d9f0;">原始數量</th>
+              <th style="padding:0.45rem 0.6rem;text-align:right;border-bottom:2px solid #c7d9f0;">舊核銷量</th>
+              <th style="padding:0.45rem 0.6rem;text-align:right;color:#6878C0;border-bottom:2px solid #c7d9f0;">＋本次核銷</th>
+              <th style="padding:0.45rem 0.6rem;text-align:right;border-bottom:2px solid #c7d9f0;">新核銷量</th>
+              <th style="padding:0.45rem 0.6rem;text-align:right;border-bottom:2px solid #c7d9f0;">剩餘</th>
+              <th style="padding:0.45rem 0.6rem;text-align:center;border-bottom:2px solid #c7d9f0;">舊狀態→新狀態</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${changes.map(c => `
+              <tr style="border-bottom:1px solid #f0f4f8;">
+                <td style="padding:0.4rem 0.6rem;font-weight:600;">${c.product_name}</td>
+                <td style="padding:0.4rem 0.6rem;font-family:monospace;color:#6878C0;font-size:0.75rem;">${c.batch_no}</td>
+                <td style="padding:0.4rem 0.6rem;white-space:nowrap;color:#64748b;">${c.outbound_date||'—'}</td>
+                <td style="padding:0.4rem 0.6rem;text-align:right;">${fmt(c.original_qty)}</td>
+                <td style="padding:0.4rem 0.6rem;text-align:right;color:#94a3b8;">${fmt(c.old_offset)}</td>
+                <td style="padding:0.4rem 0.6rem;text-align:right;color:#6878C0;font-weight:700;">+${fmt(c.consume_qty)}</td>
+                <td style="padding:0.4rem 0.6rem;text-align:right;font-weight:700;">${fmt(c.new_offset)}</td>
+                <td style="padding:0.4rem 0.6rem;text-align:right;color:${c.new_remaining>0?'#ef4444':'#22c55e'};font-weight:700;">${fmt(c.new_remaining)}</td>
+                <td style="padding:0.4rem 0.6rem;text-align:center;white-space:nowrap;">
+                  <span style="color:${statusColor(c.old_status)};font-size:0.72rem;font-weight:700;">${c.old_status}</span>
+                  <span style="color:#94a3b8;margin:0 3px;">→</span>
+                  <span style="color:${statusColor(c.new_status)};font-size:0.72rem;font-weight:700;">${c.new_status}</span>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+}
+
+async function _commitTransitChanges() {
+    const changes = window._transitPendingChanges || [];
+    if (!changes.length) return;
+    const statusEl = document.getElementById('transit_status');
+    const previewEl = document.getElementById('transit_preview');
+    const today = new Date().toISOString().slice(0,10);
+
+    statusEl.textContent = '⏳ 寫入 Supabase 中…';
+    try {
+        await Promise.all(changes.map(c =>
+            fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${c.id}`, {
+                method: 'PATCH',
+                headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                body: JSON.stringify({
+                    offset_qty:       c.new_offset,
+                    remaining_qty:    c.new_remaining,
+                    status:           c.new_status,
+                    last_offset_date: today,
+                })
+            })
+        ));
+        const total = changes.reduce((s, c) => s + c.consume_qty, 0);
+        statusEl.textContent = `✅ 寫入完成：${changes.length} 筆已更新，本期核銷數量 ${Number(total).toLocaleString()}`;
+
+        // 儲存本期核銷量到記憶體，供台帳表格顯示「本期核銷」欄位
+        if (!window._periodOffsetMap) window._periodOffsetMap = {};
+        changes.forEach(c => {
+            window._periodOffsetMap[c.id] = (window._periodOffsetMap[c.id] || 0) + c.consume_qty;
+        });
+
+        window._transitPendingChanges = [];
+        if (previewEl) previewEl.style.display = 'none';
+        await loadTransitLedger();
+    } catch(e) {
+        statusEl.textContent = `❌ 寫入失敗：${e.message}`;
+    }
+}
+window._commitTransitChanges = _commitTransitChanges;
+
+function _cancelTransitPreview() {
+    window._transitPendingChanges = [];
+    const previewEl = document.getElementById('transit_preview');
+    if (previewEl) previewEl.style.display = 'none';
+    const statusEl = document.getElementById('transit_status');
+    if (statusEl) statusEl.textContent = '已取消，Supabase 資料未變動';
+}
+window._cancelTransitPreview = _cancelTransitPreview;
 
 async function resetTransitOffset() {
     if (!confirm('確定要撤銷所有核銷記錄？\n所有「部分核銷」與「已核銷」的資料將還原為「未核銷」。')) return;
@@ -9777,6 +9906,7 @@ async function resetTransitOffset() {
             })
         ));
         statusEl.textContent = `✅ 撤銷完成：${records.length} 筆已還原為未核銷`;
+        window._periodOffsetMap = {}; // 清除本期核銷記錄
         await loadTransitLedger();
     } catch (e) {
         statusEl.textContent = `❌ 撤銷失敗：${e.message}`;
