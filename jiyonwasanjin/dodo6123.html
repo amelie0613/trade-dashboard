@@ -1944,8 +1944,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                     <input type="checkbox" id="profit_show_unmatched" onchange="applyProfitFilter()"> 只顯示未比對
                   </label>
                   <span id="profit_filter_note" style="font-size:0.8rem; color:#999;"></span>
-                  <button id="btn_outbound_comp" onclick="toggleOutboundComparison()" style="padding:0.35rem 0.9rem; font-size:0.8rem; border:none; border-radius:6px; background:#6878C0; color:#fff; cursor:pointer; font-weight:700; margin-left:0.4rem;">📊 帶入銷貨比對</button>
-                  <span id="profit_comp_note" style="font-size:0.78rem; color:#6878C0;"></span>
                 </div>
                 <div id="profit_results">
                   <p style="color:#999; text-align:center; padding:2rem;">上傳利潤明細表後點擊「試算租金費用」</p>
@@ -2089,7 +2087,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
               <!-- 操作列 -->
               <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;margin-bottom:1rem;display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
                 <button onclick="loadTransitLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
-                <button onclick="importTransitFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入</button>
+                <button onclick="importTransitFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入（銷貨＋再途銷貨）</button>
                 <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
                 <button onclick="runSalesReconciliation()" style="padding:0.5rem 1.2rem;background:#7c3aed;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="扣除加工原料＋在途銷貨後，與利潤分析比對數量金額">📊 銷貨核對</button>
                 <button onclick="cleanupTransitDuplicates()" style="padding:0.5rem 1.2rem;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🧹 清理重複</button>
@@ -8946,14 +8944,15 @@ async function importTransitFromOutbound() {
     const statusEl = document.getElementById('transit_status');
     statusEl.textContent = '讀取出庫記錄中…';
     try {
-        // 1. 取出庫記錄（再途銷貨）
-        const outResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.再途銷貨&select=*`,
-            { headers: getSBHeaders() }
-        );
-        if (!outResp.ok) throw new Error(await outResp.text());
-        const rows = await outResp.json();
-        if (!rows.length) { statusEl.textContent = '出庫記錄中找不到再途銷貨類型的記錄'; return; }
+        // 1. 取出庫記錄（銷貨 + 再途銷貨 兩種類型都匯入台帳）
+        const [resp1, resp2] = await Promise.all([
+            fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.銷貨&select=*`, { headers: getSBHeaders() }),
+            fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.再途銷貨&select=*`, { headers: getSBHeaders() }),
+        ]);
+        if (!resp1.ok) throw new Error(await resp1.text());
+        if (!resp2.ok) throw new Error(await resp2.text());
+        const rows = [...(await resp1.json()), ...(await resp2.json())];
+        if (!rows.length) { statusEl.textContent = '出庫記錄中找不到銷貨或再途銷貨類型的記錄'; return; }
 
         // 2. 取台帳現有記錄（保留核銷進度）
         const ledResp = await fetch(
@@ -9044,7 +9043,7 @@ async function importTransitFromOutbound() {
             });
         }));
 
-        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（共彙總 ${rows.length} 筆明細）`;
+        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（銷貨+再途銷貨 共 ${rows.length} 筆明細彙總）`;
         await loadTransitLedger();
     } catch(e) {
         statusEl.textContent = `❌ 匯入失敗：${e.message}`;
@@ -9256,9 +9255,9 @@ async function doImportTransitExcel(parsed) {
 }
 window.doImportTransitExcel = doImportTransitExcel;
 
-// ── 同步：出庫記錄 → 在途銷貨台帳 ────────────────────────────────
+// ── 同步：出庫記錄 → 在途銷貨台帳（銷貨 + 再途銷貨 兩種類型）────────
 async function syncToTransitLedger(records) {
-    const transits = (records || []).filter(r => r.分倉類型 === '再途銷貨');
+    const transits = (records || []).filter(r => r.分倉類型 === '再途銷貨' || r.分倉類型 === '銷貨');
     if (!transits.length) return;
 
     // 與資料庫唯一鍵一致先彙總，避免同一天同批號多筆出庫被 ignore-duplicates 吃掉。
@@ -11240,200 +11239,6 @@ function renderProfitTable() {
 }
 window.applyProfitFilter = renderProfitTable;
 
-// ── 銷貨核對面板（獨立呈現，仿在途台帳預覽風格）─────────────────────
-function _renderSalesCompPanel() {
-    const nameCol  = document.getElementById('pcol_name')?.value.trim()  || '產品名稱';
-    const batchCol = document.getElementById('pcol_batch')?.value.trim() || '批號';
-    const qtyCol   = document.getElementById('pcol_qty')?.value.trim()   || '數量';
-
-    // 1. 出庫彙總 map（銷貨 only）: key → total qty
-    const outboundMap = {};
-    // 出庫明細 map: key → [{出庫日期, 數量, 備註}]
-    const outboundDetailMap = {};
-    (window._outboundRecords || []).forEach(rec => {
-        const wType = rec.分倉類型 || _autoWarehouseType(rec.出庫類型 || '', rec.備註 || '');
-        if (wType !== '銷貨') return;
-        const name  = String(rec.產品名稱 || '').trim();
-        const batch = String(rec.批號 || '').trim();
-        const qty   = Math.abs(parseFloat(String(rec.出庫數量 ?? 0).toString().replace(/,/g,'')) || 0);
-        const key   = `${name}|${batch}`;
-        outboundMap[key] = (outboundMap[key] || 0) + qty;
-        if (!outboundDetailMap[key]) outboundDetailMap[key] = [];
-        outboundDetailMap[key].push({ date: rec.出庫日期 || '', qty, note: rec.備註 || '' });
-    });
-
-    // 2. 利潤彙總 map: key → total qty
-    //    利潤專案 map: key → { projectName → qty }
-    const profitQtyMap = {};
-    const profitProjMap = {};  // key → { 專案名稱 → qty }
-    profitCalcData.forEach(r => {
-        const name  = String(r[nameCol] || '').trim();
-        const batch = String(r[batchCol] || '').trim();
-        const qty   = parseFloat(String(r[qtyCol] ?? '').replace(/,/g,'')) || 0;
-        const key   = `${name}|${batch}`;
-        profitQtyMap[key] = (profitQtyMap[key] || 0) + qty;
-        if (!profitProjMap[key]) profitProjMap[key] = {};
-        const proj = String(r['專案名稱'] || r['專案'] || '').trim() || '(未知專案)';
-        profitProjMap[key][proj] = (profitProjMap[key][proj] || 0) + qty;
-    });
-
-    // 3. 統計
-    let cntOk = 0, cntDiff = 0, cntMissing = 0;
-    const obKeys = Object.keys(outboundMap);
-    obKeys.forEach(k => {
-        if (profitQtyMap[k] === undefined) { cntMissing++; return; }
-        const diff = profitQtyMap[k] - outboundMap[k];
-        if (Math.abs(diff) < 0.001) cntOk++; else cntDiff++;
-    });
-
-    // 4. 出庫有但利潤找不到
-    const missingInProfit = obKeys.filter(k => profitQtyMap[k] === undefined);
-
-    const thStyle = 'padding:6px 10px; white-space:nowrap; font-size:0.78rem; font-weight:700; border-bottom:2px solid #d8d0f0; background:#ede9ff; color:#5048a0; text-align:center;';
-    const tdBase  = 'padding:5px 10px; font-size:0.82rem; border-bottom:1px solid #f0eeff; vertical-align:middle;';
-
-    let html = `
-    <div id="sales_comp_panel" style="margin-top:1.5rem; border:2px solid #6878C0; border-radius:14px; overflow:hidden;">
-      <div style="background:linear-gradient(90deg,#6878C0,#8a7ed8); padding:0.75rem 1.2rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
-        <span style="font-size:1rem; font-weight:800; color:#fff;">📊 銷貨核對報告</span>
-        <span style="font-size:0.82rem; color:#e0d8ff;">共 ${obKeys.length} 組（產品＋批號）</span>
-        <span style="background:#d4f7dc; color:#2a7a3a; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:700;">✅ 一致 ${cntOk}</span>
-        <span style="background:#ffd8d8; color:#a03030; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:700;">❌ 差異 ${cntDiff}</span>
-        ${missingInProfit.length > 0 ? `<span style="background:#fff0b0; color:#7a5a00; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:700;">⚠️ 利潤表無此品 ${missingInProfit.length}</span>` : ''}
-      </div>
-      <div style="overflow-x:auto;">
-      <table style="width:100%; border-collapse:collapse; font-size:13px;">
-        <thead><tr>
-          <th style="${thStyle} text-align:left;">產品名稱</th>
-          <th style="${thStyle}">批號</th>
-          <th style="${thStyle}">出庫數量</th>
-          <th style="${thStyle}">利潤合計數量</th>
-          <th style="${thStyle}">數量差異</th>
-          <th style="${thStyle}">比對狀態</th>
-          <th style="${thStyle} text-align:left;">比對到的利潤專案</th>
-        </tr></thead>
-        <tbody>`;
-
-    // 排序：先顯示差異，再一致，再無利潤
-    const sortedKeys = [...obKeys].sort((a, b) => {
-        const getOrder = k => {
-            if (profitQtyMap[k] === undefined) return 2;
-            return Math.abs((profitQtyMap[k] || 0) - outboundMap[k]) < 0.001 ? 1 : 0;
-        };
-        return getOrder(a) - getOrder(b);
-    });
-
-    sortedKeys.forEach(k => {
-        const parts = k.indexOf('|');
-        const pName  = k.slice(0, parts);
-        const pBatch = k.slice(parts + 1);
-        const obQty  = outboundMap[k];
-        const prQty  = profitQtyMap[k];
-        const diff   = prQty !== undefined ? prQty - obQty : null;
-        const isOk   = diff !== null && Math.abs(diff) < 0.001;
-        const isMiss = prQty === undefined;
-
-        const rowBg = isMiss ? '#fffce8' : isOk ? '' : '#fff5f5';
-
-        // 利潤專案清單
-        let projHtml = '';
-        if (!isMiss && profitProjMap[k]) {
-            const entries = Object.entries(profitProjMap[k]).sort((a,b) => b[1]-a[1]);
-            projHtml = entries.map(([proj, q]) =>
-                `<span style="display:inline-block; margin:1px 3px 1px 0; background:#ede9ff; color:#5048a0; border-radius:4px; padding:1px 6px; font-size:0.75rem; white-space:nowrap;">${proj} <b>(${q.toLocaleString()})</b></span>`
-            ).join('');
-        }
-
-        let statusHtml = '';
-        if (isMiss) {
-            statusHtml = `<td style="${tdBase} text-align:center; background:#fff8d0;"><span style="color:#b07020; font-weight:800; font-size:0.82rem;">⚠️ 利潤表無此品</span></td>`;
-        } else if (isOk) {
-            statusHtml = `<td style="${tdBase} text-align:center; background:#f0fff5;"><span style="color:#2a7a3a; font-weight:800; font-size:0.9rem;">✅ 一致</span></td>`;
-        } else {
-            statusHtml = `<td style="${tdBase} text-align:center; background:#fff0f0;"><span style="color:#c03030; font-weight:800; font-size:0.9rem;">❌ 差異</span></td>`;
-        }
-
-        html += `<tr style="background:${rowBg};">
-          <td style="${tdBase} font-weight:700; color:#1a2540;">${pName}</td>
-          <td style="${tdBase} text-align:center; color:#6878C0; font-size:0.78rem;">${pBatch}</td>
-          <td style="${tdBase} text-align:right; font-weight:700; color:#5048a0;">${obQty.toLocaleString()}</td>
-          <td style="${tdBase} text-align:right; color:#444;">${prQty !== undefined ? prQty.toLocaleString() : '<span style="color:#bbb;">—</span>'}</td>
-          <td style="${tdBase} text-align:right; font-weight:800; color:${isOk?'#2a7a3a':isMiss?'#bbb':'#c03030'};">
-            ${diff === null ? '<span style="color:#bbb;">—</span>' : (diff >= 0 ? '+' : '') + diff.toLocaleString()}
-          </td>
-          ${statusHtml}
-          <td style="${tdBase}">${projHtml || '<span style="color:#bbb; font-size:0.75rem;">—</span>'}</td>
-        </tr>`;
-    });
-
-    html += `</tbody></table></div></div>`;
-
-    // 插入到 profit_results 後面（或替換舊的 panel）
-    const existing = document.getElementById('sales_comp_panel');
-    if (existing) existing.remove();
-    const resultsDiv = document.getElementById('profit_results');
-    if (resultsDiv) resultsDiv.insertAdjacentHTML('afterend', html);
-}
-
-async function toggleOutboundComparison() {
-    if (!profitCalcData || profitCalcData.length === 0) {
-        alert('請先試算利潤分析（點擊「試算租金費用」）');
-        return;
-    }
-
-    const btn      = document.getElementById('btn_outbound_comp');
-    const compNote = document.getElementById('profit_comp_note');
-
-    // 如果要開啟比對，但記憶體裡沒有出庫記錄 → 自動從 Supabase 抓
-    const needFetch = !window._showOutboundComparison &&
-                      (!Array.isArray(window._outboundRecords) || window._outboundRecords.length === 0);
-    if (needFetch) {
-        if (btn) { btn.textContent = '⏳ 載入出庫中…'; btn.disabled = true; btn.style.background = '#999'; }
-        if (compNote) compNote.textContent = '正在從 Supabase 讀取出庫記錄…';
-        try {
-            const url = `${SUPABASE_URL}/rest/v1/outbound_records?select=*&order=outbound_date.asc,product_name.asc`;
-            const resp = await fetch(url, { headers: getSBHeaders() });
-            if (!resp.ok) throw new Error(await resp.text());
-            const rows = await resp.json();
-            window._outboundRecords = rows.map(r => ({
-                _id:      r.id,
-                產品名稱: r.product_name,
-                批號:     r.batch_no,
-                出庫日期: r.outbound_date,
-                出庫類型: r.outbound_type,
-                業務屬性: r.biz_type,
-                出庫數量: r.quantity,
-                分攤單價: r.allocated_price,
-                出庫金額: r.outbound_amount,
-                備註:     r.notes || '',
-                month_label: r.month_label,
-                period:   r.period,
-                分倉類型: r.warehouse_type || _autoWarehouseType(r.outbound_type, r.notes),
-            }));
-            if (compNote) compNote.textContent = `✅ 已從 Supabase 載入 ${rows.length} 筆出庫記錄`;
-        } catch(e) {
-            if (btn) { btn.textContent = '📊 帶入銷貨比對'; btn.disabled = false; btn.style.background = '#6878C0'; }
-            if (compNote) compNote.textContent = `❌ Supabase 讀取失敗：${e.message}`;
-            return;
-        } finally {
-            if (btn) btn.disabled = false;
-        }
-    }
-
-    window._showOutboundComparison = !window._showOutboundComparison;
-
-    if (window._showOutboundComparison) {
-        if (btn) { btn.textContent = '🔴 隱藏銷貨比對'; btn.style.background = '#e05a5a'; }
-        if (compNote) compNote.textContent = '';
-        _renderSalesCompPanel();
-    } else {
-        if (btn) { btn.textContent = '📊 帶入銷貨比對'; btn.style.background = '#6878C0'; }
-        if (compNote) compNote.textContent = '';
-        const panel = document.getElementById('sales_comp_panel');
-        if (panel) panel.remove();
-    }
-}
-window.toggleOutboundComparison = toggleOutboundComparison;
 
 async function exportProfit() {
     if (!profitCalcData || profitCalcData.length === 0) { alert('請先試算'); return; }
