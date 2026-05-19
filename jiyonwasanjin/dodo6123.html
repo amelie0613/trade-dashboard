@@ -2089,6 +2089,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <button onclick="loadTransitLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
                 <button onclick="importTransitFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入</button>
                 <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
+                <button onclick="runSalesReconciliation()" style="padding:0.5rem 1.2rem;background:#7c3aed;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="扣除加工原料＋在途銷貨後，與利潤分析比對數量金額">📊 銷貨核對</button>
                 <button onclick="cleanupTransitDuplicates()" style="padding:0.5rem 1.2rem;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🧹 清理重複</button>
                 <button onclick="resetTransitOffset()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷核銷</button>
                 <button onclick="document.getElementById('transitHistoryFileInput').click()" style="padding:0.5rem 1.2rem;background:#764ba2;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📂 匯入歷史 Excel</button>
@@ -9744,12 +9745,21 @@ async function autoMatchTransitSales() {
     statusEl.textContent = '⏳ 比對計算中，請稍候…';
 
     // 建立利潤分析索引：key = 產品名稱|批號 → 累計銷售數量
+    // 同步記錄每個 key 關聯的專案清單，供預覽表顯示「比對專案」
     // 注意：數量欄位可能含千分位逗號（如 "2,000.00000"），需先移除再解析
     const profitMap = {};
+    const profitDetailMap = {}; // key → [{專案, 專案名稱, 銷貨日期, qty}]
     profitCalcData.forEach(r => {
         const key = `${(r[nameCol]||'').trim()}|${(r[batchCol]||'').trim()}`;
         const qty = Math.abs(parseFloat(String(r[qtyCol]||'').replace(/,/g,'')) || 0);
         profitMap[key] = (profitMap[key] || 0) + qty;
+        if (!profitDetailMap[key]) profitDetailMap[key] = [];
+        profitDetailMap[key].push({
+            proj:     String(r['專案']     || r['project']      || '').trim(),
+            projName: String(r['專案名稱'] || r['project_name'] || '').trim(),
+            date:     String(r['銷貨日期'] || r['sale_date']    || '').trim(),
+            qty,
+        });
     });
 
     // 讀取在途銷貨台帳（未核銷 + 部分核銷）
@@ -9793,6 +9803,7 @@ async function autoMatchTransitSales() {
             new_offset:     newOffset,
             new_remaining:  newRemaining,
             new_status:     newStatus,
+            profit_projects: profitDetailMap[key] || [],  // 比對到的利潤專案
         });
         profitMapCopy[key] = saleQtyLeft - consumeQty;
     }
@@ -9858,12 +9869,22 @@ function _renderTransitPreviewTable() {
             <th style="${th}text-align:right;">新核銷量</th>
             <th style="${th}text-align:right;">剩餘</th>
             <th style="${th}text-align:center;">狀態變化</th>
+            <th style="${th}color:#7c3aed;">比對到的利潤專案</th>
           </tr></thead>
           <tbody>
             ${changes.map((c, idx) => {
               const newOff = c.old_offset + c.consume_qty;
               const newRem = Math.max(0, c.original_qty - newOff);
               const newSt  = _transitStatus(c.original_qty, newOff);
+              // 整理比對到的專案清單
+              const projs = c.profit_projects || [];
+              const projHtml = projs.length
+                ? projs.map(p => {
+                    const label = p.projName || p.proj || '—';
+                    const tip   = p.date ? `銷貨日期：${p.date}　數量：${Number(p.qty).toLocaleString()}` : `數量：${Number(p.qty).toLocaleString()}`;
+                    return `<div title="${tip}" style="font-size:0.7rem;color:#7c3aed;line-height:1.5;white-space:nowrap;">${label}<span style="color:#94a3b8;margin-left:3px;">(${Number(p.qty).toLocaleString()})</span></div>`;
+                  }).join('')
+                : `<span style="color:#d1d5db;font-size:0.7rem;">—</span>`;
               return `<tr id="preview_row_${idx}" style="border-bottom:1px solid #f0f4f8;">
                 <td style="${td}text-align:center;">
                   <button onclick="_removePreviewRow(${idx})"
@@ -9891,6 +9912,7 @@ function _renderTransitPreviewTable() {
                   <span style="color:#94a3b8;margin:0 2px;">→</span>
                   <span style="color:${statusColor(newSt)};font-size:0.72rem;font-weight:700;">${newSt}</span>
                 </td>
+                <td style="${td}max-width:200px;">${projHtml}</td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -9998,6 +10020,151 @@ function _cancelTransitPreview() {
     if (statusEl) statusEl.textContent = '已取消，Supabase 資料未變動';
 }
 window._cancelTransitPreview = _cancelTransitPreview;
+
+// ── 銷貨核對：出庫記錄（排除加工原料＋在途銷貨）vs 利潤分析表 ──────
+async function runSalesReconciliation() {
+    const statusEl  = document.getElementById('transit_status');
+    const previewEl = document.getElementById('transit_preview');
+    if (!previewEl) return;
+
+    if (!profitCalcData || !profitCalcData.length) {
+        alert('請先到「💹 利潤分析」頁上傳並試算利潤明細表，再執行銷貨核對');
+        return;
+    }
+
+    statusEl.textContent = '⏳ 銷貨核對中…';
+
+    // 欄位設定
+    const nameCol  = (document.getElementById('pcol_name')?.value  || '產品名稱').trim();
+    const batchCol = (document.getElementById('pcol_batch')?.value || '批號').trim();
+    const qtyCol   = (document.getElementById('pcol_qty')?.value   || '數量').trim();
+
+    // ── Step 1：利潤分析彙總（產品名稱|批號 → {totalQty, projects}）──
+    const profitSummary = {}; // key → {totalQty, projects:[{proj,projName,date,qty}]}
+    profitCalcData.forEach(r => {
+        const key = `${(r[nameCol]||'').trim()}|${(r[batchCol]||'').trim()}`;
+        const qty = Math.abs(parseFloat(String(r[qtyCol]||'').replace(/,/g,'')) || 0);
+        if (!profitSummary[key]) profitSummary[key] = { totalQty: 0, projects: [] };
+        profitSummary[key].totalQty += qty;
+        profitSummary[key].projects.push({
+            proj:     String(r['專案']     || '').trim(),
+            projName: String(r['專案名稱'] || '').trim(),
+            date:     String(r['銷貨日期'] || '').trim(),
+            qty,
+        });
+    });
+
+    // ── Step 2：出庫記錄彙總（排除加工原料＋在途銷貨）──────────────
+    // 從 Supabase outbound_records 取銷貨類型的記錄
+    let outboundRows = [];
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/outbound_records?select=product_name,batch_no,quantity,outbound_amount,warehouse_type,outbound_type,notes&order=product_name.asc`,
+            { headers: getSBHeaders() }
+        );
+        if (resp.ok) outboundRows = await resp.json();
+    } catch(e) { /* 若無法讀取，用記憶體資料 */ }
+
+    // 若 Supabase 無資料，改用記憶體中的 _outboundRecords
+    if (!outboundRows.length && window._outboundRecords?.length) {
+        outboundRows = (window._outboundRecords || []).map(r => ({
+            product_name:    r.產品名稱,
+            batch_no:        r.批號,
+            quantity:        r.出庫數量,
+            outbound_amount: r.出庫金額,
+            warehouse_type:  r.分倉類型,
+            outbound_type:   r.出庫類型,
+            notes:           r.備註,
+        }));
+    }
+
+    // 排除加工原料、在途銷貨
+    const excluded = new Set(['加工原料', '再途銷貨']);
+    const salesRows = outboundRows.filter(r => !excluded.has(r.warehouse_type));
+
+    const outSummary = {}; // key → {totalQty, totalAmt}
+    salesRows.forEach(r => {
+        const key = `${(r.product_name||'').trim()}|${(r.batch_no||'').trim()}`;
+        if (!outSummary[key]) outSummary[key] = { totalQty: 0, totalAmt: 0 };
+        outSummary[key].totalQty += Math.abs(parseFloat(r.quantity)        || 0);
+        outSummary[key].totalAmt += Math.abs(parseFloat(r.outbound_amount) || 0);
+    });
+
+    // ── Step 3：比對 ────────────────────────────────────────────────
+    const allKeys = new Set([...Object.keys(profitSummary), ...Object.keys(outSummary)]);
+    const results = [];
+    allKeys.forEach(key => {
+        const [pName, pBatch] = key.split('|');
+        const ps = profitSummary[key];
+        const os = outSummary[key];
+        const profitQty  = ps ? ps.totalQty : 0;
+        const outQty     = os ? os.totalQty : 0;
+        const qtyDiff    = outQty - profitQty;
+        const qtyOk      = Math.abs(qtyDiff) < 0.01;
+        const projNames  = ps ? [...new Set(ps.projects.map(p => p.projName || p.proj).filter(Boolean))].join('、') : '—';
+        results.push({ key, pName, pBatch, profitQty, outQty, qtyDiff, qtyOk, projNames });
+    });
+
+    // 排序：差異筆排前面
+    results.sort((a,b) => (a.qtyOk ? 1 : 0) - (b.qtyOk ? 1 : 0) || a.pName.localeCompare(b.pName));
+
+    const errCount  = results.filter(r => !r.qtyOk).length;
+    const okCount   = results.filter(r => r.qtyOk).length;
+    statusEl.textContent = `📊 銷貨核對完成：${errCount} 筆差異、${okCount} 筆一致`;
+
+    const fmt = n => Number(n).toLocaleString(undefined, {maximumFractionDigits:2});
+    const th = `padding:0.42rem 0.7rem;font-size:0.75rem;font-weight:700;background:#f4f0ff;border-bottom:2px solid #c4b5fd;white-space:nowrap;`;
+    const td = `padding:0.38rem 0.7rem;font-size:0.78rem;border-bottom:1px solid #f0f4f8;`;
+
+    previewEl.style.display = '';
+    previewEl.style.borderColor = '#7c3aed';
+    previewEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem;">
+        <div>
+          <span style="font-weight:800;color:#7c3aed;font-size:0.92rem;">📊 銷貨核對結果</span>
+          <span style="font-size:0.76rem;color:#94a3b8;margin-left:0.6rem;">
+            出庫記錄（排除加工原料＋在途銷貨）vs 利潤分析表
+          </span>
+        </div>
+        <div style="display:flex;gap:0.8rem;font-size:0.8rem;">
+          <span style="color:#ef4444;font-weight:700;">❌ 差異 ${errCount} 筆</span>
+          <span style="color:#22c55e;font-weight:700;">✅ 一致 ${okCount} 筆</span>
+          <button onclick="document.getElementById('transit_preview').style.display='none'" style="padding:0.3rem 0.8rem;border:1px solid #94a3b8;border-radius:6px;background:#fff;color:#64748b;font-size:0.78rem;cursor:pointer;">關閉</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="${th}">狀態</th>
+            <th style="${th}">產品名稱</th>
+            <th style="${th}">批號</th>
+            <th style="${th}text-align:right;">出庫數量</th>
+            <th style="${th}text-align:right;">利潤數量</th>
+            <th style="${th}text-align:right;">差異</th>
+            <th style="${th}">比對到的利潤專案</th>
+          </tr></thead>
+          <tbody>
+            ${results.map(r => `
+              <tr style="background:${r.qtyOk?'#fff':'#fff8f8'};">
+                <td style="${td}text-align:center;">
+                  ${r.qtyOk
+                    ? '<span style="color:#22c55e;font-weight:700;font-size:0.75rem;">✅ 一致</span>'
+                    : '<span style="color:#ef4444;font-weight:700;font-size:0.75rem;">❌ 差異</span>'}
+                </td>
+                <td style="${td}font-weight:600;">${r.pName}</td>
+                <td style="${td}font-family:monospace;font-size:0.73rem;color:#6878C0;">${r.pBatch}</td>
+                <td style="${td}text-align:right;${r.outQty===0?'color:#94a3b8;':''}">${r.outQty ? fmt(r.outQty) : '—'}</td>
+                <td style="${td}text-align:right;${r.profitQty===0?'color:#94a3b8;':''}">${r.profitQty ? fmt(r.profitQty) : '—'}</td>
+                <td style="${td}text-align:right;font-weight:700;color:${r.qtyDiff===0?'#22c55e':r.qtyDiff>0?'#ef4444':'#f7a35c'};">
+                  ${r.qtyOk ? '—' : (r.qtyDiff > 0 ? '+' : '') + fmt(r.qtyDiff)}
+                </td>
+                <td style="${td}font-size:0.72rem;color:#7c3aed;max-width:200px;">${r.projNames||'—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+}
+window.runSalesReconciliation = runSalesReconciliation;
 
 async function resetTransitOffset() {
     if (!confirm('確定要撤銷所有核銷記錄？\n所有「部分核銷」與「已核銷」的資料將還原為「未核銷」。')) return;
