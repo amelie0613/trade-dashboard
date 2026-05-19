@@ -1772,7 +1772,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                     </div>
                     <div>
                       <div class="section-title">📤 上傳總檔</div>
-                      <p style="font-size:0.8rem; color:#8a6a7a; margin-bottom:0.8rem;">直接覆蓋本地總帳資料</p>
+                      <p style="font-size:0.8rem; color:#8a6a7a; margin-bottom:0.8rem;">直接覆蓋 Supabase 總帳資料</p>
                       <div class="form-group">
                         <label>本期總檔 (.xlsx)</label>
                         <div style="border:2px dashed #c9a8e0; border-radius:10px; padding:0.5rem; background:white;"
@@ -1791,7 +1791,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <button onclick="viewOutboundFromSupabase('')" style="width:100%; background:#764ba2; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📦 出庫記錄表（Supabase）</button>
                       <button onclick="syncOutboundToSupabase(window._outboundRecords, '')" style="width:100%; background:#3ecf8e; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 Supabase</button>
                       <button onclick="syncLedgerFromSupabase()" style="width:100%; background:none; border:1.5px solid #3ecf8e; color:#2a9d6e; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 Supabase 載入</button>
-                      <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 復原上一步</button>
+                    <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 清除舊本機快取</button>
                       <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
                       <hr style="border:none; border-top:1px solid #f0e0f0; margin:0.8rem 0;">
                       <button onclick="cleanupSupabaseEmptyItems()" style="width:100%; background:none; border:1.5px solid #ff9800; color:#ff9800; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">⚡ 清理Supabase已清空品項</button>
@@ -1808,7 +1808,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                   <!-- 狀態概覽 -->
                   <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
                     <div style="background:#f0e6f7; border:1.5px solid #764ba2; border-radius:10px; padding:1rem;">
-                      <div style="font-size:0.85rem; color:#764ba2; font-weight:700; margin-bottom:0.5rem;">💾 localStorage 狀態</div>
+                      <div style="font-size:0.85rem; color:#764ba2; font-weight:700; margin-bottom:0.5rem;">💾 本次出庫暫存</div>
                       <div id="outbound_local_status" style="font-size:0.9rem; color:#333;">讀取中...</div>
                     </div>
                     <div style="background:#f0f6ff; border:1.5px solid #6878c0; border-radius:10px; padding:1rem;">
@@ -1819,7 +1819,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
                   <!-- 操作按鈕 -->
                   <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.8rem; margin-bottom:1.5rem;">
-                    <button onclick="checkOutboundLocal()" style="background:#764ba2; color:white; border:none; border-radius:8px; padding:0.7rem; font-weight:700; cursor:pointer; font-size:0.85rem;">🔍 檢查 localStorage</button>
+                    <button onclick="checkOutboundLocal()" style="background:#764ba2; color:white; border:none; border-radius:8px; padding:0.7rem; font-weight:700; cursor:pointer; font-size:0.85rem;">🔍 檢查本次出庫暫存</button>
                     <button onclick="checkOutboundSupabase()" style="background:#6878c0; color:white; border:none; border-radius:8px; padding:0.7rem; font-weight:700; cursor:pointer; font-size:0.85rem;">🔍 檢查 Supabase</button>
                     <button onclick="syncBothToSupabase()" style="background:#3ecf8e; color:white; border:none; border-radius:8px; padding:0.7rem; font-weight:700; cursor:pointer; font-size:0.85rem;">☁️ 同步到 Supabase</button>
                   </div>
@@ -1963,7 +1963,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <div id="pg_sum_miss" style="font-size:1.4rem; font-weight:800; color:#c0507a;">-</div>
                     </div>
                     <button onclick="pgExport()" style="padding:0.6rem 1.2rem; background:#22c55e; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; align-self:center;">📤 匯出報表</button>
-                    <button onclick="pgConfirmPaired()" style="padding:0.6rem 1.2rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; align-self:center;">✅ 確認並移除已配對</button>
+                    <button onclick="pgConfirmPaired()" style="padding:0.6rem 1.2rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; align-self:center;">✅ 確認入帳並隱藏已完成</button>
                   </div>
                 </div>
               </div>
@@ -5486,55 +5486,50 @@ const LS_KEY = 'rental_ledger_rows_v2';
 const LS_BACKUP_KEY = 'rental_ledger_backup_v2';
 const LS_PROFIT_SNAPSHOT_KEY = 'rental_profit_snapshot_v2'; // 利潤分析用快照（含結存=0）
 
-// ===== localStorage 主要操作 =====
+// ===== 舊版 localStorage 快取清理：總帳統一以 Supabase 為資料來源 =====
 function lsSaveLedgerRows(rows) {
     try {
-        const current = localStorage.getItem(LS_KEY);
-        if (current) localStorage.setItem(LS_BACKUP_KEY, current);
-        const data = JSON.stringify(rows);
-        localStorage.setItem(LS_KEY, data);
-        console.log(`✅ localStorage 寫入成功，${rows.length} 筆，${(data.length/1024).toFixed(1)}KB`);
+        localStorage.removeItem(LS_KEY);
+        localStorage.removeItem(LS_BACKUP_KEY);
+        localStorage.removeItem(LS_PROFIT_SNAPSHOT_KEY);
+        console.log('總帳不再寫入 localStorage，已清除舊快取');
     } catch(e) {
-        console.error('localStorage 寫入失敗：', e);
-        alert(`❌ 本地儲存失敗（可能容量不足）：${e.message}\n請嘗試清除瀏覽器資料後再試。`);
+        console.warn('清除舊 localStorage 快取失敗：', e);
     }
 }
 function lsLoadLedgerRows() {
-    const raw = localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return null;
 }
 function lsClearLedger() {
     localStorage.removeItem(LS_KEY);
     localStorage.removeItem(LS_BACKUP_KEY);
+    localStorage.removeItem(LS_PROFIT_SNAPSHOT_KEY);
 }
 
 // ===== 復原上一次備份 =====
 window.restoreBackup = async function() {
-    const backup = localStorage.getItem(LS_BACKUP_KEY);
-    if (!backup) { alert('沒有備份資料可以復原'); return; }
-    const rows = JSON.parse(backup);
-    if (!confirm(`確定要復原到上一次備份？（共 ${rows.length} 筆）\n⚠️ 目前資料將被覆蓋`)) return;
-    localStorage.setItem(LS_KEY, backup);
-    invalidateCache();
+    lsClearLedger();
+    alert('總帳已改以 Supabase 為唯一來源，本地備份復原已停用。');
     await refreshLedgerStatus();
-    document.getElementById('ledger_results').innerHTML = `
-        <div style="text-align:center; padding:2rem;">
-            <div style="font-size:2rem;">↩️</div>
-            <div style="font-weight:800; color:#4a9a37; margin-top:0.5rem;">已復原到上一次備份（${rows.length} 筆）</div>
-        </div>`;
 };
 
-// ===== 主要讀寫：優先用 localStorage =====
+// ===== 主要讀寫：統一使用 Supabase =====
 async function saveLedgerRows(rows) {
-    lsSaveLedgerRows(rows);
-    invalidateCache();
+    await syncLedgerToSupabase(rows);
 }
 
 async function loadLedgerRows(forceRefresh = false) {
-    const local = lsLoadLedgerRows();
-    if (local && !forceRefresh) return local; // 有本地資料直接回傳
-    // 沒有本地資料，返回空陣列（請使用 syncLedgerFromSupabase() 從 Supabase 載入）
-    return [];
+    if (_ledgerCache && !forceRefresh && (Date.now() - _ledgerCacheTime) < CACHE_TTL) return _ledgerCache;
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/ledger_table?select=*&order=product_name.asc`, {
+        headers: SB_HEADERS,
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const sbRows = await resp.json();
+    const rows = sbRows.map(sbRowToLedger);
+    _ledgerCache = rows;
+    _ledgerCacheTime = Date.now();
+    lsClearLedger();
+    return rows;
 }
 
 async function clearAllLedger() {
@@ -5597,9 +5592,9 @@ function sbRowToLedger(r) {
 }
 
 // ===== 備份到 Supabase =====
-async function syncLedgerToSupabase() {
-    const rows = lsLoadLedgerRows();
-    if (!rows || rows.length === 0) { showToast('❌ 本地沒有總帳資料'); return; }
+async function syncLedgerToSupabase(rowsOverride = null) {
+    const rows = rowsOverride || window._ledgerData || _ledgerCache || [];
+    if (!rows || rows.length === 0) { showToast('❌ 沒有可同步的總帳資料'); return; }
     const statusEl = document.getElementById('sync_status');
     if (statusEl) statusEl.textContent = '⏳ 上傳到 Supabase...';
     try {
@@ -5647,7 +5642,7 @@ async function syncLedgerToSupabase() {
             }
         }
 
-        // 步驟 2：Upsert 最新的 finalRows（以本地總帳為準）
+        // 步驟 2：Upsert 最新的 finalRows（以目前匯入/計算結果為準）
         const BATCH = 500;
         for (let i = 0; i < data.length; i += BATCH) {
             const chunk = data.slice(i, i + BATCH);
@@ -5675,6 +5670,9 @@ async function syncLedgerToSupabase() {
 
         if (statusEl) statusEl.textContent = `✅ 已上傳 ${data.length} 筆到 Supabase（總檔租金結餘：$${totalRemainderUploaded.toLocaleString('en-US', {maximumFractionDigits: 0})})`;
         setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 5000);
+        _ledgerCache = rows;
+        _ledgerCacheTime = Date.now();
+        lsClearLedger();
     } catch(e) {
         console.error('Supabase 總帳上傳失敗：', e);
         if (statusEl) statusEl.textContent = `❌ 上傳失敗：${e.message}`;
@@ -5707,9 +5705,9 @@ async function syncLedgerFromSupabase() {
         console.log(`   總檔租金結餘合計：$${totalInSb.toLocaleString('en-US', {maximumFractionDigits: 0})}`);
 
         const rows = sbRows.map(sbRowToLedger);
-        lsSaveLedgerRows(rows);
         _ledgerCache = rows;
         _ledgerCacheTime = Date.now();
+        lsClearLedger();
         await refreshLedgerStatus();
 
         if (statusEl) statusEl.textContent = `✅ 已從 Supabase 載入 ${rows.length} 筆（有庫存 ${activeRows.length} 筆，總餘額 $${totalInSb.toLocaleString('en-US', {maximumFractionDigits: 0})})`;
@@ -5809,13 +5807,15 @@ async function clearAllLedger() {
 }
 
 async function clearLedger() {
-    if (!confirm('確定要清除所有總帳資料嗎？此動作無法復原。')) return;
+    if (!confirm('確定要清除本機舊快取嗎？\nSupabase 總帳資料不會被刪除。')) return;
     const statusEl = document.getElementById('ledger_db_status');
     if (statusEl) statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 清除中...</span>';
     try {
-        lsClearLedger(); // 只清除 localStorage
-        refreshLedgerStatus();
-        document.getElementById('ledger_results').innerHTML = '<p style="color:#999; text-align:center; padding:2rem;">本地總帳已清除（Supabase 備份保留）</p>';
+        lsClearLedger();
+        _ledgerCache = null;
+        _ledgerCacheTime = 0;
+        await refreshLedgerStatus();
+        document.getElementById('ledger_results').innerHTML = '<p style="color:#999; text-align:center; padding:2rem;">本機舊快取已清除；目前資料來源為 Supabase。</p>';
     } catch(e) {
         alert('清除失敗：' + e.message);
     }
@@ -5825,12 +5825,12 @@ async function refreshLedgerStatus(forceRefresh = false) {
     const el = document.getElementById('ledger_db_status');
     if (!el) return;
     try {
-        const rows = lsLoadLedgerRows(); // 讀本地 localStorage
+        const rows = await loadLedgerRows(true);
         if (!rows || rows.length === 0) {
-            el.innerHTML = '<span style="color:#e8836a; font-weight:700;">⚠️ 尚未建立總帳</span><br><span style="font-size:0.78rem;">請從雲端載入或重新導入</span>';
+            el.innerHTML = '<span style="color:#e8836a; font-weight:700;">⚠️ Supabase 尚未建立總帳</span><br><span style="font-size:0.78rem;">請匯入總帳</span>';
         } else {
-            const total = rows.reduce((s,r) => s+(parseFloat(r.月租金結餘||r.前期結餘)||0), 0);
-            el.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 本地快取</span><br>
+            const total = rows.reduce((s,r) => s + _ledgerBalanceValue(r), 0);
+            el.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ Supabase 資料庫</span><br>
                 <span style="font-size:0.78rem;">品項數：${rows.length} 筆<br>
                 累計租金餘額：$${Math.round(total).toLocaleString()}</span>`;
         }
@@ -5844,7 +5844,7 @@ window.doUploadLedger = async function() {
     const input = document.getElementById('ledger_file_upload');
     const file = ledgerFiles['ledger_file_upload'] || (input && input.files[0]);
     if (!file) { alert('請先選擇本期總檔'); return; }
-    if (!confirm(`確定要用「${file.name}」覆蓋目前總帳？\n⚠️ 目前資料會備份一份，可用「↩️ 復原上一步」還原`)) return;
+    if (!confirm(`確定要用「${file.name}」覆蓋 Supabase 目前總帳？\n此操作會以匯入檔案為準更新資料庫。`)) return;
 
     const statusEl = document.getElementById('ledger_status_upload');
     statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取中...</span>';
@@ -5872,10 +5872,6 @@ window.doUploadLedger = async function() {
         })).filter(r => r.產品名稱 && r.批號);
 
         await saveLedgerRows(rows);
-
-        // 匯入後立即同步到 Supabase，確保 viewLedger() 讀到最新資料
-        statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 同步到 Supabase 中...</span>';
-        await syncLedgerToSupabase();
 
         await refreshLedgerStatus();
         statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 匯入完成！共 ${rows.length} 筆，已同步到 Supabase</span>`;
@@ -5933,8 +5929,6 @@ async function doInitLedger() {
 
         await saveLedgerRows(rows);
         await refreshLedgerStatus();
-        statusEl.innerHTML = `<span style="color:#2a6a82;">⏳ 同步到 Supabase 中...</span>`;
-        await syncLedgerToSupabase();
         statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 期初開帳完成！共 ${rows.length} 筆，已同步到 Supabase</span>`;
     } catch(e) {
         statusEl.innerHTML = `<span style="color:#e8836a;">❌ 失敗：${e.message}</span>`;
@@ -5956,7 +5950,7 @@ async function previewMonthly() {
         const d2 = f2 ? await readExcel(f2, false) : [];
 
         statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取總帳...</span>';
-        const existingRows = lsLoadLedgerRows() || [];
+        const existingRows = await loadLedgerRows(true);
         console.log('總帳筆數:', existingRows.length);
         if (existingRows.length > 0) console.log('第一筆:', existingRows[0].產品名稱, existingRows[0].批號, existingRows[0].前期結餘, existingRows[0].月租金結餘);
         const ledgerMap = {};
@@ -6589,7 +6583,7 @@ async function confirmMonthly() {
 
     try {
         // 讀取現有資料（保留月結歷史、採購部門等）
-        const existingRows = lsLoadLedgerRows() || [];
+        const existingRows = await loadLedgerRows(true);
         const existingMap = {};
         existingRows.forEach(r => { existingMap[String(r.產品名稱||'').trim()+'|'+String(r.批號||'').trim()] = r; });
 
@@ -6633,9 +6627,9 @@ async function confirmMonthly() {
         // 刪除本期結存=0的（已出清，無論有無結餘）
         const finalRows = Object.values(finalMap).filter(r => r.本期結存 > 0);
 
-        // 保存利潤快照（含結存=0，供利潤分析使用）
+        // 保留本次月結完整資料於記憶體，供當次利潤分析使用；不寫入 localStorage。
         const snapshotRows = Object.values(finalMap); // 不過濾，保留全部
-        try { localStorage.setItem(LS_PROFIT_SNAPSHOT_KEY, JSON.stringify(snapshotRows)); } catch(e) {}
+        window._profitSnapshotRows = snapshotRows;
 
         await saveLedgerRows(finalRows);
         await saveMonthlyRecord(label, {
@@ -6743,37 +6737,19 @@ const LEDGER_COLS = [
     { key:'備註',       label:'備註',         align:'text', highlight:false },
 ];
 
-// ===== 檢視總帳：直接從 Supabase 讀取，不使用 localStorage =====
-async function viewLedger() {
-    const resultsEl = document.getElementById('ledger_results');
-    resultsEl.innerHTML = '<p style="text-align:center;padding:2rem;color:#2a6a82;">⏳ 從 Supabase 讀取中...</p>';
-    try {
-        // 直接向 Supabase 取最新資料
-        const resp = await fetch(
-            `${SUPABASE_URL}/rest/v1/ledger_table?select=*&order=department.asc,product_category.asc,product_name.asc`,
-            { headers: SB_HEADERS }
-        );
-        if (!resp.ok) throw new Error(`Supabase 回應錯誤：${resp.status} ${resp.statusText}`);
+function _ledgerBalanceValue(r) {
+    return parseFloat(r.月租金結餘) || parseFloat(r.總檔租金結餘) || parseFloat(r.前期結餘) || 0;
+}
 
-        const sbRows = await resp.json();
-        if (!sbRows.length) {
-            resultsEl.innerHTML = '<p style="color:#999;text-align:center;padding:2rem;">Supabase 總帳尚無資料。</p>';
-            return;
-        }
+function _normalizeLedgerForDisplay(rows) {
+    return (rows || []).map(r => ({
+        ...r,
+        總檔租金結餘: _ledgerBalanceValue(r)
+    }));
+}
 
-        // 轉換為本地格式，只保留 total_remainder > 0 的品項
-        const allRows  = sbRows.map(sbRowToLedger);
-        const activeRows = allRows.filter(r => (parseFloat(r.總檔租金結餘) || parseFloat(r.月租金結餘) || 0) > 0);
-
-        // 緩存供搜尋篩選使用
-        window._ledgerData = activeRows;
-
-        // F12 驗證用 log
-        const grandTotal = activeRows.reduce((s,r) => s + (parseFloat(r.總檔租金結餘) || parseFloat(r.月租金結餘) || 0), 0);
-        console.log(`📋 Supabase 總帳：全部 ${sbRows.length} 筆 → 顯示 ${activeRows.length} 筆（total_remainder>0），總檔租金結餘合計 $${Math.round(grandTotal).toLocaleString()}`);
-
-        // 建立外框（只建一次，搜尋時只更新內部）
-        resultsEl.innerHTML = `
+function _renderLedgerShell(resultsEl) {
+    resultsEl.innerHTML = `
         <div class="result-section">
             <div id="ledger_dept_cards" style="margin-bottom:1rem;"></div>
             <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.8rem;">
@@ -6791,6 +6767,39 @@ async function viewLedger() {
                 </table>
             </div>
         </div>`;
+}
+
+// ===== 檢視總帳：直接讀取 Supabase =====
+async function viewLedger() {
+    const resultsEl = document.getElementById('ledger_results');
+    resultsEl.innerHTML = '<p style="text-align:center;padding:2rem;color:#2a6a82;">⏳ 從 Supabase 讀取中...</p>';
+    try {
+        // 統一向 Supabase 取最新資料
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/ledger_table?select=*&order=department.asc,product_category.asc,product_name.asc`,
+            { headers: SB_HEADERS }
+        );
+        if (!resp.ok) throw new Error(`Supabase 回應錯誤：${resp.status} ${resp.statusText}`);
+
+        const sbRows = await resp.json();
+        if (!sbRows.length) {
+            resultsEl.innerHTML = '<p style="color:#999;text-align:center;padding:2rem;">Supabase 總帳尚無資料。</p>';
+            return;
+        }
+
+        // 轉換為本地格式，只保留目前租金結餘 > 0 的品項
+        const allRows  = _normalizeLedgerForDisplay(sbRows.map(sbRowToLedger));
+        const activeRows = allRows.filter(r => _ledgerBalanceValue(r) > 0);
+
+        // 緩存供搜尋篩選使用
+        window._ledgerData = activeRows;
+
+        // F12 驗證用 log
+        const grandTotal = activeRows.reduce((s,r) => s + _ledgerBalanceValue(r), 0);
+        console.log(`📋 Supabase 總帳：全部 ${sbRows.length} 筆 → 顯示 ${activeRows.length} 筆，總檔租金結餘合計 $${Math.round(grandTotal).toLocaleString()}`);
+
+        // 建立外框（只建一次，搜尋時只更新內部）
+        _renderLedgerShell(resultsEl);
 
         _renderLedger('');
 
@@ -6819,9 +6828,9 @@ function _renderLedger(searchTerm) {
         (r.採購部門 || '').toLowerCase().includes(term)
     ) : all;
 
-    // ── 採購部門合計卡片（以 Supabase 的 total_remainder 欄位為準）─────
+    // ── 採購部門合計卡片（與表格「總檔租金結餘」使用同一口徑）─────
     const deptColors = ['#f2a7c3','#7ec8e3','#8dcc7a','#f7a35c','#c9a8e0','#f7d96b','#e8836a'];
-    const getBalance = r => parseFloat(r.總檔租金結餘) || parseFloat(r.月租金結餘) || 0;
+    const getBalance = _ledgerBalanceValue;
     const deptMap = {};
     filtered.forEach(r => {
         const dept = r.採購部門 || '未分類';
@@ -6938,7 +6947,7 @@ function _renderLedger(searchTerm) {
 // ===== 匯出總帳 =====
 async function exportLedger() {
     try {
-        const rows = lsLoadLedgerRows() || [];
+        const rows = window._ledgerViewRows || _normalizeLedgerForDisplay(await loadLedgerRows(true));
         if (rows.length === 0) { alert('總帳尚無資料'); return; }
         
         // 收集所有可能的欄位名稱
@@ -7942,7 +7951,7 @@ function onCellEdit(input) {
 }
 
 // 總帳編輯函式
-function onLedgerEdit(input) {
+async function onLedgerEdit(input) {
     const rowKey = input.dataset.ledgerKey;
     const field = input.dataset.field;
     const newValue = input.value.trim();
@@ -7954,7 +7963,7 @@ function onLedgerEdit(input) {
     }
     
     try {
-        const rows = lsLoadLedgerRows() || [];
+        const rows = await loadLedgerRows(true);
         const pipeIdx = rowKey.indexOf('|');
         const productName = rowKey.substring(0, pipeIdx);
         const batchNo = rowKey.substring(pipeIdx + 1);
@@ -7975,8 +7984,8 @@ function onLedgerEdit(input) {
         const oldValue = rows[targetIdx][field];
         rows[targetIdx][field] = newValue;
         
-        // 存回localStorage
-        lsSaveLedgerRows(rows);
+        // 直接寫回 Supabase
+        await syncLedgerToSupabase(rows);
         
         // UI反饋
         input.style.background = '#e8f5e9';
@@ -8942,6 +8951,7 @@ async function confirmProcessingToLedgers(pgResults) {
     const status = document.getElementById('calculate_status') || { textContent:'' };
     status.textContent = '更新台帳中…';
     let matUpdated = 0, transitAdded = 0, shortageCount = 0;
+    const completed = [];
 
     for (const c of pgResults) {
         if (!c.allFound) continue; // 未完整配對的略過
@@ -8973,7 +8983,7 @@ async function confirmProcessingToLedgers(pgResults) {
             const { rec, qty } = item;
             const newProcessed = (parseFloat(rec.processed_qty) || 0) + qty;
             const newRemaining = rec.original_qty - newProcessed;
-            await fetch(
+            const patchResp = await fetch(
                 `${SUPABASE_URL}/rest/v1/processing_materials_ledger?id=eq.${rec.id}`,
                 {
                     method: 'PATCH',
@@ -8985,6 +8995,7 @@ async function confirmProcessingToLedgers(pgResults) {
                     })
                 }
             );
+            if (!patchResp.ok) throw new Error(await patchResp.text());
             matUpdated++;
         }
 
@@ -9005,16 +9016,19 @@ async function confirmProcessingToLedgers(pgResults) {
                 period:        `PROC-${Date.now()}`,
                 notes:         `由 ${c.mothers.map(m=>m.batch).join('/')} 加工而來`,
             };
-            await fetch(
+            const transitResp = await fetch(
                 `${SUPABASE_URL}/rest/v1/transit_sales_ledger?on_conflict=product_name,batch_no,outbound_date,period,source`,
                 { method:'POST', headers:{ ...getSBHeaders(), 'Prefer':'resolution=ignore-duplicates' }, body:JSON.stringify([transitRow]) }
             );
+            if (!transitResp.ok) throw new Error(await transitResp.text());
             transitAdded++;
+            completed.push(c);
         }
     }
     status.textContent = shortageCount
         ? `⚠️ 台帳更新完成：原料扣減 ${matUpdated} 筆，子件轉入在途 ${transitAdded} 筆；${shortageCount} 筆因原料不足略過`
         : `✅ 台帳更新完成：原料扣減 ${matUpdated} 筆，子件轉入在途 ${transitAdded} 筆`;
+    return { completed, skipped: shortageCount, matUpdated, transitAdded };
 }
 window.confirmProcessingToLedgers = confirmProcessingToLedgers;
 
@@ -10068,9 +10082,8 @@ async function calcProfit() {
         profitHeaders = Object.keys(profitRows[0]);
 
         // 第1層：建立總帳分攤單價表
-        const ledgerRows = lsLoadLedgerRows() || [];
-        let snapshotRows = [];
-        try { snapshotRows = JSON.parse(localStorage.getItem(LS_PROFIT_SNAPSHOT_KEY) || '[]'); } catch(e) {}
+        const ledgerRows = await loadLedgerRows(true);
+        const snapshotRows = window._profitSnapshotRows || [];
         const ledgerPriceMap = {}; // 產品名稱|批號 -> 分攤單價
         ledgerRows.forEach(r => {
             const name  = String(r.產品名稱||'').trim();
@@ -11134,10 +11147,10 @@ async function syncBothToSupabase() {
     let ledgerMsg = '', outboundMsg = '';
 
     // 1. 同步總帳到 ledger_table
-    const ledgerRows = lsLoadLedgerRows() || [];
+    const ledgerRows = await loadLedgerRows(true);
     if (ledgerRows.length > 0) {
         try {
-            await syncLedgerToSupabase();
+            await syncLedgerToSupabase(ledgerRows);
             ledgerMsg = `✅ 總帳已同步到 Supabase（${ledgerRows.length} 筆）`;
         } catch(e) {
             ledgerMsg = `❌ 總帳同步失敗：${e.message}`;
@@ -11456,17 +11469,25 @@ function _pgRenderResult() {
 async function pgConfirmPaired() {
   if (!_pgResults.length) { alert('請先上傳加工單並完成計算'); return; }
 
-  const before = _pgResults.length;
-  // 收集所有已完整配對的項目，準備更新台帳
   const confirmed = _pgResults.filter(c => c.allFound);
-  // allFound = 所有母件都已配對成功 → 移除；有任一母件未找到 → 保留
-  _pgResults = _pgResults.filter(c => !c.allFound);
-  const removed = before - _pgResults.length;
-
-  if (removed === 0) {
-    alert('目前沒有可移除的已配對記錄（所有記錄都有未找到的母件）');
+  if (confirmed.length === 0) {
+    alert('目前沒有可以入帳的已配對記錄（所有記錄都有未找到的母件）');
     return;
   }
+
+  let ledgerResult;
+  try {
+    ledgerResult = await confirmProcessingToLedgers(confirmed);
+  } catch(e) {
+    console.warn('台帳更新失敗：', e);
+    alert(`台帳更新失敗，已配對項目不會從畫面隱藏。\n${e.message || e}`);
+    return;
+  }
+
+  const completedKeys = new Set((ledgerResult?.completed || []).map(c => `${c.childBatch}|${c.childName}`));
+  const before = _pgResults.length;
+  _pgResults = _pgResults.filter(c => !completedKeys.has(`${c.childBatch}|${c.childName}`));
+  const removed = before - _pgResults.length;
 
   // 更新摘要計數
   const missCount = _pgResults.reduce((s, c) => s + c.mothers.filter(m => !m.found).length, 0);
@@ -11475,14 +11496,9 @@ async function pgConfirmPaired() {
 
   _pgRenderResult();
 
-  // 同步更新加工原料台帳 & 在途銷貨台帳
-  try {
-    await confirmProcessingToLedgers(confirmed);
-  } catch(e) {
-    console.warn('台帳更新失敗：', e);
-  }
-
-  alert(`已確認 ${removed} 筆配對，加工原料台帳已扣減，子件已轉入在途銷貨台帳。\n剩餘 ${_pgResults.length} 筆未找到租金。`);
+  const skipped = ledgerResult?.skipped || 0;
+  const skippedMsg = skipped ? `\n另有 ${skipped} 筆因加工原料不足或資料不完整，已保留在畫面。` : '';
+  alert(`已入帳並隱藏 ${removed} 筆完成項目，加工原料台帳已扣減，子件已轉入在途銷貨台帳。\n畫面剩餘 ${_pgResults.length} 筆待處理。${skippedMsg}`);
 }
 window.pgConfirmPaired = pgConfirmPaired;
 
