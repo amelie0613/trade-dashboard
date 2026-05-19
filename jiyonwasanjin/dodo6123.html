@@ -9006,7 +9006,7 @@ async function importTransitFromOutbound() {
                     notes:         a.notes,
                 });
             } else {
-                // 保留已核銷進度，只更新數量與成本
+                // 保留已核銷進度，只更新數量、成本與備註
                 const newRemaining = Math.max(0, a.original_qty - (ex.offset_qty || 0));
                 toUpdate.push({
                     id:            ex.id,
@@ -9015,6 +9015,7 @@ async function importTransitFromOutbound() {
                     unit_price:    unitPrice,
                     total_cost:    totalCost,
                     status:        _transitStatus(a.original_qty, ex.offset_qty || 0),
+                    notes:         a.notes,   // 同步備註（出庫記錄備註有改時一起更新）
                 });
             }
         });
@@ -9530,7 +9531,9 @@ function _renderTransitTable() {
         <th style="${th}text-align:right;color:#6878C0;background:#eef3fd;">本期核銷</th>
         ${thSort('remaining_qty','剩餘數量','right')}${thSort('unit_price','單價','right')}
         ${thSort('total_cost','總成本','right')}${thSort('source','來源')}
-        ${thSort('status','狀態')}${thSort('last_offset_date','最後核銷')}${thSort('id','操作')}
+        ${thSort('status','狀態')}${thSort('last_offset_date','最後核銷')}
+        ${thSort('notes','備註')}
+        ${thSort('id','操作')}
       </tr></thead><tbody>`;
     data.forEach((r,i) => {
         const bg = i%2===0?'#fff':'#fafbfc';
@@ -9548,6 +9551,10 @@ function _renderTransitTable() {
         const periodCell = periodQty != null
           ? `<span style="color:#6878C0;font-weight:800;">+${Number(periodQty).toLocaleString()}</span>`
           : '<span style="color:#d1d5db;">—</span>';
+        const noteVal = (r.notes||'').replace(/"/g,'&quot;');
+        const noteDisplay = r.notes
+          ? `<span style="color:#64748b;font-size:10px;">${r.notes}</span>`
+          : `<span style="color:#d1d5db;font-size:10px;">—</span>`;
         html += `<tr style="background:${bg}">
           <td style="${td}font-weight:600">${r.product_name}</td>
           <td style="${td}font-family:monospace;font-size:10px;color:#6878C0">${r.batch_no}</td>
@@ -9561,6 +9568,14 @@ function _renderTransitTable() {
           <td style="${td}"><span style="color:${srcC};font-size:10px;border:1px solid ${srcC};border-radius:4px;padding:1px 6px;font-weight:700;">${src}</span></td>
           <td style="${td}"><span style="color:${sc};font-weight:700;font-size:10px;border:1px solid ${sc};border-radius:4px;padding:1px 6px;">${r.status}</span></td>
           <td style="${td}font-size:10px;color:#64748b">${r.last_offset_date||'—'}</td>
+          <td style="${td}min-width:140px;max-width:220px;">
+            <div style="display:flex;align-items:center;gap:4px;">
+              ${noteDisplay}
+              <button onclick="_editTransitNote('${r.id}','${noteVal}')"
+                title="編輯備註"
+                style="flex-shrink:0;padding:1px 5px;border:1px solid #c7d9f0;border-radius:4px;background:#f4f8ff;color:#6878C0;font-size:10px;cursor:pointer;">✏️</button>
+            </div>
+          </td>
           <td style="${td}text-align:center">${actionBtn}${deleteBtn}</td>
         </tr>`;
     });
@@ -9574,6 +9589,30 @@ function _transitSortBy(key) {
     _renderTransitTable();
 }
 window._transitSortBy = _transitSortBy;
+
+// 備註內嵌編輯 — 彈出輸入框後直接寫入 Supabase
+async function _editTransitNote(id, currentNote) {
+    const newNote = prompt('編輯備註（清空即刪除）：', currentNote || '');
+    if (newNote === null) return; // 按取消
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${id}`,
+            {
+                method: 'PATCH',
+                headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ notes: newNote.trim() }),
+            }
+        );
+        if (!resp.ok) throw new Error(await resp.text());
+        // 更新本地快取
+        const rec = (_transitRecords || []).find(r => String(r.id) === String(id));
+        if (rec) rec.notes = newNote.trim();
+        _renderTransitTable();
+    } catch(e) {
+        alert('備註儲存失敗：' + e.message);
+    }
+}
+window._editTransitNote = _editTransitNote;
 
 function _transitFilterFn(status) {
     _transitFilter = status;
@@ -9764,7 +9803,7 @@ async function autoMatchTransitSales() {
 }
 window.autoMatchTransitSales = autoMatchTransitSales;
 
-// 顯示比對預覽 —— 等待使用者確認後才寫入
+// 顯示比對預覽 —— 可逐行編輯數量或移除，確認後才寫入
 function _showTransitPreview(changes, today, statusEl) {
     const previewEl = document.getElementById('transit_preview');
     if (!previewEl) return;
@@ -9775,59 +9814,141 @@ function _showTransitPreview(changes, today, statusEl) {
         return;
     }
 
-    const totalConsume = changes.reduce((s, c) => s + c.consume_qty, 0);
     statusEl.textContent = `📋 比對完成：找到 ${changes.length} 筆待更新，請確認後再寫入`;
+    window._transitPendingChanges = changes; // 確保同步
+    _renderTransitPreviewTable();
+}
 
-    const statusColor = s => s === '已核銷' ? '#22c55e' : s === '部分核銷' ? '#f7a35c' : '#ef4444';
+function _renderTransitPreviewTable() {
+    const previewEl = document.getElementById('transit_preview');
+    const changes   = window._transitPendingChanges || [];
+    if (!previewEl) return;
+    if (!changes.length) { previewEl.style.display = 'none'; return; }
+
     const fmt = n => Number(n).toLocaleString(undefined, {maximumFractionDigits: 2});
+    const statusColor = s => s==='已核銷'?'#22c55e':s==='部分核銷'?'#f7a35c':'#ef4444';
+    const totalConsume = changes.reduce((s,c) => s + c.consume_qty, 0);
+
+    const th = `padding:0.42rem 0.6rem;font-size:0.76rem;font-weight:700;background:#eef3fd;border-bottom:2px solid #c7d9f0;white-space:nowrap;`;
+    const td = `padding:0.38rem 0.6rem;font-size:0.78rem;border-bottom:1px solid #f0f4f8;`;
 
     previewEl.style.display = '';
     previewEl.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem;">
         <div>
-          <span style="font-weight:800;color:#6878C0;font-size:0.95rem;">📋 核銷預覽 — 請確認無誤後再寫入</span>
-          <span style="font-size:0.78rem;color:#94a3b8;margin-left:0.6rem;">共 ${changes.length} 筆，合計核銷數量 ${fmt(totalConsume)}</span>
+          <span style="font-weight:800;color:#6878C0;font-size:0.92rem;">📋 核銷預覽 — 請確認無誤後再寫入</span>
+          <span id="preview_summary" style="font-size:0.76rem;color:#94a3b8;margin-left:0.6rem;">共 ${changes.length} 筆，合計核銷數量 ${fmt(totalConsume)}</span>
         </div>
-        <div style="display:flex;gap:0.5rem;">
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <span style="font-size:0.72rem;color:#f7a35c;">✏️ 可直接修改數量 或 ✖ 移除不想核銷的行</span>
           <button onclick="_commitTransitChanges()" style="padding:0.45rem 1.2rem;background:#22c55e;color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;font-size:0.88rem;box-shadow:0 2px 6px rgba(34,197,94,.3);">✅ 確認寫入 Supabase</button>
           <button onclick="_cancelTransitPreview()" style="padding:0.45rem 1rem;background:#ef4444;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">✖ 取消</button>
         </div>
       </div>
       <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:0.79rem;">
-          <thead>
-            <tr style="background:#eef3fd;text-align:left;">
-              <th style="padding:0.45rem 0.6rem;white-space:nowrap;border-bottom:2px solid #c7d9f0;">產品名稱</th>
-              <th style="padding:0.45rem 0.6rem;white-space:nowrap;border-bottom:2px solid #c7d9f0;">批號</th>
-              <th style="padding:0.45rem 0.6rem;white-space:nowrap;border-bottom:2px solid #c7d9f0;">出庫日期</th>
-              <th style="padding:0.45rem 0.6rem;text-align:right;border-bottom:2px solid #c7d9f0;">原始數量</th>
-              <th style="padding:0.45rem 0.6rem;text-align:right;border-bottom:2px solid #c7d9f0;">舊核銷量</th>
-              <th style="padding:0.45rem 0.6rem;text-align:right;color:#6878C0;border-bottom:2px solid #c7d9f0;">＋本次核銷</th>
-              <th style="padding:0.45rem 0.6rem;text-align:right;border-bottom:2px solid #c7d9f0;">新核銷量</th>
-              <th style="padding:0.45rem 0.6rem;text-align:right;border-bottom:2px solid #c7d9f0;">剩餘</th>
-              <th style="padding:0.45rem 0.6rem;text-align:center;border-bottom:2px solid #c7d9f0;">舊狀態→新狀態</th>
-            </tr>
-          </thead>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="${th}"></th>
+            <th style="${th}">產品名稱</th>
+            <th style="${th}">批號</th>
+            <th style="${th}">出庫日期</th>
+            <th style="${th}text-align:right;">原始數量</th>
+            <th style="${th}text-align:right;">舊核銷量</th>
+            <th style="${th}text-align:right;color:#6878C0;">＋本次核銷</th>
+            <th style="${th}text-align:right;">新核銷量</th>
+            <th style="${th}text-align:right;">剩餘</th>
+            <th style="${th}text-align:center;">狀態變化</th>
+          </tr></thead>
           <tbody>
-            ${changes.map(c => `
-              <tr style="border-bottom:1px solid #f0f4f8;">
-                <td style="padding:0.4rem 0.6rem;font-weight:600;">${c.product_name}</td>
-                <td style="padding:0.4rem 0.6rem;font-family:monospace;color:#6878C0;font-size:0.75rem;">${c.batch_no}</td>
-                <td style="padding:0.4rem 0.6rem;white-space:nowrap;color:#64748b;">${c.outbound_date||'—'}</td>
-                <td style="padding:0.4rem 0.6rem;text-align:right;">${fmt(c.original_qty)}</td>
-                <td style="padding:0.4rem 0.6rem;text-align:right;color:#94a3b8;">${fmt(c.old_offset)}</td>
-                <td style="padding:0.4rem 0.6rem;text-align:right;color:#6878C0;font-weight:700;">+${fmt(c.consume_qty)}</td>
-                <td style="padding:0.4rem 0.6rem;text-align:right;font-weight:700;">${fmt(c.new_offset)}</td>
-                <td style="padding:0.4rem 0.6rem;text-align:right;color:${c.new_remaining>0?'#ef4444':'#22c55e'};font-weight:700;">${fmt(c.new_remaining)}</td>
-                <td style="padding:0.4rem 0.6rem;text-align:center;white-space:nowrap;">
-                  <span style="color:${statusColor(c.old_status)};font-size:0.72rem;font-weight:700;">${c.old_status}</span>
-                  <span style="color:#94a3b8;margin:0 3px;">→</span>
-                  <span style="color:${statusColor(c.new_status)};font-size:0.72rem;font-weight:700;">${c.new_status}</span>
+            ${changes.map((c, idx) => {
+              const newOff = c.old_offset + c.consume_qty;
+              const newRem = Math.max(0, c.original_qty - newOff);
+              const newSt  = _transitStatus(c.original_qty, newOff);
+              return `<tr id="preview_row_${idx}" style="border-bottom:1px solid #f0f4f8;">
+                <td style="${td}text-align:center;">
+                  <button onclick="_removePreviewRow(${idx})"
+                    title="移除此行（不核銷）"
+                    style="width:22px;height:22px;border-radius:50%;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:13px;font-weight:900;cursor:pointer;line-height:1;padding:0;">✕</button>
                 </td>
-              </tr>`).join('')}
+                <td style="${td}font-weight:600;">${c.product_name}</td>
+                <td style="${td}font-family:monospace;color:#6878C0;font-size:0.73rem;">${c.batch_no}</td>
+                <td style="${td}color:#64748b;">${c.outbound_date||'—'}</td>
+                <td style="${td}text-align:right;">${fmt(c.original_qty)}</td>
+                <td style="${td}text-align:right;color:#94a3b8;">${fmt(c.old_offset)}</td>
+                <td style="${td}text-align:right;">
+                  <input type="number"
+                    id="preview_qty_${idx}"
+                    value="${c.consume_qty}"
+                    min="0" max="${c.old_remaining}"
+                    step="any"
+                    onchange="_updatePreviewRow(${idx})"
+                    style="width:90px;text-align:right;border:1.5px solid #a5b4fc;border-radius:6px;padding:2px 6px;font-size:0.82rem;font-weight:700;color:#6878C0;background:#f4f6ff;" />
+                </td>
+                <td style="${td}text-align:right;font-weight:700;" id="preview_newoff_${idx}">${fmt(newOff)}</td>
+                <td style="${td}text-align:right;font-weight:700;color:${newRem>0?'#ef4444':'#22c55e'};" id="preview_rem_${idx}">${fmt(newRem)}</td>
+                <td style="${td}text-align:center;white-space:nowrap;" id="preview_st_${idx}">
+                  <span style="color:${statusColor(c.old_status)};font-size:0.72rem;font-weight:700;">${c.old_status}</span>
+                  <span style="color:#94a3b8;margin:0 2px;">→</span>
+                  <span style="color:${statusColor(newSt)};font-size:0.72rem;font-weight:700;">${newSt}</span>
+                </td>
+              </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>`;
+}
+
+// 移除預覽中的某行（跳過不核銷）
+function _removePreviewRow(idx) {
+    const changes = window._transitPendingChanges || [];
+    changes.splice(idx, 1);
+    window._transitPendingChanges = changes;
+    _renderTransitPreviewTable();
+    _updatePreviewSummary();
+}
+window._removePreviewRow = _removePreviewRow;
+
+// 修改某行的本次核銷數量，即時更新新核銷量/剩餘/狀態
+function _updatePreviewRow(idx) {
+    const changes = window._transitPendingChanges || [];
+    const c = changes[idx];
+    if (!c) return;
+
+    const input = document.getElementById(`preview_qty_${idx}`);
+    let val = parseFloat(input?.value) || 0;
+    val = Math.max(0, Math.min(val, c.old_remaining)); // 不可超過可核銷量
+    if (input) input.value = val;
+    c.consume_qty = val;
+
+    const newOff = c.old_offset + val;
+    const newRem = Math.max(0, c.original_qty - newOff);
+    const newSt  = _transitStatus(c.original_qty, newOff);
+    c.new_offset    = newOff;
+    c.new_remaining = newRem;
+    c.new_status    = newSt;
+
+    const scFn = s => s==='已核銷'?'#22c55e':s==='部分核銷'?'#f7a35c':'#ef4444';
+    const fmt = n => Number(n).toLocaleString(undefined, {maximumFractionDigits:2});
+    const offEl = document.getElementById(`preview_newoff_${idx}`);
+    const remEl = document.getElementById(`preview_rem_${idx}`);
+    const stEl  = document.getElementById(`preview_st_${idx}`);
+    if (offEl) offEl.textContent = fmt(newOff);
+    if (remEl) { remEl.textContent = fmt(newRem); remEl.style.color = newRem>0?'#ef4444':'#22c55e'; }
+    if (stEl)  stEl.innerHTML = `
+      <span style="color:${scFn(c.old_status)};font-size:0.72rem;font-weight:700;">${c.old_status}</span>
+      <span style="color:#94a3b8;margin:0 2px;">→</span>
+      <span style="color:${scFn(newSt)};font-size:0.72rem;font-weight:700;">${newSt}</span>`;
+
+    _updatePreviewSummary();
+}
+window._updatePreviewRow = _updatePreviewRow;
+
+// 更新頂部合計
+function _updatePreviewSummary() {
+    const changes = window._transitPendingChanges || [];
+    const total = changes.reduce((s,c) => s + c.consume_qty, 0);
+    const el = document.getElementById('preview_summary');
+    if (el) el.textContent = `共 ${changes.length} 筆，合計核銷數量 ${Number(total).toLocaleString(undefined,{maximumFractionDigits:2})}`;
 }
 
 async function _commitTransitChanges() {
