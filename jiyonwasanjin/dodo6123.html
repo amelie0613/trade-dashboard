@@ -9755,23 +9755,27 @@ async function autoMatchTransitSales() {
 
     statusEl.textContent = '⏳ 比對計算中，請稍候…';
 
-    // 建立利潤分析索引：key = 產品名稱|批號 → 累計銷售數量
-    // 同步記錄每個 key 關聯的專案清單，供預覽表顯示「比對專案」
-    // 注意：數量欄位可能含千分位逗號（如 "2,000.00000"），需先移除再解析
+    // 建立利潤 FIFO 佇列：key = 產品名稱|批號 → [{proj, projName, date, qty, remaining}]
+    // remaining 是可變的，dry-run 時逐筆扣減，達到 1 對 1 精確追蹤
     const profitMap = {};
-    const profitDetailMap = {}; // key → [{專案, 專案名稱, 銷貨日期, qty}]
+    const profitQueueMap = {}; // key → [{proj, projName, date, qty, remaining}]
     profitCalcData.forEach(r => {
         const key = `${(r[nameCol]||'').trim()}|${(r[batchCol]||'').trim()}`;
         const qty = Math.abs(parseFloat(String(r[qtyCol]||'').replace(/,/g,'')) || 0);
         profitMap[key] = (profitMap[key] || 0) + qty;
-        if (!profitDetailMap[key]) profitDetailMap[key] = [];
-        profitDetailMap[key].push({
+        if (!profitQueueMap[key]) profitQueueMap[key] = [];
+        profitQueueMap[key].push({
             proj:     String(r['專案']     || r['project']      || '').trim(),
             projName: String(r['專案名稱'] || r['project_name'] || '').trim(),
             date:     String(r['銷貨日期'] || r['sale_date']    || '').trim(),
             qty,
+            remaining: qty,   // FIFO 消耗用，dry-run 時會被扣減
         });
     });
+    // 各 key 的佇列依銷貨日期排序（FIFO）
+    Object.values(profitQueueMap).forEach(q =>
+        q.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+    );
 
     // 讀取在途銷貨台帳（未核銷 + 部分核銷）
     const resp = await fetch(
@@ -9792,20 +9796,40 @@ async function autoMatchTransitSales() {
 
     const today = new Date().toISOString().slice(0,10);
 
-    // ── DRY RUN：先計算所有變動，不寫入 Supabase ───────────────────
-    const profitMapCopy = { ...profitMap };
+    // ── DRY RUN：逐筆 FIFO 追蹤，只顯示實際被消耗的利潤交易 ────────
     const plannedChanges = [];
 
     for (const rec of pending) {
-        const key = `${rec.product_name}|${rec.batch_no}`;
-        let saleQtyLeft = profitMapCopy[key] || 0;
-        if (saleQtyLeft <= 0) continue;
+        const key   = `${rec.product_name}|${rec.batch_no}`;
+        const queue = profitQueueMap[key];
+        if (!queue) continue;
 
-        const originalQty     = parseFloat(rec.original_qty) || 0;
-        const currentOffset   = parseFloat(rec.offset_qty)   || 0;
+        // 目前佇列剩餘總量
+        const totalLeft = queue.reduce((s, t) => s + t.remaining, 0);
+        if (totalLeft <= 0) continue;
+
+        const originalQty      = parseFloat(rec.original_qty) || 0;
+        const currentOffset    = parseFloat(rec.offset_qty)   || 0;
         const currentRemaining = Math.max(0, originalQty - currentOffset);
-        const consumeQty = Math.min(saleQtyLeft, currentRemaining);
+        const consumeQty       = Math.min(totalLeft, currentRemaining);
         if (consumeQty <= 0) continue;
+
+        // FIFO：逐筆從佇列前端扣減，記錄實際消耗的利潤交易
+        const consumedProjects = [];
+        let leftToConsume = consumeQty;
+        for (const t of queue) {
+            if (leftToConsume <= 0.0001) break;
+            if (t.remaining <= 0) continue;
+            const take = Math.min(leftToConsume, t.remaining);
+            consumedProjects.push({
+                proj:     t.proj,
+                projName: t.projName,
+                date:     t.date,
+                qty:      take,   // 實際消耗量（非原始 qty）
+            });
+            t.remaining   -= take;
+            leftToConsume -= take;
+        }
 
         const newOffset    = currentOffset + consumeQty;
         const newRemaining = Math.max(0, originalQty - newOffset);
@@ -9824,9 +9848,8 @@ async function autoMatchTransitSales() {
             new_offset:     newOffset,
             new_remaining:  newRemaining,
             new_status:     newStatus,
-            profit_projects: profitDetailMap[key] || [],  // 比對到的利潤專案
+            profit_projects: consumedProjects,  // 只含實際消耗的利潤交易
         });
-        profitMapCopy[key] = saleQtyLeft - consumeQty;
     }
 
     // ── 顯示預覽確認面板 ─────────────────────────────────────────────
