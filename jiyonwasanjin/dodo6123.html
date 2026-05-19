@@ -1944,6 +1944,8 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                     <input type="checkbox" id="profit_show_unmatched" onchange="applyProfitFilter()"> 只顯示未比對
                   </label>
                   <span id="profit_filter_note" style="font-size:0.8rem; color:#999;"></span>
+                  <button id="btn_outbound_comp" onclick="toggleOutboundComparison()" style="padding:0.35rem 0.9rem; font-size:0.8rem; border:none; border-radius:6px; background:#6878C0; color:#fff; cursor:pointer; font-weight:700; margin-left:0.4rem;">📊 帶入銷貨比對</button>
+                  <span id="profit_comp_note" style="font-size:0.78rem; color:#6878C0;"></span>
                 </div>
                 <div id="profit_results">
                   <p style="color:#999; text-align:center; padding:2rem;">上傳利潤明細表後點擊「試算租金費用」</p>
@@ -11176,6 +11178,7 @@ function renderProfitTable() {
     const showUnmatched = document.getElementById('profit_show_unmatched')?.checked || false;
     const nameCol  = document.getElementById('pcol_name').value.trim() || '產品名稱';
     const batchCol = document.getElementById('pcol_batch').value.trim() || '批號';
+    const qtyCol   = document.getElementById('pcol_qty')?.value.trim() || '數量';
 
     const filtered = profitCalcData.filter(r => {
         if (showUnmatched && r.租金費用 !== '') return false;
@@ -11189,19 +11192,48 @@ function renderProfitTable() {
     const note = document.getElementById('profit_filter_note');
     if (note) note.textContent = (keyword || showUnmatched) ? `顯示 ${filtered.length} / ${profitCalcData.length} 筆` : '';
 
-    const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源', '來源備註'];
+    // ── 銷貨比對模式 ──────────────────────────────────────────────
+    const showComp = window._showOutboundComparison === true;
+    const outboundMap = {};   // key: "產品名稱|批號" → qty
+    if (showComp && Array.isArray(window._outboundRecords) && window._outboundRecords.length > 0) {
+        window._outboundRecords.forEach(rec => {
+            const wType = rec.分倉類型 || _autoWarehouseType(rec.出庫類型 || '', rec.備註 || '');
+            if (wType !== '銷貨') return;
+            const name  = String(rec.產品名稱 || '').trim();
+            const batch = String(rec.批號 || '').trim();
+            const qty   = Math.abs(parseFloat(String(rec.出庫數量 ?? 0).toString().replace(/,/g,'')) || 0);
+            const key   = `${name}|${batch}`;
+            outboundMap[key] = (outboundMap[key] || 0) + qty;
+        });
+    }
+
+    const extraCols = showComp ? ['出庫數量(銷貨)', '數量差異', '比對狀態'] : [];
+    const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源', '來源備註', ...extraCols];
     const highlightCols = new Set(['租金單價', '租金費用', '租金來源', '來源備註']);
+    const compColSet = new Set(extraCols);
 
     let html = `<div class="result-section"><div class="overflow-auto"><table style="font-size:12px;"><thead><tr>`;
     allCols.forEach(col => {
-        const hl = highlightCols.has(col) ? ' highlight' : '';
-        html += `<th class="${hl}" style="white-space:nowrap;">${col}</th>`;
+        if (compColSet.has(col)) {
+            html += `<th style="white-space:nowrap; background:#ede9ff; color:#5048a0; border-bottom:2px solid #6878C0;">${col}</th>`;
+        } else {
+            const hl = highlightCols.has(col) ? ' highlight' : '';
+            html += `<th class="${hl}" style="white-space:nowrap;">${col}</th>`;
+        }
     });
     html += `</tr></thead><tbody>`;
 
-    filtered.forEach((r, idx) => {
+    filtered.forEach((r) => {
         const hasRent = r.租金費用 !== '';
         const rowBg = hasRent ? '' : 'background:#fafafa; color:#bbb;';
+
+        // Pre-compute comparison values for this row
+        const rName  = String(r[nameCol] || '').trim();
+        const rBatch = String(r[batchCol] || '').trim();
+        const mapKey = `${rName}|${rBatch}`;
+        const obQty  = showComp ? outboundMap[mapKey] : undefined;
+        const profitQty = showComp ? (parseFloat(String(r[qtyCol] ?? '').toString().replace(/,/g,'')) || 0) : 0;
+
         html += `<tr style="${rowBg}">`;
         allCols.forEach(col => {
             const val = r[col] !== undefined && r[col] !== '' ? r[col] : '';
@@ -11217,6 +11249,32 @@ function renderProfitTable() {
                 html += `<td style="text-align:center; white-space:nowrap; color:${sourceColor}; font-weight:${hasRent?'700':'400'}; font-size:0.7rem;">${display}</td>`;
             } else if (col === '來源備註') {
                 html += `<td style="white-space:nowrap; color:#64748b; font-size:0.78rem;">${val || ''}</td>`;
+            } else if (col === '出庫數量(銷貨)') {
+                if (obQty !== undefined) {
+                    html += `<td style="text-align:right; white-space:nowrap; background:#f0eeff; color:#5048a0; font-weight:700;">${obQty.toLocaleString()}</td>`;
+                } else {
+                    html += `<td style="text-align:center; background:#f9f8ff; color:#bbb;">—</td>`;
+                }
+            } else if (col === '數量差異') {
+                if (obQty !== undefined) {
+                    const diff = profitQty - obQty;
+                    const color = diff === 0 ? '#4a9a37' : '#e05a5a';
+                    const sign  = diff > 0 ? '+' : '';
+                    html += `<td style="text-align:right; white-space:nowrap; background:#f0eeff; color:${color}; font-weight:800;">${sign}${diff.toLocaleString()}</td>`;
+                } else {
+                    html += `<td style="text-align:center; background:#f9f8ff; color:#bbb;">—</td>`;
+                }
+            } else if (col === '比對狀態') {
+                if (obQty === undefined) {
+                    html += `<td style="text-align:center; background:#f9f8ff; color:#aaa; font-size:0.78rem;">— 未找到</td>`;
+                } else {
+                    const diff = profitQty - obQty;
+                    if (diff === 0) {
+                        html += `<td style="text-align:center; background:#f0fff4; color:#4a9a37; font-weight:800; font-size:0.82rem;">✅ 一致</td>`;
+                    } else {
+                        html += `<td style="text-align:center; background:#fff0f0; color:#e05a5a; font-weight:800; font-size:0.82rem;">❌ 差異</td>`;
+                    }
+                }
             } else {
                 html += `<td style="white-space:nowrap;">${val}</td>`;
             }
@@ -11236,6 +11294,34 @@ function renderProfitTable() {
     document.getElementById('profit_results').innerHTML = html;
 }
 window.applyProfitFilter = renderProfitTable;
+
+function toggleOutboundComparison() {
+    if (!profitCalcData || profitCalcData.length === 0) {
+        alert('請先試算利潤分析（點擊「試算租金費用」）');
+        return;
+    }
+    if (!Array.isArray(window._outboundRecords) || window._outboundRecords.length === 0) {
+        alert('請先上傳並處理出庫記錄（租金計算頁面），或從 Supabase 讀取出庫記錄');
+        return;
+    }
+    window._showOutboundComparison = !window._showOutboundComparison;
+    const btn = document.getElementById('btn_outbound_comp');
+    const compNote = document.getElementById('profit_comp_note');
+    if (window._showOutboundComparison) {
+        if (btn) { btn.textContent = '🔴 隱藏銷貨比對'; btn.style.background = '#e05a5a'; }
+        // Count how many outbound 銷貨 records exist
+        const salesCount = (window._outboundRecords || []).filter(r => {
+            const wt = r.分倉類型 || _autoWarehouseType(r.出庫類型 || '', r.備註 || '');
+            return wt === '銷貨';
+        }).length;
+        if (compNote) compNote.textContent = `共 ${salesCount} 筆銷貨出庫記錄參與比對`;
+    } else {
+        if (btn) { btn.textContent = '📊 帶入銷貨比對'; btn.style.background = '#6878C0'; }
+        if (compNote) compNote.textContent = '';
+    }
+    renderProfitTable();
+}
+window.toggleOutboundComparison = toggleOutboundComparison;
 
 async function exportProfit() {
     if (!profitCalcData || profitCalcData.length === 0) { alert('請先試算'); return; }
