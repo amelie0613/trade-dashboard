@@ -2027,8 +2027,12 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                   🤖 一鍵自動分類
                 </button>
                 <div id="ob_page_status" style="font-size:0.82rem; color:#64748b;"></div>
+                <button onclick="clearOutboundWithCheck()"
+                  style="padding:0.5rem 1.2rem; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; margin-left:auto;">
+                  🗑️ 清空換月
+                </button>
                 <!-- 分倉統計 chips -->
-                <div id="ob_summary" style="display:flex; gap:0.5rem; margin-left:auto; flex-wrap:wrap; align-items:center;"></div>
+                <div id="ob_summary" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;"></div>
               </div>
               <!-- 記錄表 -->
               <div id="ob_page_results" style="background:white; border:1.5px solid #dde6ef; border-radius:12px; padding:1rem; min-height:180px;">
@@ -11358,6 +11362,183 @@ async function checkOutboundSupabase() {
         console.error('checkOutboundSupabase:', e);
     }
 }
+
+// ===== 清空出庫記錄（換月）前置檢查 =====
+async function clearOutboundWithCheck() {
+    const h = getSBHeaders();
+
+    // --- 建立 overlay ---
+    const existing = document.getElementById('clearOutboundOverlay');
+    if (existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'clearOutboundOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(30,42,80,.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `
+      <div style="background:white;border-radius:20px;padding:28px 32px;width:min(520px,95vw);box-shadow:0 20px 60px rgba(104,120,192,.3);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+          <span style="font-size:26px;">🗑️</span>
+          <div>
+            <h3 style="font-size:15px;font-weight:900;color:#ef4444;margin:0;">清空出庫記錄（換月）</h3>
+            <p style="font-size:11px;color:#8090B8;margin:0;">正在檢查各項前置條件，請稍候…</p>
+          </div>
+          <button onclick="document.getElementById('clearOutboundOverlay').remove()"
+            style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:#8090B8;">✕</button>
+        </div>
+        <div id="clearCheckBody" style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
+          <div style="text-align:center;color:#8090B8;padding:1.5rem;">⏳ 檢查中…</div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button onclick="document.getElementById('clearOutboundOverlay').remove()"
+            style="padding:9px 18px;border-radius:12px;border:2px solid #DCE6F8;background:#DCE6F8;color:#2A3870;font-weight:700;cursor:pointer;font-family:inherit;">取消</button>
+          <button id="clearOutboundConfirmBtn" disabled
+            style="padding:9px 18px;border-radius:12px;border:none;background:#ccc;color:white;font-weight:700;cursor:not-allowed;font-family:inherit;">
+            🗑️ 確認清空
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const bodyEl  = document.getElementById('clearCheckBody');
+    const confirmBtn = document.getElementById('clearOutboundConfirmBtn');
+
+    function row(icon, label, detail, ok) {
+        const bg  = ok === true ? '#f0faf0' : ok === false ? '#fff5f5' : '#fffbf0';
+        const bc  = ok === true ? '#22c55e' : ok === false ? '#ef4444' : '#f7a35c';
+        return `<div style="background:${bg};border:1.5px solid ${bc};border-radius:10px;padding:10px 14px;display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:18px;line-height:1.3;">${icon}</span>
+          <div>
+            <div style="font-weight:700;font-size:13px;color:#1a2540;">${label}</div>
+            <div style="font-size:11.5px;color:#64748b;margin-top:2px;">${detail}</div>
+          </div>
+        </div>`;
+    }
+
+    try {
+        // 1. 月結完成：有無 allocated_price = 0 的記錄
+        const r1 = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?allocated_price=eq.0&select=id`, { headers: h });
+        const unallocated = (await r1.json()).length;
+
+        // 2. 加工原料出庫筆數 vs 原料台帳筆數
+        const r2a = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.加工原料&select=id`, { headers: h });
+        const matOutCount = (await r2a.json()).length;
+        const r2b = await fetch(`${SUPABASE_URL}/rest/v1/processing_materials_ledger?select=id`, { headers: h });
+        const matLedCount = (await r2b.json()).length;
+
+        // 3. 在途銷貨出庫筆數 vs 在途台帳筆數
+        const r3a = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.再途銷貨&select=id`, { headers: h });
+        const transitOutCount = (await r3a.json()).length;
+        const r3b = await fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=eq.原始出庫&select=id`, { headers: h });
+        const transitLedCount = (await r3b.json()).length;
+
+        // 4. 出庫記錄總筆數
+        const r4 = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?select=id`, { headers: h });
+        const totalCount = (await r4.json()).length;
+
+        // --- 判斷各項 ---
+        const check1ok = unallocated === 0;
+        const check2ok = matOutCount === 0 || matLedCount > 0;
+        const check3ok = transitOutCount === 0 || transitLedCount > 0;
+        const allOk    = check1ok && check2ok && check3ok;
+
+        const rows = [
+            row(
+                check1ok ? '✅' : '⚠️',
+                '月結分攤單價',
+                check1ok
+                    ? '所有出庫記錄均已完成分攤單價回填'
+                    : `尚有 ${unallocated} 筆記錄 allocated_price = 0，建議先執行月結再清空`,
+                check1ok
+            ),
+            row(
+                check2ok ? '✅' : '❌',
+                '原料成本台帳',
+                matOutCount === 0
+                    ? '出庫記錄中無加工原料類型，無需匯入'
+                    : check2ok
+                        ? `加工原料出庫 ${matOutCount} 筆，原料台帳已有 ${matLedCount} 筆記錄`
+                        : `加工原料出庫 ${matOutCount} 筆，但原料台帳尚無資料，請先執行「📥 從出庫記錄匯入」`,
+                check2ok
+            ),
+            row(
+                check3ok ? '✅' : '❌',
+                '在途銷貨台帳',
+                transitOutCount === 0
+                    ? '出庫記錄中無再途銷貨類型，無需匯入'
+                    : check3ok
+                        ? `再途銷貨出庫 ${transitOutCount} 筆，在途台帳已有 ${transitLedCount} 筆記錄`
+                        : `再途銷貨出庫 ${transitOutCount} 筆，但在途台帳尚無資料，請先執行「📥 從出庫記錄匯入」`,
+                check3ok
+            ),
+            row(
+                '🗑️',
+                '準備清空',
+                `Supabase outbound_records 目前共 ${totalCount} 筆，清空後無法復原`,
+                null  // 橘色警示
+            ),
+        ];
+
+        bodyEl.innerHTML = rows.join('');
+
+        if (allOk) {
+            confirmBtn.disabled = false;
+            confirmBtn.style.background = '#ef4444';
+            confirmBtn.style.cursor = 'pointer';
+            confirmBtn.onclick = () => doDeleteAllOutbound(totalCount);
+        } else {
+            const blockItems = [];
+            if (!check2ok) blockItems.push('原料台帳');
+            if (!check3ok) blockItems.push('在途台帳');
+            if (blockItems.length) {
+                // 有必填未完成項目 → 不允許清空
+                confirmBtn.disabled = true;
+                confirmBtn.title = `請先完成：${blockItems.join('、')}`;
+            } else {
+                // 只有月結警告 → 允許但顯示警告
+                confirmBtn.disabled = false;
+                confirmBtn.style.background = '#f7a35c';
+                confirmBtn.style.cursor = 'pointer';
+                confirmBtn.textContent = '⚠️ 仍要清空';
+                confirmBtn.onclick = () => doDeleteAllOutbound(totalCount);
+            }
+        }
+    } catch(e) {
+        bodyEl.innerHTML = `<div style="color:#ef4444;font-size:13px;">❌ 檢查失敗：${e.message}</div>`;
+    }
+}
+
+async function doDeleteAllOutbound(expectedCount) {
+    const confirmBtn = document.getElementById('clearOutboundConfirmBtn');
+    const bodyEl     = document.getElementById('clearCheckBody');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '⏳ 刪除中…';
+    try {
+        const h = getSBHeaders();
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/outbound_records?id=not.is.null`,
+            { method: 'DELETE', headers: { ...h, 'Prefer': 'return=minimal' } }
+        );
+        if (!resp.ok) {
+            const err = await resp.text();
+            throw new Error(err);
+        }
+        // 清除記憶體暫存
+        window._outboundRecords = [];
+        bodyEl.innerHTML = `<div style="background:#f0faf0;border:1.5px solid #22c55e;border-radius:10px;padding:16px;text-align:center;">
+          <div style="font-size:22px;">✅</div>
+          <div style="font-weight:700;color:#1a6b3a;margin-top:6px;">清空完成</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">已刪除 outbound_records 全部 ${expectedCount} 筆記錄</div>
+          <div style="font-size:12px;color:#64748b;">可重新上傳本月資料開始計算</div>
+        </div>`;
+        confirmBtn.textContent = '✅ 已完成';
+        confirmBtn.style.background = '#22c55e';
+        if (typeof loadOutboundPage === 'function') loadOutboundPage();
+    } catch(e) {
+        bodyEl.innerHTML += `<div style="color:#ef4444;font-size:13px;margin-top:8px;">❌ 刪除失敗：${e.message}</div>`;
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '🗑️ 重試';
+    }
+}
+window.clearOutboundWithCheck = clearOutboundWithCheck;
 
 // 同時同步總帳和出庫記錄到 Supabase
 async function syncBothToSupabase() {
