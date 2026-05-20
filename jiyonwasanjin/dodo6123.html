@@ -1885,8 +1885,8 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <div style="margin-top:0.6rem; padding-top:0.6rem; border-top:1px dashed var(--border); display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap;">
                         <button id="btn_full_analysis" onclick="_runFullAnalysis()"
                           style="background:linear-gradient(135deg,#3b82f6,#6878C0);color:#fff;border:none;border-radius:8px;padding:0.45rem 1.1rem;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(104,120,192,.35);"
-                          title="自動依序執行：租金計算 → 出庫分類 → 加工分析 → 利潤匯總 → 在途核銷">🚀 完整分析</button>
-                        <span style="font-size:0.72rem; color:#94a3b8;">租金計算完成後執行，自動完成後續所有步驟</span>
+                          title="自動依序執行：出庫分類 → 加工分析 → 利潤匯總 → 在途核銷">🚀 完整分析</button>
+                        <span style="font-size:0.72rem; color:#94a3b8;">上傳利潤明細表後執行，自動完成後續所有步驟</span>
                       </div>
                       <div id="orchestrator_status" style="display:none;margin-top:0.8rem;border:1px solid #c7d9f0;border-radius:10px;padding:1rem 1.2rem;background:#f4f8ff;font-size:0.85rem;"></div>
                       <div id="profit_calc_status" style="margin-top:0.5rem; font-size:0.82rem;"></div>
@@ -13240,7 +13240,7 @@ class RentalAnalysisPipeline {
     const elapsed = this.startTime ? ((Date.now() - this.startTime) / 1000).toFixed(1) : '0';
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.6rem;">
-        <span style="font-weight:700;color:#6878C0;font-size:0.9rem;">🚀 完整分析執行中...</span>
+        <span style="font-weight:700;color:#6878C0;font-size:0.9rem;">🚀 完整分析執行中（出庫分類→利潤匯總→在途核銷）</span>
         <span style="font-size:0.78rem;color:#94a3b8;">${elapsed} 秒</span>
       </div>
       <div style="height:6px;background:#dde9fa;border-radius:4px;margin-bottom:0.8rem;overflow:hidden;">
@@ -13273,37 +13273,13 @@ class RentalAnalysisPipeline {
     this._progress = 0;
     const summary = { hasError: false, items: [] };
 
-    // ── Stage 1：租金計算（必需）────────────────────────────────
-    try {
-      if (!files.file1 || !files.file2)
-        throw new Error('請上傳租金表與出入庫記錄表');
-      if (!cachedWeightData || !cachedWeightData.length)
-        throw new Error('重量表尚未載入（請至設定頁匯入）');
-      const period = document.getElementById('rentalPeriod')?.value;
-      if (!period) throw new Error('請選擇計算期間（上期或下期）');
-
-      this._log('⏳', 'Stage 1 租金計算中...', '#2a6a82');
-      this._progress = 15;
-      this._render();
-      await processFiles();
-      const count = (calculatedData || []).length;
-      this._log('✅', `Stage 1 租金計算完成（${count} 筆）`, '#22c55e');
-      summary.items.push({ icon: '✅', label: 'Stage 1 租金計算', msg: `${count} 筆完成`, color: '#22c55e' });
-      this._progress = 28;
-    } catch (e) {
-      this._log('❌', `Stage 1 租金計算失敗：${e.message}`, '#ef4444');
-      summary.hasError = true;
-      summary.items.push({ icon: '❌', label: 'Stage 1 租金計算', msg: e.message, color: '#ef4444' });
-      this._setDone(summary);
-      return;
-    }
-
-    // ── Stage 2：出庫自動分類（可選）──────────────────────────────
+    // ── Stage 1：出庫自動分類（可選）──────────────────────────────
+    // 租金計算已在月租金核算頁獨立執行，此處不重複
     try {
       const records = window._outboundRecords || [];
       if (records.length > 0) {
-        this._log('⏳', 'Stage 2 出庫自動分類中...', '#2a6a82');
-        this._progress = 40;
+        this._log('⏳', 'Stage 1 出庫自動分類中...', '#2a6a82');
+        this._progress = 20;
         this._render();
         let updated = 0;
         records.forEach(r => {
@@ -13311,74 +13287,74 @@ class RentalAnalysisPipeline {
             ? _autoWarehouseType(r.出庫類型, r.備註) : r.分倉類型;
           if (newType !== r.分倉類型) { r.分倉類型 = newType; updated++; }
         });
-        this._log('✅', `Stage 2 出庫分類完成（${records.length} 筆，更新 ${updated} 筆）`, '#22c55e');
-        summary.items.push({ icon: '✅', label: 'Stage 2 出庫分類', msg: `${records.length} 筆，更新 ${updated}`, color: '#22c55e' });
+        this._log('✅', `Stage 1 出庫分類完成（${records.length} 筆，更新 ${updated} 筆）`, '#22c55e');
+        summary.items.push({ icon: '✅', label: 'Stage 1 出庫分類', msg: `${records.length} 筆，更新 ${updated}`, color: '#22c55e' });
       } else {
-        this._log('⚠️', 'Stage 2 無出庫記錄，跳過', '#f7a35c');
-        summary.items.push({ icon: '⚠️', label: 'Stage 2 出庫分類', msg: '無出庫記錄，已跳過', color: '#f7a35c' });
+        this._log('⚠️', 'Stage 1 無出庫記錄，跳過', '#f7a35c');
+        summary.items.push({ icon: '⚠️', label: 'Stage 1 出庫分類', msg: '無出庫記錄，已跳過', color: '#f7a35c' });
       }
-      this._progress = 52;
+      this._progress = 33;
     } catch (e) {
-      this._log('⚠️', `Stage 2 出庫分類失敗：${e.message}（已跳過）`, '#f7a35c');
-      summary.items.push({ icon: '⚠️', label: 'Stage 2 出庫分類', msg: e.message, color: '#f7a35c' });
+      this._log('⚠️', `Stage 1 出庫分類失敗：${e.message}（已跳過）`, '#f7a35c');
+      summary.items.push({ icon: '⚠️', label: 'Stage 1 出庫分類', msg: e.message, color: '#f7a35c' });
     }
 
-    // ── Stage 3：加工單分析（可選）────────────────────────────────
+    // ── Stage 2：加工單分析（可選）────────────────────────────────
     try {
       const processingFile = ledgerFiles && ledgerFiles['processing_form_file'];
       if (processingFile) {
-        this._log('⚠️', 'Stage 3 加工單已上傳，請至「轉加工/原料台帳」頁手動執行配對', '#f7a35c');
-        summary.items.push({ icon: '⚠️', label: 'Stage 3 加工分析', msg: '已偵測到加工單，請手動執行配對', color: '#f7a35c' });
+        this._log('⚠️', 'Stage 2 加工單已上傳，請至「轉加工/原料台帳」頁手動執行配對', '#f7a35c');
+        summary.items.push({ icon: '⚠️', label: 'Stage 2 加工分析', msg: '已偵測到加工單，請手動執行配對', color: '#f7a35c' });
       } else {
-        this._log('－', 'Stage 3 未上傳加工單（可選，已跳過）', '#94a3b8');
-        summary.items.push({ icon: '－', label: 'Stage 3 加工分析', msg: '未上傳加工單，已跳過', color: '#94a3b8' });
+        this._log('－', 'Stage 2 未上傳加工單（可選，已跳過）', '#94a3b8');
+        summary.items.push({ icon: '－', label: 'Stage 2 加工分析', msg: '未上傳加工單，已跳過', color: '#94a3b8' });
       }
-      this._progress = 62;
+      this._progress = 50;
     } catch (e) {
-      this._log('⚠️', `Stage 3 加工分析失敗：${e.message}（已跳過）`, '#f7a35c');
-      summary.items.push({ icon: '⚠️', label: 'Stage 3 加工分析', msg: e.message, color: '#f7a35c' });
+      this._log('⚠️', `Stage 2 加工分析失敗：${e.message}（已跳過）`, '#f7a35c');
+      summary.items.push({ icon: '⚠️', label: 'Stage 2 加工分析', msg: e.message, color: '#f7a35c' });
     }
 
-    // ── Stage 4：利潤匯總（可選）──────────────────────────────────
+    // ── Stage 3：利潤匯總（可選）──────────────────────────────────
     try {
       const profitFileEl = document.getElementById('profit_file');
       const profitFile = (ledgerFiles && ledgerFiles['profit_file'])
         || (profitFileEl && profitFileEl.files[0]);
       if (profitFile) {
-        this._log('⏳', 'Stage 4 利潤匯總中...', '#2a6a82');
-        this._progress = 74;
+        this._log('⏳', 'Stage 3 利潤匯總中...', '#2a6a82');
+        this._progress = 68;
         this._render();
         await calcProfit();
         const count = (profitCalcData || []).length;
-        this._log('✅', `Stage 4 利潤匯總完成（${count} 筆）`, '#22c55e');
-        summary.items.push({ icon: '✅', label: 'Stage 4 利潤匯總', msg: `${count} 筆完成`, color: '#22c55e' });
+        this._log('✅', `Stage 3 利潤匯總完成（${count} 筆）`, '#22c55e');
+        summary.items.push({ icon: '✅', label: 'Stage 3 利潤匯總', msg: `${count} 筆完成`, color: '#22c55e' });
       } else {
-        this._log('－', 'Stage 4 未上傳利潤表（可選，已跳過）', '#94a3b8');
-        summary.items.push({ icon: '－', label: 'Stage 4 利潤匯總', msg: '未上傳利潤表，已跳過', color: '#94a3b8' });
+        this._log('－', 'Stage 3 未上傳利潤表（可選，已跳過）', '#94a3b8');
+        summary.items.push({ icon: '－', label: 'Stage 3 利潤匯總', msg: '未上傳利潤表，已跳過', color: '#94a3b8' });
       }
-      this._progress = 86;
+      this._progress = 84;
     } catch (e) {
-      this._log('⚠️', `Stage 4 利潤匯總失敗：${e.message}（已跳過）`, '#f7a35c');
-      summary.items.push({ icon: '⚠️', label: 'Stage 4 利潤匯總', msg: e.message, color: '#f7a35c' });
+      this._log('⚠️', `Stage 3 利潤匯總失敗：${e.message}（已跳過）`, '#f7a35c');
+      summary.items.push({ icon: '⚠️', label: 'Stage 3 利潤匯總', msg: e.message, color: '#f7a35c' });
     }
 
-    // ── Stage 5：在途核銷（可選）──────────────────────────────────
+    // ── Stage 4：在途核銷（可選）──────────────────────────────────
     try {
       if (profitCalcData && profitCalcData.length > 0) {
-        this._log('⏳', 'Stage 5 在途核銷中...', '#2a6a82');
+        this._log('⏳', 'Stage 4 在途核銷中...', '#2a6a82');
         this._progress = 93;
         this._render();
         await autoMatchTransitSales();
-        this._log('✅', 'Stage 5 在途核銷完成', '#22c55e');
-        summary.items.push({ icon: '✅', label: 'Stage 5 在途核銷', msg: '完成', color: '#22c55e' });
+        this._log('✅', 'Stage 4 在途核銷完成', '#22c55e');
+        summary.items.push({ icon: '✅', label: 'Stage 4 在途核銷', msg: '完成', color: '#22c55e' });
       } else {
-        this._log('－', 'Stage 5 無利潤分析資料，跳過在途核銷', '#94a3b8');
-        summary.items.push({ icon: '－', label: 'Stage 5 在途核銷', msg: '無利潤分析資料，已跳過', color: '#94a3b8' });
+        this._log('－', 'Stage 4 無利潤分析資料，跳過在途核銷', '#94a3b8');
+        summary.items.push({ icon: '－', label: 'Stage 4 在途核銷', msg: '無利潤分析資料，已跳過', color: '#94a3b8' });
       }
       this._progress = 100;
     } catch (e) {
-      this._log('⚠️', `Stage 5 在途核銷失敗：${e.message}（已跳過）`, '#f7a35c');
-      summary.items.push({ icon: '⚠️', label: 'Stage 5 在途核銷', msg: e.message, color: '#f7a35c' });
+      this._log('⚠️', `Stage 4 在途核銷失敗：${e.message}（已跳過）`, '#f7a35c');
+      summary.items.push({ icon: '⚠️', label: 'Stage 4 在途核銷', msg: e.message, color: '#f7a35c' });
     }
 
     this._setDone(summary);
