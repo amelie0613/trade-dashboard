@@ -8605,6 +8605,7 @@ window.viewOutboundFromSupabase = viewOutboundFromSupabase;
 
 let _matFilter   = '';
 let _transitFilter = '';
+let _transitLedgerFocus = null; // { product_name, batch_no } — 預覽列點擊篩選用
 let _matRecords     = [];
 let _transitRecords = [];
 let _matSort = { key: 'outbound_date', asc: false };
@@ -9522,6 +9523,7 @@ async function loadTransitLedger() {
             { headers: getSBHeaders() }
         );
         _transitRecords = await resp.json();
+        _transitLedgerFocus = null; // 重新載入時清除 focus 篩選
         statusEl.textContent = `✅ 共 ${_transitRecords.length} 筆`;
         _renderTransitSummary();
         _renderTransitTable();
@@ -9544,16 +9546,35 @@ function _renderTransitSummary() {
 
 function _renderTransitTable() {
     const el = document.getElementById('transit_table');
-    const filtered = _transitFilter ? _transitRecords.filter(r => r.status === _transitFilter) : _transitRecords;
+    // 先套狀態篩選，再套預覽列 focus 篩選
+    let filtered = _transitFilter ? _transitRecords.filter(r => r.status === _transitFilter) : _transitRecords;
+    if (_transitLedgerFocus) {
+        filtered = filtered.filter(r =>
+            r.product_name === _transitLedgerFocus.product_name &&
+            r.batch_no     === _transitLedgerFocus.batch_no
+        );
+    }
     const data = _sortRows(filtered, _transitSort);
-    if (!data.length) { el.innerHTML = '<p style="text-align:center;color:#999;padding:2rem;">查無記錄</p>'; return; }
+
+    // focus 篩選中時顯示提示 Banner
+    const focusBanner = _transitLedgerFocus
+        ? `<div style="display:flex;align-items:center;gap:0.6rem;padding:6px 12px;background:#eef3fd;border:1.5px solid #a5b4fc;border-radius:8px;margin-bottom:8px;font-size:0.8rem;">
+            <span style="color:#6878C0;font-weight:700;">🔍 篩選中：</span>
+            <span style="color:#1a2540;font-weight:600;">${_transitLedgerFocus.product_name}</span>
+            <span style="font-family:monospace;color:#6878C0;font-size:0.72rem;">${_transitLedgerFocus.batch_no}</span>
+            <span style="color:#64748b;font-size:0.74rem;">（共 ${data.length} 筆）</span>
+            <button onclick="_clearLedgerFocus()" style="margin-left:auto;padding:2px 10px;border:1px solid #6878C0;border-radius:5px;background:#fff;color:#6878C0;font-size:0.75rem;font-weight:700;cursor:pointer;">✕ 清除篩選</button>
+           </div>`
+        : '';
+
+    if (!data.length) { el.innerHTML = focusBanner + '<p style="text-align:center;color:#999;padding:2rem;">查無記錄</p>'; return; }
     const stCol = { '未核銷':'#ef4444', '部分核銷':'#f7a35c', '已核銷':'#22c55e' };
     const srcCol = { '銷貨出庫':'#22c55e', '在途出庫':'#7ec8e3', '加工子件':'#c9a8e0', '歷史匯入':'#f7a35c' };
     const th = `padding:6px 10px;font-size:11px;font-weight:700;background:#f5f7ff;border-bottom:2px solid #dde6ef;white-space:nowrap;`;
     const thSort = (key, label, align='left') => `<th onclick="_transitSortBy('${key}')" style="${th}text-align:${align};cursor:pointer;user-select:none;">${label}${_sortArrow(_transitSort, key)}</th>`;
     const td = `padding:6px 10px;font-size:11px;border-bottom:1px solid #f0f4f8;white-space:nowrap;`;
     const periodMap = window._periodOffsetMap || {};
-    let html = `<table style="width:100%;border-collapse:collapse;">
+    let html = focusBanner + `<table style="width:100%;border-collapse:collapse;">
       <thead><tr>
         ${thSort('product_name','產品名稱')}${thSort('batch_no','批號')}${thSort('outbound_date','出庫日期')}
         ${thSort('original_qty','原始數量','right')}${thSort('offset_qty','累計核銷','right')}
@@ -9946,14 +9967,18 @@ function _renderTransitPreviewTable() {
                     return `<div title="${tip}" style="font-size:0.7rem;color:#7c3aed;line-height:1.5;white-space:nowrap;">${label}<span style="color:#94a3b8;margin-left:3px;">(${Number(p.qty).toLocaleString()})</span></div>`;
                   }).join('')
                 : `<span style="color:#d1d5db;font-size:0.7rem;">—</span>`;
-              return `<tr id="preview_row_${idx}" style="border-bottom:1px solid #f0f4f8;">
+              const isFocused = _transitLedgerFocus &&
+                  _transitLedgerFocus.product_name === c.product_name &&
+                  _transitLedgerFocus.batch_no     === c.batch_no;
+              const rowBg = isFocused ? 'background:#eef3fd;border-left:3px solid #6878C0;' : 'border-left:3px solid transparent;';
+              return `<tr id="preview_row_${idx}" style="border-bottom:1px solid #f0f4f8;${rowBg}transition:background 0.2s;">
                 <td style="${td}text-align:center;">
                   <button onclick="_removePreviewRow(${idx})"
                     title="移除此行（不核銷）"
                     style="width:22px;height:22px;border-radius:50%;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:13px;font-weight:900;cursor:pointer;line-height:1;padding:0;">✕</button>
                 </td>
-                <td style="${td}font-weight:600;cursor:pointer;" onclick="_scrollToLedgerRow(${c.id})" title="點擊定位到下方台帳對應列">
-                  ${c.product_name}<span style="font-size:0.6rem;color:#a5b4fc;margin-left:3px;vertical-align:middle;">⬇</span>
+                <td style="${td}font-weight:600;cursor:pointer;${isFocused?'color:#6878C0;':''}" onclick="_focusLedgerRow('${c.product_name.replace(/'/g,"\\'")}','${c.batch_no.replace(/'/g,"\\'")}',${c.id})" title="${isFocused?'點擊取消篩選':'點擊篩選台帳對應品項'}">
+                  ${c.product_name}<span style="font-size:0.6rem;color:${isFocused?'#6878C0':'#a5b4fc'};margin-left:3px;vertical-align:middle;">${isFocused?'🔍':'⬇'}</span>
                 </td>
                 <td style="${td}font-family:monospace;color:#6878C0;font-size:0.73rem;">${c.batch_no}</td>
                 <td style="${td}color:#64748b;">${c.outbound_date||'—'}</td>
@@ -10036,32 +10061,35 @@ function _updatePreviewSummary() {
     if (el) el.textContent = `共 ${changes.length} 筆，合計核銷數量 ${Number(total).toLocaleString(undefined,{maximumFractionDigits:2})}`;
 }
 
-// 從預覽列點擊後定位到下方台帳對應行
-function _scrollToLedgerRow(ledgerId) {
-    const row = document.querySelector(`[data-ledger-id="${ledgerId}"]`);
-    if (!row) {
-        const st = document.getElementById('transit_status');
-        if (st) {
-            const prev = st.textContent;
-            st.textContent = '⚠️ 台帳尚未載入，請先點「🔍 讀取台帳」再比對';
-            setTimeout(() => { st.textContent = prev; }, 3000);
-        }
-        return;
+// 從預覽列點擊後篩選台帳（再點同一列取消篩選）
+function _focusLedgerRow(name, batch, ledgerId) {
+    if (_transitLedgerFocus &&
+        _transitLedgerFocus.product_name === name &&
+        _transitLedgerFocus.batch_no     === batch) {
+        // 再次點擊同一列 → 取消篩選
+        _transitLedgerFocus = null;
+    } else {
+        _transitLedgerFocus = { product_name: name, batch_no: batch };
     }
-    // 先清除上一次高亮
-    document.querySelectorAll('[data-ledger-id]').forEach(r => {
-        r.style.background = '';
-        r.style.outline = '';
-    });
-    // 滾動置中
-    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // 閃爍高亮：藍紫色 → 淡黃 → 淡出
-    row.style.background = '#e0e7ff';
-    row.style.outline = '2px solid #6878C0';
-    setTimeout(() => { row.style.background = '#fefce8'; row.style.outline = '2px solid #f7a35c'; }, 400);
-    setTimeout(() => { row.style.background = ''; row.style.outline = ''; }, 2200);
+    // 重繪台帳（帶篩選）
+    _renderTransitTable();
+    // 重繪預覽列（更新 active 高亮）
+    _renderTransitPreviewTable();
+    // 有篩選時自動捲動到台帳區
+    if (_transitLedgerFocus) {
+        const tableEl = document.getElementById('transit_table');
+        if (tableEl) setTimeout(() => tableEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    }
 }
-window._scrollToLedgerRow = _scrollToLedgerRow;
+window._focusLedgerRow = _focusLedgerRow;
+
+// 清除台帳 focus 篩選
+function _clearLedgerFocus() {
+    _transitLedgerFocus = null;
+    _renderTransitTable();
+    _renderTransitPreviewTable();
+}
+window._clearLedgerFocus = _clearLedgerFocus;
 
 async function _commitTransitChanges() {
     const changes = window._transitPendingChanges || [];
