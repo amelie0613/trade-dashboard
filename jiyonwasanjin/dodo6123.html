@@ -10232,15 +10232,27 @@ async function runSalesReconciliation() {
     }
 
     // 排除加工原料、在途銷貨
-    const excluded = new Set(['加工原料', '再途銷貨']);
-    const salesRows = outboundRows.filter(r => !excluded.has(r.warehouse_type));
+    const excludedTypes = new Set(['加工原料', '再途銷貨']);
+    const salesRows    = outboundRows.filter(r => !excludedTypes.has(r.warehouse_type));
+    const excludedRows = outboundRows.filter(r =>  excludedTypes.has(r.warehouse_type));
 
-    const outSummary = {}; // key → {totalQty, totalAmt}
+    const outSummary = {}; // key → { totalQty, totalAmt }
     salesRows.forEach(r => {
         const key = `${(r.product_name||'').trim()}|${(r.batch_no||'').trim()}`;
         if (!outSummary[key]) outSummary[key] = { totalQty: 0, totalAmt: 0 };
         outSummary[key].totalQty += Math.abs(parseFloat(r.quantity)        || 0);
         outSummary[key].totalAmt += Math.abs(parseFloat(r.outbound_amount) || 0);
+    });
+
+    // 被排除的記錄彙總（加工原料 + 再途銷貨），用於差異說明
+    const excludedSummary = {}; // key → [{ warehouse_type, qty }]
+    excludedRows.forEach(r => {
+        const key = `${(r.product_name||'').trim()}|${(r.batch_no||'').trim()}`;
+        if (!excludedSummary[key]) excludedSummary[key] = [];
+        excludedSummary[key].push({
+            warehouse_type: r.warehouse_type || '未分類',
+            qty: Math.abs(parseFloat(r.quantity) || 0),
+        });
     });
 
     // ── Step 3：比對 ────────────────────────────────────────────────
@@ -10255,7 +10267,13 @@ async function runSalesReconciliation() {
         const qtyDiff    = outQty - profitQty;
         const qtyOk      = Math.abs(qtyDiff) < 0.01;
         const projNames  = ps ? [...new Set(ps.projects.map(p => p.projName || p.proj).filter(Boolean))].join('、') : '—';
-        results.push({ key, pName, pBatch, profitQty, outQty, qtyDiff, qtyOk, projNames });
+        // 被排除的出庫記錄（有可能解釋差異）
+        const excRows    = excludedSummary[key] || [];
+        const excQty     = excRows.reduce((s, r) => s + r.qty, 0);
+        const excHint    = excRows.length
+            ? excRows.map(r => `${r.warehouse_type} ${Number(r.qty).toLocaleString()}`).join('、')
+            : '';
+        results.push({ key, pName, pBatch, profitQty, outQty, qtyDiff, qtyOk, projNames, excQty, excHint });
     });
 
     const errCount = results.filter(r => !r.qtyOk).length;
@@ -10360,6 +10378,7 @@ function _renderSalesReconTable(previewEl) {
                   <td style="${td}text-align:right;${r.profitQty===0?'color:#94a3b8;':''}">${r.profitQty ? fmt(r.profitQty) : '—'}</td>
                   <td style="${td}text-align:right;font-weight:700;color:${r.qtyDiff===0?'#22c55e':r.qtyDiff>0?'#ef4444':'#f7a35c'};">
                     ${r.qtyOk ? '—' : (r.qtyDiff > 0 ? '+' : '') + fmt(r.qtyDiff)}
+                    ${(!r.qtyOk && r.excQty > 0) ? `<div style="font-size:0.62rem;color:#f7a35c;font-weight:400;white-space:normal;margin-top:2px;" title="此批號有出庫記錄被排除在核對外">⚠️ 另有被排除：${r.excHint}</div>` : ''}
                   </td>
                   <td style="${td}font-size:0.72rem;color:#7c3aed;max-width:200px;">${r.projNames||'—'}</td>
                 </tr>`;
