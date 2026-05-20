@@ -1645,7 +1645,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         <div class="rental-subnav">
           <button class="rsn-btn active" id="rsn-calc" onclick="switchPage('calc')">📋 租金計算</button>
           <button class="rsn-btn" id="rsn-ledger" onclick="switchPage('ledger')">📊 月結算總帳</button>
-          <button class="rsn-btn" id="rsn-outbound" onclick="switchPage('outbound')">📋 出庫管理</button>
           <button class="rsn-btn" id="rsn-pairing" onclick="switchPage('pairing')">📦 轉加工 / 原料台帳</button>
           <button class="rsn-btn" id="rsn-transit" onclick="switchPage('transit')">🚢 在途銷貨台帳</button>
           <button class="rsn-btn" id="rsn-profit" onclick="switchPage('profit')">💹 利潤分析</button>
@@ -1871,8 +1870,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                         <div class="config-item"><label>數量欄</label><input type="text" id="pcol_qty" value="數量" /></div>
                       </div>
                       <div style="display:flex; gap:0.7rem;">
-                        <button onclick="calcProfit()" class="btn-primary" style="flex:2;">🔍 試算租金費用</button>
-                        <button onclick="calcProfitAndMatch()" class="btn-primary" style="flex:3;background:#7ec8e3;">🔗 試算並核銷在途銷貨</button>
+                        <button onclick="calcProfit()" class="btn-primary" style="flex:1;">🔍 試算租金費用</button>
                       </div>
                       <div style="margin-top:0.6rem; padding-top:0.6rem; border-top:1px dashed var(--border); display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap;">
                         <button id="btn_full_analysis" onclick="_runFullAnalysis()"
@@ -2006,41 +2004,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           </div><!-- end page_pairing -->
 
           <!-- PAGE: OUTBOUND MANAGEMENT -->
-          <div id="page_outbound" style="display:none; padding:1rem;">
-            <div style="max-width:1400px; margin:0 auto;">
-              <div style="margin-bottom:1.2rem;">
-                <h2 style="font-size:1.3rem; font-weight:800; color:#1a2540; margin:0;">📋 出庫記錄管理</h2>
-                <p style="font-size:0.85rem; color:#64748b; margin:0.4rem 0 0;">查看 Supabase 出庫記錄，設定分倉類型（銷貨 / 加工原料 / 再途銷貨）</p>
-              </div>
-              <!-- 篩選 + 操作列 -->
-              <div style="background:white; border:1.5px solid #dde6ef; border-radius:12px; padding:1rem; margin-bottom:1rem; display:flex; gap:0.8rem; align-items:center; flex-wrap:wrap;">
-                <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <label style="font-size:0.82rem; color:#64748b; font-weight:700; white-space:nowrap;">月份篩選</label>
-                  <input type="text" id="ob_month_filter" placeholder="例：4月（留空查全部）"
-                    style="padding:0.4rem 0.8rem; border:1.5px solid #dde6ef; border-radius:8px; font-size:0.82rem; width:170px;" />
-                </div>
-                <button onclick="loadOutboundPage()"
-                  style="padding:0.5rem 1.2rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">
-                  🔍 讀取記錄
-                </button>
-                <button onclick="autoClassifyAndSave()"
-                  style="padding:0.5rem 1.2rem; background:#f7a35c; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">
-                  🤖 一鍵自動分類
-                </button>
-                <div id="ob_page_status" style="font-size:0.82rem; color:#64748b;"></div>
-                <button onclick="clearOutboundWithCheck()"
-                  style="padding:0.5rem 1.2rem; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; margin-left:auto;">
-                  🗑️ 清空換月
-                </button>
-                <!-- 分倉統計 chips -->
-                <div id="ob_summary" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;"></div>
-              </div>
-              <!-- 記錄表 -->
-              <div id="ob_page_results" style="background:white; border:1.5px solid #dde6ef; border-radius:12px; padding:1rem; min-height:180px;">
-                <p style="text-align:center; color:#999; padding:2rem; font-size:0.85rem;">點擊「讀取記錄」載入出庫記錄</p>
-              </div>
-            </div>
-          </div><!-- end page_outbound -->
 
           <div id="page_proc-mat" style="display:none;"></div><!-- merged into page_pairing -->
 
@@ -2061,14 +2024,13 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <button onclick="resetTransitOffset()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷核銷</button>
                 <button onclick="document.getElementById('transitHistoryFileInput').click()" style="padding:0.5rem 1.2rem;background:#764ba2;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📂 匯入歷史 Excel</button>
                 <input type="file" id="transitHistoryFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importTransitFromExcel(this)">
-                <div style="display:flex;gap:0.4rem;" id="transit_filter_btns">
-                  <button onclick="_transitFilter('')"      class="transit-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">全部</button>
-                  <button onclick="_transitFilter('未核銷')"  class="transit-filter-btn"      style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未核銷</button>
-                  <button onclick="_transitFilter('部分核銷')" class="transit-filter-btn"     style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #f7a35c;background:#fffaf0;color:#f7a35c;font-size:0.78rem;font-weight:700;cursor:pointer;">部分核銷</button>
-                  <button onclick="_transitFilter('已核銷')"  class="transit-filter-btn"      style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #22c55e;background:#f0faf0;color:#22c55e;font-size:0.78rem;font-weight:700;cursor:pointer;">已核銷</button>
+                <div style="display:flex;gap:0.4rem;align-items:center;">
+                  <button id="tbf_all"     onclick="_transitFilter('')"        class="transit-filter-btn" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:800;cursor:pointer;">全部</button>
+                  <button id="tbf_未核銷"  onclick="_transitFilter('未核銷')"  class="transit-filter-btn" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未核銷</button>
+                  <button id="tbf_部分核銷" onclick="_transitFilter('部分核銷')" class="transit-filter-btn" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #f7a35c;background:#fffaf0;color:#f7a35c;font-size:0.78rem;font-weight:700;cursor:pointer;">部分核銷</button>
+                  <button id="tbf_已核銷"  onclick="_transitFilter('已核銷')"   class="transit-filter-btn" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #22c55e;background:#f0faf0;color:#22c55e;font-size:0.78rem;font-weight:700;cursor:pointer;">已核銷</button>
                 </div>
-                <div id="transit_status" style="font-size:0.82rem;color:#64748b;"></div>
-                <div id="transit_summary" style="display:flex;gap:0.5rem;margin-left:auto;flex-wrap:wrap;align-items:center;"></div>
+                <div id="transit_status" style="font-size:0.82rem;color:#64748b;margin-left:auto;"></div>
               </div>
               <!-- 比對預覽確認區（比對後顯示，確認才寫入）-->
               <div id="transit_preview" style="display:none;background:white;border:2px solid #6878C0;border-radius:12px;padding:1rem 1.2rem;margin-bottom:1rem;"></div>
@@ -5453,7 +5415,7 @@ function syncDatePicker(textId, dateId) {
 window.switchPage = function(page) {
     if (page === 'proc-mat') page = 'pairing';
     // 隱藏所有頁面
-    ['page_calc','page_ledger','page_profit','page_pairing','page_outbound','page_proc-mat','page_transit'].forEach(id => {
+    ['page_calc','page_ledger','page_profit','page_pairing','page_proc-mat','page_transit'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -5482,7 +5444,7 @@ window.switchPage = function(page) {
     });
     if (page === 'ledger') refreshLedgerStatus();
     // Update rental subnav buttons
-    ['calc','ledger','profit','pairing','outbound','transit'].forEach(p => {
+    ['calc','ledger','profit','pairing','transit'].forEach(p => {
         const rsnBtn = document.getElementById('rsn-'+p);
         if(rsnBtn) rsnBtn.classList.toggle('active', p===page);
     });
@@ -9527,14 +9489,15 @@ async function loadTransitLedger() {
 window.loadTransitLedger = loadTransitLedger;
 
 function _renderTransitSummary() {
-    const el = document.getElementById('transit_summary');
-    if (!el) return;
     const cnt = { '未核銷':0, '部分核銷':0, '已核銷':0 };
     _transitRecords.forEach(r => { if (cnt[r.status] !== undefined) cnt[r.status]++; });
-    const col = { '未核銷':'#ef4444', '部分核銷':'#f7a35c', '已核銷':'#22c55e' };
-    el.innerHTML = Object.entries(cnt).map(([k,v]) =>
-        `<span style="border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:700;border:1.5px solid ${col[k]};background:${col[k]}18;color:${col[k]};">${k} ${v}</span>`
-    ).join('');
+    const total = _transitRecords.length;
+    const btnAll = document.getElementById('tbf_all');
+    if (btnAll) btnAll.textContent = `全部 ${total}`;
+    Object.entries(cnt).forEach(([k, v]) => {
+        const btn = document.getElementById(`tbf_${k}`);
+        if (btn) btn.textContent = `${k} ${v}`;
+    });
 }
 
 function _renderTransitTable() {
@@ -9602,25 +9565,11 @@ function _renderTransitTable() {
           <td style="${td}font-weight:600;">${r.product_name}</td>
           <td style="${td}font-family:monospace;font-size:10px;color:#6878C0;">${r.batch_no}</td>
           <td style="${td}">${r.outbound_date||''}</td>
-          <td style="${td}text-align:right;">
-            <div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;">
-              <span>${(r.original_qty||0).toLocaleString()}</span>
-              <button onclick="_editTransitQty('${r.id}','original_qty',${r.original_qty||0},${r.offset_qty||0},${r.total_cost||0})"
-                title="編輯原始數量（會自動重算單價與剩餘）"
-                style="flex-shrink:0;padding:1px 4px;border:1px solid #c7d9f0;border-radius:4px;background:#f4f8ff;color:#6878C0;font-size:9px;cursor:pointer;">✏️</button>
-            </div>
-          </td>
+          <td style="${td}text-align:right;">${(r.original_qty||0).toLocaleString()}</td>
           <td style="${td}text-align:right;">${(r.offset_qty||0).toLocaleString()}</td>
           <td style="${td}text-align:right;background:#f0f2ff;">${periodCell}</td>
           <td style="${td}text-align:right;font-weight:700;color:${r.remaining_qty>0?'#ef4444':'#22c55e'};">${(r.remaining_qty||0).toLocaleString()}</td>
-          <td style="${td}text-align:right;font-weight:700;color:#c0507a;">
-            <div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;">
-              <span>${r.unit_price>0?'$'+Number(r.unit_price).toFixed(4):'-'}</span>
-              <button onclick="_editTransitQty('${r.id}','unit_price',${r.unit_price||0},${r.original_qty||0},${r.total_cost||0})"
-                title="直接編輯單價"
-                style="flex-shrink:0;padding:1px 4px;border:1px solid #f2a7c3;border-radius:4px;background:#fff0f6;color:#c0507a;font-size:9px;cursor:pointer;">✏️</button>
-            </div>
-          </td>
+          <td style="${td}text-align:right;font-weight:700;color:#c0507a;">${r.unit_price>0?'$'+Number(r.unit_price).toFixed(4):'-'}</td>
           <td style="${td}text-align:right;font-weight:700;color:#c0507a;">${r.total_cost>0?'$'+Number(r.total_cost).toLocaleString():'-'}</td>
           <td style="${td}"><span style="background:${srcC}20;color:${srcC};font-size:10px;border:1px solid ${srcC};border-radius:4px;padding:1px 6px;font-weight:700;">${src}</span></td>
           <td style="${td}"><span style="background:${sc}20;color:${sc};font-weight:700;font-size:10px;border:1px solid ${sc};border-radius:4px;padding:1px 6px;">${r.status}</span></td>
@@ -9726,10 +9675,22 @@ window._editTransitQty = _editTransitQty;
 
 function _transitFilterFn(status) {
     _transitFilter = status;
-    document.querySelectorAll('.transit-filter-btn').forEach(b => {
-        const isActive = b.textContent.trim().startsWith(status||'全部');
-        b.style.background = isActive ? (status?({未核銷:'#ef4444',部分核銷:'#f7a35c',已核銷:'#22c55e'}[status]||'#6878C0'):'#6878C0') : '';
-        b.style.color = isActive ? '#fff' : '';
+    const cfg = {
+        '':       { border:'#6878C0', activeBg:'#6878C0', activeColor:'#fff', inactiveBg:'#f0f2ff', inactiveColor:'#6878C0' },
+        '未核銷':   { border:'#ef4444', activeBg:'#ef4444', activeColor:'#fff', inactiveBg:'#fff5f5', inactiveColor:'#ef4444' },
+        '部分核銷': { border:'#f7a35c', activeBg:'#f7a35c', activeColor:'#fff', inactiveBg:'#fffaf0', inactiveColor:'#f7a35c' },
+        '已核銷':   { border:'#22c55e', activeBg:'#22c55e', activeColor:'#fff', inactiveBg:'#f0faf0', inactiveColor:'#22c55e' },
+    };
+    const ids = { '':'tbf_all', '未核銷':'tbf_未核銷', '部分核銷':'tbf_部分核銷', '已核銷':'tbf_已核銷' };
+    Object.entries(ids).forEach(([s, id]) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        const c = cfg[s];
+        const isActive = s === status;
+        btn.style.background = isActive ? c.activeBg : c.inactiveBg;
+        btn.style.color      = isActive ? c.activeColor : c.inactiveColor;
+        btn.style.border     = `1.5px solid ${c.border}`;
+        btn.style.fontWeight = isActive ? '800' : '700';
     });
     _renderTransitTable();
 }
