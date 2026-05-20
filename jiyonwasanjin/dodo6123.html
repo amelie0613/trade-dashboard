@@ -10102,10 +10102,18 @@ function _focusLedgerRow(name, batch) {
 }
 window._focusLedgerRow = _focusLedgerRow;
 
-// 清除台帳 focus 篩選
+// 清除台帳 focus 篩選（同步更新核銷預覽 & 銷貨核對兩種面板）
 function _clearLedgerFocus() {
     _transitLedgerFocus = null;
     _renderTransitTable();
+    // 判斷目前顯示的是哪個面板
+    if (window._salesReconResults?.length) {
+        const previewEl = document.getElementById('transit_preview');
+        if (previewEl && previewEl.style.display !== 'none') {
+            _renderSalesReconTable(previewEl);
+            return;
+        }
+    }
     _renderTransitPreviewTable();
 }
 window._clearLedgerFocus = _clearLedgerFocus;
@@ -10250,66 +10258,117 @@ async function runSalesReconciliation() {
         results.push({ key, pName, pBatch, profitQty, outQty, qtyDiff, qtyOk, projNames });
     });
 
-    // 排序：差異筆排前面
-    results.sort((a,b) => (a.qtyOk ? 1 : 0) - (b.qtyOk ? 1 : 0) || a.pName.localeCompare(b.pName));
-
-    const errCount  = results.filter(r => !r.qtyOk).length;
-    const okCount   = results.filter(r => r.qtyOk).length;
+    const errCount = results.filter(r => !r.qtyOk).length;
+    const okCount  = results.filter(r =>  r.qtyOk).length;
     statusEl.textContent = `📊 銷貨核對完成：${errCount} 筆差異、${okCount} 筆一致`;
 
-    const fmt = n => Number(n).toLocaleString(undefined, {maximumFractionDigits:2});
-    const th = `padding:0.42rem 0.7rem;font-size:0.75rem;font-weight:700;background:#f4f0ff;border-bottom:2px solid #c4b5fd;white-space:nowrap;`;
-    const td = `padding:0.38rem 0.7rem;font-size:0.78rem;border-bottom:1px solid #f0f4f8;`;
+    // 儲存供排序重繪用
+    window._salesReconResults  = results;
+    window._salesReconErrCount = errCount;
+    window._salesReconOkCount  = okCount;
+    _salesReconSort = { key: 'qtyOk', asc: true }; // 預設：差異排前面
 
     previewEl.style.display = '';
     previewEl.style.borderColor = '#7c3aed';
+    _renderSalesReconTable(previewEl);
+}
+window.runSalesReconciliation = runSalesReconciliation;
+
+// 銷貨核對排序狀態
+let _salesReconSort = { key: 'qtyOk', asc: true };
+
+function _salesReconSortBy(key) {
+    if (_salesReconSort.key === key) _salesReconSort.asc = !_salesReconSort.asc;
+    else _salesReconSort = { key, asc: true };
+    const previewEl = document.getElementById('transit_preview');
+    if (previewEl) _renderSalesReconTable(previewEl);
+}
+window._salesReconSortBy = _salesReconSortBy;
+
+function _renderSalesReconTable(previewEl) {
+    const results  = window._salesReconResults  || [];
+    const errCount = window._salesReconErrCount ?? 0;
+    const okCount  = window._salesReconOkCount  ?? 0;
+    const fmt = n => Number(n).toLocaleString(undefined, {maximumFractionDigits:2});
+    const th  = `padding:0.42rem 0.7rem;font-size:0.75rem;font-weight:700;background:#f4f0ff;border-bottom:2px solid #c4b5fd;white-space:nowrap;`;
+    const ths = `${th}cursor:pointer;user-select:none;`;
+    const td  = `padding:0.38rem 0.7rem;font-size:0.78rem;border-bottom:1px solid #f0f4f8;`;
+    const thS = (key, label, align='left', extra='') =>
+        `<th onclick="_salesReconSortBy('${key}')" style="${ths}text-align:${align};${extra}">${label}${_sortArrow(_salesReconSort, key)}</th>`;
+
+    // 排序（qtyOk: false=0先，true=1後 → asc=true 差異排前面）
+    const sorted = _sortRows(
+        results.map(r => ({ ...r, _qtyOkNum: r.qtyOk ? 1 : 0 })),
+        _salesReconSort.key === 'qtyOk'
+            ? { key: '_qtyOkNum', asc: _salesReconSort.asc }
+            : _salesReconSort
+    );
+
+    // focus 篩選 Banner
+    const focusBanner = _transitLedgerFocus
+        ? `<div style="display:inline-flex;align-items:center;gap:0.5rem;padding:3px 10px;background:#eef3fd;border:1px solid #a5b4fc;border-radius:6px;margin-left:0.6rem;font-size:0.75rem;">
+            <span style="color:#6878C0;font-weight:700;">🔍 ${_transitLedgerFocus.product_name}</span>
+            <button onclick="_clearLedgerFocus()" style="border:none;background:none;color:#6878C0;cursor:pointer;font-size:0.8rem;padding:0;">✕</button>
+           </div>`
+        : '';
+
     previewEl.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem;">
-        <div>
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.4rem;">
           <span style="font-weight:800;color:#7c3aed;font-size:0.92rem;">📊 銷貨核對結果</span>
-          <span style="font-size:0.76rem;color:#94a3b8;margin-left:0.6rem;">
-            出庫記錄（排除加工原料＋在途銷貨）vs 利潤分析表
-          </span>
+          <span style="font-size:0.76rem;color:#94a3b8;">出庫記錄（排除加工原料＋在途銷貨）vs 利潤分析表</span>
+          ${focusBanner}
         </div>
-        <div style="display:flex;gap:0.8rem;font-size:0.8rem;">
+        <div style="display:flex;gap:0.8rem;font-size:0.8rem;align-items:center;">
           <span style="color:#ef4444;font-weight:700;">❌ 差異 ${errCount} 筆</span>
           <span style="color:#22c55e;font-weight:700;">✅ 一致 ${okCount} 筆</span>
-          <button onclick="document.getElementById('transit_preview').style.display='none'" style="padding:0.3rem 0.8rem;border:1px solid #94a3b8;border-radius:6px;background:#fff;color:#64748b;font-size:0.78rem;cursor:pointer;">關閉</button>
+          <button onclick="document.getElementById('transit_preview').style.display='none';_clearLedgerFocus();" style="padding:0.3rem 0.8rem;border:1px solid #94a3b8;border-radius:6px;background:#fff;color:#64748b;font-size:0.78rem;cursor:pointer;">關閉</button>
         </div>
       </div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;">
           <thead><tr>
-            <th style="${th}">狀態</th>
-            <th style="${th}">產品名稱</th>
-            <th style="${th}">批號</th>
-            <th style="${th}text-align:right;">出庫數量</th>
-            <th style="${th}text-align:right;">利潤數量</th>
-            <th style="${th}text-align:right;">差異</th>
+            ${thS('qtyOk','狀態','center')}
+            ${thS('pName','產品名稱')}
+            ${thS('pBatch','批號')}
+            ${thS('outQty','出庫數量','right')}
+            ${thS('profitQty','利潤數量','right')}
+            ${thS('qtyDiff','差異','right')}
             <th style="${th}">比對到的利潤專案</th>
           </tr></thead>
           <tbody>
-            ${results.map(r => `
-              <tr style="background:${r.qtyOk?'#fff':'#fff8f8'};">
-                <td style="${td}text-align:center;">
-                  ${r.qtyOk
-                    ? '<span style="color:#22c55e;font-weight:700;font-size:0.75rem;">✅ 一致</span>'
-                    : '<span style="color:#ef4444;font-weight:700;font-size:0.75rem;">❌ 差異</span>'}
-                </td>
-                <td style="${td}font-weight:600;">${r.pName}</td>
-                <td style="${td}font-family:monospace;font-size:0.73rem;color:#6878C0;">${r.pBatch}</td>
-                <td style="${td}text-align:right;${r.outQty===0?'color:#94a3b8;':''}">${r.outQty ? fmt(r.outQty) : '—'}</td>
-                <td style="${td}text-align:right;${r.profitQty===0?'color:#94a3b8;':''}">${r.profitQty ? fmt(r.profitQty) : '—'}</td>
-                <td style="${td}text-align:right;font-weight:700;color:${r.qtyDiff===0?'#22c55e':r.qtyDiff>0?'#ef4444':'#f7a35c'};">
-                  ${r.qtyOk ? '—' : (r.qtyDiff > 0 ? '+' : '') + fmt(r.qtyDiff)}
-                </td>
-                <td style="${td}font-size:0.72rem;color:#7c3aed;max-width:200px;">${r.projNames||'—'}</td>
-              </tr>`).join('')}
+            ${sorted.map(r => {
+                const isFocused = _transitLedgerFocus &&
+                    _transitLedgerFocus.product_name === r.pName &&
+                    _transitLedgerFocus.batch_no     === r.pBatch;
+                const rowBg = isFocused ? '#eef3fd' : (r.qtyOk ? '#fff' : '#fff8f8');
+                return `<tr style="background:${rowBg};">
+                  <td style="${td}text-align:center;">
+                    ${r.qtyOk
+                      ? '<span style="color:#22c55e;font-weight:700;font-size:0.75rem;">✅ 一致</span>'
+                      : '<span style="color:#ef4444;font-weight:700;font-size:0.75rem;">❌ 差異</span>'}
+                  </td>
+                  <td style="${td}font-weight:600;cursor:pointer;${isFocused?'color:#6878C0;':''}"
+                      data-fname="${r.pName.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+                      data-fbatch="${r.pBatch.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+                      onclick="_focusLedgerRowByEl(this);_renderSalesReconTable(document.getElementById('transit_preview'));"
+                      title="${isFocused?'點擊取消篩選':'點擊篩選台帳對應品項'}">
+                    ${r.pName}<span style="font-size:0.6rem;color:${isFocused?'#6878C0':'#a5b4fc'};margin-left:3px;">${isFocused?'🔍':'⬇'}</span>
+                  </td>
+                  <td style="${td}font-family:monospace;font-size:0.73rem;color:#6878C0;">${r.pBatch}</td>
+                  <td style="${td}text-align:right;${r.outQty===0?'color:#94a3b8;':''}">${r.outQty ? fmt(r.outQty) : '—'}</td>
+                  <td style="${td}text-align:right;${r.profitQty===0?'color:#94a3b8;':''}">${r.profitQty ? fmt(r.profitQty) : '—'}</td>
+                  <td style="${td}text-align:right;font-weight:700;color:${r.qtyDiff===0?'#22c55e':r.qtyDiff>0?'#ef4444':'#f7a35c'};">
+                    ${r.qtyOk ? '—' : (r.qtyDiff > 0 ? '+' : '') + fmt(r.qtyDiff)}
+                  </td>
+                  <td style="${td}font-size:0.72rem;color:#7c3aed;max-width:200px;">${r.projNames||'—'}</td>
+                </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>`;
 }
-window.runSalesReconciliation = runSalesReconciliation;
+window._renderSalesReconTable = _renderSalesReconTable;
 
 async function resetTransitOffset() {
     if (!confirm('確定要撤銷所有核銷記錄？\n所有「部分核銷」與「已核銷」的資料將還原為「未核銷」。')) return;
