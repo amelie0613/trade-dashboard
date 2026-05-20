@@ -1717,46 +1717,12 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
                   </div>
 
-                  <!-- 可選檔案（完整分析用）-->
-                  <div style="margin-top:0.9rem;padding-top:0.8rem;border-top:1px dashed var(--border);">
-                    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
-                      <span style="font-size:0.78rem;font-weight:700;color:#6878C0;letter-spacing:0.04em;">🚀 完整分析 — 可選檔案</span>
-                      <span style="font-size:0.72rem;color:#94a3b8;">（上傳後點「完整分析」可自動跑 Stage 3–5）</span>
-                    </div>
-                    <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
-                      <div class="form-group" style="margin:0;min-width:148px;">
-                        <label style="font-size:0.75rem;color:#6878C0;">利潤明細表 <span style="color:#94a3b8;font-weight:400;">→ Stage 4</span></label>
-                        <div class="file-input-label" id="label_profit_main"
-                             onclick="document.getElementById('profit_file_main').click()"
-                             ondragover="dragOver(event,this)" ondragleave="dragLeave(this)"
-                             ondrop="_dropIntegrated(event,'profit_file_main','label_profit_main','profit_file')"
-                             style="cursor:pointer;border-color:#a5b4fc;">拖拉或點擊</div>
-                        <input type="file" id="profit_file_main" accept=".xlsx"
-                               onchange="_integratedFileChanged(this,'label_profit_main','profit_file')"
-                               style="display:none;" />
-                      </div>
-                      <div class="form-group" style="margin:0;min-width:148px;">
-                        <label style="font-size:0.75rem;color:#d97a3a;">加工單 <span style="color:#94a3b8;font-weight:400;">→ Stage 3</span></label>
-                        <div class="file-input-label" id="label_processing_main"
-                             onclick="document.getElementById('processing_file_main').click()"
-                             ondragover="dragOver(event,this)" ondragleave="dragLeave(this)"
-                             ondrop="_dropIntegrated(event,'processing_file_main','label_processing_main','processing_form_file')"
-                             style="cursor:pointer;border-color:#fbbf24;">拖拉或點擊</div>
-                        <input type="file" id="processing_file_main" accept=".xlsx"
-                               onchange="_integratedFileChanged(this,'label_processing_main','processing_form_file')"
-                               style="display:none;" />
-                      </div>
-                    </div>
-                  </div>
-
                   <!-- 按鈕列 -->
                   <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid var(--border);">
                     <button class="btn-primary" onclick="processFiles()">計算</button>
                     <button class="btn-secondary" onclick="resetForm()">清除</button>
-                    <button id="btn_full_analysis" style="background:linear-gradient(135deg,#3b82f6,#6878C0);color:#fff;border:none;border-radius:8px;padding:0.45rem 1.1rem;font-size:0.88rem;font-weight:700;cursor:pointer;letter-spacing:0.03em;box-shadow:0 2px 8px rgba(104,120,192,.35);transition:all .2s;" onclick="_runFullAnalysis()" title="自動依序執行：租金計算 → 出庫分類 → 加工分析 → 利潤匯總 → 在途核銷">🚀 完整分析</button>
                   </div>
                   <div id="status"></div>
-                  <div id="orchestrator_status" style="display:none;margin-top:0.8rem;border:1px solid #c7d9f0;border-radius:10px;padding:1rem 1.2rem;background:#f4f8ff;font-family:'Noto Sans TC',sans-serif;"></div>
                 </div>
                 <div id="results">
                   <p style="color:#999; text-align:center; padding:2rem;">上傳檔案後點擊「計算」查看結果</p>
@@ -1916,6 +1882,13 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                         <button onclick="calcProfit()" class="btn-primary" style="flex:2;">🔍 試算租金費用</button>
                         <button onclick="calcProfitAndMatch()" class="btn-primary" style="flex:3;background:#7ec8e3;">🔗 試算並核銷在途銷貨</button>
                       </div>
+                      <div style="margin-top:0.6rem; padding-top:0.6rem; border-top:1px dashed var(--border); display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap;">
+                        <button id="btn_full_analysis" onclick="_runFullAnalysis()"
+                          style="background:linear-gradient(135deg,#3b82f6,#6878C0);color:#fff;border:none;border-radius:8px;padding:0.45rem 1.1rem;font-size:0.88rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(104,120,192,.35);"
+                          title="自動依序執行：租金計算 → 出庫分類 → 加工分析 → 利潤匯總 → 在途核銷">🚀 完整分析</button>
+                        <span style="font-size:0.72rem; color:#94a3b8;">租金計算完成後執行，自動完成後續所有步驟</span>
+                      </div>
+                      <div id="orchestrator_status" style="display:none;margin-top:0.8rem;border:1px solid #c7d9f0;border-radius:10px;padding:1rem 1.2rem;background:#f4f8ff;font-size:0.85rem;"></div>
                       <div id="profit_calc_status" style="margin-top:0.5rem; font-size:0.82rem;"></div>
                     </div>
                   </div>
@@ -8537,12 +8510,28 @@ async function syncOutboundToSupabase(records, label) {
 
     const BATCH = 500;
     try {
-        // 先刪除同月份、同期別的舊記錄，再重新插入（避免刪掉另一期的資料）
+        // ── 覆蓋前先確認 ──────────────────────────────────────────────
         const monthLabel = label || raw[0]?.month_label || '';
         const periods = [...new Set(raw.map(r => r.period).filter(Boolean))];
         if (monthLabel) {
             if (periods.length > 0) {
-                // 只刪這次要覆蓋的期別
+                // 逐期別確認是否有舊資料
+                for (const period of periods) {
+                    const chkResp = await fetch(
+                        `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}&period=eq.${encodeURIComponent(period)}&select=id`,
+                        { headers: getSBHeaders() }
+                    );
+                    if (chkResp.ok) {
+                        const existing = await chkResp.json();
+                        if (existing.length > 0) {
+                            const ok = confirm(
+                                `⚠️ Supabase 已有「${monthLabel} ${period}」出庫記錄 ${existing.length} 筆。\n\n確定要覆蓋嗎？（舊資料將被刪除後重新寫入）`
+                            );
+                            if (!ok) throw new Error('USER_CANCEL');
+                        }
+                    }
+                }
+                // 通過確認後再刪除
                 for (const period of periods) {
                     const delResp = await fetch(
                         `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}&period=eq.${encodeURIComponent(period)}`,
@@ -8552,7 +8541,20 @@ async function syncOutboundToSupabase(records, label) {
                     else console.log(`🗑️ 已清除 ${monthLabel} ${period} 舊記錄`);
                 }
             } else {
-                // 沒有 period 資訊時，刪整個月
+                // 沒有 period 資訊時，確認整個月
+                const chkResp = await fetch(
+                    `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}&select=id`,
+                    { headers: getSBHeaders() }
+                );
+                if (chkResp.ok) {
+                    const existing = await chkResp.json();
+                    if (existing.length > 0) {
+                        const ok = confirm(
+                            `⚠️ Supabase 已有「${monthLabel}」出庫記錄 ${existing.length} 筆。\n\n確定要覆蓋嗎？`
+                        );
+                        if (!ok) throw new Error('USER_CANCEL');
+                    }
+                }
                 const delResp = await fetch(
                     `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}`,
                     { method: 'DELETE', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' } }
@@ -8578,6 +8580,10 @@ async function syncOutboundToSupabase(records, label) {
         }
         console.log(`✅ 出庫記錄全部備份完成（${raw.length} 筆）`);
     } catch(e) {
+        if (e.message === 'USER_CANCEL') {
+            console.log('使用者取消覆蓋，出庫記錄未更新');
+            return; // 靜默中止，不往上拋
+        }
         console.error('出庫記錄備份失敗：', e);
         throw e;
     }
@@ -8953,6 +8959,17 @@ async function importTransitFromOutbound() {
         if (!resp2.ok) throw new Error(await resp2.text());
         const rows = [...(await resp1.json()), ...(await resp2.json())];
         if (!rows.length) { statusEl.textContent = '出庫記錄中找不到銷貨或再途銷貨類型的記錄'; return; }
+
+        // ── 轉入台帳前：確認所有記錄都有分攤單價 ─────────────────────
+        const missingPrice = rows.filter(r => !r.allocated_price || r.allocated_price <= 0);
+        if (missingPrice.length > 0) {
+            const names = [...new Set(missingPrice.map(r => r.product_name))].slice(0, 5).join('、');
+            const moreText = missingPrice.length > 5 ? `…等共 ${missingPrice.length} 筆` : `共 ${missingPrice.length} 筆`;
+            statusEl.innerHTML = `<span style="color:#e05a5a;">❌ 有 ${moreText} 出庫記錄尚無分攤單價，無法轉入台帳。</span><br/>
+                <span style="font-size:0.8rem;color:#64748b;">請先完成月租金結算（結算完成後會自動回寫單價），再執行匯入。</span><br/>
+                <span style="font-size:0.78rem;color:#b07020;">⚠️ 缺少單價的品項（前5項）：${names}${missingPrice.length > 5 ? '…' : ''}</span>`;
+            return;
+        }
 
         // 2. 取台帳現有記錄（銷貨出庫 + 在途出庫 兩種 source 都要保留）
         const ledResp = await fetch(
