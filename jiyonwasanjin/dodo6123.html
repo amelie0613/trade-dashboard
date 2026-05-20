@@ -9602,11 +9602,25 @@ function _renderTransitTable() {
           <td style="${td}font-weight:600;">${r.product_name}</td>
           <td style="${td}font-family:monospace;font-size:10px;color:#6878C0;">${r.batch_no}</td>
           <td style="${td}">${r.outbound_date||''}</td>
-          <td style="${td}text-align:right;">${(r.original_qty||0).toLocaleString()}</td>
+          <td style="${td}text-align:right;">
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;">
+              <span>${(r.original_qty||0).toLocaleString()}</span>
+              <button onclick="_editTransitQty('${r.id}','original_qty',${r.original_qty||0},${r.offset_qty||0},${r.total_cost||0})"
+                title="編輯原始數量（會自動重算單價與剩餘）"
+                style="flex-shrink:0;padding:1px 4px;border:1px solid #c7d9f0;border-radius:4px;background:#f4f8ff;color:#6878C0;font-size:9px;cursor:pointer;">✏️</button>
+            </div>
+          </td>
           <td style="${td}text-align:right;">${(r.offset_qty||0).toLocaleString()}</td>
           <td style="${td}text-align:right;background:#f0f2ff;">${periodCell}</td>
           <td style="${td}text-align:right;font-weight:700;color:${r.remaining_qty>0?'#ef4444':'#22c55e'};">${(r.remaining_qty||0).toLocaleString()}</td>
-          <td style="${td}text-align:right;font-weight:700;color:#c0507a;">${r.unit_price>0?'$'+Number(r.unit_price).toFixed(4):'-'}</td>
+          <td style="${td}text-align:right;font-weight:700;color:#c0507a;">
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:3px;">
+              <span>${r.unit_price>0?'$'+Number(r.unit_price).toFixed(4):'-'}</span>
+              <button onclick="_editTransitQty('${r.id}','unit_price',${r.unit_price||0},${r.original_qty||0},${r.total_cost||0})"
+                title="直接編輯單價"
+                style="flex-shrink:0;padding:1px 4px;border:1px solid #f2a7c3;border-radius:4px;background:#fff0f6;color:#c0507a;font-size:9px;cursor:pointer;">✏️</button>
+            </div>
+          </td>
           <td style="${td}text-align:right;font-weight:700;color:#c0507a;">${r.total_cost>0?'$'+Number(r.total_cost).toLocaleString():'-'}</td>
           <td style="${td}"><span style="background:${srcC}20;color:${srcC};font-size:10px;border:1px solid ${srcC};border-radius:4px;padding:1px 6px;font-weight:700;">${src}</span></td>
           <td style="${td}"><span style="background:${sc}20;color:${sc};font-weight:700;font-size:10px;border:1px solid ${sc};border-radius:4px;padding:1px 6px;">${r.status}</span></td>
@@ -9656,6 +9670,59 @@ async function _editTransitNote(id, currentNote) {
     }
 }
 window._editTransitNote = _editTransitNote;
+
+// 在途台帳：原始數量 / 單價 inline 編輯
+async function _editTransitQty(id, field, currentVal, relatedVal, totalCost) {
+    // field: 'original_qty' | 'unit_price'
+    const label = field === 'original_qty' ? '原始數量' : '單價';
+    const hint  = field === 'original_qty'
+        ? `（修改後將自動重算單價 = 總成本 ÷ 新數量，並更新剩餘數量）`
+        : `（直接設定新單價，總成本 = 新單價 × 原始數量）`;
+    const raw = prompt(`編輯${label}${hint}\n目前值：${currentVal}`, currentVal);
+    if (raw === null) return;
+    const newVal = parseFloat(raw.replace(/,/g, ''));
+    if (isNaN(newVal) || newVal < 0) { alert('請輸入有效的數字'); return; }
+
+    const rec = (_transitRecords || []).find(r => String(r.id) === String(id));
+    if (!rec) { alert('找不到這筆記錄，請先重新讀取台帳'); return; }
+
+    let patch = {};
+    if (field === 'original_qty') {
+        // relatedVal = offset_qty, totalCost = total_cost
+        const offsetQty    = parseFloat(rec.offset_qty) || 0;
+        const newRemaining = Math.max(0, newVal - offsetQty);
+        const newUnitPrice = (totalCost > 0 && newVal > 0) ? totalCost / newVal : (rec.unit_price || 0);
+        patch = {
+            original_qty:  newVal,
+            remaining_qty: newRemaining,
+            unit_price:    Math.round(newUnitPrice * 100000) / 100000,
+            status:        _transitStatus(newVal, offsetQty),
+        };
+    } else {
+        // field === 'unit_price'; relatedVal = original_qty
+        const origQty     = parseFloat(rec.original_qty) || 0;
+        const newTotalCost = origQty > 0 ? Math.round(newVal * origQty) : (rec.total_cost || 0);
+        patch = {
+            unit_price: Math.round(newVal * 100000) / 100000,
+            total_cost: newTotalCost,
+        };
+    }
+
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${id}`,
+            { method: 'PATCH', headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+              body: JSON.stringify(patch) }
+        );
+        if (!resp.ok) throw new Error(await resp.text());
+        // 更新本地快取
+        Object.assign(rec, patch);
+        _renderTransitTable();
+    } catch(e) {
+        alert('儲存失敗：' + e.message);
+    }
+}
+window._editTransitQty = _editTransitQty;
 
 function _transitFilterFn(status) {
     _transitFilter = status;
