@@ -10196,18 +10196,31 @@ async function _commitTransitChanges() {
 
     statusEl.textContent = '⏳ 寫入 Supabase 中…';
     try {
-        await Promise.all(changes.map(c =>
-            fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${c.id}`, {
-                method: 'PATCH',
-                headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
-                body: JSON.stringify({
-                    offset_qty:       c.new_offset,
-                    remaining_qty:    c.new_remaining,
-                    status:           c.new_status,
-                    last_offset_date: today,
+        // 分批送出，每批 10 筆，避免同時 132 個請求導致 Failed to fetch
+        const BATCH = 10;
+        for (let i = 0; i < changes.length; i += BATCH) {
+            statusEl.textContent = `⏳ 寫入中… ${Math.min(i + BATCH, changes.length)} / ${changes.length}`;
+            const batch = changes.slice(i, i + BATCH);
+            const results = await Promise.all(batch.map(c =>
+                fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${c.id}`, {
+                    method: 'PATCH',
+                    headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({
+                        offset_qty:       c.new_offset,
+                        remaining_qty:    c.new_remaining,
+                        status:           c.new_status,
+                        last_offset_date: today,
+                    })
                 })
-            })
-        ));
+            ));
+            // 檢查每批是否有錯誤
+            for (const res of results) {
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${errText}`);
+                }
+            }
+        }
         const total = changes.reduce((s, c) => s + c.consume_qty, 0);
 
         // 儲存本期核銷量到記憶體，供台帳表格顯示「本期核銷」欄位
