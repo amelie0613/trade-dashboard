@@ -9947,6 +9947,7 @@ async function autoMatchTransitSales() {
             new_remaining:  newRemaining,
             new_status:     newStatus,
             profit_projects: consumedProjects,  // 只含實際消耗的利潤交易
+            unit_price:     rec.unit_price || 0, // 供合併報表用
         });
     }
 
@@ -10208,13 +10209,19 @@ async function _commitTransitChanges() {
             })
         ));
         const total = changes.reduce((s, c) => s + c.consume_qty, 0);
-        statusEl.textContent = `✅ 寫入完成：${changes.length} 筆已更新，本期核銷數量 ${Number(total).toLocaleString()}`;
 
         // 儲存本期核銷量到記憶體，供台帳表格顯示「本期核銷」欄位
         if (!window._periodOffsetMap) window._periodOffsetMap = {};
         changes.forEach(c => {
             window._periodOffsetMap[c.id] = (window._periodOffsetMap[c.id] || 0) + c.consume_qty;
         });
+
+        // ── 確認後自動合併到利潤報表 ──────────────────────────────────
+        const mergeResult = _mergeReconciliationToProfit(changes);
+        const mergeMsg = mergeResult
+            ? `　|　利潤報表更新：確認 ${mergeResult.confirmed} 筆、排除 ${mergeResult.excluded} 筆`
+            : '';
+        statusEl.textContent = `✅ 寫入完成：${changes.length} 筆已更新，本期核銷 ${Number(total).toLocaleString()}${mergeMsg}`;
 
         window._transitPendingChanges = [];
         if (previewEl) previewEl.style.display = 'none';
@@ -10224,6 +10231,86 @@ async function _commitTransitChanges() {
     }
 }
 window._commitTransitChanges = _commitTransitChanges;
+
+// ── 確認核銷後合併到利潤分析報表 ───────────────────────────────────────
+function _mergeReconciliationToProfit(changes) {
+    if (!profitCalcData || !profitCalcData.length) return null;
+    if (!changes || !changes.length) return null;
+
+    const nameCol  = (document.getElementById('pcol_name')?.value  || '產品名稱').trim();
+    const batchCol = (document.getElementById('pcol_batch')?.value || '批號').trim();
+    const qtyCol   = (document.getElementById('pcol_qty')?.value   || '數量').trim();
+
+    // 建立精確比對 Map：`proj|product_name|batch_no` → unit_price（confirmed）
+    // 以及 excluded Set（user 手動改 0 的）
+    const confirmedMap = new Map(); // mapKey → unit_price
+    const excludedSet  = new Set(); // mapKey
+
+    changes.forEach(c => {
+        (c.profit_projects || []).forEach(p => {
+            const mapKey = `${p.proj}|${c.product_name}|${c.batch_no}`;
+            if (c.consume_qty > 0) {
+                confirmedMap.set(mapKey, c.unit_price);
+                excludedSet.delete(mapKey); // 若同一筆先被 excluded 後又 confirmed，以 confirmed 為準
+            } else {
+                if (!confirmedMap.has(mapKey)) {
+                    excludedSet.add(mapKey); // consume_qty=0 → 使用者手動排除
+                }
+            }
+        });
+    });
+
+    let confirmedCount = 0, excludedCount = 0, matched = 0, unmatched = 0, rentTotal = 0;
+
+    profitCalcData = profitCalcData.map(r => {
+        const proj   = String(r['專案']    || '').trim();
+        const name   = String(r[nameCol]   || '').trim();
+        const batch  = String(r[batchCol]  || '').trim();
+        const qty    = parseFloat(String(r[qtyCol] || '').replace(/,/g,'')) || 0;
+        const mapKey = `${proj}|${name}|${batch}`;
+
+        let rentPrice  = r.租金單價;
+        let rentSource = r.租金來源 || '';
+        let rentNotes  = r.來源備註 || '';
+
+        if (confirmedMap.has(mapKey)) {
+            // 使用者確認核銷 → 用此在途記錄的 unit_price
+            rentPrice  = confirmedMap.get(mapKey);
+            rentSource = '台帳核銷';
+            rentNotes  = '';
+            confirmedCount++;
+        } else if (excludedSet.has(mapKey)) {
+            // 使用者手動把核銷量改成 0 → 清除在途台帳來源的單價
+            // 只清除「在途台帳」或「台帳核銷」來源；租金結果/加工成品 不受影響
+            if (rentSource === '在途台帳' || rentSource === '台帳核銷') {
+                rentPrice  = '';
+                rentSource = '';
+                rentNotes  = '';
+                excludedCount++;
+            }
+        }
+
+        const rentCost = rentPrice !== '' && rentPrice !== undefined ? Math.round(Number(rentPrice) * qty) : '';
+        if (rentCost !== '') { matched++; rentTotal += rentCost; } else { unmatched++; }
+        return { ...r, 租金單價: rentPrice, 租金費用: rentCost, 租金來源: rentSource, 來源備註: rentNotes };
+    });
+
+    // 更新摘要卡片
+    const psM = document.getElementById('ps_matched');
+    const psU = document.getElementById('ps_unmatched');
+    const psR = document.getElementById('ps_rent_total');
+    if (psM) psM.textContent = matched;
+    if (psU) psU.textContent = unmatched;
+    if (psR) psR.textContent = '$' + rentTotal.toLocaleString();
+
+    // 若目前在利潤分析頁，立即重繪
+    if (typeof renderProfitTable === 'function') {
+        try { renderProfitTable(); } catch(_) {}
+    }
+
+    return { confirmed: confirmedCount, excluded: excludedCount };
+}
+window._mergeReconciliationToProfit = _mergeReconciliationToProfit;
 
 function _cancelTransitPreview() {
     window._transitPendingChanges = [];
