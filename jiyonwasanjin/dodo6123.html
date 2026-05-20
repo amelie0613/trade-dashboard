@@ -1645,10 +1645,10 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         <div class="rental-subnav">
           <button class="rsn-btn active" id="rsn-calc" onclick="switchPage('calc')">📋 租金計算</button>
           <button class="rsn-btn" id="rsn-ledger" onclick="switchPage('ledger')">📊 月結算總帳</button>
-          <button class="rsn-btn" id="rsn-profit" onclick="switchPage('profit')">💹 利潤分析</button>
-          <button class="rsn-btn" id="rsn-pairing" onclick="switchPage('pairing')">📦 轉加工 / 原料台帳</button>
           <button class="rsn-btn" id="rsn-outbound" onclick="switchPage('outbound')">📋 出庫管理</button>
+          <button class="rsn-btn" id="rsn-pairing" onclick="switchPage('pairing')">📦 轉加工 / 原料台帳</button>
           <button class="rsn-btn" id="rsn-transit" onclick="switchPage('transit')">🚢 在途銷貨台帳</button>
+          <button class="rsn-btn" id="rsn-profit" onclick="switchPage('profit')">💹 利潤分析</button>
         </div>
         <div class="rental-content">
 
@@ -1909,6 +1909,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                     <input type="checkbox" id="profit_show_unmatched" onchange="applyProfitFilter()"> 只顯示未比對
                   </label>
                   <button onclick="_profitSort={key:'',asc:true};renderProfitTable();" style="padding:0.35rem 0.8rem;border:1.5px solid #c7d9f0;border-radius:6px;background:#fff;color:#6878C0;font-size:0.78rem;font-weight:700;cursor:pointer;" title="清除欄位排序">↕ 清除排序</button>
+                  <button id="profit_refresh_btn" onclick="refreshProfitFromTransit()" style="padding:0.35rem 0.9rem;border:1.5px solid #7ec8e3;border-radius:6px;background:#f0faff;color:#1e7fa8;font-size:0.78rem;font-weight:700;cursor:pointer;" title="重新從在途銷貨台帳讀取單價並更新未比對列">🔄 同步台帳單價</button>
                   <span id="profit_filter_note" style="font-size:0.8rem; color:#6878C0; font-weight:600;"></span>
                 </div>
                 <div id="profit_results">
@@ -11201,6 +11202,10 @@ let profitCalcData = [];  // 計算後（含租金單價、租金費用）
 let _profitSort = { key: '', asc: true }; // 排序狀態
 let _profitChecked = new Set();           // 勾選列（存原始 index）
 let _profitColFilters = {};               // 欄位篩選 { colName: lowerCaseString }
+// 保留各來源 price map 供「同步台帳」按鈕重算用
+let _savedRentalPriceMap = {};
+let _savedRentalNotesMap = {};
+let _savedProcessingPriceMap = {};
 
 function _profitSortBy(key) {
     if (_profitSort.key === key) _profitSort.asc = !_profitSort.asc;
@@ -11497,6 +11502,11 @@ async function calcProfit() {
             if (pfSt) pfSt.textContent = '';
         }
 
+        // 儲存 price maps 供「同步台帳」按鈕重算
+        _savedRentalPriceMap      = rentalPriceMap;
+        _savedRentalNotesMap      = rentalNotesMap;
+        _savedProcessingPriceMap  = processingUnitPriceMap;
+
         // 第4層：試算利潤表，帶入租金單價（優先順序：加工成品 > 租金結果 > 總帳）
         let matched = 0, unmatched = 0, rentTotal = 0;
         profitCalcData = profitRows.map(r => {
@@ -11560,6 +11570,100 @@ async function calcProfitAndMatch() {
     await autoMatchTransitSales();
 }
 window.calcProfitAndMatch = calcProfitAndMatch;
+
+// ── 從在途台帳重新同步單價（不需重傳 Excel）────────────────────────────
+async function refreshProfitFromTransit() {
+    if (!profitCalcData || profitCalcData.length === 0) {
+        alert('請先試算利潤分析後再同步'); return;
+    }
+    const btn = document.getElementById('profit_refresh_btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 同步中…'; }
+    try {
+        // 重新讀取在途銷貨台帳的 unit_price
+        const tResp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=product_name,batch_no,unit_price,notes&unit_price=gt.0`,
+            { headers: getSBHeaders() }
+        );
+        if (!tResp.ok) throw new Error(await tResp.text());
+        const tRows = await tResp.json();
+        const newTransitPriceMap = {};
+        const newTransitNotesMap = {};
+        tRows.forEach(r => {
+            const key = `${String(r.product_name||'').trim()}|${String(r.batch_no||'').trim()}`;
+            if (!newTransitPriceMap[key]) {
+                newTransitPriceMap[key] = r.unit_price;
+                newTransitNotesMap[key] = String(r.notes||'').trim();
+            }
+        });
+
+        const nameCol  = (document.getElementById('pcol_name')?.value  || '產品名稱').trim();
+        const batchCol = (document.getElementById('pcol_batch')?.value || '批號').trim();
+        const qtyCol   = (document.getElementById('pcol_qty')?.value   || '數量').trim();
+
+        let updated = 0, matched = 0, unmatched = 0, rentTotal = 0;
+        profitCalcData = profitCalcData.map(r => {
+            const name  = String(r[nameCol] || '').trim();
+            const batch = String(r[batchCol] || '').trim();
+            const key = `${name}|${batch}`;
+            const qty = parseFloat(String(r[qtyCol] || '').replace(/,/g,'')) || 0;
+
+            let rentPrice = r.租金單價;
+            let rentSource = r.租金來源;
+            let rentNotes  = r.來源備註 || '';
+
+            // 優先順序：加工成品 > 租金結果 > 在途台帳
+            // 已有加工成品/租金結果來源的列不動；只更新「在途台帳」來源或「未比對」
+            if (rentSource !== '加工成品' && rentSource !== '租金結果') {
+                // 先試用儲存的 rental/processing maps 確認仍無覆蓋
+                const hasProcPrice    = (_savedProcessingPriceMap || {})[batch];
+                const hasRentalPrice  = (_savedRentalPriceMap || {})[key];
+                if (hasProcPrice) {
+                    rentPrice  = hasProcPrice;
+                    rentSource = '加工成品';
+                    rentNotes  = '';
+                } else if (hasRentalPrice) {
+                    rentPrice  = hasRentalPrice;
+                    rentSource = '租金結果';
+                    rentNotes  = (_savedRentalNotesMap || {})[key] || '';
+                } else if (newTransitPriceMap[key]) {
+                    // 在途台帳有新/更新的單價
+                    if (newTransitPriceMap[key] !== rentPrice ||
+                        newTransitNotesMap[key] !== rentNotes) {
+                        updated++;
+                    }
+                    rentPrice  = newTransitPriceMap[key];
+                    rentSource = '在途台帳';
+                    rentNotes  = newTransitNotesMap[key] || '';
+                } else {
+                    rentPrice  = '';
+                    rentSource = '';
+                    rentNotes  = '';
+                }
+            }
+
+            const rentCost = rentPrice !== '' ? Math.round(rentPrice * qty) : '';
+            if (rentCost !== '') { matched++; rentTotal += rentCost; } else { unmatched++; }
+            return { ...r, 租金單價: rentPrice, 租金費用: rentCost, 租金來源: rentSource, 來源備註: rentNotes };
+        });
+
+        // 更新合計卡片
+        const psM = document.getElementById('ps_matched');
+        const psU = document.getElementById('ps_unmatched');
+        const psR = document.getElementById('ps_rent_total');
+        if (psM) psM.textContent = matched;
+        if (psU) psU.textContent = unmatched;
+        if (psR) psR.textContent = '$' + rentTotal.toLocaleString();
+
+        renderProfitTable();
+        const statusEl = document.getElementById('profit_calc_status');
+        if (statusEl) statusEl.innerHTML = `<span style="color:#4a9a37;font-weight:700;">🔄 台帳同步完成：更新 ${updated} 筆單價，共比對 ${matched} 筆</span>`;
+    } catch(e) {
+        alert('同步失敗：' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🔄 同步台帳單價'; }
+    }
+}
+window.refreshProfitFromTransit = refreshProfitFromTransit;
 
 function renderProfitTable() {
     const keyword = (document.getElementById('profit_filter')?.value || '').toLowerCase().trim();
