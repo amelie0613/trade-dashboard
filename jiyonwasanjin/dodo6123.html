@@ -8606,6 +8606,7 @@ window.viewOutboundFromSupabase = viewOutboundFromSupabase;
 let _matFilter   = '';
 let _transitFilter = '';
 let _transitLedgerFocus = null; // { product_name, batch_no } — 預覽列點擊篩選用
+let _previewSort = { key: '', asc: true }; // 核銷預覽表排序狀態
 let _matRecords     = [];
 let _transitRecords = [];
 let _matSort = { key: 'outbound_date', asc: false };
@@ -9922,8 +9923,14 @@ function _renderTransitPreviewTable() {
     const statusColor = s => s==='已核銷'?'#22c55e':s==='部分核銷'?'#f7a35c':'#ef4444';
     const totalConsume = changes.reduce((s,c) => s + c.consume_qty, 0);
 
-    const th = `padding:0.42rem 0.6rem;font-size:0.76rem;font-weight:700;background:#eef3fd;border-bottom:2px solid #c7d9f0;white-space:nowrap;`;
-    const td = `padding:0.38rem 0.6rem;font-size:0.78rem;border-bottom:1px solid #f0f4f8;`;
+    const th  = `padding:0.42rem 0.6rem;font-size:0.76rem;font-weight:700;background:#eef3fd;border-bottom:2px solid #c7d9f0;white-space:nowrap;`;
+    const ths = `${th}cursor:pointer;user-select:none;`;
+    const td  = `padding:0.38rem 0.6rem;font-size:0.78rem;border-bottom:1px solid #f0f4f8;`;
+    const thS = (key, label, align='left', extra='') =>
+        `<th onclick="_previewSortBy('${key}')" style="${ths}text-align:${align};${extra}">${label}${_sortArrow(_previewSort, key)}</th>`;
+
+    // 排序
+    const sorted = _sortRows(changes, _previewSort);
 
     previewEl.style.display = '';
     previewEl.innerHTML = `
@@ -9942,19 +9949,19 @@ function _renderTransitPreviewTable() {
         <table style="width:100%;border-collapse:collapse;">
           <thead><tr>
             <th style="${th}"></th>
-            <th style="${th}">產品名稱</th>
-            <th style="${th}">批號</th>
-            <th style="${th}">出庫日期</th>
-            <th style="${th}text-align:right;">原始數量</th>
-            <th style="${th}text-align:right;">舊核銷量</th>
-            <th style="${th}text-align:right;color:#6878C0;">＋本次核銷</th>
-            <th style="${th}text-align:right;">新核銷量</th>
-            <th style="${th}text-align:right;">剩餘</th>
-            <th style="${th}text-align:center;">狀態變化</th>
+            ${thS('product_name','產品名稱')}
+            ${thS('batch_no','批號')}
+            ${thS('outbound_date','出庫日期')}
+            ${thS('original_qty','原始數量','right')}
+            ${thS('old_offset','舊核銷量','right')}
+            ${thS('consume_qty','＋本次核銷','right','color:#6878C0;')}
+            ${thS('new_offset','新核銷量','right')}
+            ${thS('new_remaining','剩餘','right')}
+            ${thS('new_status','狀態變化','center')}
             <th style="${th}color:#7c3aed;">比對到的利潤專案</th>
           </tr></thead>
           <tbody>
-            ${changes.map((c, idx) => {
+            ${sorted.map((c, idx) => {
               const newOff = c.old_offset + c.consume_qty;
               const newRem = Math.max(0, c.original_qty - newOff);
               const newSt  = _transitStatus(c.original_qty, newOff);
@@ -9977,7 +9984,11 @@ function _renderTransitPreviewTable() {
                     title="移除此行（不核銷）"
                     style="width:22px;height:22px;border-radius:50%;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:13px;font-weight:900;cursor:pointer;line-height:1;padding:0;">✕</button>
                 </td>
-                <td style="${td}font-weight:600;cursor:pointer;${isFocused?'color:#6878C0;':''}" onclick="_focusLedgerRow('${c.product_name.replace(/'/g,"\\'")}','${c.batch_no.replace(/'/g,"\\'")}',${c.id})" title="${isFocused?'點擊取消篩選':'點擊篩選台帳對應品項'}">
+                <td style="${td}font-weight:600;cursor:pointer;${isFocused?'color:#6878C0;':''}"
+                    data-fname="${c.product_name.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+                    data-fbatch="${c.batch_no.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
+                    onclick="_focusLedgerRowByEl(this)"
+                    title="${isFocused?'點擊取消篩選':'點擊篩選台帳對應品項'}">
                   ${c.product_name}<span style="font-size:0.6rem;color:${isFocused?'#6878C0':'#a5b4fc'};margin-left:3px;vertical-align:middle;">${isFocused?'🔍':'⬇'}</span>
                 </td>
                 <td style="${td}font-family:monospace;color:#6878C0;font-size:0.73rem;">${c.batch_no}</td>
@@ -10061,8 +10072,16 @@ function _updatePreviewSummary() {
     if (el) el.textContent = `共 ${changes.length} 筆，合計核銷數量 ${Number(total).toLocaleString(undefined,{maximumFractionDigits:2})}`;
 }
 
+// data-* 屬性取值的包裝，避免特殊字元在 onclick 參數裡炸掉
+function _focusLedgerRowByEl(el) {
+    const name  = el.getAttribute('data-fname')  || '';
+    const batch = el.getAttribute('data-fbatch') || '';
+    _focusLedgerRow(name, batch);
+}
+window._focusLedgerRowByEl = _focusLedgerRowByEl;
+
 // 從預覽列點擊後篩選台帳（再點同一列取消篩選）
-function _focusLedgerRow(name, batch, ledgerId) {
+function _focusLedgerRow(name, batch) {
     if (_transitLedgerFocus &&
         _transitLedgerFocus.product_name === name &&
         _transitLedgerFocus.batch_no     === batch) {
@@ -10090,6 +10109,14 @@ function _clearLedgerFocus() {
     _renderTransitPreviewTable();
 }
 window._clearLedgerFocus = _clearLedgerFocus;
+
+// 核銷預覽表排序
+function _previewSortBy(key) {
+    if (_previewSort.key === key) _previewSort.asc = !_previewSort.asc;
+    else _previewSort = { key, asc: true };
+    _renderTransitPreviewTable();
+}
+window._previewSortBy = _previewSortBy;
 
 async function _commitTransitChanges() {
     const changes = window._transitPendingChanges || [];
