@@ -7353,10 +7353,6 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
 
             outboundByType[bizType] = (outboundByType[bizType] || 0) + ioQty;
 
-            // 出庫記錄只收「-35度冷凍庫」或「-50度冷凍庫」，其他倉庫不紀錄
-            const warehouse = normalize(io['倉庫名稱'] || '');
-            if (!warehouse.includes('-35度冷凍庫') && !warehouse.includes('-50度冷凍庫')) continue;
-
             // 判斷出庫類型簡稱
             let outType = '其他';
             if (bizType.includes('調撥')) outType = '調撥';
@@ -7377,6 +7373,7 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
                 分攤單價: null,
                 出庫金額: null,
                 備註: noteVal,
+                倉庫名稱: normalize(io['倉庫名稱'] || ''),
                 month_label: '',
                 period: period,
                 分倉類型: _autoWarehouseType(outType, noteVal),
@@ -11203,6 +11200,7 @@ let profitHeaders = [];   // 原始欄位
 let profitCalcData = [];  // 計算後（含租金單價、租金費用）
 let _profitSort = { key: '', asc: true }; // 排序狀態
 let _profitChecked = new Set();           // 勾選列（存原始 index）
+let _profitColFilters = {};               // 欄位篩選 { colName: lowerCaseString }
 
 function _profitSortBy(key) {
     if (_profitSort.key === key) _profitSort.asc = !_profitSort.asc;
@@ -11256,6 +11254,23 @@ function _profitExportSelected() {
     window.XLSX.writeFile(wb, `利潤分析_勾選_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 window._profitExportSelected = _profitExportSelected;
+
+// 欄位篩選輸入框處理（用 data-col=encodeURIComponent 避免特殊字元）
+function _profitColFilterByEl(el) {
+    const col = decodeURIComponent(el.getAttribute('data-col') || '');
+    if (!col) return;
+    const val = el.value.trim();
+    if (val) _profitColFilters[col] = val.toLowerCase();
+    else delete _profitColFilters[col];
+    renderProfitTable();
+}
+window._profitColFilterByEl = _profitColFilterByEl;
+
+function _profitClearColFilters() {
+    _profitColFilters = {};
+    renderProfitTable();
+}
+window._profitClearColFilters = _profitClearColFilters;
 
 // 上下捲軸同步
 function _setupProfitScrollSync() {
@@ -11528,8 +11543,9 @@ async function calcProfit() {
         document.getElementById('ps_unmatched').textContent = unmatched;
         document.getElementById('profit_summary').style.display = 'flex';
         document.getElementById('profit_filter_bar').style.display = 'flex';
-        _profitChecked.clear(); // 新試算後清除勾選
+        _profitChecked.clear();          // 新試算後清除勾選
         _profitSort = { key: '', asc: true }; // 重設排序
+        _profitColFilters = {};          // 清除欄位篩選
         renderProfitTable();
         statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 試算完成：${matched} 筆比對到，${unmatched} 筆未比對</span>`;
     } catch(e) {
@@ -11549,7 +11565,8 @@ function renderProfitTable() {
     const keyword = (document.getElementById('profit_filter')?.value || '').toLowerCase().trim();
     const showUnmatched = document.getElementById('profit_show_unmatched')?.checked || false;
 
-    // 帶原始 index 篩選
+    // 帶原始 index 篩選（全域 + 欄位篩選）
+    const hasColFilters = Object.keys(_profitColFilters).length > 0;
     let filteredWithIdx = profitCalcData
         .map((r, origIdx) => ({ r, origIdx }))
         .filter(({ r }) => {
@@ -11557,6 +11574,13 @@ function renderProfitTable() {
             if (keyword) {
                 const hay = Object.values(r).map(v => String(v||'')).join(' ').toLowerCase();
                 if (!hay.includes(keyword)) return false;
+            }
+            // 欄位篩選（每個啟用的欄位都要符合）
+            if (hasColFilters) {
+                for (const [col, fv] of Object.entries(_profitColFilters)) {
+                    const cv = String(r[col] ?? '').toLowerCase();
+                    if (!cv.includes(fv)) return false;
+                }
             }
             return true;
         });
@@ -11574,7 +11598,14 @@ function renderProfitTable() {
     }
 
     const note = document.getElementById('profit_filter_note');
-    if (note) note.textContent = (keyword || showUnmatched) ? `顯示 ${filteredWithIdx.length} / ${profitCalcData.length} 筆` : '';
+    if (note) {
+        const parts = [];
+        if (keyword || showUnmatched) parts.push(`顯示 ${filteredWithIdx.length} / ${profitCalcData.length} 筆`);
+        if (hasColFilters) parts.push(`🔍 欄位篩選 ${Object.keys(_profitColFilters).length} 個啟用中`);
+        note.innerHTML = parts.length
+            ? parts.join('　') + (hasColFilters ? `　<button onclick="_profitClearColFilters()" style="padding:1px 7px;border:1px solid #6878C0;border-radius:4px;background:#fff;color:#6878C0;font-size:0.75rem;cursor:pointer;">全部清除</button>` : '')
+            : '';
+    }
 
     const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源', '來源備註'];
     const highlightCols = new Set(['租金單價', '租金費用', '租金來源', '來源備註']);
@@ -11615,6 +11646,32 @@ function renderProfitTable() {
         const thSt = hl ? thHl : thBase;
         const align = isNumericCol(col) ? 'right' : 'left';
         html += `<th onclick="_profitSortBy('${col.replace(/'/g,"\\'")}')" style="${thSt}text-align:${align};">${col}${arrow(col)}</th>`;
+    });
+    // ── 篩選輸入列 ──
+    html += `</tr><tr>`;
+    const fRowBase = `padding:3px 4px;background:#3a4a90;border:1px solid #4a5a9f;`;
+    const fRowHl   = `padding:3px 4px;background:#3530a0;border:1px solid #3a3580;`;
+    const fInBase  = `width:100%;box-sizing:border-box;font-size:10px;padding:2px 5px;border:1.5px solid transparent;border-radius:3px;background:#f4f6ff;color:#1a2540;outline:none;`;
+    const fInActive = `width:100%;box-sizing:border-box;font-size:10px;padding:2px 5px;border:1.5px solid #f7a35c;border-radius:3px;background:#fff9f0;color:#1a2540;outline:none;font-weight:600;`;
+    // 勾選列佔位
+    html += `<th style="${fRowBase}text-align:center;width:34px;"><span style="font-size:9px;color:#a5b4fc;">☑</span></th>`;
+    allCols.forEach(col => {
+        const hl = highlightCols.has(col);
+        const thFSt = hl ? fRowHl : fRowBase;
+        const curVal = _profitColFilters[col] || '';
+        const inSt   = curVal ? fInActive : fInBase;
+        const enc    = encodeURIComponent(col);
+        html += `<th style="${thFSt}">
+            <input type="text"
+                placeholder="篩選..."
+                value="${curVal.replace(/"/g,'&quot;')}"
+                data-col="${enc}"
+                oninput="_profitColFilterByEl(this)"
+                onclick="event.stopPropagation()"
+                onfocus="this.style.borderColor='#f7a35c'"
+                onblur="this.style.borderColor=this.value?'#f7a35c':'transparent'"
+                style="${inSt}">
+        </th>`;
     });
     html += `</tr></thead><tbody>`;
 
