@@ -11202,12 +11202,83 @@ let profitRawData = [];   // 上傳的利潤表原始資料
 let profitHeaders = [];   // 原始欄位
 let profitCalcData = [];  // 計算後（含租金單價、租金費用）
 let _profitSort = { key: '', asc: true }; // 排序狀態
+let _profitChecked = new Set();           // 勾選列（存原始 index）
+
 function _profitSortBy(key) {
     if (_profitSort.key === key) _profitSort.asc = !_profitSort.asc;
     else _profitSort = { key, asc: true };
     renderProfitTable();
 }
 window._profitSortBy = _profitSortBy;
+
+function _profitToggleCheck(origIdx, checked) {
+    if (checked) _profitChecked.add(origIdx);
+    else _profitChecked.delete(origIdx);
+    const el = document.getElementById('profit_sel_count');
+    if (el) el.textContent = _profitChecked.size;
+    const actBar = document.getElementById('profit_action_bar');
+    if (actBar) actBar.style.display = _profitChecked.size > 0 ? 'flex' : 'none';
+}
+window._profitToggleCheck = _profitToggleCheck;
+
+function _profitToggleAll(checked) {
+    document.querySelectorAll('.profit-check').forEach(cb => {
+        cb.checked = checked;
+        _profitToggleCheck(parseInt(cb.dataset.idx), checked);
+    });
+}
+window._profitToggleAll = _profitToggleAll;
+
+function _profitClearChecked() {
+    _profitChecked.clear();
+    document.querySelectorAll('.profit-check').forEach(cb => cb.checked = false);
+    const el = document.getElementById('profit_sel_count');
+    if (el) el.textContent = '0';
+    const actBar = document.getElementById('profit_action_bar');
+    if (actBar) actBar.style.display = 'none';
+    const allCb = document.getElementById('profit_check_all');
+    if (allCb) allCb.checked = false;
+}
+window._profitClearChecked = _profitClearChecked;
+
+function _profitExportSelected() {
+    const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源', '來源備註'];
+    const rows = [..._profitChecked].sort((a,b)=>a-b).map(i => {
+        const r = profitCalcData[i];
+        const row = {};
+        allCols.forEach(c => { row[c] = r[c] !== undefined ? r[c] : ''; });
+        return row;
+    });
+    if (!rows.length) { alert('請先勾選要匯出的列'); return; }
+    const ws = window.XLSX.utils.json_to_sheet(rows);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, '勾選匯出');
+    window.XLSX.writeFile(wb, `利潤分析_勾選_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+window._profitExportSelected = _profitExportSelected;
+
+// 上下捲軸同步
+function _setupProfitScrollSync() {
+    const wrap = document.getElementById('profit_table_wrap');
+    const top  = document.getElementById('profit_top_scroll');
+    const ph   = document.getElementById('profit_scroll_ph');
+    if (!wrap || !top || !ph) return;
+    ph.style.width  = wrap.scrollWidth + 'px';
+    ph.style.height = '1px';
+    let syncing = false;
+    wrap.addEventListener('scroll', () => {
+        if (syncing) return; syncing = true;
+        top.scrollLeft = wrap.scrollLeft;
+        syncing = false;
+    });
+    top.addEventListener('scroll', () => {
+        if (syncing) return; syncing = true;
+        wrap.scrollLeft = top.scrollLeft;
+        syncing = false;
+    });
+}
+window._setupProfitScrollSync = _setupProfitScrollSync;
+
 let rentalResultData = []; // 租金計算結果（上/下期）
 let processingFormData = []; // 加工單資料
 let processingUnitPriceMap = {}; // 子件批號 -> 租金單價
@@ -11457,7 +11528,8 @@ async function calcProfit() {
         document.getElementById('ps_unmatched').textContent = unmatched;
         document.getElementById('profit_summary').style.display = 'flex';
         document.getElementById('profit_filter_bar').style.display = 'flex';
-
+        _profitChecked.clear(); // 新試算後清除勾選
+        _profitSort = { key: '', asc: true }; // 重設排序
         renderProfitTable();
         statusEl.innerHTML = `<span style="color:#4a9a37; font-weight:700;">✅ 試算完成：${matched} 筆比對到，${unmatched} 筆未比對</span>`;
     } catch(e) {
@@ -11476,25 +11548,25 @@ window.calcProfitAndMatch = calcProfitAndMatch;
 function renderProfitTable() {
     const keyword = (document.getElementById('profit_filter')?.value || '').toLowerCase().trim();
     const showUnmatched = document.getElementById('profit_show_unmatched')?.checked || false;
-    const nameCol  = document.getElementById('pcol_name').value.trim() || '產品名稱';
-    const batchCol = document.getElementById('pcol_batch').value.trim() || '批號';
 
-    let filtered = profitCalcData.filter(r => {
-        if (showUnmatched && r.租金費用 !== '') return false;
-        if (keyword) {
-            // 搜尋所有欄位
-            const hay = Object.values(r).map(v => String(v||'')).join(' ').toLowerCase();
-            if (!hay.includes(keyword)) return false;
-        }
-        return true;
-    });
+    // 帶原始 index 篩選
+    let filteredWithIdx = profitCalcData
+        .map((r, origIdx) => ({ r, origIdx }))
+        .filter(({ r }) => {
+            if (showUnmatched && r.租金費用 !== '') return false;
+            if (keyword) {
+                const hay = Object.values(r).map(v => String(v||'')).join(' ').toLowerCase();
+                if (!hay.includes(keyword)) return false;
+            }
+            return true;
+        });
 
     // 排序
     if (_profitSort.key) {
         const k = _profitSort.key;
-        filtered = [...filtered].sort((a, b) => {
-            const av = a[k] ?? '', bv = b[k] ?? '';
-            const an = parseFloat(String(av).replace(/,/g, '')), bn = parseFloat(String(bv).replace(/,/g, ''));
+        filteredWithIdx = [...filteredWithIdx].sort((a, b) => {
+            const av = a.r[k] ?? '', bv = b.r[k] ?? '';
+            const an = parseFloat(String(av).replace(/,/g,'')), bn = parseFloat(String(bv).replace(/,/g,''));
             if (!isNaN(an) && !isNaN(bn)) return _profitSort.asc ? an - bn : bn - an;
             const cmp = String(av).localeCompare(String(bv), 'zh-TW', { numeric: true });
             return _profitSort.asc ? cmp : -cmp;
@@ -11502,12 +11574,10 @@ function renderProfitTable() {
     }
 
     const note = document.getElementById('profit_filter_note');
-    if (note) note.textContent = (keyword || showUnmatched) ? `顯示 ${filtered.length} / ${profitCalcData.length} 筆` : '';
+    if (note) note.textContent = (keyword || showUnmatched) ? `顯示 ${filteredWithIdx.length} / ${profitCalcData.length} 筆` : '';
 
     const allCols = [...profitHeaders, '租金單價', '租金費用', '租金來源', '來源備註'];
     const highlightCols = new Set(['租金單價', '租金費用', '租金來源', '來源備註']);
-
-    // 判斷數值欄（right-align）：包含「數量」「金額」「單價」「費用」「匯率」「費率」的欄位
     const isNumericCol = col => /數量|金額|單價|費用|匯率|費率|成本|利潤|毛利/.test(col) || highlightCols.has(col);
     const arrow = col => {
         if (_profitSort.key !== col) return '<span style="opacity:.35;font-size:9px;"> ↕</span>';
@@ -11516,9 +11586,30 @@ function renderProfitTable() {
 
     const thBase = `padding:6px 10px;font-size:11px;font-weight:700;background:#6878C0;color:#fff;border:1px solid #4a5a9f;white-space:nowrap;cursor:pointer;user-select:none;`;
     const thHl   = `padding:6px 10px;font-size:11px;font-weight:700;background:#5045a8;color:#fff;border:1px solid #3a3580;white-space:nowrap;cursor:pointer;user-select:none;`;
+    const thCb   = `padding:6px 8px;font-size:11px;font-weight:700;background:#6878C0;color:#fff;border:1px solid #4a5a9f;white-space:nowrap;text-align:center;width:34px;`;
     const tdBase = `padding:5px 10px;font-size:11px;border:1px solid #c8d8ea;white-space:nowrap;`;
 
-    let html = `<div class="result-section"><div style="overflow-x:auto;"><table style="font-size:12px;border-collapse:collapse;width:100%;"><thead style="position:sticky;top:0;z-index:2;"><tr>`;
+    // 合計
+    const totalRent = filteredWithIdx.reduce((s, {r}) => s + (parseFloat(r.租金費用)||0), 0);
+    const selCount  = _profitChecked.size;
+
+    let html = `<div class="result-section">
+      <!-- 勾選操作列 -->
+      <div id="profit_action_bar" style="display:${selCount>0?'flex':'none'};align-items:center;gap:0.6rem;padding:6px 12px;background:#eef3fd;border:1.5px solid #a5b4fc;border-radius:8px;margin-bottom:8px;font-size:0.82rem;flex-wrap:wrap;">
+        <span style="font-weight:700;color:#6878C0;">☑ 已勾選 <span id="profit_sel_count">${selCount}</span> 筆</span>
+        <button onclick="_profitExportSelected()" style="padding:3px 12px;background:#6878C0;color:#fff;border:none;border-radius:6px;font-size:0.8rem;font-weight:700;cursor:pointer;">📥 匯出勾選</button>
+        <button onclick="_profitClearChecked()" style="padding:3px 10px;background:#fff;color:#6878C0;border:1.5px solid #6878C0;border-radius:6px;font-size:0.8rem;font-weight:700;cursor:pointer;">✕ 清除勾選</button>
+      </div>
+      <!-- 頂部捲軸 -->
+      <div id="profit_top_scroll" style="overflow-x:auto;overflow-y:hidden;height:14px;margin-bottom:2px;border-radius:3px;">
+        <div id="profit_scroll_ph" style="height:1px;"></div>
+      </div>
+      <!-- 表格主體（有獨立捲軸）-->
+      <div id="profit_table_wrap" style="overflow:auto;max-height:65vh;border:1px solid #dde6ef;border-radius:6px;">
+        <table style="font-size:12px;border-collapse:collapse;min-width:100%;">
+          <thead style="position:sticky;top:0;z-index:2;">
+            <tr>
+              <th style="${thCb}"><input type="checkbox" id="profit_check_all" onchange="_profitToggleAll(this.checked)" style="width:15px;height:15px;cursor:pointer;accent-color:#fff;"></th>`;
     allCols.forEach(col => {
         const hl   = highlightCols.has(col);
         const thSt = hl ? thHl : thBase;
@@ -11527,11 +11618,13 @@ function renderProfitTable() {
     });
     html += `</tr></thead><tbody>`;
 
-    filtered.forEach((r, ri) => {
+    filteredWithIdx.forEach(({ r, origIdx }, ri) => {
         const hasRent = r.租金費用 !== '';
-        const rowBg = hasRent ? (ri%2===0?'#fff':'#fafbfc') : (ri%2===0?'#fafafa':'#f5f5f5');
+        const isChecked = _profitChecked.has(origIdx);
+        const rowBg = isChecked ? '#eef3fd' : (hasRent ? (ri%2===0?'#fff':'#fafbfc') : (ri%2===0?'#fafafa':'#f5f5f5'));
         const dimColor = hasRent ? '' : 'color:#bbb;';
-        html += `<tr style="background:${rowBg};">`;
+        html += `<tr style="background:${rowBg};transition:background 0.15s;">`;
+        html += `<td style="${tdBase}text-align:center;padding:3px 8px;"><input type="checkbox" class="profit-check" data-idx="${origIdx}" ${isChecked?'checked':''} onchange="_profitToggleCheck(${origIdx},this.checked)" style="width:15px;height:15px;cursor:pointer;accent-color:#6878C0;"></td>`;
         allCols.forEach(col => {
             const val = r[col] !== undefined && r[col] !== '' ? r[col] : '';
             if (col === '租金單價') {
@@ -11549,7 +11642,7 @@ function renderProfitTable() {
             } else if (col === '來源備註') {
                 html += `<td style="${tdBase}color:#64748b;font-size:0.78rem;">${val || ''}</td>`;
             } else if (isNumericCol(col)) {
-                const n = parseFloat(String(val).replace(/,/g, ''));
+                const n = parseFloat(String(val).replace(/,/g,''));
                 const display = !isNaN(n) ? n.toLocaleString() : (val || '');
                 html += `<td style="${tdBase}text-align:right;${dimColor}">${display}</td>`;
             } else {
@@ -11559,16 +11652,19 @@ function renderProfitTable() {
         html += `</tr>`;
     });
 
-    // 合計列
-    const totalRent = filtered.reduce((s, r) => s + (parseFloat(r.租金費用)||0), 0);
-    html += `<tr style="background:#eef3fd;font-weight:800;border-top:2px solid #6878C0;">`;
+    // 合計列（sticky at bottom 不易做，放在 tbody 底部即可）
+    html += `<tr style="background:#eef3fd;font-weight:800;position:sticky;bottom:0;z-index:1;">`;
+    html += `<td style="${tdBase}text-align:center;padding:3px 8px;"></td>`;
     allCols.forEach((col, i) => {
-        if (i === 0) html += `<td style="${tdBase}color:#6878C0;font-weight:800;">合計（${filtered.length} 筆）</td>`;
+        if (i === 0) html += `<td style="${tdBase}color:#6878C0;font-weight:800;">合計（${filteredWithIdx.length} 筆）</td>`;
         else if (col === '租金費用') html += `<td style="${tdBase}text-align:right;color:#c0507a;font-weight:800;">$${Math.round(totalRent).toLocaleString()}</td>`;
         else html += `<td style="${tdBase}"></td>`;
     });
     html += `</tr></tbody></table></div></div>`;
+
     document.getElementById('profit_results').innerHTML = html;
+    // 初始化頂部捲軸同步（等 DOM 更新後）
+    setTimeout(_setupProfitScrollSync, 50);
 }
 window.applyProfitFilter = renderProfitTable;
 
