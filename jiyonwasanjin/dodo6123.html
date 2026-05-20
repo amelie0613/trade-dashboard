@@ -9584,7 +9584,7 @@ function _renderTransitTable() {
         const noteDisplay = r.notes
           ? `<span style="color:#64748b;font-size:10px;">${r.notes}</span>`
           : `<span style="color:#d1d5db;font-size:10px;">—</span>`;
-        html += `<tr style="background:${bg}">
+        html += `<tr data-ledger-id="${r.id}" style="background:${bg};transition:background 0.4s;">
           <td style="${td}font-weight:600">${r.product_name}</td>
           <td style="${td}font-family:monospace;font-size:10px;color:#6878C0">${r.batch_no}</td>
           <td style="${td}">${r.outbound_date||''}</td>
@@ -9952,7 +9952,9 @@ function _renderTransitPreviewTable() {
                     title="移除此行（不核銷）"
                     style="width:22px;height:22px;border-radius:50%;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:13px;font-weight:900;cursor:pointer;line-height:1;padding:0;">✕</button>
                 </td>
-                <td style="${td}font-weight:600;">${c.product_name}</td>
+                <td style="${td}font-weight:600;cursor:pointer;" onclick="_scrollToLedgerRow(${c.id})" title="點擊定位到下方台帳對應列">
+                  ${c.product_name}<span style="font-size:0.6rem;color:#a5b4fc;margin-left:3px;vertical-align:middle;">⬇</span>
+                </td>
                 <td style="${td}font-family:monospace;color:#6878C0;font-size:0.73rem;">${c.batch_no}</td>
                 <td style="${td}color:#64748b;">${c.outbound_date||'—'}</td>
                 <td style="${td}text-align:right;">${fmt(c.original_qty)}</td>
@@ -10033,6 +10035,33 @@ function _updatePreviewSummary() {
     const el = document.getElementById('preview_summary');
     if (el) el.textContent = `共 ${changes.length} 筆，合計核銷數量 ${Number(total).toLocaleString(undefined,{maximumFractionDigits:2})}`;
 }
+
+// 從預覽列點擊後定位到下方台帳對應行
+function _scrollToLedgerRow(ledgerId) {
+    const row = document.querySelector(`[data-ledger-id="${ledgerId}"]`);
+    if (!row) {
+        const st = document.getElementById('transit_status');
+        if (st) {
+            const prev = st.textContent;
+            st.textContent = '⚠️ 台帳尚未載入，請先點「🔍 讀取台帳」再比對';
+            setTimeout(() => { st.textContent = prev; }, 3000);
+        }
+        return;
+    }
+    // 先清除上一次高亮
+    document.querySelectorAll('[data-ledger-id]').forEach(r => {
+        r.style.background = '';
+        r.style.outline = '';
+    });
+    // 滾動置中
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // 閃爍高亮：藍紫色 → 淡黃 → 淡出
+    row.style.background = '#e0e7ff';
+    row.style.outline = '2px solid #6878C0';
+    setTimeout(() => { row.style.background = '#fefce8'; row.style.outline = '2px solid #f7a35c'; }, 400);
+    setTimeout(() => { row.style.background = ''; row.style.outline = ''; }, 2200);
+}
+window._scrollToLedgerRow = _scrollToLedgerRow;
 
 async function _commitTransitChanges() {
     const changes = window._transitPendingChanges || [];
