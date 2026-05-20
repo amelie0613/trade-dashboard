@@ -1861,14 +1861,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                         <div id="rental_result_label" style="font-size:0.7rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
                       </div>
                       <div id="rental_result_status" style="font-size:0.8rem; color:#6aa85a;"></div>
-                      <div class="section-title" style="margin-top:1rem;">📤 3️⃣ 加工單 (可選)</div>
-                      <p style="font-size:0.75rem; color:#8a6a7a; margin-bottom:0.6rem;">自動計算加工成品的租金單價</p>
-                      <div style="border:2px dashed #f7a35c; border-radius:10px; padding:0.6rem; background:white;"
-                          ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'processing_form_file',this)">
-                        <input type="file" id="processing_form_file" accept=".xlsx" onchange="processingFormFileChanged(this)" style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
-                        <div id="processing_form_label" style="font-size:0.7rem; color:#d97a3a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
-                      </div>
-                      <div id="processing_form_status" style="font-size:0.8rem; color:#d97a3a;"></div>
                     </div>
                     <div>
                       <div class="section-title">⚙️ 欄位對應設定</div>
@@ -10236,12 +10228,19 @@ async function runSalesReconciliation() {
     const salesRows    = outboundRows.filter(r => !excludedTypes.has(r.warehouse_type));
     const excludedRows = outboundRows.filter(r =>  excludedTypes.has(r.warehouse_type));
 
-    const outSummary = {}; // key → { totalQty, totalAmt }
+    const outSummary = {}; // key → { totalQty, totalAmt, rows:[{date,qty,warehouse_type,notes}] }
     salesRows.forEach(r => {
         const key = `${(r.product_name||'').trim()}|${(r.batch_no||'').trim()}`;
-        if (!outSummary[key]) outSummary[key] = { totalQty: 0, totalAmt: 0 };
-        outSummary[key].totalQty += Math.abs(parseFloat(r.quantity)        || 0);
+        if (!outSummary[key]) outSummary[key] = { totalQty: 0, totalAmt: 0, rows: [] };
+        const qty = Math.abs(parseFloat(r.quantity) || 0);
+        outSummary[key].totalQty += qty;
         outSummary[key].totalAmt += Math.abs(parseFloat(r.outbound_amount) || 0);
+        outSummary[key].rows.push({
+            date:           r.outbound_date || '',
+            qty,
+            warehouse_type: r.warehouse_type || '未分類',
+            notes:          r.notes || '',
+        });
     });
 
     // 被排除的記錄彙總（加工原料 + 再途銷貨），用於差異說明
@@ -10273,7 +10272,10 @@ async function runSalesReconciliation() {
         const excHint    = excRows.length
             ? excRows.map(r => `${r.warehouse_type} ${Number(r.qty).toLocaleString()}`).join('、')
             : '';
-        results.push({ key, pName, pBatch, profitQty, outQty, qtyDiff, qtyOk, projNames, excQty, excHint });
+        // 個別明細（供差異診斷用）
+        const profitRows = ps ? ps.projects.slice().sort((a,b) => (a.date||'').localeCompare(b.date||'')) : [];
+        const outRows    = os ? os.rows.slice().sort((a,b) => (a.date||'').localeCompare(b.date||'')) : [];
+        results.push({ key, pName, pBatch, profitQty, outQty, qtyDiff, qtyOk, projNames, excQty, excHint, profitRows, outRows });
     });
 
     const errCount = results.filter(r => !r.qtyOk).length;
@@ -10353,6 +10355,7 @@ function _renderSalesReconTable(previewEl) {
             ${thS('profitQty','利潤數量','right')}
             ${thS('qtyDiff','差異','right')}
             <th style="${th}">比對到的利潤專案</th>
+            <th style="${th}text-align:center;"></th>
           </tr></thead>
           <tbody>
             ${sorted.map(r => {
@@ -10378,16 +10381,79 @@ function _renderSalesReconTable(previewEl) {
                   <td style="${td}text-align:right;${r.profitQty===0?'color:#94a3b8;':''}">${r.profitQty ? fmt(r.profitQty) : '—'}</td>
                   <td style="${td}text-align:right;font-weight:700;color:${r.qtyDiff===0?'#22c55e':r.qtyDiff>0?'#ef4444':'#f7a35c'};">
                     ${r.qtyOk ? '—' : (r.qtyDiff > 0 ? '+' : '') + fmt(r.qtyDiff)}
-                    ${(!r.qtyOk && r.excQty > 0) ? `<div style="font-size:0.62rem;color:#f7a35c;font-weight:400;white-space:normal;margin-top:2px;" title="此批號有出庫記錄被排除在核對外">⚠️ 另有被排除：${r.excHint}</div>` : ''}
+                    ${(!r.qtyOk && r.excQty > 0) ? `<div style="font-size:0.62rem;color:#f7a35c;font-weight:400;white-space:normal;margin-top:2px;">⚠️ 另有被排除：${r.excHint}</div>` : ''}
                   </td>
                   <td style="${td}font-size:0.72rem;color:#7c3aed;max-width:200px;">${r.projNames||'—'}</td>
-                </tr>`;
+                  <td style="${td}text-align:center;">
+                    ${!r.qtyOk ? `<button onclick="_toggleReconDetail('${r.key.replace(/'/g,"\\'")}')" id="recon_btn_${idx}" style="padding:2px 8px;border:1px solid #7c3aed;border-radius:5px;background:#f9f5ff;color:#7c3aed;font-size:10px;font-weight:700;cursor:pointer;">▾ 明細</button>` : ''}
+                  </td>
+                </tr>
+                ${!r.qtyOk ? `<tr id="recon_detail_${r.key.replace(/[|]/g,'__')}" style="display:none;">
+                  <td colspan="8" style="padding:0.5rem 1rem 0.8rem;background:#faf5ff;border-bottom:2px solid #e9d5ff;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                      <div>
+                        <div style="font-size:0.72rem;font-weight:700;color:#7c3aed;margin-bottom:4px;">📋 利潤分析表明細（共 ${fmt(r.profitQty)}）</div>
+                        <table style="width:100%;border-collapse:collapse;font-size:0.72rem;">
+                          <thead><tr style="background:#f3e8ff;">
+                            <th style="padding:3px 6px;text-align:left;">銷貨日期</th>
+                            <th style="padding:3px 6px;text-align:left;">專案</th>
+                            <th style="padding:3px 6px;text-align:right;">數量</th>
+                          </tr></thead><tbody>
+                          ${r.profitRows.map(p=>`<tr style="border-bottom:1px solid #f3e8ff;">
+                            <td style="padding:3px 6px;color:#64748b;">${p.date||'—'}</td>
+                            <td style="padding:3px 6px;color:#7c3aed;">${p.projName||p.proj||'—'}</td>
+                            <td style="padding:3px 6px;text-align:right;font-weight:600;">${fmt(p.qty)}</td>
+                          </tr>`).join('')}
+                          <tr style="background:#f3e8ff;font-weight:700;">
+                            <td colspan="2" style="padding:3px 6px;">合計</td>
+                            <td style="padding:3px 6px;text-align:right;color:#7c3aed;">${fmt(r.profitQty)}</td>
+                          </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div>
+                        <div style="font-size:0.72rem;font-weight:700;color:#3b82f6;margin-bottom:4px;">📦 出庫記錄明細（共 ${fmt(r.outQty)}）</div>
+                        <table style="width:100%;border-collapse:collapse;font-size:0.72rem;">
+                          <thead><tr style="background:#eff6ff;">
+                            <th style="padding:3px 6px;text-align:left;">出庫日期</th>
+                            <th style="padding:3px 6px;text-align:left;">分倉類型</th>
+                            <th style="padding:3px 6px;text-align:right;">數量</th>
+                          </tr></thead><tbody>
+                          ${r.outRows.map(o=>`<tr style="border-bottom:1px solid #eff6ff;">
+                            <td style="padding:3px 6px;color:#64748b;">${o.date||'—'}</td>
+                            <td style="padding:3px 6px;color:#3b82f6;">${o.warehouse_type}</td>
+                            <td style="padding:3px 6px;text-align:right;font-weight:600;">${fmt(o.qty)}</td>
+                          </tr>`).join('')}
+                          <tr style="background:#eff6ff;font-weight:700;">
+                            <td colspan="2" style="padding:3px 6px;">合計</td>
+                            <td style="padding:3px 6px;text-align:right;color:#3b82f6;">${fmt(r.outQty)}</td>
+                          </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </td>
+                </tr>` : ''}`;
             }).join('')}
           </tbody>
         </table>
       </div>`;
 }
 window._renderSalesReconTable = _renderSalesReconTable;
+
+function _toggleReconDetail(key) {
+    const safeKey = key.replace(/[|]/g, '__');
+    const row = document.getElementById(`recon_detail_${safeKey}`);
+    if (!row) return;
+    const isOpen = row.style.display !== 'none';
+    row.style.display = isOpen ? 'none' : '';
+    // 更新按鈕文字
+    const results = window._salesReconResults || [];
+    const idx = results.findIndex(r => r.key === key);
+    const btn = document.getElementById(`recon_btn_${idx}`);
+    if (btn) btn.textContent = isOpen ? '▾ 明細' : '▴ 收合';
+}
+window._toggleReconDetail = _toggleReconDetail;
 
 async function resetTransitOffset() {
     if (!confirm('確定要撤銷所有核銷記錄？\n所有「部分核銷」與「已核銷」的資料將還原為「未核銷」。')) return;
@@ -13461,62 +13527,46 @@ class RentalAnalysisPipeline {
       summary.items.push({ icon: '⚠️', label: 'Stage 1 出庫分類', msg: e.message, color: '#f7a35c' });
     }
 
-    // ── Stage 2：加工單分析（可選）────────────────────────────────
-    try {
-      const processingFile = ledgerFiles && ledgerFiles['processing_form_file'];
-      if (processingFile) {
-        this._log('⚠️', 'Stage 2 加工單已上傳，請至「轉加工/原料台帳」頁手動執行配對', '#f7a35c');
-        summary.items.push({ icon: '⚠️', label: 'Stage 2 加工分析', msg: '已偵測到加工單，請手動執行配對', color: '#f7a35c' });
-      } else {
-        this._log('－', 'Stage 2 未上傳加工單（可選，已跳過）', '#94a3b8');
-        summary.items.push({ icon: '－', label: 'Stage 2 加工分析', msg: '未上傳加工單，已跳過', color: '#94a3b8' });
-      }
-      this._progress = 50;
-    } catch (e) {
-      this._log('⚠️', `Stage 2 加工分析失敗：${e.message}（已跳過）`, '#f7a35c');
-      summary.items.push({ icon: '⚠️', label: 'Stage 2 加工分析', msg: e.message, color: '#f7a35c' });
-    }
-
-    // ── Stage 3：利潤匯總（可選）──────────────────────────────────
+    // ── Stage 2：利潤匯總（可選）──────────────────────────────────
     try {
       const profitFileEl = document.getElementById('profit_file');
       const profitFile = (ledgerFiles && ledgerFiles['profit_file'])
         || (profitFileEl && profitFileEl.files[0]);
       if (profitFile) {
-        this._log('⏳', 'Stage 3 利潤匯總中...', '#2a6a82');
-        this._progress = 68;
+        this._log('⏳', 'Stage 2 利潤匯總中...', '#2a6a82');
+        this._progress = 55;
         this._render();
         await calcProfit();
         const count = (profitCalcData || []).length;
-        this._log('✅', `Stage 3 利潤匯總完成（${count} 筆）`, '#22c55e');
-        summary.items.push({ icon: '✅', label: 'Stage 3 利潤匯總', msg: `${count} 筆完成`, color: '#22c55e' });
+        this._log('✅', `Stage 2 利潤匯總完成（${count} 筆）`, '#22c55e');
+        summary.items.push({ icon: '✅', label: 'Stage 2 利潤匯總', msg: `${count} 筆完成`, color: '#22c55e' });
       } else {
-        this._log('－', 'Stage 3 未上傳利潤表（可選，已跳過）', '#94a3b8');
-        summary.items.push({ icon: '－', label: 'Stage 3 利潤匯總', msg: '未上傳利潤表，已跳過', color: '#94a3b8' });
+        this._log('－', 'Stage 2 未上傳利潤表（可選，已跳過）', '#94a3b8');
+        summary.items.push({ icon: '－', label: 'Stage 2 利潤匯總', msg: '未上傳利潤表，已跳過', color: '#94a3b8' });
       }
-      this._progress = 84;
+      this._progress = 78;
     } catch (e) {
-      this._log('⚠️', `Stage 3 利潤匯總失敗：${e.message}（已跳過）`, '#f7a35c');
-      summary.items.push({ icon: '⚠️', label: 'Stage 3 利潤匯總', msg: e.message, color: '#f7a35c' });
+      this._log('⚠️', `Stage 2 利潤匯總失敗：${e.message}（已跳過）`, '#f7a35c');
+      summary.items.push({ icon: '⚠️', label: 'Stage 2 利潤匯總', msg: e.message, color: '#f7a35c' });
     }
 
-    // ── Stage 4：在途核銷（可選）──────────────────────────────────
+    // ── Stage 3：在途核銷（可選）──────────────────────────────────
     try {
       if (profitCalcData && profitCalcData.length > 0) {
-        this._log('⏳', 'Stage 4 在途核銷中...', '#2a6a82');
+        this._log('⏳', 'Stage 3 在途核銷中...', '#2a6a82');
         this._progress = 93;
         this._render();
         await autoMatchTransitSales();
-        this._log('✅', 'Stage 4 在途核銷完成', '#22c55e');
-        summary.items.push({ icon: '✅', label: 'Stage 4 在途核銷', msg: '完成', color: '#22c55e' });
+        this._log('✅', 'Stage 3 在途核銷完成', '#22c55e');
+        summary.items.push({ icon: '✅', label: 'Stage 3 在途核銷', msg: '完成', color: '#22c55e' });
       } else {
-        this._log('－', 'Stage 4 無利潤分析資料，跳過在途核銷', '#94a3b8');
-        summary.items.push({ icon: '－', label: 'Stage 4 在途核銷', msg: '無利潤分析資料，已跳過', color: '#94a3b8' });
+        this._log('－', 'Stage 3 無利潤分析資料，跳過在途核銷', '#94a3b8');
+        summary.items.push({ icon: '－', label: 'Stage 3 在途核銷', msg: '無利潤分析資料，已跳過', color: '#94a3b8' });
       }
       this._progress = 100;
     } catch (e) {
-      this._log('⚠️', `Stage 4 在途核銷失敗：${e.message}（已跳過）`, '#f7a35c');
-      summary.items.push({ icon: '⚠️', label: 'Stage 4 在途核銷', msg: e.message, color: '#f7a35c' });
+      this._log('⚠️', `Stage 3 在途核銷失敗：${e.message}（已跳過）`, '#f7a35c');
+      summary.items.push({ icon: '⚠️', label: 'Stage 3 在途核銷', msg: e.message, color: '#f7a35c' });
     }
 
     this._setDone(summary);
