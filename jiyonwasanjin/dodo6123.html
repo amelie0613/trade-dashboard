@@ -1953,6 +1953,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                   <button onclick="loadMaterialsLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
                   <button onclick="importMaterialsFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入</button>
                   <button onclick="resetMaterialsProcessed()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷加工</button>
+                  <button onclick="exportMaterialsLedger()" style="padding:0.5rem 1.2rem;background:#22c55e;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📤 匯出 Excel</button>
                   <div style="display:flex;gap:0.4rem;" id="mat_filter_btns">
                     <button id="mbf_all"    onclick="_matFilter('')"       class="mat-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:800;cursor:pointer;">全部</button>
                     <button id="mbf_未加工" onclick="_matFilter('未加工')" class="mat-filter-btn"        style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未加工</button>
@@ -2023,10 +2024,10 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <button onclick="importTransitFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入（銷貨＋再途銷貨）</button>
                 <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
                 <button onclick="runSalesReconciliation()" style="padding:0.5rem 1.2rem;background:#7c3aed;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="扣除加工原料＋在途銷貨後，與利潤分析比對數量金額">📊 銷貨核對</button>
-                <button onclick="cleanupTransitDuplicates()" style="padding:0.5rem 1.2rem;background:#f59e0b;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🧹 清理重複</button>
                 <button onclick="resetTransitOffset()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷核銷</button>
                 <button onclick="document.getElementById('transitHistoryFileInput').click()" style="padding:0.5rem 1.2rem;background:#764ba2;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📂 匯入歷史 Excel</button>
                 <input type="file" id="transitHistoryFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importTransitFromExcel(this)">
+                <button onclick="exportTransitLedger()" style="padding:0.5rem 1.2rem;background:#22c55e;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📤 匯出 Excel</button>
                 <div style="display:flex;gap:0.4rem;align-items:center;">
                   <button id="tbf_all"     onclick="_transitFilter('')"        class="transit-filter-btn" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:800;cursor:pointer;">全部</button>
                   <button id="tbf_未核銷"  onclick="_transitFilter('未核銷')"  class="transit-filter-btn" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未核銷</button>
@@ -9482,6 +9483,33 @@ function _matFilterFn(status) {
 }
 window._matFilter = _matFilterFn;
 
+function exportMaterialsLedger() {
+    if (!_matRecords || !_matRecords.length) { alert('尚無資料，請先讀取台帳'); return; }
+    const cols = [
+        { key:'product_name',  label:'產品名稱' },
+        { key:'batch_no',      label:'批號' },
+        { key:'outbound_date', label:'出庫日期' },
+        { key:'original_qty',  label:'原始數量' },
+        { key:'processed_qty', label:'已加工' },
+        { key:'remaining_qty', label:'剩餘數量' },
+        { key:'unit_price',    label:'單價' },
+        { key:'total_cost',    label:'總成本' },
+        { key:'status',        label:'狀態' },
+        { key:'notes',         label:'備註' },
+    ];
+    const rows = _matRecords.map(r => {
+        const row = {};
+        cols.forEach(c => { row[c.label] = r[c.key] ?? ''; });
+        return row;
+    });
+    const ws = window.XLSX.utils.json_to_sheet(rows);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, '加工原料台帳');
+    const date = new Date().toISOString().slice(0,10);
+    window.XLSX.writeFile(wb, `加工原料台帳_${date}.xlsx`);
+}
+window.exportMaterialsLedger = exportMaterialsLedger;
+
 // ── 讀取並顯示：在途銷貨台帳 ──────────────────────────────────────
 async function loadTransitLedger() {
     const statusEl = document.getElementById('transit_status');
@@ -9711,6 +9739,35 @@ function _transitFilterFn(status) {
     _renderTransitTable();
 }
 window._transitFilter = _transitFilterFn;
+
+function exportTransitLedger() {
+    if (!_transitRecords || !_transitRecords.length) { alert('尚無資料，請先讀取台帳'); return; }
+    const cols = [
+        { key:'product_name',     label:'產品名稱' },
+        { key:'batch_no',         label:'批號' },
+        { key:'outbound_date',    label:'出庫日期' },
+        { key:'original_qty',     label:'原始數量' },
+        { key:'offset_qty',       label:'累計核銷' },
+        { key:'remaining_qty',    label:'剩餘數量' },
+        { key:'unit_price',       label:'單價' },
+        { key:'total_cost',       label:'總成本' },
+        { key:'source',           label:'來源' },
+        { key:'status',           label:'狀態' },
+        { key:'last_offset_date', label:'最後核銷' },
+        { key:'notes',            label:'備註' },
+    ];
+    const rows = _transitRecords.map(r => {
+        const row = {};
+        cols.forEach(c => { row[c.label] = r[c.key] ?? ''; });
+        return row;
+    });
+    const ws = window.XLSX.utils.json_to_sheet(rows);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, '在途銷貨台帳');
+    const date = new Date().toISOString().slice(0,10);
+    window.XLSX.writeFile(wb, `在途銷貨台帳_${date}.xlsx`);
+}
+window.exportTransitLedger = exportTransitLedger;
 
 async function cleanupTransitDuplicates() {
     const statusEl = document.getElementById('transit_status');
