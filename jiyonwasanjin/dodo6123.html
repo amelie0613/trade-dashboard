@@ -1645,6 +1645,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         <div class="rental-subnav">
           <button class="rsn-btn active" id="rsn-calc" onclick="switchPage('calc')">📋 租金計算</button>
           <button class="rsn-btn" id="rsn-ledger" onclick="switchPage('ledger')">📊 月結算總帳</button>
+          <button class="rsn-btn" id="rsn-outbound" onclick="switchPage('outbound')">📋 出庫管理</button>
           <button class="rsn-btn" id="rsn-pairing" onclick="switchPage('pairing')">📦 轉加工 / 原料台帳</button>
           <button class="rsn-btn" id="rsn-transit" onclick="switchPage('transit')">🚢 在途銷貨台帳</button>
           <button class="rsn-btn" id="rsn-profit" onclick="switchPage('profit')">💹 利潤分析</button>
@@ -1789,7 +1790,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <button onclick="viewOutboundFromSupabase('')" style="width:100%; background:#764ba2; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📦 出庫記錄表（Supabase）</button>
                       <button onclick="syncOutboundToSupabase(window._outboundRecords, '')" style="width:100%; background:#3ecf8e; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 Supabase</button>
                       <button onclick="syncLedgerFromSupabase()" style="width:100%; background:none; border:1.5px solid #3ecf8e; color:#2a9d6e; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 Supabase 載入</button>
-                    <button onclick="restoreBackup()" style="width:100%; background:none; border:1.5px solid #8a5aa0; color:#8a5aa0; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">↩️ 清除舊本機快取</button>
                       <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
                       <hr style="border:none; border-top:1px solid #f0e0f0; margin:0.8rem 0;">
                       <button onclick="cleanupSupabaseEmptyItems()" style="width:100%; background:none; border:1.5px solid #ff9800; color:#ff9800; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">⚡ 清理Supabase已清空品項</button>
@@ -1799,34 +1799,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 </div>
                 <div id="ledger_results" style="margin-top:1rem;"></div>
 
-                <!-- 📦 出庫記錄管理區域 -->
-                <div style="margin-top:2rem; border-top:2px solid #e0e0e0; padding-top:1.5rem;">
-                  <div class="section-title" style="color:#764ba2; font-size:1rem;">📦 出庫記錄管理</div>
-
-                  <!-- 狀態概覽 -->
-                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
-                    <div style="background:#f0e6f7; border:1.5px solid #764ba2; border-radius:10px; padding:1rem;">
-                      <div style="font-size:0.85rem; color:#764ba2; font-weight:700; margin-bottom:0.5rem;">💾 本次出庫暫存</div>
-                      <div id="outbound_local_status" style="font-size:0.9rem; color:#333;">讀取中...</div>
-                    </div>
-                    <div style="background:#f0f6ff; border:1.5px solid #6878c0; border-radius:10px; padding:1rem;">
-                      <div style="font-size:0.85rem; color:#6878c0; font-weight:700; margin-bottom:0.5rem;">☁️ Supabase 狀態</div>
-                      <div id="outbound_db_status" style="font-size:0.9rem; color:#333;">讀取中...</div>
-                    </div>
-                  </div>
-
-                  <!-- 操作按鈕 -->
-                  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.8rem; margin-bottom:1.5rem;">
-                    <button onclick="checkOutboundLocal()" style="background:#764ba2; color:white; border:none; border-radius:8px; padding:0.7rem; font-weight:700; cursor:pointer; font-size:0.85rem;">🔍 檢查本次出庫暫存</button>
-                    <button onclick="checkOutboundSupabase()" style="background:#6878c0; color:white; border:none; border-radius:8px; padding:0.7rem; font-weight:700; cursor:pointer; font-size:0.85rem;">🔍 檢查 Supabase</button>
-                    <button onclick="syncBothToSupabase()" style="background:#3ecf8e; color:white; border:none; border-radius:8px; padding:0.7rem; font-weight:700; cursor:pointer; font-size:0.85rem;">☁️ 同步到 Supabase</button>
-                  </div>
-
-                  <!-- 詳細結果 -->
-                  <div id="outbound_detail_result" style="background:#fafafa; border:1px solid #ddd; border-radius:8px; padding:1rem; font-size:0.85rem; max-height:400px; overflow-y:auto; display:none;">
-                    <div id="outbound_detail_content"></div>
-                  </div>
-                </div>
 
               </div>
             </div>
@@ -1985,13 +1957,12 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                   <button onclick="importMaterialsFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入</button>
                   <button onclick="resetMaterialsProcessed()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷加工</button>
                   <div style="display:flex;gap:0.4rem;" id="mat_filter_btns">
-                    <button onclick="_matFilter('')"    class="mat-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">全部</button>
-                    <button onclick="_matFilter('未加工')" class="mat-filter-btn"      style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未加工</button>
-                    <button onclick="_matFilter('部分加工')" class="mat-filter-btn"   style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #f7a35c;background:#fffaf0;color:#f7a35c;font-size:0.78rem;font-weight:700;cursor:pointer;">部分加工</button>
-                    <button onclick="_matFilter('已完成')" class="mat-filter-btn"     style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #22c55e;background:#f0faf0;color:#22c55e;font-size:0.78rem;font-weight:700;cursor:pointer;">已完成</button>
+                    <button id="mbf_all"    onclick="_matFilter('')"       class="mat-filter-btn active" style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #6878C0;background:#6878C0;color:#fff;font-size:0.78rem;font-weight:800;cursor:pointer;">全部</button>
+                    <button id="mbf_未加工" onclick="_matFilter('未加工')" class="mat-filter-btn"        style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #ef4444;background:#fff5f5;color:#ef4444;font-size:0.78rem;font-weight:700;cursor:pointer;">未加工</button>
+                    <button id="mbf_部分加工" onclick="_matFilter('部分加工')" class="mat-filter-btn"    style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #f7a35c;background:#fffaf0;color:#f7a35c;font-size:0.78rem;font-weight:700;cursor:pointer;">部分加工</button>
+                    <button id="mbf_已完成" onclick="_matFilter('已完成')" class="mat-filter-btn"        style="padding:0.3rem 0.9rem;border-radius:6px;border:1.5px solid #22c55e;background:#f0faf0;color:#22c55e;font-size:0.78rem;font-weight:700;cursor:pointer;">已完成</button>
                   </div>
-                  <div id="mat_status" style="font-size:0.82rem;color:#64748b;"></div>
-                  <div id="mat_summary" style="display:flex;gap:0.5rem;margin-left:auto;flex-wrap:wrap;align-items:center;"></div>
+                  <div id="mat_status" style="font-size:0.82rem;color:#64748b;margin-left:auto;"></div>
                 </div>
                 <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;min-height:200px;">
                   <div id="mat_table" style="overflow-x:auto;">
@@ -2004,6 +1975,41 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           </div><!-- end page_pairing -->
 
           <!-- PAGE: OUTBOUND MANAGEMENT -->
+          <div id="page_outbound" style="display:none; padding:1rem;">
+            <div style="max-width:1400px; margin:0 auto;">
+              <div style="margin-bottom:1.2rem;">
+                <h2 style="font-size:1.3rem; font-weight:800; color:#1a2540; margin:0;">📋 出庫記錄管理</h2>
+                <p style="font-size:0.85rem; color:#64748b; margin:0.4rem 0 0;">查看 Supabase 出庫記錄，設定分倉類型（銷貨 / 加工原料 / 在途銷貨）</p>
+              </div>
+              <!-- 篩選 + 操作列 -->
+              <div style="background:white; border:1.5px solid #dde6ef; border-radius:12px; padding:1rem; margin-bottom:1rem; display:flex; gap:0.8rem; align-items:center; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                  <label style="font-size:0.82rem; color:#64748b; font-weight:700; white-space:nowrap;">月份篩選</label>
+                  <input type="text" id="ob_month_filter" placeholder="例：4月（留空查全部）"
+                    style="padding:0.4rem 0.8rem; border:1.5px solid #dde6ef; border-radius:8px; font-size:0.82rem; width:170px;" />
+                </div>
+                <button onclick="loadOutboundPage()"
+                  style="padding:0.5rem 1.2rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">
+                  🔍 讀取記錄
+                </button>
+                <button onclick="autoClassifyAndSave()"
+                  style="padding:0.5rem 1.2rem; background:#f7a35c; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">
+                  🤖 一鍵自動分類
+                </button>
+                <div id="ob_page_status" style="font-size:0.82rem; color:#64748b;"></div>
+                <button onclick="clearOutboundWithCheck()"
+                  style="padding:0.5rem 1.2rem; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; margin-left:auto;">
+                  🗑️ 清空換月
+                </button>
+                <!-- 分倉統計 chips -->
+                <div id="ob_summary" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;"></div>
+              </div>
+              <!-- 記錄表 -->
+              <div id="ob_page_results" style="background:white; border:1.5px solid #dde6ef; border-radius:12px; padding:1rem; min-height:180px;">
+                <p style="text-align:center; color:#999; padding:2rem; font-size:0.85rem;">點擊「讀取記錄」載入出庫記錄</p>
+              </div>
+            </div>
+          </div><!-- end page_outbound -->
 
           <div id="page_proc-mat" style="display:none;"></div><!-- merged into page_pairing -->
 
@@ -5415,7 +5421,7 @@ function syncDatePicker(textId, dateId) {
 window.switchPage = function(page) {
     if (page === 'proc-mat') page = 'pairing';
     // 隱藏所有頁面
-    ['page_calc','page_ledger','page_profit','page_pairing','page_proc-mat','page_transit'].forEach(id => {
+    ['page_calc','page_ledger','page_profit','page_pairing','page_outbound','page_proc-mat','page_transit'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -5444,7 +5450,7 @@ window.switchPage = function(page) {
     });
     if (page === 'ledger') refreshLedgerStatus();
     // Update rental subnav buttons
-    ['calc','ledger','profit','pairing','transit'].forEach(p => {
+    ['calc','ledger','profit','pairing','outbound','transit'].forEach(p => {
         const rsnBtn = document.getElementById('rsn-'+p);
         if(rsnBtn) rsnBtn.classList.toggle('active', p===page);
     });
@@ -9398,14 +9404,15 @@ async function loadMaterialsLedger() {
 window.loadMaterialsLedger = loadMaterialsLedger;
 
 function _renderMatSummary() {
-    const el = document.getElementById('mat_summary');
-    if (!el) return;
     const cnt = { '未加工':0, '部分加工':0, '已完成':0 };
     _matRecords.forEach(r => { if (cnt[r.status] !== undefined) cnt[r.status]++; });
-    const col = { '未加工':'#ef4444', '部分加工':'#f7a35c', '已完成':'#22c55e' };
-    el.innerHTML = Object.entries(cnt).map(([k,v]) =>
-        `<span style="border-radius:6px;padding:2px 10px;font-size:0.78rem;font-weight:700;border:1.5px solid ${col[k]};background:${col[k]}18;color:${col[k]};">${k} ${v}</span>`
-    ).join('');
+    const total = _matRecords.length;
+    const btnAll = document.getElementById('mbf_all');
+    if (btnAll) btnAll.textContent = `全部 ${total}`;
+    Object.entries(cnt).forEach(([k, v]) => {
+        const btn = document.getElementById(`mbf_${k}`);
+        if (btn) btn.textContent = `${k} ${v}`;
+    });
 }
 
 function _renderMatTable() {
@@ -9457,10 +9464,22 @@ window._matSortBy = _matSortBy;
 
 function _matFilterFn(status) {
     _matFilter = status;
-    document.querySelectorAll('.mat-filter-btn').forEach(b => {
-        const isActive = b.textContent.trim().startsWith(status||'全部');
-        b.style.background = isActive ? (status?({未加工:'#ef4444',部分加工:'#f7a35c',已完成:'#22c55e'}[status]||'#6878C0'):'#6878C0') : '';
-        b.style.color = isActive ? '#fff' : '';
+    const cfg = {
+        '':      { border:'#6878C0', activeBg:'#6878C0', activeColor:'#fff', inactiveBg:'#f0f2ff', inactiveColor:'#6878C0' },
+        '未加工':  { border:'#ef4444', activeBg:'#ef4444', activeColor:'#fff', inactiveBg:'#fff5f5', inactiveColor:'#ef4444' },
+        '部分加工':{ border:'#f7a35c', activeBg:'#f7a35c', activeColor:'#fff', inactiveBg:'#fffaf0', inactiveColor:'#f7a35c' },
+        '已完成':  { border:'#22c55e', activeBg:'#22c55e', activeColor:'#fff', inactiveBg:'#f0faf0', inactiveColor:'#22c55e' },
+    };
+    const ids = { '':'mbf_all', '未加工':'mbf_未加工', '部分加工':'mbf_部分加工', '已完成':'mbf_已完成' };
+    Object.entries(ids).forEach(([s, id]) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        const c = cfg[s];
+        const isActive = s === status;
+        btn.style.background = isActive ? c.activeBg : c.inactiveBg;
+        btn.style.color      = isActive ? c.activeColor : c.inactiveColor;
+        btn.style.border     = `1.5px solid ${c.border}`;
+        btn.style.fontWeight = isActive ? '800' : '700';
     });
     _renderMatTable();
 }
