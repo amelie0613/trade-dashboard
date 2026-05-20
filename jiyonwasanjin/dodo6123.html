@@ -13079,13 +13079,30 @@ async function syncBothToSupabase() {
     return;
   }
 
-  // 更新為 session token，讓 RLS 識別為 authenticated 使用者
-  window.SUPABASE_KEY = session.access_token;
-  window.SB_HEADERS = {
-    'apikey':        window.SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${session.access_token}`,
-    'Content-Type':  'application/json',
-  };
+  // 統一更新 token 的函數
+  function _applyToken(token) {
+    window.SUPABASE_KEY = token;
+    window.SB_HEADERS = {
+      'apikey':        window.SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${token}`,
+      'Content-Type':  'application/json',
+    };
+  }
+
+  // 初始設定
+  _applyToken(session.access_token);
+
+  // 監聽 auth 狀態變化：TOKEN_REFRESHED 時自動換新 token，SIGNED_OUT 時導回登入頁
+  _sbClient.auth.onAuthStateChange((event, newSession) => {
+    if (newSession?.access_token) {
+      _applyToken(newSession.access_token);
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('🔑 Supabase token 已自動刷新');
+      }
+    } else if (event === 'SIGNED_OUT') {
+      location.replace('login.html');
+    }
+  });
 
   // 登出函數
   window.sbSignOut = async function() {
