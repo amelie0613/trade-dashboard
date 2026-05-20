@@ -1787,7 +1787,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <div class="section-title">💾 總帳狀態</div>
                       <div id="ledger_db_status" style="font-size:0.85rem; color:#8a6a7a; margin-bottom:1rem;">讀取中...</div>
                       <button onclick="viewLedger()" class="btn-secondary" style="width:100%; margin-bottom:0.5rem;">📋 檢視目前總帳</button>
-                      <button onclick="viewOutboundFromSupabase('')" style="width:100%; background:#764ba2; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📦 出庫記錄表（Supabase）</button>
                       <button onclick="syncOutboundToSupabase(window._outboundRecords, '')" style="width:100%; background:#3ecf8e; color:white; border:none; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">☁️ 備份到 Supabase</button>
                       <button onclick="syncLedgerFromSupabase()" style="width:100%; background:none; border:1.5px solid #3ecf8e; color:#2a9d6e; border-radius:10px; padding:0.6rem; font-weight:700; cursor:pointer; font-family:'Nunito',sans-serif; font-size:0.82rem; margin-bottom:0.3rem;">📥 從 Supabase 載入</button>
                       <div id="sync_status" style="font-size:0.78rem; color:#4a9a37; text-align:center; min-height:1.2rem;"></div>
@@ -1834,13 +1833,11 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <div id="rental_result_status" style="font-size:0.8rem; color:#6aa85a;"></div>
                     </div>
                     <div>
-                      <div class="section-title">⚙️ 欄位對應設定</div>
-                      <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:0.8rem;">
-                        <div class="config-item"><label>產品代碼欄</label><input type="text" id="pcol_code" value="產品" /></div>
-                        <div class="config-item"><label>產品名稱欄</label><input type="text" id="pcol_name" value="產品名稱" /></div>
-                        <div class="config-item"><label>批號欄</label><input type="text" id="pcol_batch" value="批號" /></div>
-                        <div class="config-item"><label>數量欄</label><input type="text" id="pcol_qty" value="數量" /></div>
-                      </div>
+                      <!-- 欄位對應固定值（hidden，供 JS 讀取） -->
+                      <input type="hidden" id="pcol_code"  value="產品" />
+                      <input type="hidden" id="pcol_name"  value="產品名稱" />
+                      <input type="hidden" id="pcol_batch" value="批號" />
+                      <input type="hidden" id="pcol_qty"   value="數量" />
                       <div style="display:flex; gap:0.7rem;">
                         <button onclick="calcProfit()" class="btn-primary" style="flex:1;">🔍 試算租金費用</button>
                       </div>
@@ -2091,11 +2088,11 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <span id="ghWeightStatus2" style="display:none;"></span>
           </div>
 
-          <!-- 警示閾值 -->
+          <!-- 警示數值 -->
           <div class="settings-section">
-            <h3>⚠️ 警示閾值</h3>
+            <h3>⚠️ 警示數值</h3>
             <div class="settings-row">
-              <label>即將到期天數閾值</label>
+              <label>即將到期天數數值</label>
               <input type="number" id="soonDays-s" value="210" min="1" max="999"
                      onchange="document.getElementById('soonDays').value=this.value; recompute()">
             </div>
@@ -11518,10 +11515,10 @@ async function calcProfit() {
     const file = ledgerFiles['profit_file'] || (input && input.files[0]);
     if (!file) { alert('請先上傳利潤明細表'); return; }
 
-    const codeCol  = document.getElementById('pcol_code').value.trim()  || '產品';
-    const nameCol  = document.getElementById('pcol_name').value.trim()  || '產品名稱';
-    const batchCol = document.getElementById('pcol_batch').value.trim() || '批號';
-    const qtyCol   = document.getElementById('pcol_qty').value.trim()   || '數量';
+    const codeCol  = (document.getElementById('pcol_code')?.value  || '產品').trim();
+    const nameCol  = (document.getElementById('pcol_name')?.value  || '產品名稱').trim();
+    const batchCol = (document.getElementById('pcol_batch')?.value || '批號').trim();
+    const qtyCol   = (document.getElementById('pcol_qty')?.value   || '數量').trim();
 
     const statusEl = document.getElementById('profit_calc_status');
     statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取中...</span>';
