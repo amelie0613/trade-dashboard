@@ -11288,6 +11288,29 @@ window.SB_HEADERS = {
     'Authorization': `Bearer ${window.SUPABASE_KEY}`,
     'Content-Type':  'application/json',
 };
+// getRentHeaders：同 getSBHeaders，加入 rent schema profile headers
+window.getRentHeaders = function(extra) {
+    return getSBHeaders(Object.assign({
+        'Accept-Profile':  'rent',
+        'Content-Profile': 'rent',
+    }, extra || {}));
+};
+
+// 攔截所有 fetch，對 rent schema 的 5 張表自動注入 schema profile headers
+(function() {
+    const _origFetch = window.fetch.bind(window);
+    const _rentRe = /\/rest\/v1\/(logistics|outbound_records|processing_materials_ledger|transit_reconciliation_log|transit_sales_ledger)(?:[/?]|$)/;
+    window.fetch = function(url, opts) {
+        if (typeof url === 'string' && _rentRe.test(url)) {
+            opts = opts ? Object.assign({}, opts) : {};
+            opts.headers = Object.assign(
+                { 'Accept-Profile': 'rent', 'Content-Profile': 'rent' },
+                opts.headers || {}
+            );
+        }
+        return _origFetch(url, opts);
+    };
+})();
 
 // ── 上傳單價表 ──────────────────────────────────────────────────
 async function supabaseBackupPrices() {
