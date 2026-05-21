@@ -11292,14 +11292,6 @@ window.SB_HEADERS = {
     'Authorization': `Bearer ${window.SUPABASE_KEY}`,
     'Content-Type':  'application/json',
 };
-// getRentHeaders：同 getSBHeaders，加入 rent schema profile headers
-window.getRentHeaders = function(extra) {
-    return getSBHeaders(Object.assign({
-        'Accept-Profile':  'rent',
-        'Content-Profile': 'rent',
-    }, extra || {}));
-};
-
 // ── 上傳單價表 ──────────────────────────────────────────────────
 async function supabaseBackupPrices() {
     const rows = buildPricesJson();
