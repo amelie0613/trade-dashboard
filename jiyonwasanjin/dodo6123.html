@@ -8470,9 +8470,10 @@ async function syncOutboundToSupabase(records, label) {
         // ── 覆蓋前先確認 ──────────────────────────────────────────────
         const monthLabel = label || raw[0]?.month_label || '';
         const periods = [...new Set(raw.map(r => r.period).filter(Boolean))];
+
         if (monthLabel) {
             if (periods.length > 0) {
-                // 逐期別確認是否有舊資料
+                // ── [A] 有 monthLabel + period：逐期確認並覆蓋 ───────────
                 for (const period of periods) {
                     const chkResp = await fetch(
                         `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}&period=eq.${encodeURIComponent(period)}&select=id`,
@@ -8488,23 +8489,22 @@ async function syncOutboundToSupabase(records, label) {
                         }
                     }
                 }
-                // 通過確認後再刪除（含同 period 但 month_label 為空的草稿記錄）
                 for (const period of periods) {
+                    // 刪除已標記月份的舊記錄
                     const delResp = await fetch(
                         `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}&period=eq.${encodeURIComponent(period)}`,
                         { method: 'DELETE', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' } }
                     );
                     if (!delResp.ok) console.warn(`刪除 ${monthLabel} ${period} 失敗：`, await delResp.text());
                     else console.log(`🗑️ 已清除 ${monthLabel} ${period} 舊記錄`);
-
-                    // 清除租金計算頁「先行儲存」產生的草稿（month_label 為空字串，period 相同）
+                    // 一併清除同 period 的草稿記錄（month_label 為空字串）
                     await fetch(
                         `${SUPABASE_URL}/rest/v1/outbound_records?period=eq.${encodeURIComponent(period)}&month_label=eq.`,
                         { method: 'DELETE', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' } }
                     ).catch(e => console.warn(`清除草稿 ${period} 失敗：`, e));
                 }
             } else {
-                // 沒有 period 資訊時，確認整個月
+                // ── [B] 有 monthLabel 但無 period：整月確認並覆蓋 ─────────
                 const chkResp = await fetch(
                     `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}&select=id`,
                     { headers: getSBHeaders() }
@@ -8525,6 +8525,15 @@ async function syncOutboundToSupabase(records, label) {
                 if (!delResp.ok) console.warn('刪除舊出庫記錄失敗：', await delResp.text());
                 else console.log(`🗑️ 已清除 ${monthLabel} 舊出庫記錄`);
             }
+        } else if (periods.length > 0) {
+            // ── [C] 無 monthLabel（草稿存入）：仍以 period 去重，防止多次儲存堆積 ─
+            for (const period of periods) {
+                await fetch(
+                    `${SUPABASE_URL}/rest/v1/outbound_records?period=eq.${encodeURIComponent(period)}&month_label=eq.`,
+                    { method: 'DELETE', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' } }
+                ).catch(e => console.warn(`草稿去重失敗 ${period}：`, e));
+            }
+            console.log(`🗑️ 已清除 ${periods.join('+')} 舊草稿，準備重新寫入`);
         }
 
         // 直接插入全部（舊資料已依 month_label+period 刪除，不需去重）
@@ -9854,6 +9863,12 @@ async function manualTransitOffset(id) {
         alert(`手動核銷失敗：${await resp.text()}`);
         return;
     }
+    // 歸檔到 Sheets 並從 Supabase 移除
+    try {
+        await _archiveCompletedTransitRecords([String(id)]);
+    } catch(e) {
+        alert(`手動核銷成功，但歸檔失敗（記錄保留在 Supabase）：\n${e.message}`);
+    }
     await loadTransitLedger();
 }
 window.manualTransitOffset = manualTransitOffset;
@@ -10290,7 +10305,22 @@ async function _commitTransitChanges() {
         const mergeMsg = mergeResult
             ? `　|　利潤報表更新：確認 ${mergeResult.confirmed} 筆、排除 ${mergeResult.excluded} 筆`
             : '';
-        statusEl.textContent = `✅ 寫入完成：${changes.length} 筆已更新，本期核銷 ${Number(total).toLocaleString()}${mergeMsg}`;
+
+        // ── 歸檔已完成核銷的記錄（備份 Sheets → 刪除 Supabase）──────
+        const completedIds = changes.filter(c => c.new_status === '已核銷').map(c => String(c.id));
+        let archiveMsg = '';
+        if (completedIds.length) {
+            statusEl.textContent = `⏳ 歸檔 ${completedIds.length} 筆已核銷記錄至 Sheets…`;
+            try {
+                const archivedCount = await _archiveCompletedTransitRecords(completedIds);
+                archiveMsg = `　|　已歸檔 ${archivedCount} 筆至 Sheets`;
+                completedIds.forEach(id => { delete window._periodOffsetMap[id]; });
+            } catch(archiveErr) {
+                archiveMsg = `　⚠️ 歸檔失敗（記錄保留在 Supabase）：${archiveErr.message}`;
+            }
+        }
+
+        statusEl.textContent = `✅ 寫入完成：${changes.length} 筆已更新，本期核銷 ${Number(total).toLocaleString()}${mergeMsg}${archiveMsg}`;
 
         window._transitPendingChanges = [];
         if (previewEl) previewEl.style.display = 'none';
@@ -10791,6 +10821,72 @@ async function resetTransitOffset() {
     }
 }
 window.resetTransitOffset = resetTransitOffset;
+
+// ── 已核銷記錄歸檔：備份到 Google Sheets，再從 Supabase 移除 ─────────
+async function _archiveCompletedTransitRecords(ids) {
+    if (!ids || !ids.length) return 0;
+
+    // 1. 從 Supabase 取完整記錄
+    const resp = await fetch(
+        `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=in.(${ids.join(',')})&select=*`,
+        { headers: getSBHeaders() }
+    );
+    if (!resp.ok) throw new Error('讀取已核銷記錄失敗：' + await resp.text());
+    const records = await resp.json();
+    if (!records.length) return 0;
+
+    // 2. 備份到 Google Sheets（append 模式，需 Apps Script 支援 mode:'append'）
+    const scriptUrl = (localStorage.getItem('sheetsScriptUrl') || DEFAULT_SHEETS_SCRIPT_URL || '').trim();
+    if (scriptUrl) {
+        const archiveDate = new Date().toISOString().slice(0, 10);
+        const rows = records.map(r => [
+            r.product_name   || '',
+            r.batch_no       || '',
+            r.outbound_date  || '',
+            r.original_qty   ?? '',
+            r.offset_qty     ?? '',
+            r.unit_price     ?? '',
+            r.total_cost     ?? '',
+            r.source         || '',
+            r.last_offset_date || '',
+            r.notes          || '',
+            archiveDate,
+        ]);
+        const payload = {
+            sheetName:   '在途核銷備份',
+            sheetId:     SHEET_ID,
+            headers:     ['產品名稱','批號','出庫日期','原始數量','核銷數量','單價','總成本','來源','最後核銷日','備註','歸檔日期'],
+            rows,
+            headerColor: '#22c55e',
+            mode:        'append',
+        };
+        const sheetsResp = await fetch(scriptUrl, {
+            method:  'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body:    JSON.stringify(payload),
+        });
+        const resultText = await sheetsResp.text();
+        if (!resultText.includes('success')) {
+            throw new Error('Sheets 備份回應異常：' + resultText.slice(0, 80));
+        }
+    }
+
+    // 3. 清除 transit_reconciliation_log 中對應記錄
+    await fetch(
+        `${SUPABASE_URL}/rest/v1/transit_reconciliation_log?ledger_id=in.(${ids.join(',')})`,
+        { method: 'DELETE', headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' } }
+    ).catch(e => console.warn('清除核銷 log 失敗：', e));
+
+    // 4. 從 Supabase 刪除已核銷記錄（備份成功才刪）
+    const delResp = await fetch(
+        `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=in.(${ids.join(',')})`,
+        { method: 'DELETE', headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' } }
+    );
+    if (!delResp.ok) throw new Error('Supabase 刪除失敗：' + await delResp.text());
+
+    return records.length;
+}
+window._archiveCompletedTransitRecords = _archiveCompletedTransitRecords;
 
 function showFormulaDetail(event, rowIdx, col) {
     const row = calculatedData[rowIdx];
