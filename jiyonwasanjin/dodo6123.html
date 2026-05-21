@@ -10091,6 +10091,7 @@ function _renderTransitPreviewTable() {
         </div>
         <div style="display:flex;gap:0.5rem;align-items:center;">
           <span style="font-size:0.72rem;color:#f7a35c;">✏️ 可直接修改數量 或 ✖ 移除不想核銷的行</span>
+          <button onclick="_exportTransitPreviewForProfit()" style="padding:0.45rem 1.1rem;background:linear-gradient(135deg,#6878C0,#4050a0);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;box-shadow:0 2px 6px rgba(104,120,192,.3);" title="匯出此預覽明細，用於利潤分析自動匹配單價">📤 匯出利潤分析明細</button>
           <button onclick="_commitTransitChanges()" style="padding:0.45rem 1.2rem;background:#22c55e;color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;font-size:0.88rem;box-shadow:0 2px 6px rgba(34,197,94,.3);">✅ 確認寫入 Supabase</button>
           <button onclick="_cancelTransitPreview()" style="padding:0.45rem 1rem;background:#ef4444;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">✖ 取消</button>
         </div>
@@ -10454,6 +10455,75 @@ function _cancelTransitPreview() {
     if (statusEl) statusEl.textContent = '已取消，Supabase 資料未變動';
 }
 window._cancelTransitPreview = _cancelTransitPreview;
+
+// ── 核銷預覽：匯出利潤分析明細（確認前先拋報表，供利潤分析自動匹配單價）────
+function _exportTransitPreviewForProfit() {
+    const changes = window._transitPendingChanges || [];
+    if (!changes.length) { alert('目前沒有待核銷的預覽資料'); return; }
+
+    // 取得預覽表中用戶可能已修改的「本次核銷量」（UI 欄位優先）
+    const rows = [];
+    changes.forEach((c, idx) => {
+        // 讀取使用者在預覽表中修改過的數量（如有）—— ID 為 preview_qty_{行索引}
+        const inputEl = document.getElementById(`preview_qty_${idx}`);
+        const consumeQty = inputEl ? (parseFloat(inputEl.value) || c.consume_qty) : c.consume_qty;
+
+        // 如果有展開的利潤專案明細，逐筆輸出
+        const projs = c.profit_projects || [];
+        if (projs.length > 0) {
+            projs.forEach(p => {
+                rows.push({
+                    '產品名稱':   c.product_name,
+                    '批號':       c.batch_no,
+                    '出庫日期':   c.outbound_date,
+                    '原始數量':   c.original_qty,
+                    '本次核銷量': consumeQty,
+                    '剩餘數量':   Math.max(0, c.original_qty - (c.old_offset + consumeQty)),
+                    '單價':       c.unit_price || '',
+                    '總成本':     c.unit_price ? Math.round(c.unit_price * consumeQty) : '',
+                    '狀態':       c.new_status || '',
+                    '利潤專案':   p.projName || p.proj || '',
+                    '銷貨日期':   p.date || '',
+                    '核銷數量':   p.qty || '',
+                    '備註':       '',
+                });
+            });
+        } else {
+            // 沒有利潤專案明細，輸出單行
+            rows.push({
+                '產品名稱':   c.product_name,
+                '批號':       c.batch_no,
+                '出庫日期':   c.outbound_date,
+                '原始數量':   c.original_qty,
+                '本次核銷量': consumeQty,
+                '剩餘數量':   Math.max(0, c.original_qty - (c.old_offset + consumeQty)),
+                '單價':       c.unit_price || '',
+                '總成本':     c.unit_price ? Math.round(c.unit_price * consumeQty) : '',
+                '狀態':       c.new_status || '',
+                '利潤專案':   '',
+                '銷貨日期':   '',
+                '核銷數量':   '',
+                '備註':       '',
+            });
+        }
+    });
+
+    if (!rows.length) { alert('沒有可匯出的資料'); return; }
+
+    const ws = window.XLSX.utils.json_to_sheet(rows);
+    // 加粗標題列
+    const range = window.XLSX.utils.decode_range(ws['!ref']);
+    for (let C = range.s.c; C <= range.e.c; C++) {
+        const cellAddr = window.XLSX.utils.encode_cell({ r: 0, c: C });
+        if (ws[cellAddr]) ws[cellAddr].s = { font: { bold: true } };
+    }
+
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, '在途核銷明細');
+    const date = new Date().toISOString().slice(0,10);
+    window.XLSX.writeFile(wb, `在途核銷明細_${date}.xlsx`);
+}
+window._exportTransitPreviewForProfit = _exportTransitPreviewForProfit;
 
 // ── 銷貨核對：出庫記錄（排除加工原料＋在途銷貨）vs 利潤分析表 ──────
 async function runSalesReconciliation() {
