@@ -1831,6 +1831,17 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                         <div id="rental_result_label" style="font-size:0.7rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
                       </div>
                       <div id="rental_result_status" style="font-size:0.8rem; color:#6aa85a;"></div>
+                      <!-- ── 3️⃣ 在途銷貨台帳（新流程：從台帳拋出報表後上傳比對） ── -->
+                      <div class="section-title" style="margin-top:1rem;">🚢 3️⃣ 在途銷貨台帳報表（選用）</div>
+                      <p style="font-size:0.75rem; color:#5b7fa8; margin-bottom:0.6rem;">先至「在途銷貨台帳」匯出 Excel，再上傳此處自動帶入單價</p>
+                      <div style="border:2px dashed #6878C0; border-radius:10px; padding:0.6rem; background:white; margin-bottom:0.5rem;"
+                          ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'transit_match_file',this)">
+                        <input type="file" id="transit_match_file" accept=".xlsx"
+                          onchange="(function(el){if(!el.files[0])return;ledgerFiles['transit_match_file']=el.files[0];const lbl=document.getElementById('transit_match_label');if(lbl){lbl.textContent='✅ '+el.files[0].name;lbl.style.color='#4a6a9a';}})(this)"
+                          style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
+                        <div id="transit_match_label" style="font-size:0.7rem; color:#6878C0; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
+                      </div>
+                      <div id="transit_match_status" style="font-size:0.8rem; color:#6878C0;"></div>
                     </div>
                     <div>
                       <!-- 欄位對應固定值（hidden，供 JS 讀取） -->
@@ -1840,6 +1851,20 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <input type="hidden" id="pcol_qty"   value="數量" />
                       <div style="display:flex; gap:0.7rem;">
                         <button onclick="calcProfit()" class="btn-primary" style="flex:1;">🔍 試算租金費用</button>
+                      </div>
+                      <!-- 新流程：從台帳自動匹配按鈕 -->
+                      <div style="margin-top:0.5rem; padding:0.8rem; background:#f0f4ff; border:1.5px solid #c0caee; border-radius:10px;">
+                        <div style="font-size:0.78rem; font-weight:800; color:#4050a0; margin-bottom:0.4rem;">🚀 新流程：台帳匹配</div>
+                        <p style="font-size:0.72rem; color:#6878C0; margin-bottom:0.5rem; line-height:1.5;">
+                          ① 先點「試算租金費用」<br>
+                          ② 上傳左方的在途銷貨台帳報表<br>
+                          ③ 點下方按鈕自動匹配單價
+                        </p>
+                        <button id="profit_transit_match_btn" onclick="matchProfitFromTransitSheet()"
+                          style="width:100%;padding:0.45rem 0.8rem;background:linear-gradient(135deg,#6878C0,#4050a0);color:#fff;border:none;border-radius:8px;font-size:0.85rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(104,120,192,.35);">
+                          📊 從台帳自動匹配
+                        </button>
+                        <div id="transit_match_result" style="margin-top:0.4rem; font-size:0.78rem;"></div>
                       </div>
                       <div style="margin-top:0.6rem; padding-top:0.6rem; border-top:1px dashed var(--border); display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap;">
                         <button id="btn_full_analysis" onclick="_runFullAnalysis()"
@@ -5401,6 +5426,10 @@ function dropFile(e, fileId, el) {
         if (fileId === 'profit_file' && window.profitFileChanged) profitFileChanged(input);
         if (fileId === 'rental_result_file' && window.rentalResultFileChanged) rentalResultFileChanged(input);
         if (fileId === 'processing_form_file' && window.processingFormFileChanged) processingFormFileChanged(input);
+        if (fileId === 'transit_match_file') {
+            const lbl = document.getElementById('transit_match_label');
+            if (lbl) { lbl.textContent = '✅ ' + file.name; lbl.style.color = '#4a6a9a'; }
+        }
     }
 }
 
@@ -12077,6 +12106,180 @@ async function refreshProfitFromTransit() {
 }
 window.refreshProfitFromTransit = refreshProfitFromTransit;
 
+// 🚢 從上傳的在途銷貨台帳 Excel 自動匹配到利潤分析
+async function matchProfitFromTransitSheet() {
+    if (!profitCalcData || profitCalcData.length === 0) {
+        alert('請先試算利潤分析後再上傳在途銷貨台帳'); return;
+    }
+
+    const input = document.getElementById('transit_match_file');
+    const file = ledgerFiles['transit_match_file'] || (input && input.files[0]);
+    if (!file) { alert('請先選擇或拖拉在途銷貨台帳 Excel'); return; }
+
+    const btn = document.getElementById('profit_transit_match_btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 匹配中…'; }
+
+    // 清除前一次的匹配異常標記與排序
+    if (typeof _profitChecked !== 'undefined') _profitChecked.clear();
+    if (typeof _profitSort !== 'undefined') _profitSort = { key: '', asc: true };
+    if (typeof _profitColFilters !== 'undefined') Object.keys(_profitColFilters).forEach(k => delete _profitColFilters[k]);
+
+    try {
+        // 讀取上傳的在途銷貨台帳 Excel
+        const transitData = await readExcelSheet(file, null);
+        if (!transitData || transitData.length === 0) {
+            alert('在途銷貨台帳為空'); return;
+        }
+
+        // 建立匹配表：產品名稱|批號 -> [{ unit_price, total_cost, notes, remaining_qty, status, origQty }]
+        const transitMap = {};
+        const matchLog = [];
+
+        transitData.forEach(r => {
+            const name = String(r['產品名稱'] || '').trim();
+            const batch = String(r['批號'] || '').trim();
+            const qty = parseFloat(String(r['原始數量'] || '').replace(/,/g,'')) || 0;
+            const unitPrice = parseFloat(String(r['單價'] || '').replace(/,/g,'')) || 0;
+            const totalCost = parseFloat(String(r['總成本'] || '').replace(/,/g,'')) || 0;
+            const remainingQty = parseFloat(String(r['剩餘數量'] || '').replace(/,/g,'')) || 0;
+            const status = String(r['狀態'] || '').trim();
+            const notes = String(r['備註'] || '').trim();
+
+            if (name && batch) {
+                const key = `${name}|${batch}`;
+                if (!transitMap[key]) {
+                    transitMap[key] = [];
+                }
+                transitMap[key].push({
+                    unitPrice, totalCost, remainingQty, status, notes, origQty: qty
+                });
+            }
+        });
+
+        // 匹配邏輯：產品名稱 + 批號 + 數量
+        const nameCol  = (document.getElementById('pcol_name')?.value  || '產品名稱').trim();
+        const batchCol = (document.getElementById('pcol_batch')?.value || '批號').trim();
+        const qtyCol   = (document.getElementById('pcol_qty')?.value   || '數量').trim();
+
+        let matched = 0, unmatched = 0, rentTotal = 0;
+        const unmatchedRows = [];
+
+        profitCalcData = profitCalcData.map((r, idx) => {
+            const name  = String(r[nameCol] || '').trim();
+            const batch = String(r[batchCol] || '').trim();
+            const qty   = parseFloat(String(r[qtyCol] || '').replace(/,/g,'')) || 0;
+            const key   = `${name}|${batch}`;
+
+            let rentPrice = '';
+            let rentCost = '';
+            let rentSource = '';
+            let rentNotes = '';
+            let isUnmatched = false;
+
+            if (transitMap[key]) {
+                // 找到相符的批號，進行數量驗證
+                const matches = transitMap[key];
+                let bestMatch = null;
+
+                // 優先找數量完全相符的記錄
+                for (let m of matches) {
+                    if (m.origQty === qty) {
+                        bestMatch = m;
+                        break;
+                    }
+                }
+
+                // 如果沒有完全相符，取第一筆
+                if (!bestMatch) {
+                    bestMatch = matches[0];
+                }
+
+                if (bestMatch.unitPrice) {
+                    rentPrice = bestMatch.unitPrice;
+                    rentCost = Math.round(rentPrice * qty);
+                    rentTotal += rentCost;
+                    rentSource = '台帳核銷';
+                    rentNotes = bestMatch.notes || `剩餘數量：${bestMatch.remainingQty}`;
+                    matched++;
+                } else {
+                    isUnmatched = true;
+                    unmatched++;
+                    const reason = '台帳無單價（人工確認）';
+                    unmatchedRows.push({ idx, name, batch, qty, reason });
+                    rentNotes = reason;
+                }
+            } else {
+                isUnmatched = true;
+                unmatched++;
+                const reason = `台帳查無批號「${batch}」（人工確認）`;
+                unmatchedRows.push({ idx, name, batch, qty, reason });
+                rentNotes = reason;
+            }
+
+            return {
+                ...r,
+                租金單價: rentPrice,
+                租金費用: rentCost,
+                租金來源: rentSource,
+                來源備註: rentNotes,
+                _匹配異常: isUnmatched ? rentNotes : ''
+            };
+        });
+
+        // 更新合計卡片
+        const psM = document.getElementById('ps_matched');
+        const psU = document.getElementById('ps_unmatched');
+        const psR = document.getElementById('ps_rent_total');
+        const psTotal = document.getElementById('ps_total');
+        if (psTotal) psTotal.textContent = profitCalcData.length;
+        if (psM) psM.textContent = matched;
+        if (psU) {
+            psU.textContent = unmatched;
+            // 有異常時把「未比對到」卡片改為紅色警示
+            const card = psU.closest('div');
+            if (card) {
+                card.style.background = unmatched > 0 ? '#ffecec' : '#f0f8ff';
+                card.style.borderColor = unmatched > 0 ? '#e53935' : '#7ec8e3';
+                psU.style.color = unmatched > 0 ? '#d32f2f' : '#2a6a82';
+                const label = card.querySelector('div:first-child');
+                if (label) label.style.color = unmatched > 0 ? '#b71c1c' : '#2a6a82';
+            }
+        }
+        if (psR) psR.textContent = '$' + Math.round(rentTotal).toLocaleString();
+
+        // 顯示利潤表（如果之前隱藏）
+        const sumEl = document.getElementById('profit_summary');
+        if (sumEl) sumEl.style.display = 'flex';
+        const filterBar = document.getElementById('profit_filter_bar');
+        if (filterBar) filterBar.style.display = 'flex';
+
+        renderProfitTable();
+
+        // 同時更新 profit_calc_status 和 transit_match_result
+        const statusEl = document.getElementById('profit_calc_status');
+        const matchResultEl = document.getElementById('transit_match_result');
+        if (unmatched === 0) {
+            const msg = `<span style="color:#4a9a37;font-weight:700;">✅ 台帳匹配完成：${matched} 筆全部匹配</span>`;
+            if (statusEl) statusEl.innerHTML = msg;
+            if (matchResultEl) matchResultEl.innerHTML = msg;
+        } else {
+            const msg = `<span style="color:#d32f2f;font-weight:700;">⚠️ 匹配完成：${matched} 筆成功，<strong>${unmatched} 筆異常</strong>（表格紅字顯示，請人工確認）</span>`;
+            if (statusEl) statusEl.innerHTML = msg;
+            if (matchResultEl) matchResultEl.innerHTML = msg;
+            // 自動切到「只顯示未比對」讓用戶立刻看到異常列
+            const chk = document.getElementById('profit_show_unmatched');
+            if (chk) { chk.checked = true; renderProfitTable(); }
+        }
+
+    } catch(e) {
+        alert('匹配失敗：' + e.message);
+        console.error(e);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '📊 從台帳自動匹配'; }
+    }
+}
+window.matchProfitFromTransitSheet = matchProfitFromTransitSheet;
+
 function renderProfitTable() {
     const keyword     = (document.getElementById('profit_filter')?.value || '').toLowerCase().trim();
     const showUnmatched = document.getElementById('profit_show_unmatched')?.checked || false;
@@ -12189,25 +12392,61 @@ function renderProfitTable() {
 
     filteredWithIdx.forEach(({ r }, ri) => {
         const hasRent  = r.租金費用 !== '';
-        const rowBg    = hasRent ? (ri%2===0?'#fff':'#fafbfc') : (ri%2===0?'#fafafa':'#f5f5f5');
-        const dimColor = hasRent ? '' : 'color:#bbb;';
+        const hasException = r._匹配異常 && r._匹配異常 !== ''; // 檢查是否有匹配異常
+
+        let rowBg = hasRent ? (ri%2===0?'#fff':'#fafbfc') : (ri%2===0?'#fafafa':'#f5f5f5');
+        let dimColor = hasRent ? '' : 'color:#bbb;';
+
+        // 如果有異常，顯示為紅色警告背景
+        if (hasException) {
+            rowBg = ri%2===0 ? '#ffe6e6' : '#ffcccc';
+            dimColor = 'color:#d32f2f;font-weight:700;';
+        }
+
         html += `<tr style="background:${rowBg};">`;
         allCols.forEach(col => {
             const val = r[col] !== undefined && r[col] !== '' ? r[col] : '';
+
             if (col === '租金單價') {
                 const display = val !== '' ? parseFloat(val).toFixed(5) : '-';
-                html += `<td style="${tdBase}text-align:right;color:${hasRent?'#8a5aa0':'#ccc'};font-weight:${hasRent?'700':'400'};">${display}</td>`;
+                let textColor = '#ccc';
+                if (hasException) {
+                    textColor = '#d32f2f'; // 異常：紅色
+                } else if (hasRent) {
+                    textColor = '#8a5aa0'; // 正常：紫色
+                }
+                html += `<td style="${tdBase}text-align:right;color:${textColor};font-weight:${hasException || hasRent?'700':'400'};">${display}</td>`;
             } else if (col === '租金費用') {
                 const display = val !== '' ? Number(val).toLocaleString() : '-';
-                html += `<td style="${tdBase}text-align:right;color:${hasRent?'#c0507a':'#ccc'};font-weight:${hasRent?'800':'400'};">${display}</td>`;
+                let textColor = '#ccc';
+                if (hasException) {
+                    textColor = '#d32f2f'; // 異常：紅色
+                } else if (hasRent) {
+                    textColor = '#c0507a'; // 正常：暗紅
+                }
+                html += `<td style="${tdBase}text-align:right;color:${textColor};font-weight:${hasException || hasRent?'800':'400'};">${display}</td>`;
             } else if (col === '租金來源') {
-                const sc = val === '加工成品' ? '#f7a35c' : val === '租金結果' ? '#8dcc7a' : val === '在途台帳' ? '#7ec8e3' : val === '台帳核銷' ? '#6878C0' : '';
-                const badge = val && sc
-                    ? `<span style="background:${sc}20;color:${sc};border:1px solid ${sc};border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;">${val}</span>`
-                    : `<span style="color:#ccc;font-size:10px;">-</span>`;
-                html += `<td style="${tdBase}text-align:center;">${badge}</td>`;
+                if (hasException) {
+                    const badge = `<span style="background:#ffebee;color:#d32f2f;border:1.5px solid #d32f2f;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;">❌ 異常</span>`;
+                    html += `<td style="${tdBase}text-align:center;">${badge}</td>`;
+                } else {
+                    const sc = val === '加工成品' ? '#f7a35c' : val === '租金結果' ? '#8dcc7a' : val === '在途台帳' ? '#7ec8e3' : val === '台帳核銷' ? '#6878C0' : '';
+                    const badge = val && sc
+                        ? `<span style="background:${sc}20;color:${sc};border:1px solid ${sc};border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;">${val}</span>`
+                        : `<span style="color:#ccc;font-size:10px;">-</span>`;
+                    html += `<td style="${tdBase}text-align:center;">${badge}</td>`;
+                }
             } else if (col === '來源備註') {
-                html += `<td style="${tdBase}color:#64748b;font-size:0.78rem;">${val || ''}</td>`;
+                let displayText = val || '';
+                let textColor = '#64748b';
+
+                // 如果有異常，顯示異常原因
+                if (hasException) {
+                    displayText = r._匹配異常 || '未匹配';
+                    textColor = '#d32f2f';
+                }
+
+                html += `<td style="${tdBase}color:${textColor};font-size:0.78rem;font-weight:${hasException?'700':'400'};">${displayText}</td>`;
             } else if (isNumericCol(col)) {
                 const n = parseFloat(String(val).replace(/,/g,''));
                 const display = !isNaN(n) ? n.toLocaleString() : (val || '');
