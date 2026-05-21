@@ -5840,6 +5840,7 @@ window.doUploadLedger = async function() {
             採購部門: String(r['採購部門']||''),
             總檔結存: parseFloat(r['本期結存'] ?? r['總檔結存'])||0,
             分攤單價: parseFloat(r['分攤單價'])||0,
+            月租金結餘: parseFloat(r['月租金結餘'] ?? r['月租金(結餘)'] ?? r['總檔租金結餘'])||0,
             總檔租金結餘: parseFloat(r['月租金結餘'] ?? r['月租金(結餘)'] ?? r['總檔租金結餘'])||0,
             前期結餘: parseFloat(r['月租金結餘'] ?? r['月租金(結餘)'] ?? r['前期結餘'])||0,
             月結歷史: {},
@@ -6676,7 +6677,8 @@ async function confirmMonthly() {
 
         // 步驟3：上傳總帳到 Supabase（此步驟會刪除結存=0的已出清品項）
         //        必須在出庫記錄回填完成後才執行
-        await syncLedgerToSupabase();
+        //        必須明確傳入 finalRows，避免使用 window._ledgerData 的舊快取資料
+        await syncLedgerToSupabase(finalRows);
 
         window._pendingMonthly = null;
 
