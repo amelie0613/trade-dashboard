@@ -10263,6 +10263,22 @@ async function _commitTransitChanges() {
             window._periodOffsetMap[c.id] = (window._periodOffsetMap[c.id] || 0) + c.consume_qty;
         });
 
+        // 產生本期批次號並持久化寫入 transit_reconciliation_log
+        {
+            const _n = new Date(), _p = n => String(n).padStart(2,'0');
+            const periodTag = `${_n.getFullYear()}-${_p(_n.getMonth()+1)}-${_p(_n.getDate())} ${_p(_n.getHours())}:${_p(_n.getMinutes())}:${_p(_n.getSeconds())}`;
+            window._currentPeriodTag = periodTag;
+            const logRows = changes.map(c => ({ period_tag: periodTag, ledger_id: String(c.id), offset_delta: c.consume_qty }));
+            try {
+                const logResp = await fetch(`${SUPABASE_URL}/rest/v1/transit_reconciliation_log`, {
+                    method: 'POST',
+                    headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                    body: JSON.stringify(logRows),
+                });
+                if (!logResp.ok) console.warn('核銷 log 寫入警告：', await logResp.text());
+            } catch(logErr) { console.warn('核銷 log 寫入失敗：', logErr); }
+        }
+
         // ── 確認後自動合併到利潤報表 ──────────────────────────────────
         const mergeResult = _mergeReconciliationToProfit(changes);
         const mergeMsg = mergeResult
@@ -10658,36 +10674,113 @@ function _toggleReconDetail(key) {
 window._toggleReconDetail = _toggleReconDetail;
 
 async function resetTransitOffset() {
-    if (!confirm('確定要撤銷所有核銷記錄？\n所有「部分核銷」與「已核銷」的資料將還原為「未核銷」。')) return;
     const statusEl = document.getElementById('transit_status');
-    statusEl.textContent = '撤銷中…';
+    statusEl.textContent = '讀取核銷批次記錄中…';
+
     try {
-        // 取出所有已核銷/部分核銷的記錄（含 original_qty）
-        const resp = await fetch(
-            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?status=neq.未核銷&select=id,original_qty`,
+        // ── 1. 從 DB log 取出所有批次（依時間倒序）────────────────────
+        const logIndexResp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_reconciliation_log?select=period_tag&order=period_tag.desc`,
             { headers: getSBHeaders() }
         );
-        if (!resp.ok) throw new Error(await resp.text());
-        const records = await resp.json();
-        if (!records.length) { statusEl.textContent = '目前沒有已核銷的記錄'; return; }
+        if (!logIndexResp.ok) throw new Error(await logIndexResp.text());
+        const logIndex = await logIndexResp.json();
 
-        // 逐筆還原 remaining_qty = original_qty
-        await Promise.all(records.map(r =>
-            fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${r.id}`, {
+        const tags = [...new Set(logIndex.map(r => r.period_tag))]; // 去重、保持倒序
+
+        if (!tags.length) {
+            statusEl.textContent = '目前沒有可撤銷的核銷批次記錄';
+            return;
+        }
+
+        // ── 2. 讓使用者選擇要撤銷哪一期 ─────────────────────────────
+        let selectedTag;
+        if (tags.length === 1) {
+            if (!confirm(`確定要撤銷核銷批次？\n\n批次：${tags[0]}\n\n僅撤銷該批次的核銷量，其他期次不受影響。`)) return;
+            selectedTag = tags[0];
+        } else {
+            const listStr = tags.map((t, i) => `${i + 1}. ${t}`).join('\n');
+            const answer = window.prompt(
+                `目前共有 ${tags.length} 個核銷批次（最新在上）。\n請輸入要撤銷的編號（1–${tags.length}）：\n\n${listStr}`,
+                '1'
+            );
+            if (answer === null) { statusEl.textContent = '已取消'; return; }
+            const idx = parseInt(answer, 10) - 1;
+            if (isNaN(idx) || idx < 0 || idx >= tags.length) {
+                alert(`輸入無效，請輸入 1 到 ${tags.length} 之間的數字`);
+                statusEl.textContent = '撤銷已取消';
+                return;
+            }
+            selectedTag = tags[idx];
+            if (!confirm(`確定要撤銷批次「${selectedTag}」？\n僅撤銷該批次的核銷量，其他期次不受影響。`)) {
+                statusEl.textContent = '已取消';
+                return;
+            }
+        }
+
+        statusEl.textContent = `撤銷批次 ${selectedTag} 中…`;
+
+        // ── 3. 取出該批次的 log 明細 ─────────────────────────────────
+        const logResp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_reconciliation_log?period_tag=eq.${encodeURIComponent(selectedTag)}&select=ledger_id,offset_delta`,
+            { headers: getSBHeaders() }
+        );
+        if (!logResp.ok) throw new Error(await logResp.text());
+        const entries = await logResp.json();
+        if (!entries.length) { statusEl.textContent = '找不到該批次的明細記錄'; return; }
+
+        // 合併同一 ledger_id 的 delta（同一批次若分批寫入時保險用）
+        const deltaMap = {};
+        entries.forEach(e => { deltaMap[e.ledger_id] = (deltaMap[e.ledger_id] || 0) + Number(e.offset_delta); });
+        const ids = Object.keys(deltaMap);
+
+        // ── 4. 取出台帳目前值 ─────────────────────────────────────────
+        const ledgerResp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=in.(${ids.join(',')})&select=id,offset_qty,remaining_qty`,
+            { headers: getSBHeaders() }
+        );
+        if (!ledgerResp.ok) throw new Error(await ledgerResp.text());
+        const ledgerRows = await ledgerResp.json();
+        const ledgerMap = {};
+        ledgerRows.forEach(r => { ledgerMap[String(r.id)] = r; });
+
+        // ── 5. 回滾台帳（只回扣本批次的 delta）───────────────────────
+        await Promise.all(ids.map(id => {
+            const r = ledgerMap[id];
+            if (!r) return Promise.resolve();
+            const delta     = deltaMap[id];
+            const newOffset = Math.max(0, (r.offset_qty || 0) - delta);
+            const newRemain = (r.remaining_qty || 0) + delta;
+            let   newStatus;
+            if (newOffset <= 0)   newStatus = '未核銷';
+            else if (newRemain <= 0) newStatus = '已核銷';
+            else                   newStatus = '部分核銷';
+
+            const patch = { offset_qty: newOffset, remaining_qty: newRemain, status: newStatus };
+            if (newOffset <= 0) patch.last_offset_date = null;
+
+            return fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${id}`, {
                 method: 'PATCH',
                 headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
-                body: JSON.stringify({
-                    offset_qty:       0,
-                    remaining_qty:    r.original_qty,
-                    status:           '未核銷',
-                    last_offset_date: null,
-                })
-            })
-        ));
-        statusEl.textContent = `✅ 撤銷完成：${records.length} 筆已還原為未核銷`;
-        window._periodOffsetMap = {}; // 清除本期核銷記錄
+                body: JSON.stringify(patch),
+            });
+        }));
+
+        // ── 6. 刪除已撤銷的 log 批次 ─────────────────────────────────
+        await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_reconciliation_log?period_tag=eq.${encodeURIComponent(selectedTag)}`,
+            { method: 'DELETE', headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' } }
+        );
+
+        // 清除記憶體快取（若撤銷的恰好是當期）
+        if (window._currentPeriodTag === selectedTag) {
+            window._periodOffsetMap = {};
+            window._currentPeriodTag = null;
+        }
+
+        statusEl.textContent = `✅ 撤銷完成：批次「${selectedTag}」的 ${ids.length} 筆核銷已還原，其他期次不受影響`;
         await loadTransitLedger();
-    } catch (e) {
+    } catch(e) {
         statusEl.textContent = `❌ 撤銷失敗：${e.message}`;
     }
 }
