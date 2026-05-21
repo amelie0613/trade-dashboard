@@ -10112,7 +10112,8 @@ function _renderTransitPreviewTable() {
             <th style="${th}color:#7c3aed;">比對到的利潤專案</th>
           </tr></thead>
           <tbody>
-            ${sorted.map((c, idx) => {
+            ${sorted.map((c) => {
+              const idx = changes.indexOf(c);
               const newOff = c.old_offset + c.consume_qty;
               const newRem = Math.max(0, c.original_qty - newOff);
               const newSt  = _transitStatus(c.original_qty, newOff);
