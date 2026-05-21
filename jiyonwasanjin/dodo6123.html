@@ -8690,6 +8690,7 @@ async function syncToMaterialsLedger(records) {
     );
     if (!ledResp.ok) throw new Error(await ledResp.text());
     const existing = await ledResp.json();
+    if (!Array.isArray(existing)) throw new Error('台帳讀取失敗：' + JSON.stringify(existing));
     const existMap = new Map(existing.map(r => [_matBatchKey(r), r]));
     const legacyProgress = {};
     const legacyIds = [];
@@ -8792,6 +8793,7 @@ async function importMaterialsFromOutbound() {
         );
         if (!ledResp.ok) throw new Error(await ledResp.text());
         const existing = await ledResp.json();
+        if (!Array.isArray(existing)) throw new Error('台帳讀取失敗：' + JSON.stringify(existing));
         const existMap = new Map(existing.map(r => [_matBatchKey(r), r]));
         const legacyProgress = {};
         const legacyIds = [];
@@ -8952,6 +8954,7 @@ async function importTransitFromOutbound() {
         );
         if (!ledResp.ok) throw new Error(await ledResp.text());
         const existing = await ledResp.json();
+        if (!Array.isArray(existing)) throw new Error('台帳讀取失敗：' + JSON.stringify(existing));
         // existMap key 含 source，區分兩種類型，避免互相覆蓋
         const existMap = new Map(existing.map(r => [
             `${r.product_name}|${r.batch_no}|${r.outbound_date || ''}|${r.period || ''}|${r.source}`, r
@@ -9217,8 +9220,9 @@ async function doImportTransitExcel(parsed) {
             `${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=eq.歷史匯入&select=id,product_name,batch_no,period`,
             { headers: h }
         );
+        if (!ledResp.ok) throw new Error(await ledResp.text());
         const existing = await ledResp.json();
-        const existSet = new Set(existing.map(r => `${r.product_name}|${r.batch_no}|${r.period||''}`));
+        const existSet = new Set(Array.isArray(existing) ? existing.map(r => `${r.product_name}|${r.batch_no}|${r.period||''}`) : []);
 
         const toInsert = parsed.filter(r => !existSet.has(`${r.product_name}|${r.batch_no}|${r.period||''}`));
         const toSkip   = parsed.length - toInsert.length;
