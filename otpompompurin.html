@@ -133,15 +133,14 @@
       </div>
       <div class="mb-3">
         <label class="form-label">產品類別</label>
-        <div class="cat-group" id="form-category">
-          <label class="cat-item"><input type="checkbox" class="cat-cb" value="內包材"> 內包材</label>
-          <label class="cat-item"><input type="checkbox" class="cat-cb" value="外包材"> 外包材</label>
-          <label class="cat-item"><input type="checkbox" class="cat-cb" value="耗材"> 耗材</label>
-          <label class="cat-item">
-            <input type="checkbox" class="cat-cb" value="其他" onchange="toggleOtherInput('cat-other-text', this)"> 其他：
-          </label>
-          <input type="text" class="form-control cat-other-input" id="cat-other-text" placeholder="請輸入" style="display:none">
-        </div>
+        <select class="form-select" id="category" onchange="toggleCatOther(this)">
+          <option value="">請選擇</option>
+          <option value="內包材">內包材</option>
+          <option value="外包材">外包材</option>
+          <option value="耗材">耗材</option>
+          <option value="其他">其他</option>
+        </select>
+        <input type="text" class="form-control mt-2" id="cat-other-text" placeholder="請輸入類別" style="display:none">
       </div>
       <div class="mb-3">
         <label class="form-label">產品名稱 <span class="text-danger">*</span></label>
@@ -162,7 +161,13 @@
         </div>
         <div class="col-4">
           <label class="form-label">單位</label>
-          <input type="text" class="form-control" id="unit" placeholder="個/箱">
+          <select class="form-select" id="unit">
+            <option value="">單位</option>
+            <option value="箱">箱</option>
+            <option value="只">只</option>
+            <option value="組">組</option>
+            <option value="公斤">公斤</option>
+          </select>
         </div>
       </div>
       <div class="mt-2" id="location-row">
@@ -196,38 +201,17 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnuNsZxMRs9S4aWW7AA
 
 document.getElementById('date').value = new Date().toISOString().slice(0,10);
 
-function toggleOtherInput(inputId, cb) {
-  document.getElementById(inputId).style.display = cb.checked ? '' : 'none';
+function toggleCatOther(sel) {
+  document.getElementById('cat-other-text').style.display = sel.value === '其他' ? '' : 'none';
 }
 
-// 收集勾選框的值（可多選，用「、」串接）
 function getCategoryValue() {
-  const cbs = document.querySelectorAll('#form-category .cat-cb:checked');
-  return [...cbs].map(cb => {
-    if (cb.value === '其他') {
-      const txt = document.getElementById('cat-other-text').value.trim();
-      return txt ? `其他：${txt}` : '其他';
-    }
-    return cb.value;
-  }).join('、');
-}
-
-// 編輯時還原勾選狀態
-function setCategoryValue(value) {
-  document.querySelectorAll('#edit-category .cat-cb').forEach(cb => cb.checked = false);
-  document.getElementById('e-cat-other-text').style.display = 'none';
-  if (!value) return;
-  value.split('、').forEach(p => {
-    const cb = [...document.querySelectorAll('#edit-category .cat-cb')].find(c => p.startsWith(c.value));
-    if (cb) {
-      cb.checked = true;
-      if (cb.value === '其他') {
-        const el = document.getElementById('e-cat-other-text');
-        el.style.display = '';
-        el.value = p.replace(/^其他：?/, '');
-      }
-    }
-  });
+  const cat = document.getElementById('category').value;
+  if (cat === '其他') {
+    const txt = document.getElementById('cat-other-text').value.trim();
+    return txt ? `其他：${txt}` : '其他';
+  }
+  return cat;
 }
 
 function onTypeChange() {
@@ -271,6 +255,7 @@ async function submitForm(e) {
     showMsg('✅ 已成功儲存！', 'success');
     e.target.reset();
     document.getElementById('date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('cat-other-text').style.display = 'none';
     onTypeChange();
   } catch {
     showMsg('❌ 儲存失敗，請重試', 'danger');
