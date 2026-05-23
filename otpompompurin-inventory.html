@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>庫存結餘</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --yellow:  #FFD54F;
+      --yellow2: #FFECB3;
+      --cream:   #FFF8E1;
+      --brown:   #6D4C41;
+      --brown2:  #8D6E63;
+      --amber:   #FF8F00;
+    }
+    * { font-family: 'M PLUS Rounded 1c', 'Microsoft JhengHei', sans-serif; }
+    body { background: var(--cream); padding-bottom: 76px; }
+
+    .topbar {
+      background: var(--yellow);
+      padding: .8rem 1rem;
+      position: sticky; top: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(109,76,65,.15);
+    }
+    .topbar h6 { margin: 0; color: var(--brown); font-weight: 800; font-size: 1.05rem; }
+    .btn-refresh {
+      background: rgba(109,76,65,.15); border: none;
+      border-radius: 10px; padding: .3rem .6rem;
+      color: var(--brown); font-size: 1rem;
+    }
+
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 3px solid var(--yellow);
+      display: flex; box-shadow: 0 -2px 12px rgba(109,76,65,.12);
+    }
+    .bottom-nav a {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; padding: 9px 0;
+      color: var(--brown2); text-decoration: none;
+      font-size: .65rem; font-weight: 700; gap: 2px;
+    }
+    .bottom-nav a i { font-size: 1.3rem; }
+    .bottom-nav a.active { color: var(--amber); }
+
+    .stat-card {
+      background: #fff; border-radius: 16px;
+      padding: .85rem .5rem; text-align: center;
+      box-shadow: 0 3px 10px rgba(109,76,65,.1);
+      border-bottom: 4px solid var(--yellow);
+    }
+    .stat-card .num { font-size: 1.35rem; font-weight: 800; }
+    .stat-card .lbl { font-size: .68rem; color: var(--brown2); font-weight: 700; margin-top: 2px; }
+
+    .search-bar {
+      background: #fff; border-radius: 16px;
+      padding: .75rem; margin-bottom: .75rem;
+      box-shadow: 0 2px 8px rgba(109,76,65,.08);
+    }
+    .form-control {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      border-radius: 10px; border: 2px solid var(--yellow2); font-size: .88rem;
+    }
+    .form-control:focus {
+      border-color: var(--yellow); box-shadow: 0 0 0 .2rem rgba(255,213,79,.3);
+    }
+
+    /* 庫存卡片列表 */
+    .inv-card {
+      background: #fff; border-radius: 16px;
+      padding: .9rem 1rem; margin-bottom: .6rem;
+      box-shadow: 0 2px 8px rgba(109,76,65,.09);
+      border-left: 6px solid var(--yellow);
+      display: flex; align-items: center; gap: .75rem;
+    }
+    .inv-card.low  { border-left-color: #E53935; }
+    .inv-card.zero { border-left-color: #B0BEC5; opacity: .7; }
+
+    .inv-card .info { flex: 1; min-width: 0; }
+    .inv-card .pname {
+      font-weight: 800; font-size: .95rem;
+      color: var(--brown);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .inv-card .spec {
+      font-size: .75rem; color: var(--brown2); margin-top: 2px;
+    }
+    .inv-card .numbers {
+      display: flex; gap: .6rem; margin-top: .4rem;
+    }
+    .inv-card .tag {
+      font-size: .72rem; font-weight: 700;
+      border-radius: 8px; padding: .15em .55em;
+    }
+    .tag-in  { background: #E8F5E9; color: #2E7D32; }
+    .tag-out { background: #FBE9E7; color: #BF360C; }
+
+    .inv-card .balance {
+      text-align: right; flex-shrink: 0;
+    }
+    .inv-card .balance .qty {
+      font-size: 1.5rem; font-weight: 800; line-height: 1;
+    }
+    .inv-card .balance .unit {
+      font-size: .72rem; color: var(--brown2); font-weight: 700;
+    }
+    .qty-ok   { color: #2E7D32; }
+    .qty-low  { color: #E53935; }
+    .qty-zero { color: #90A4AE; }
+
+    .section-title {
+      font-size: .78rem; font-weight: 800;
+      color: var(--brown2); text-transform: uppercase;
+      letter-spacing: .06em; margin: .75rem 0 .4rem .25rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="d-flex align-items-center gap-2">
+    <span style="font-size:1.5rem">🐶</span>
+    <h6>庫存結餘</h6>
+  </div>
+  <button class="btn-refresh" onclick="loadInventory()"><i class="bi bi-arrow-clockwise"></i></button>
+</div>
+
+<div class="container-fluid px-3 pt-3">
+
+  <!-- 統計卡片 -->
+  <div class="row g-2 mb-3">
+    <div class="col-4">
+      <div class="stat-card">
+        <div class="num text-primary" id="stat-products">-</div>
+        <div class="lbl">品項數</div>
+      </div>
+    </div>
+    <div class="col-4">
+      <div class="stat-card">
+        <div class="num" style="color:#2E7D32" id="stat-ok">-</div>
+        <div class="lbl">有庫存</div>
+      </div>
+    </div>
+    <div class="col-4">
+      <div class="stat-card">
+        <div class="num" style="color:#E53935" id="stat-low">-</div>
+        <div class="lbl">低庫存</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 搜尋 -->
+  <div class="search-bar">
+    <input type="search" class="form-control" id="search"
+      placeholder="🔍 搜尋產品名稱…" oninput="filterInventory()">
+  </div>
+
+  <div id="inv-list">
+    <div class="text-center py-5" style="color:var(--brown2)">🐾 載入中…</div>
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <a href="otpompompurin-list.html"><i class="bi bi-journal-text"></i>紀錄</a>
+  <a href="otpompompurin.html"><i class="bi bi-plus-circle-fill"></i>新增</a>
+  <a href="otpompompurin-inventory.html" class="active"><i class="bi bi-boxes"></i>庫存</a>
+</nav>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnuNsZxMRs9S4aWW7AARlBGob2BQ7u7JMUzV_jZRDeRRk02qvp2KitVstrF_9NmQO6/exec';
+let allInventory = [];
+
+async function loadInventory() {
+  document.getElementById('inv-list').innerHTML =
+    '<div class="text-center py-5" style="color:#8D6E63">🐾 載入中…</div>';
+  try {
+    const res  = await fetch(SCRIPT_URL);
+    const rows = await res.json();
+    allInventory = calcInventory(rows);
+    renderInventory(allInventory);
+  } catch (err) {
+    document.getElementById('inv-list').innerHTML =
+      `<div class="text-center py-4 text-danger">❌ 載入失敗：${err.message}</div>`;
+  }
+}
+
+// 從所有交易記錄計算每項產品的庫存結餘
+function calcInventory(rows) {
+  const map = {};
+  rows.forEach(r => {
+    const key = (r['產品名稱'] || '') + '|||' + (r['規格'] || '');
+    if (!map[key]) {
+      map[key] = {
+        name:  r['產品名稱'] || '',
+        spec:  r['規格']     || '',
+        unit:  r['單位']     || '',
+        inQty: 0,
+        outQty: 0,
+      };
+    }
+    map[key].inQty  += Number(r['入庫數量'])  || 0;
+    map[key].outQty += Number(r['出庫數量']) || 0;
+    if (r['單位']) map[key].unit = r['單位'];
+  });
+
+  return Object.values(map)
+    .map(p => ({ ...p, balance: p.inQty - p.outQty }))
+    .sort((a, b) => b.balance - a.balance);
+}
+
+function renderInventory(list) {
+  const el = document.getElementById('inv-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="text-center py-4" style="color:#8D6E63">沒有資料</div>';
+    return;
+  }
+
+  const ok   = list.filter(p => p.balance > 0);
+  const zero = list.filter(p => p.balance <= 0);
+  const low  = ok.filter(p => p.balance < 100);
+
+  document.getElementById('stat-products').textContent = list.length;
+  document.getElementById('stat-ok').textContent       = ok.length;
+  document.getElementById('stat-low').textContent      = low.length;
+
+  const makeCard = p => {
+    const cls = p.balance <= 0 ? 'zero' : p.balance < 100 ? 'low' : '';
+    const qtyCls = p.balance <= 0 ? 'qty-zero' : p.balance < 100 ? 'qty-low' : 'qty-ok';
+    return `
+      <div class="inv-card ${cls}">
+        <div class="info">
+          <div class="pname">${p.name}</div>
+          ${p.spec ? `<div class="spec">${p.spec}</div>` : ''}
+          <div class="numbers">
+            <span class="tag tag-in">入 ${p.inQty.toLocaleString()}</span>
+            <span class="tag tag-out">出 ${p.outQty.toLocaleString()}</span>
+          </div>
+        </div>
+        <div class="balance">
+          <div class="qty ${qtyCls}">${p.balance.toLocaleString()}</div>
+          <div class="unit">${p.unit || '—'}</div>
+        </div>
+      </div>`;
+  };
+
+  let html = '';
+  if (ok.length) {
+    html += `<div class="section-title">📦 有庫存（${ok.length} 項）</div>`;
+    html += ok.map(makeCard).join('');
+  }
+  if (zero.length) {
+    html += `<div class="section-title">⚠️ 已用完（${zero.length} 項）</div>`;
+    html += zero.map(makeCard).join('');
+  }
+
+  el.innerHTML = html;
+}
+
+function filterInventory() {
+  const kw = document.getElementById('search').value.toLowerCase();
+  const filtered = !kw ? allInventory
+    : allInventory.filter(p =>
+        p.name.toLowerCase().includes(kw) || p.spec.toLowerCase().includes(kw));
+  renderInventory(filtered);
+}
+
+loadInventory();
+</script>
+</body>
+</html>
