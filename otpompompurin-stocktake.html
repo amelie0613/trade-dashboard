@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>最新盤點</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --yellow:  #FFD54F;
+      --yellow2: #FFECB3;
+      --cream:   #FFF8E1;
+      --brown:   #6D4C41;
+      --brown2:  #8D6E63;
+      --amber:   #FF8F00;
+    }
+    * { font-family: 'M PLUS Rounded 1c', 'Microsoft JhengHei', sans-serif; }
+    body { background: var(--cream); padding-bottom: 76px; }
+
+    .topbar {
+      background: var(--yellow) url('pompompurin-bg.jpg') left center / auto 100% repeat-x;
+      padding: .8rem 1rem;
+      position: sticky; top: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(109,76,65,.15);
+    }
+    .topbar h6 { margin: 0; color: var(--brown); font-weight: 800; font-size: 1.05rem; }
+    .btn-refresh {
+      background: rgba(109,76,65,.15); border: none;
+      border-radius: 10px; padding: .3rem .6rem;
+      color: var(--brown); font-size: 1rem;
+    }
+
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 3px solid var(--yellow);
+      display: flex; box-shadow: 0 -2px 12px rgba(109,76,65,.12);
+    }
+    .bottom-nav a {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; padding: 9px 0;
+      color: var(--brown2); text-decoration: none;
+      font-size: .6rem; font-weight: 700; gap: 2px;
+    }
+    .bottom-nav a i { font-size: 1.2rem; }
+    .bottom-nav a.active { color: var(--amber); }
+
+    .info-block {
+      background: #fff; border-radius: 16px;
+      padding: .9rem 1rem; margin-bottom: .75rem;
+      box-shadow: 0 3px 10px rgba(109,76,65,.1);
+      border-top: 4px solid var(--yellow);
+      display: flex; gap: 2rem; align-items: center;
+    }
+    .info-block .lbl { font-size: .72rem; color: var(--brown2); font-weight: 700; }
+    .info-block .val { font-size: .95rem; font-weight: 800; color: var(--brown); margin-top: 2px; }
+
+    .section-title {
+      font-size: .78rem; font-weight: 800;
+      color: var(--brown2); text-transform: uppercase;
+      letter-spacing: .06em; margin: .75rem 0 .5rem .25rem;
+    }
+
+    .product-card {
+      background: #fff; border-radius: 14px;
+      padding: .8rem .5rem; text-align: center;
+      box-shadow: 0 2px 8px rgba(109,76,65,.09);
+      border-bottom: 4px solid var(--yellow);
+      height: 100%;
+    }
+    .product-card .pname {
+      font-size: .8rem; font-weight: 700;
+      color: var(--brown); line-height: 1.35;
+      min-height: 2.7em;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .product-card .qty {
+      font-size: 1.75rem; font-weight: 800;
+      color: var(--amber); margin-top: .35rem; line-height: 1;
+    }
+    .product-card .qty.zero { color: #90A4AE; }
+    .product-card .qty.low  { color: #E53935; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="d-flex align-items-center gap-2">
+    <span style="font-size:1.5rem">🐶</span>
+    <h6>最新盤點紀錄</h6>
+  </div>
+  <button class="btn-refresh" onclick="loadStocktake()"><i class="bi bi-arrow-clockwise"></i></button>
+</div>
+
+<div class="container-fluid px-3 pt-3" style="max-width:600px">
+  <div id="info-area"></div>
+  <div id="product-area">
+    <div class="text-center py-5" style="color:var(--brown2)">🐾 載入中…</div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="otpompompurin-inventory.html"><i class="bi bi-boxes"></i>庫存</a>
+  <a href="otpompompurin.html"><i class="bi bi-plus-circle-fill"></i>新增</a>
+  <a href="otpompompurin-list.html"><i class="bi bi-journal-text"></i>紀錄</a>
+  <a href="otpompompurin-stocktake.html" class="active"><i class="bi bi-clipboard-check"></i>盤點</a>
+</nav>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnuNsZxMRs9S4aWW7AARlBGob2BQ7u7JMUzV_jZRDeRRk02qvp2KitVstrF_9NmQO6/exec';
+const SKIP_KEYS  = ['時間戳記', '盤點人'];
+
+async function loadStocktake() {
+  document.getElementById('product-area').innerHTML =
+    '<div class="text-center py-5" style="color:#8D6E63">🐾 載入中…</div>';
+  document.getElementById('info-area').innerHTML = '';
+
+  try {
+    const res  = await fetch(SCRIPT_URL + '?action=stocktake');
+    const data = await res.json();
+
+    if (!Object.keys(data).length) {
+      document.getElementById('product-area').innerHTML =
+        '<div class="text-center py-4" style="color:#8D6E63">尚無盤點紀錄</div>';
+      return;
+    }
+
+    // 解析時間戳記
+    const rawTs  = data['時間戳記'] || '';
+    const ts     = rawTs ? new Date(rawTs) : null;
+    const timeStr = (ts && !isNaN(ts))
+      ? ts.toLocaleString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+      : rawTs || '—';
+
+    document.getElementById('info-area').innerHTML = `
+      <div class="info-block">
+        <div>
+          <div class="lbl">盤點時間</div>
+          <div class="val">${timeStr}</div>
+        </div>
+        <div>
+          <div class="lbl">盤點人</div>
+          <div class="val">${data['盤點人'] || '—'}</div>
+        </div>
+      </div>`;
+
+    const products = Object.entries(data).filter(([k]) => !SKIP_KEYS.includes(k));
+
+    let html = `<div class="section-title">📦 庫存數量</div><div class="row g-2">`;
+    products.forEach(([name, raw]) => {
+      const q      = raw === '' ? null : Number(raw);
+      const isNull = q === null || isNaN(q);
+      const cls    = isNull ? 'zero' : q === 0 ? 'zero' : q < 20 ? 'low' : '';
+      const display = isNull ? '—' : q.toLocaleString();
+      html += `
+        <div class="col-6">
+          <div class="product-card">
+            <div class="pname">${name}</div>
+            <div class="qty ${cls}">${display}</div>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+
+    document.getElementById('product-area').innerHTML = html;
+
+  } catch (err) {
+    document.getElementById('product-area').innerHTML =
+      `<div class="text-center py-4 text-danger">❌ 載入失敗：${err.message}</div>`;
+  }
+}
+
+loadStocktake();
+</script>
+</body>
+</html>

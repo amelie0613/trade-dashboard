@@ -20,7 +20,7 @@
     body { background: var(--cream); padding-bottom: 76px; }
 
     .topbar {
-      background: var(--yellow);
+      background: var(--yellow) url('pompompurin-bg.jpg') left center / auto 100% repeat-x;
       padding: .8rem 1rem;
       position: sticky; top: 0; z-index: 50;
       display: flex; align-items: center; gap: .5rem;
@@ -37,9 +37,9 @@
       flex: 1; display: flex; flex-direction: column;
       align-items: center; padding: 9px 0;
       color: var(--brown2); text-decoration: none;
-      font-size: .65rem; font-weight: 700; gap: 2px;
+      font-size: .6rem; font-weight: 700; gap: 2px;
     }
-    .bottom-nav a i { font-size: 1.3rem; }
+    .bottom-nav a i { font-size: 1.2rem; }
     .bottom-nav a.active { color: var(--amber); }
 
     .form-block {
@@ -76,6 +76,20 @@
     .btn-submit:hover { background: #E65100; color: #fff; }
     .btn-submit:disabled { background: var(--brown2); }
     .alert { border-radius: 14px; font-weight: 700; }
+    .cat-group { display: flex; flex-direction: column; gap: 2px; }
+    .cat-item {
+      display: flex; align-items: center; gap: .6rem;
+      padding: .55rem .75rem; border-radius: 10px; cursor: pointer;
+      font-weight: 600; font-size: .95rem; color: var(--brown);
+      border: 2px solid transparent; transition: background .15s;
+    }
+    .cat-item:hover { background: var(--yellow2); }
+    .cat-item input[type="checkbox"] {
+      width: 20px; height: 20px; border-radius: 5px;
+      border: 2px solid var(--brown2); cursor: pointer; flex-shrink: 0;
+      accent-color: var(--amber);
+    }
+    .cat-other-input { margin-top: .35rem; border-radius: 10px; }
   </style>
 </head>
 <body>
@@ -104,8 +118,9 @@
         <label class="form-label">屬性</label>
         <select class="form-select" id="type" onchange="onTypeChange()" required>
           <option value="">請選擇</option>
-          <option value="進貨">📦 進貨</option>
-          <option value="出貨">🚚 出貨</option>
+          <option value="入庫">📦 入庫</option>
+          <option value="出庫">🚚 出庫</option>
+          <option value="借出">🤝 借出</option>
         </select>
       </div>
     </div>
@@ -118,7 +133,15 @@
       </div>
       <div class="mb-3">
         <label class="form-label">產品類別</label>
-        <input type="text" class="form-control" id="category" placeholder="例：包材、食品">
+        <div class="cat-group" id="form-category">
+          <label class="cat-item"><input type="checkbox" class="cat-cb" value="內包材"> 內包材</label>
+          <label class="cat-item"><input type="checkbox" class="cat-cb" value="外包材"> 外包材</label>
+          <label class="cat-item"><input type="checkbox" class="cat-cb" value="耗材"> 耗材</label>
+          <label class="cat-item">
+            <input type="checkbox" class="cat-cb" value="其他" onchange="toggleOtherInput('cat-other-text', this)"> 其他：
+          </label>
+          <input type="text" class="form-control cat-other-input" id="cat-other-text" placeholder="請輸入" style="display:none">
+        </div>
       </div>
       <div class="mb-3">
         <label class="form-label">產品名稱 <span class="text-danger">*</span></label>
@@ -142,9 +165,9 @@
           <input type="text" class="form-control" id="unit" placeholder="個/箱">
         </div>
       </div>
-      <div class="mt-2" id="location-row" style="display:none">
-        <label class="form-label">領取單位</label>
-        <input type="text" class="form-control" id="location" placeholder="存放位置或領取單位">
+      <div class="mt-2" id="location-row">
+        <label class="form-label" id="location-label">存放位置</label>
+        <input type="text" class="form-control" id="location" placeholder="請輸入存放位置">
       </div>
       <div class="mt-2" id="cost-row">
         <label class="form-label">成本 (NT$)</label>
@@ -162,9 +185,10 @@
 </div>
 
 <nav class="bottom-nav">
-  <a href="otpompompurin-list.html"><i class="bi bi-journal-text"></i>紀錄</a>
-  <a href="otpompompurin.html" class="active"><i class="bi bi-plus-circle-fill"></i>新增</a>
   <a href="otpompompurin-inventory.html"><i class="bi bi-boxes"></i>庫存</a>
+  <a href="otpompompurin.html" class="active"><i class="bi bi-plus-circle-fill"></i>新增</a>
+  <a href="otpompompurin-list.html"><i class="bi bi-journal-text"></i>紀錄</a>
+  <a href="otpompompurin-stocktake.html"><i class="bi bi-clipboard-check"></i>盤點</a>
 </nav>
 
 <script>
@@ -172,12 +196,54 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnuNsZxMRs9S4aWW7AA
 
 document.getElementById('date').value = new Date().toISOString().slice(0,10);
 
+function toggleOtherInput(inputId, cb) {
+  document.getElementById(inputId).style.display = cb.checked ? '' : 'none';
+}
+
+// 收集勾選框的值（可多選，用「、」串接）
+function getCategoryValue() {
+  const cbs = document.querySelectorAll('#form-category .cat-cb:checked');
+  return [...cbs].map(cb => {
+    if (cb.value === '其他') {
+      const txt = document.getElementById('cat-other-text').value.trim();
+      return txt ? `其他：${txt}` : '其他';
+    }
+    return cb.value;
+  }).join('、');
+}
+
+// 編輯時還原勾選狀態
+function setCategoryValue(value) {
+  document.querySelectorAll('#edit-category .cat-cb').forEach(cb => cb.checked = false);
+  document.getElementById('e-cat-other-text').style.display = 'none';
+  if (!value) return;
+  value.split('、').forEach(p => {
+    const cb = [...document.querySelectorAll('#edit-category .cat-cb')].find(c => p.startsWith(c.value));
+    if (cb) {
+      cb.checked = true;
+      if (cb.value === '其他') {
+        const el = document.getElementById('e-cat-other-text');
+        el.style.display = '';
+        el.value = p.replace(/^其他：?/, '');
+      }
+    }
+  });
+}
+
 function onTypeChange() {
   const type = document.getElementById('type').value;
-  document.getElementById('qty-label').textContent  = type === '進貨' ? '入庫數量' : '出庫數量';
-  document.getElementById('vendor-row').style.display   = type === '出貨' ? 'none' : '';
-  document.getElementById('location-row').style.display = type === '進貨' ? 'none' : '';
-  document.getElementById('cost-row').style.display     = type === '出貨' ? 'none' : '';
+  // 數量標籤
+  const qtyLabels = { '入庫': '入庫數量', '出庫': '出庫數量', '借出': '借出數量' };
+  document.getElementById('qty-label').textContent = qtyLabels[type] || '數量';
+  // 存放位置 / 領取單位 標籤（全部屬性都顯示，但標籤不同）
+  const locLabels = { '入庫': '存放位置', '出庫': '領取單位', '借出': '領取單位' };
+  document.getElementById('location-label').textContent = locLabels[type] || '存放位置/領取單位';
+  const locInput = document.getElementById('location');
+  locInput.placeholder = type === '入庫' ? '請輸入存放位置（例：包材室）' : '請輸入領取單位';
+  // 供應商：只有入庫顯示
+  document.getElementById('vendor-row').style.display = type === '入庫' ? '' : 'none';
+  // 成本：只有入庫顯示
+  document.getElementById('cost-row').style.display   = type === '入庫' ? '' : 'none';
 }
 
 async function submitForm(e) {
@@ -189,11 +255,11 @@ async function submitForm(e) {
     staff: document.getElementById('staff').value,
     type,
     vendor: document.getElementById('vendor').value,
-    category: document.getElementById('category').value,
+    category: getCategoryValue(),
     product: document.getElementById('product').value,
     spec: document.getElementById('spec').value,
-    inQty:  type === '進貨' ? document.getElementById('qty').value : 0,
-    outQty: type === '出貨' ? document.getElementById('qty').value : 0,
+    inQty:  type === '入庫' ? document.getElementById('qty').value : 0,
+    outQty: (type === '出庫' || type === '借出') ? document.getElementById('qty').value : 0,
     unit: document.getElementById('unit').value,
     location: document.getElementById('location').value,
     cost: document.getElementById('cost').value,

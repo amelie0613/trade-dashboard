@@ -20,7 +20,7 @@
     body { background: var(--cream); padding-bottom: 76px; }
 
     .topbar {
-      background: var(--yellow); padding: .8rem 1rem;
+      background: var(--yellow) url('pompompurin-bg.jpg') left center / auto 100% repeat-x; padding: .8rem 1rem;
       position: sticky; top: 0; z-index: 50;
       display: flex; align-items: center; justify-content: space-between;
       box-shadow: 0 2px 8px rgba(109,76,65,.15);
@@ -41,9 +41,9 @@
       flex: 1; display: flex; flex-direction: column;
       align-items: center; padding: 9px 0;
       color: var(--brown2); text-decoration: none;
-      font-size: .65rem; font-weight: 700; gap: 2px;
+      font-size: .6rem; font-weight: 700; gap: 2px;
     }
-    .bottom-nav a i { font-size: 1.3rem; }
+    .bottom-nav a i { font-size: 1.2rem; }
     .bottom-nav a.active { color: var(--amber); }
 
     .stat-card {
@@ -73,8 +73,10 @@
       cursor: pointer; transition: transform .1s, box-shadow .1s;
       border-left: 5px solid var(--yellow);
     }
-    .rec-card.in  { border-left-color: #2E7D32; }
-    .rec-card.out { border-left-color: #E65100; }
+    .rec-card.in     { border-left-color: #2E7D32; }
+    .rec-card.out    { border-left-color: #E65100; }
+    .rec-card.borrow { border-left-color: #1565C0; }
+    .qty-borrow { color: #1565C0; }
     .rec-card:active { transform: scale(.98); box-shadow: 0 1px 4px rgba(109,76,65,.12); }
     .rec-top { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
     .rec-name { font-weight: 800; font-size: .95rem; color: var(--brown); }
@@ -84,8 +86,9 @@
       font-size: .7rem; font-weight: 700; border-radius: 8px;
       padding: .2em .55em; background: var(--yellow2); color: var(--brown);
     }
-    .badge-in  { background: #E8F5E9; color: #2E7D32; }
-    .badge-out { background: #FBE9E7; color: #BF360C; }
+    .badge-in     { background: #E8F5E9; color: #2E7D32; }
+    .badge-out    { background: #FBE9E7; color: #BF360C; }
+    .badge-borrow { background: #E3F2FD; color: #1565C0; }
     .rec-qty { font-weight: 800; font-size: 1rem; }
     .qty-in  { color: #2E7D32; }
     .qty-out { color: #E65100; }
@@ -108,6 +111,18 @@
       text-transform: uppercase; margin-bottom: .65rem; letter-spacing: .05em;
     }
     .form-label { font-weight: 700; font-size: .85rem; color: var(--brown); }
+    .cat-group { display: flex; flex-direction: column; gap: 2px; }
+    .cat-item {
+      display: flex; align-items: center; gap: .6rem;
+      padding: .45rem .6rem; border-radius: 10px; cursor: pointer;
+      font-weight: 600; font-size: .9rem; color: var(--brown);
+    }
+    .cat-item:hover { background: var(--yellow2); }
+    .cat-item input[type="checkbox"] {
+      width: 20px; height: 20px; border-radius: 5px; flex-shrink: 0;
+      accent-color: var(--amber); cursor: pointer;
+    }
+    .cat-other-input { margin-top: .3rem; border-radius: 10px; }
 
     .btn-save {
       background: var(--amber); border: none; color: #fff;
@@ -160,8 +175,9 @@
       <div class="col-4">
         <select class="form-select" id="filter-type" onchange="filterRecords()">
           <option value="">全部</option>
-          <option value="進貨">進貨</option>
-          <option value="出貨">出貨</option>
+          <option value="入庫">入庫</option>
+          <option value="出庫">出庫</option>
+          <option value="借出">借出</option>
         </select>
       </div>
     </div>
@@ -196,8 +212,9 @@
       <div>
         <label class="form-label">屬性</label>
         <select class="form-select" id="e-type" onchange="onEditTypeChange()">
-          <option value="進貨">進貨</option>
-          <option value="出貨">出貨</option>
+          <option value="入庫">入庫</option>
+          <option value="出庫">出庫</option>
+          <option value="借出">借出</option>
         </select>
       </div>
     </div>
@@ -210,7 +227,15 @@
       </div>
       <div class="mb-2">
         <label class="form-label">產品類別</label>
-        <input type="text" class="form-control" id="e-category">
+        <div class="cat-group" id="edit-category">
+          <label class="cat-item"><input type="checkbox" class="cat-cb" value="內包材"> 內包材</label>
+          <label class="cat-item"><input type="checkbox" class="cat-cb" value="外包材"> 外包材</label>
+          <label class="cat-item"><input type="checkbox" class="cat-cb" value="耗材"> 耗材</label>
+          <label class="cat-item">
+            <input type="checkbox" class="cat-cb" value="其他" onchange="toggleOtherInput('e-cat-other-text', this)"> 其他：
+          </label>
+          <input type="text" class="form-control cat-other-input" id="e-cat-other-text" placeholder="請輸入" style="display:none">
+        </div>
       </div>
       <div class="mb-2">
         <label class="form-label">產品名稱</label>
@@ -234,9 +259,9 @@
           <input type="text" class="form-control" id="e-unit">
         </div>
       </div>
-      <div class="mt-2" id="e-location-row" style="display:none">
-        <label class="form-label">領取單位</label>
-        <input type="text" class="form-control" id="e-location">
+      <div class="mt-2" id="e-location-row">
+        <label class="form-label" id="e-location-label">存放位置</label>
+        <input type="text" class="form-control" id="e-location" placeholder="請輸入存放位置">
       </div>
       <div class="mt-2" id="e-cost-row">
         <label class="form-label">成本 (NT$)</label>
@@ -255,9 +280,10 @@
 </div>
 
 <nav class="bottom-nav">
-  <a href="otpompompurin-list.html" class="active"><i class="bi bi-journal-text"></i>紀錄</a>
-  <a href="otpompompurin.html"><i class="bi bi-plus-circle-fill"></i>新增</a>
   <a href="otpompompurin-inventory.html"><i class="bi bi-boxes"></i>庫存</a>
+  <a href="otpompompurin.html"><i class="bi bi-plus-circle-fill"></i>新增</a>
+  <a href="otpompompurin-list.html" class="active"><i class="bi bi-journal-text"></i>紀錄</a>
+  <a href="otpompompurin-stocktake.html"><i class="bi bi-clipboard-check"></i>盤點</a>
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -292,23 +318,26 @@ function renderCards(rows) {
     return;
   }
   el.innerHTML = rows.map((r, i) => {
-    const isIn   = r['屬性'] === '進貨';
+    const type   = r['屬性'];
+    const isIn   = type === '入庫';
+    const cardCls = isIn ? 'in' : type === '借出' ? 'borrow' : 'out';
     const qty    = isIn ? r['入庫數量'] : r['出庫數量'];
-    const qtyLbl = isIn ? '入庫' : '出庫';
+    const badgeCls = isIn ? 'badge-in' : type === '借出' ? 'badge-borrow' : 'badge-out';
+    const qtyCls   = isIn ? 'qty-in'   : type === '借出' ? 'qty-borrow'   : 'qty-out';
     return `
-      <div class="rec-card ${isIn?'in':'out'}" onclick="openEdit(${i})">
+      <div class="rec-card ${cardCls}" onclick="openEdit(${i})">
         <div class="rec-top">
           <div>
             <div class="rec-name">${r['產品名稱']}</div>
             ${r['規格'] ? `<div class="rec-spec">${r['規格']}</div>` : ''}
           </div>
           <div class="text-end">
-            <div class="rec-qty ${isIn?'qty-in':'qty-out'}">${Number(qty||0).toLocaleString()}</div>
+            <div class="rec-qty ${qtyCls}">${Number(qty||0).toLocaleString()}</div>
             <div style="font-size:.7rem;color:var(--brown2);font-weight:700">${r['單位']||''}</div>
           </div>
         </div>
         <div class="rec-meta">
-          <span class="rec-tag ${isIn?'badge-in':'badge-out'}">${r['屬性']}</span>
+          <span class="rec-tag ${badgeCls}">${type}</span>
           <span class="rec-tag">${fmtDate(r['日期'])}</span>
           ${r['承辦人員'] ? `<span class="rec-tag">${r['承辦人員']}</span>` : ''}
           ${r['供應商名稱'] ? `<span class="rec-tag">${r['供應商名稱']}</span>` : ''}
@@ -347,7 +376,7 @@ function openEdit(index) {
   document.getElementById('e-staff').value    = r['承辦人員']   || '';
   document.getElementById('e-type').value     = r['屬性']       || '進貨';
   document.getElementById('e-vendor').value   = r['供應商名稱'] || '';
-  document.getElementById('e-category').value = r['產品類別']   || '';
+  setCategoryValue(r['產品類別'] || '');
   document.getElementById('e-product').value  = r['產品名稱']   || '';
   document.getElementById('e-spec').value     = r['規格']       || '';
   document.getElementById('e-unit').value     = r['單位']       || '';
@@ -365,10 +394,13 @@ function openEdit(index) {
 
 function onEditTypeChange() {
   const type = document.getElementById('e-type').value;
-  document.getElementById('e-qty-label').textContent      = type === '進貨' ? '入庫數量' : '出庫數量';
-  document.getElementById('e-vendor-row').style.display   = type === '出貨' ? 'none' : '';
-  document.getElementById('e-location-row').style.display = type === '進貨' ? 'none' : '';
-  document.getElementById('e-cost-row').style.display     = type === '出貨' ? 'none' : '';
+  const qtyLabels = { '入庫': '入庫數量', '出庫': '出庫數量', '借出': '借出數量' };
+  document.getElementById('e-qty-label').textContent = qtyLabels[type] || '數量';
+  const locLabels = { '入庫': '存放位置', '出庫': '領取單位', '借出': '領取單位' };
+  document.getElementById('e-location-label').textContent = locLabels[type] || '存放位置/領取單位';
+  document.getElementById('e-location').placeholder = type === '入庫' ? '請輸入存放位置（例：包材室）' : '請輸入領取單位';
+  document.getElementById('e-vendor-row').style.display = type === '入庫' ? '' : 'none';
+  document.getElementById('e-cost-row').style.display   = type === '入庫' ? '' : 'none';
 }
 
 async function saveEdit() {
@@ -382,11 +414,11 @@ async function saveEdit() {
     staff:     document.getElementById('e-staff').value,
     type,
     vendor:    document.getElementById('e-vendor').value,
-    category:  document.getElementById('e-category').value,
+    category:  getEditCategoryValue(),
     product:   document.getElementById('e-product').value,
     spec:      document.getElementById('e-spec').value,
-    inQty:     type === '進貨' ? document.getElementById('e-qty').value : 0,
-    outQty:    type === '出貨' ? document.getElementById('e-qty').value : 0,
+    inQty:  type === '入庫' ? document.getElementById('e-qty').value : 0,
+    outQty: (type === '出庫' || type === '借出') ? document.getElementById('e-qty').value : 0,
     unit:      document.getElementById('e-unit').value,
     location:  document.getElementById('e-location').value,
     cost:      document.getElementById('e-cost').value,
@@ -410,6 +442,39 @@ function showEditMsg(text, type) {
   m.className = `alert alert-${type}`;
   m.textContent = text;
   m.style.display = 'block';
+}
+
+function toggleOtherInput(inputId, cb) {
+  document.getElementById(inputId).style.display = cb.checked ? '' : 'none';
+}
+
+function getEditCategoryValue() {
+  const cbs = document.querySelectorAll('#edit-category .cat-cb:checked');
+  return [...cbs].map(cb => {
+    if (cb.value === '其他') {
+      const txt = document.getElementById('e-cat-other-text').value.trim();
+      return txt ? `其他：${txt}` : '其他';
+    }
+    return cb.value;
+  }).join('、');
+}
+
+function setCategoryValue(value) {
+  document.querySelectorAll('#edit-category .cat-cb').forEach(cb => cb.checked = false);
+  document.getElementById('e-cat-other-text').style.display = 'none';
+  document.getElementById('e-cat-other-text').value = '';
+  if (!value) return;
+  value.split('、').forEach(p => {
+    const cb = [...document.querySelectorAll('#edit-category .cat-cb')].find(c => p.startsWith(c.value));
+    if (cb) {
+      cb.checked = true;
+      if (cb.value === '其他') {
+        const el = document.getElementById('e-cat-other-text');
+        el.style.display = '';
+        el.value = p.replace(/^其他：?/, '');
+      }
+    }
+  });
 }
 
 function fmtDate(v) {

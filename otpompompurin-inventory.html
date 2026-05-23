@@ -20,7 +20,7 @@
     body { background: var(--cream); padding-bottom: 76px; }
 
     .topbar {
-      background: var(--yellow);
+      background: var(--yellow) url('pompompurin-bg.jpg') left center / auto 100% repeat-x;
       padding: .8rem 1rem;
       position: sticky; top: 0; z-index: 50;
       display: flex; align-items: center; justify-content: space-between;
@@ -42,9 +42,9 @@
       flex: 1; display: flex; flex-direction: column;
       align-items: center; padding: 9px 0;
       color: var(--brown2); text-decoration: none;
-      font-size: .65rem; font-weight: 700; gap: 2px;
+      font-size: .6rem; font-weight: 700; gap: 2px;
     }
-    .bottom-nav a i { font-size: 1.3rem; }
+    .bottom-nav a i { font-size: 1.2rem; }
     .bottom-nav a.active { color: var(--amber); }
 
     .stat-card {
@@ -108,9 +108,24 @@
     .inv-card .balance .unit {
       font-size: .72rem; color: var(--brown2); font-weight: 700;
     }
-    .qty-ok   { color: #2E7D32; }
-    .qty-low  { color: #E53935; }
-    .qty-zero { color: #90A4AE; }
+    .qty-ok       { color: #2E7D32; }
+    .qty-low      { color: #E53935; }
+    .qty-zero     { color: #90A4AE; }
+    .qty-abnormal { color: #7B1FA2; }
+    .inv-card.abnormal {
+      border-left-color: #7B1FA2;
+      background: #F3E5F5;
+    }
+    .tag-abnormal {
+      font-size: .72rem; font-weight: 800;
+      border-radius: 8px; padding: .15em .6em;
+      background: #7B1FA2; color: #fff;
+      animation: pulse-abnormal 1.2s infinite;
+    }
+    @keyframes pulse-abnormal {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .55; }
+    }
 
     .section-title {
       font-size: .78rem; font-weight: 800;
@@ -133,22 +148,28 @@
 
   <!-- 統計卡片 -->
   <div class="row g-2 mb-3">
-    <div class="col-4">
+    <div class="col-3">
       <div class="stat-card">
         <div class="num text-primary" id="stat-products">-</div>
         <div class="lbl">品項數</div>
       </div>
     </div>
-    <div class="col-4">
+    <div class="col-3">
       <div class="stat-card">
         <div class="num" style="color:#2E7D32" id="stat-ok">-</div>
         <div class="lbl">有庫存</div>
       </div>
     </div>
-    <div class="col-4">
+    <div class="col-3">
       <div class="stat-card">
         <div class="num" style="color:#E53935" id="stat-low">-</div>
         <div class="lbl">低庫存</div>
+      </div>
+    </div>
+    <div class="col-3">
+      <div class="stat-card">
+        <div class="num" style="color:#7B1FA2" id="stat-abnormal">-</div>
+        <div class="lbl">異常</div>
       </div>
     </div>
   </div>
@@ -156,7 +177,7 @@
   <!-- 搜尋 -->
   <div class="search-bar">
     <input type="search" class="form-control" id="search"
-      placeholder="🔍 搜尋產品名稱…" oninput="filterInventory()">
+      placeholder="🔍 搜尋產品名稱、備註關鍵字…" oninput="filterInventory()">
   </div>
 
   <div id="inv-list">
@@ -166,9 +187,10 @@
 </div>
 
 <nav class="bottom-nav">
-  <a href="otpompompurin-list.html"><i class="bi bi-journal-text"></i>紀錄</a>
-  <a href="otpompompurin.html"><i class="bi bi-plus-circle-fill"></i>新增</a>
   <a href="otpompompurin-inventory.html" class="active"><i class="bi bi-boxes"></i>庫存</a>
+  <a href="otpompompurin.html"><i class="bi bi-plus-circle-fill"></i>新增</a>
+  <a href="otpompompurin-list.html"><i class="bi bi-journal-text"></i>紀錄</a>
+  <a href="otpompompurin-stocktake.html"><i class="bi bi-clipboard-check"></i>盤點</a>
 </nav>
 
 <script>
@@ -196,20 +218,22 @@ function calcInventory(rows) {
     const key = (r['產品名稱'] || '') + '|||' + (r['規格'] || '');
     if (!map[key]) {
       map[key] = {
-        name:  r['產品名稱'] || '',
-        spec:  r['規格']     || '',
-        unit:  r['單位']     || '',
-        inQty: 0,
+        name:   r['產品名稱'] || '',
+        spec:   r['規格']     || '',
+        unit:   r['單位']     || '',
+        inQty:  0,
         outQty: 0,
+        notes:  new Set(),   // 收集所有不重複的備註
       };
     }
-    map[key].inQty  += Number(r['入庫數量'])  || 0;
+    map[key].inQty  += Number(r['入庫數量']) || 0;
     map[key].outQty += Number(r['出庫數量']) || 0;
     if (r['單位']) map[key].unit = r['單位'];
+    if (r['備註']) map[key].notes.add(String(r['備註']).trim());
   });
 
   return Object.values(map)
-    .map(p => ({ ...p, balance: p.inQty - p.outQty }))
+    .map(p => ({ ...p, balance: p.inQty - p.outQty, notes: [...p.notes].join(' ') }))
     .sort((a, b) => b.balance - a.balance);
 }
 
@@ -220,21 +244,25 @@ function renderInventory(list) {
     return;
   }
 
-  const ok   = list.filter(p => p.balance > 0);
-  const zero = list.filter(p => p.balance <= 0);
-  const low  = ok.filter(p => p.balance < 100);
+  const ok       = list.filter(p => p.balance > 0);
+  const zero     = list.filter(p => p.balance === 0);
+  const abnormal = list.filter(p => p.balance < 0);
+  const low      = ok.filter(p => p.balance < 100);
 
   document.getElementById('stat-products').textContent = list.length;
   document.getElementById('stat-ok').textContent       = ok.length;
   document.getElementById('stat-low').textContent      = low.length;
+  document.getElementById('stat-abnormal').textContent = abnormal.length;
 
   const makeCard = p => {
-    const cls = p.balance <= 0 ? 'zero' : p.balance < 100 ? 'low' : '';
-    const qtyCls = p.balance <= 0 ? 'qty-zero' : p.balance < 100 ? 'qty-low' : 'qty-ok';
+    const cls    = p.balance < 0 ? 'abnormal' : p.balance === 0 ? 'zero' : p.balance < 100 ? 'low' : '';
+    const qtyCls = p.balance < 0 ? 'qty-abnormal' : p.balance === 0 ? 'qty-zero' : p.balance < 100 ? 'qty-low' : 'qty-ok';
+    const abnormalBadge = p.balance < 0
+      ? `<span class="tag-abnormal ms-1">⚠️ 異常</span>` : '';
     return `
       <div class="inv-card ${cls}">
         <div class="info">
-          <div class="pname">${p.name}</div>
+          <div class="pname">${p.name}${abnormalBadge}</div>
           ${p.spec ? `<div class="spec">${p.spec}</div>` : ''}
           <div class="numbers">
             <span class="tag tag-in">入 ${p.inQty.toLocaleString()}</span>
@@ -249,12 +277,16 @@ function renderInventory(list) {
   };
 
   let html = '';
+  if (abnormal.length) {
+    html += `<div class="section-title">🚨 庫存異常（${abnormal.length} 項）</div>`;
+    html += abnormal.map(makeCard).join('');
+  }
   if (ok.length) {
     html += `<div class="section-title">📦 有庫存（${ok.length} 項）</div>`;
     html += ok.map(makeCard).join('');
   }
   if (zero.length) {
-    html += `<div class="section-title">⚠️ 已用完（${zero.length} 項）</div>`;
+    html += `<div class="section-title">⚪ 已用完（${zero.length} 項）</div>`;
     html += zero.map(makeCard).join('');
   }
 
@@ -265,7 +297,9 @@ function filterInventory() {
   const kw = document.getElementById('search').value.toLowerCase();
   const filtered = !kw ? allInventory
     : allInventory.filter(p =>
-        p.name.toLowerCase().includes(kw) || p.spec.toLowerCase().includes(kw));
+        p.name.toLowerCase().includes(kw) ||
+        p.spec.toLowerCase().includes(kw)  ||
+        p.notes.toLowerCase().includes(kw));
   renderInventory(filtered);
 }
 
