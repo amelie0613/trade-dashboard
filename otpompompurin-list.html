@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>倉庫紀錄</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body { font-family: 'Microsoft JhengHei', sans-serif; background:#f4f6f9; padding-bottom:72px; }
+    .topbar { background:#1a1a2e; color:#fff; padding:.75rem 1rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:50; }
+    .topbar h6 { margin:0; }
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #dee2e6; display:flex; box-shadow:0 -2px 8px rgba(0,0,0,.08); }
+    .bottom-nav a { flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 0; color:#6c757d; text-decoration:none; font-size:.65rem; gap:2px; }
+    .bottom-nav a i { font-size:1.3rem; }
+    .bottom-nav a.active { color:#0d6efd; }
+    .stat-card { background:#fff; border-radius:12px; padding:.75rem; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+    .stat-card .num { font-size:1.4rem; font-weight:700; }
+    .stat-card .lbl { font-size:.7rem; color:#6c757d; }
+    .table th { font-size:.78rem; white-space:nowrap; }
+    .table td { font-size:.82rem; vertical-align:middle; }
+    .form-control, .form-select { font-size:.9rem; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h6><i class="bi bi-box-seam me-2"></i>倉庫紀錄</h6>
+  <button class="btn btn-sm btn-outline-light" onclick="loadRecords()">
+    <i class="bi bi-arrow-clockwise"></i>
+  </button>
+</div>
+
+<div class="container-fluid px-3 pt-3">
+
+  <div class="row g-2 mb-3">
+    <div class="col-4">
+      <div class="stat-card">
+        <div class="num text-primary" id="stat-total">-</div>
+        <div class="lbl">總筆數</div>
+      </div>
+    </div>
+    <div class="col-4">
+      <div class="stat-card">
+        <div class="num text-success" id="stat-in">-</div>
+        <div class="lbl">入庫量</div>
+      </div>
+    </div>
+    <div class="col-4">
+      <div class="stat-card">
+        <div class="num text-warning" id="stat-out">-</div>
+        <div class="lbl">出庫量</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-2 mb-3">
+    <div class="col-8">
+      <input type="search" class="form-control" id="search" placeholder="搜尋產品、承辦人…" oninput="filterRecords()">
+    </div>
+    <div class="col-4">
+      <select class="form-select" id="filter-type" onchange="filterRecords()">
+        <option value="">全部</option>
+        <option value="進貨">進貨</option>
+        <option value="出貨">出貨</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-dark">
+          <tr>
+            <th>日期</th>
+            <th>屬性</th>
+            <th>產品名稱</th>
+            <th>入庫</th>
+            <th>出庫</th>
+            <th>單位</th>
+            <th>承辦人</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="7" class="text-center py-4">載入中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <a href="otpompompurin-list.html" class="active"><i class="bi bi-list-ul"></i>紀錄</a>
+  <a href="otpompompurin.html"><i class="bi bi-plus-circle"></i>新增</a>
+</nav>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnuNsZxMRs9S4aWW7AARlBGob2BQ7u7JMUzV_jZRDeRRk02qvp2KitVstrF_9NmQO6/exec';
+
+let allRows = [];
+
+async function loadRecords() {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">載入中…</td></tr>';
+  try {
+    const res = await fetch(SCRIPT_URL);
+    allRows = await res.json();
+    renderTable(allRows);
+    renderStats(allRows);
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">載入失敗：${err.message}</td></tr>`;
+  }
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">沒有資料</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${fmtDate(r['日期'])}</td>
+      <td><span class="badge ${r['屬性']==='進貨'?'bg-success':'bg-warning text-dark'}">${r['屬性']}</span></td>
+      <td>${r['產品名稱']}</td>
+      <td class="text-end">${r['入庫數量']||'-'}</td>
+      <td class="text-end">${r['出庫數量']||'-'}</td>
+      <td>${r['單位']||''}</td>
+      <td>${r['承辦人員']||''}</td>
+    </tr>
+  `).join('');
+}
+
+function renderStats(rows) {
+  document.getElementById('stat-total').textContent = rows.length;
+  document.getElementById('stat-in').textContent  = rows.reduce((s,r)=>s+(Number(r['入庫數量'])||0),0).toLocaleString();
+  document.getElementById('stat-out').textContent = rows.reduce((s,r)=>s+(Number(r['出庫數量'])||0),0).toLocaleString();
+}
+
+function filterRecords() {
+  const kw   = document.getElementById('search').value.toLowerCase();
+  const type = document.getElementById('filter-type').value;
+  const filtered = allRows.filter(r => {
+    const matchKw   = !kw || Object.values(r).some(v => String(v).toLowerCase().includes(kw));
+    const matchType = !type || r['屬性'] === type;
+    return matchKw && matchType;
+  });
+  renderTable(filtered);
+  renderStats(filtered);
+}
+
+function fmtDate(val) {
+  if (!val) return '';
+  const d = new Date(val);
+  return isNaN(d) ? val : d.toLocaleDateString('zh-TW');
+}
+
+loadRecords();
+</script>
+</body>
+</html>

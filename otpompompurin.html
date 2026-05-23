@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新增紀錄</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    body { font-family: 'Microsoft JhengHei', sans-serif; background:#f4f6f9; padding-bottom:72px; }
+    .topbar { background:#1a1a2e; color:#fff; padding:.75rem 1rem; position:sticky; top:0; z-index:50; }
+    .topbar h6 { margin:0; }
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #dee2e6; display:flex; box-shadow:0 -2px 8px rgba(0,0,0,.08); }
+    .bottom-nav a { flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 0; color:#6c757d; text-decoration:none; font-size:.65rem; gap:2px; }
+    .bottom-nav a i { font-size:1.3rem; }
+    .bottom-nav a.active { color:#0d6efd; }
+    .form-block { background:#fff; border-radius:12px; padding:1rem; margin-bottom:.75rem; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+    .form-block h6 { font-size:.8rem; font-weight:700; color:#6c757d; text-transform:uppercase; margin-bottom:.75rem; }
+    .form-control, .form-select { font-size:1rem; min-height:44px; }
+    .btn-primary { min-height:48px; font-size:1rem; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h6><i class="bi bi-plus-circle me-2"></i>新增紀錄</h6>
+</div>
+
+<div class="container-fluid px-3 pt-3" style="max-width:600px">
+
+  <div id="msg" class="alert" style="display:none"></div>
+
+  <form onsubmit="submitForm(event)">
+    <div class="form-block">
+      <h6>基本資訊</h6>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">日期</label>
+        <input type="date" class="form-control" id="date" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">承辦人員</label>
+        <input type="text" class="form-control" id="staff" placeholder="姓名" required>
+      </div>
+      <div>
+        <label class="form-label fw-semibold">屬性</label>
+        <select class="form-select" id="type" onchange="onTypeChange()" required>
+          <option value="">請選擇</option>
+          <option value="進貨">進貨</option>
+          <option value="出貨">出貨</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-block">
+      <h6>產品資訊</h6>
+      <div class="mb-3" id="vendor-row">
+        <label class="form-label fw-semibold">供應商</label>
+        <input type="text" class="form-control" id="vendor" placeholder="供應商名稱">
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">產品類別</label>
+        <input type="text" class="form-control" id="category" placeholder="例：包材、食品">
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">產品名稱 <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="product" placeholder="產品名稱" required>
+      </div>
+      <div>
+        <label class="form-label fw-semibold">規格</label>
+        <input type="text" class="form-control" id="spec" placeholder="例：50cm×500m">
+      </div>
+    </div>
+
+    <div class="form-block">
+      <h6>數量資訊</h6>
+      <div class="row g-2">
+        <div class="col-8">
+          <label class="form-label fw-semibold" id="qty-label">數量</label>
+          <input type="number" class="form-control" id="qty" min="0" step="0.01" placeholder="0" required>
+        </div>
+        <div class="col-4">
+          <label class="form-label fw-semibold">單位</label>
+          <input type="text" class="form-control" id="unit" placeholder="個/箱">
+        </div>
+      </div>
+      <div class="mt-2" id="location-row" style="display:none">
+        <label class="form-label fw-semibold">領取單位</label>
+        <input type="text" class="form-control" id="location" placeholder="存放位置或領取單位">
+      </div>
+      <div class="mt-2" id="cost-row">
+        <label class="form-label fw-semibold">成本 (NT$)</label>
+        <input type="number" class="form-control" id="cost" min="0" placeholder="0">
+      </div>
+    </div>
+
+    <div class="form-block">
+      <h6>備註</h6>
+      <textarea class="form-control" id="notes" rows="2" placeholder="備註（選填）"></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100 mb-3" id="submit-btn">儲存</button>
+  </form>
+</div>
+
+<nav class="bottom-nav">
+  <a href="otpompompurin-list.html"><i class="bi bi-list-ul"></i>紀錄</a>
+  <a href="otpompompurin.html" class="active"><i class="bi bi-plus-circle"></i>新增</a>
+</nav>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnuNsZxMRs9S4aWW7AARlBGob2BQ7u7JMUzV_jZRDeRRk02qvp2KitVstrF_9NmQO6/exec';
+
+document.getElementById('date').value = new Date().toISOString().slice(0,10);
+
+function onTypeChange() {
+  const type = document.getElementById('type').value;
+  document.getElementById('qty-label').textContent = type === '進貨' ? '入庫數量' : '出庫數量';
+  document.getElementById('vendor-row').style.display   = type === '出貨' ? 'none' : '';
+  document.getElementById('location-row').style.display = type === '進貨' ? 'none' : '';
+  document.getElementById('cost-row').style.display     = type === '出貨' ? 'none' : '';
+}
+
+async function submitForm(e) {
+  e.preventDefault();
+  const btn  = document.getElementById('submit-btn');
+  const type = document.getElementById('type').value;
+  const data = {
+    date:     document.getElementById('date').value,
+    staff:    document.getElementById('staff').value,
+    type,
+    vendor:   document.getElementById('vendor').value,
+    category: document.getElementById('category').value,
+    product:  document.getElementById('product').value,
+    spec:     document.getElementById('spec').value,
+    inQty:    type === '進貨' ? document.getElementById('qty').value : 0,
+    outQty:   type === '出貨' ? document.getElementById('qty').value : 0,
+    unit:     document.getElementById('unit').value,
+    location: document.getElementById('location').value,
+    cost:     document.getElementById('cost').value,
+    notes:    document.getElementById('notes').value,
+  };
+  btn.disabled = true;
+  btn.textContent = '儲存中…';
+  try {
+    await fetch(SCRIPT_URL, { method:'POST', body:JSON.stringify(data) });
+    const msg = document.getElementById('msg');
+    msg.className = 'alert alert-success mt-2';
+    msg.textContent = '✅ 已成功儲存！';
+    msg.style.display = 'block';
+    setTimeout(() => msg.style.display = 'none', 3000);
+    e.target.reset();
+    document.getElementById('date').value = new Date().toISOString().slice(0,10);
+    onTypeChange();
+  } catch {
+    const msg = document.getElementById('msg');
+    msg.className = 'alert alert-danger mt-2';
+    msg.textContent = '❌ 儲存失敗，請重試';
+    msg.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '儲存';
+  }
+}
+</script>
+</body>
+</html>
