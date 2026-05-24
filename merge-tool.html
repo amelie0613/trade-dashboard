@@ -1,266 +1,190 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-  <base target="_top">
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>📦 品項合併確認</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; color: #202124; padding: 12px; }
-    h3  { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
-    .progress-wrap { background: #e8eaed; border-radius: 4px; height: 5px; margin-bottom: 10px; }
-    .progress-bar  { background: #1a73e8; height: 100%; border-radius: 4px; transition: width .3s; }
-    table  { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12px; }
-    th, td { border: 1px solid #dadce0; padding: 5px 7px; }
-    th     { background: #f1f3f4; font-weight: 600; white-space: nowrap; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #202124; background: #f8f9fa; min-height: 100vh; }
+    header { background: #fff; border-bottom: 1px solid #dadce0; padding: 14px 24px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 10; }
+    header h1 { font-size: 17px; font-weight: 600; }
+    .progress-label { margin-left: auto; font-size: 13px; color: #5f6368; }
+    .progress-wrap { height: 4px; background: #e8eaed; }
+    .progress-bar  { height: 100%; background: #1a73e8; transition: width .3s; }
+    main { max-width: 800px; margin: 24px auto; padding: 0 16px 40px; }
+    .card { background: #fff; border-radius: 10px; border: 1px solid #dadce0; padding: 20px; margin-bottom: 20px; }
+    .card-title { font-weight: 600; font-size: 15px; margin-bottom: 14px; color: #1a73e8; }
+    table  { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+    th, td { border: 1px solid #dadce0; padding: 8px 10px; text-align: left; }
+    th     { background: #f1f3f4; font-weight: 600; font-size: 13px; }
+    td     { font-size: 13px; }
     td.num { text-align: right; }
-    .radio-group label { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; cursor: pointer; }
-    select, input[type=text] { width: 100%; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 12px; margin-top: 3px; }
-    .info { background: #e8f0fe; border-radius: 4px; padding: 8px 10px; font-size: 12px; margin: 8px 0; color: #1a56db; }
-    .nav  { display: flex; gap: 8px; margin-top: 10px; }
-    .btn  { flex: 1; padding: 8px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: 500; }
+    .radio-group { display: flex; gap: 20px; margin-bottom: 14px; }
+    .radio-group label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .field-label { font-weight: 600; font-size: 13px; margin-bottom: 4px; color: #3c4043; }
+    select, input[type=text] { width: 100%; padding: 8px 10px; border: 1px solid #dadce0; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
+    .custom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .qty-preview { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin: 12px 0; }
+    .qty-box { background: #e8f0fe; border-radius: 6px; padding: 10px; text-align: center; }
+    .qty-box .val { font-size: 18px; font-weight: 700; color: #1a56db; }
+    .qty-box .lbl { font-size: 11px; color: #5f6368; margin-top: 2px; }
+    .nav { display: flex; gap: 10px; margin-top: 4px; }
+    .btn { flex: 1; padding: 10px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .btn:disabled { opacity: .4; cursor: default; }
     .btn-primary   { background: #1a73e8; color: #fff; }
     .btn-secondary { background: #f1f3f4; color: #202124; }
-    .btn:disabled  { opacity: 0.45; cursor: default; }
-    .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; }
-    .badge-merge { background: #d4edda; color: #155724; }
-    .badge-keep  { background: #d1ecf1; color: #0c5460; }
-    .summary-card { border-radius: 6px; padding: 7px 9px; margin: 4px 0; font-size: 12px; }
-    .card-merge { background: #d4edda; }
-    .card-keep  { background: #d1ecf1; }
-    .loading { text-align: center; padding: 24px 0; color: #5f6368; }
-    .meta { color: #5f6368; font-size: 11px; float: right; }
-    hr { border: none; border-top: 1px solid #e8eaed; margin: 10px 0; }
-    #custom-fields { margin-top: 6px; }
-    .field-row { margin-bottom: 6px; }
-    .field-row label { font-weight: 500; font-size: 12px; }
+    .btn-success   { background: #1e8e3e; color: #fff; }
+    .summary-merge { background: #d4edda; border-radius: 6px; padding: 10px 12px; margin: 6px 0; font-size: 13px; }
+    .summary-keep  { background: #e2e3e5; border-radius: 6px; padding: 10px 12px; margin: 6px 0; font-size: 13px; }
+    .stat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
+    .stat-box { background: #f1f3f4; border-radius: 8px; padding: 14px; text-align: center; }
+    .stat-box .val { font-size: 24px; font-weight: 700; }
+    .stat-box .lbl { font-size: 12px; color: #5f6368; margin-top: 2px; }
+    .loading { text-align: center; padding: 60px 0; color: #5f6368; font-size: 16px; }
+    .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #e8eaed; border-top-color: #1a73e8; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .group-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+    .group-chip { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 2px solid transparent; background: #f1f3f4; color: #3c4043; }
+    .group-chip.active     { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
+    .group-chip.done-merge { background: #d4edda; color: #1e8e3e; }
+    .group-chip.done-keep  { background: #e2e3e5; color: #5f6368; }
+    #status { margin-top: 10px; font-size: 13px; }
   </style>
 </head>
 <body>
-
-<div id="loading" class="loading">⏳ 分析品項相似度中…</div>
-<div id="app" style="display:none"></div>
+<header>
+  <span style="font-size:22px">📦</span>
+  <h1>品項合併確認</h1>
+  <span class="progress-label" id="prog-label"></span>
+</header>
+<div class="progress-wrap"><div class="progress-bar" id="prog-bar" style="width:0%"></div></div>
+<main><div id="root"><div class="loading"><span class="spinner"></span>分析品項相似度中，請稍候…</div></div></main>
 
 <script>
-var groups    = [];
-var decisions = {};
-var page      = 0;
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnuNsZxMRs9S4aWW7AARlBGob2BQ7u7JMUzV_jZRDeRRk02qvp2KitVstrF_9NmQO6/exec';
+var groups=[], decisions={}, page=0;
 
-// ── 初始載入 ──────────────────────────────────────
-google.script.run
-  .withSuccessHandler(function(data) {
-    groups = data;
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    render();
-  })
-  .withFailureHandler(function(err) {
-    document.getElementById('loading').innerHTML = '❌ ' + err.message;
-  })
-  .getGroups();
+fetch(SCRIPT_URL+'?action=groups')
+  .then(function(r){return r.json();})
+  .then(function(d){groups=d;render();})
+  .catch(function(e){
+    document.getElementById('root').innerHTML='<div class="card" style="color:#c5221f">❌ 載入失敗：'+e.message+'</div>';
+  });
 
-// ── 主渲染 ────────────────────────────────────────
-function render() {
-  var N = groups.length;
-  if (N === 0) {
-    document.getElementById('app').innerHTML = '<p style="color:#1a7f37;font-weight:600">✅ 未發現疑似重複品項！</p>';
-    return;
-  }
-  if (page >= N) { renderSummary(N); return; }
-  renderGroup(page, N);
+function render(){
+  var N=groups.length, done=Object.keys(decisions).length;
+  document.getElementById('prog-label').textContent=done+' / '+N+' 已確認';
+  document.getElementById('prog-bar').style.width=(N?done/N*100:100)+'%';
+  if(!N){document.getElementById('root').innerHTML='<div class="card" style="text-align:center;padding:40px;color:#1e8e3e">✅ 未發現疑似重複品項！</div>';return;}
+  if(page>=N){renderSummary(N);return;}
+  renderGroup(page,N);
 }
 
-function renderGroup(p, N) {
-  var g    = groups[p];
-  var prev = decisions[p] || {};
-  var pct  = Math.round(p / N * 100);
-  var done = Object.keys(decisions).length;
-
-  var tableRows = g.map(function(r) {
-    return '<tr><td style="white-space:nowrap;font-size:11px">列' + r.rowIndex + '</td>'
-      + '<td>' + esc(r.name) + '</td>'
-      + '<td>' + esc(r.spec) + '</td>'
-      + '<td class="num">' + r.inQty.toLocaleString() + '</td>'
-      + '<td class="num">' + r.outQty.toLocaleString() + '</td>'
-      + '<td class="num">' + r.stock.toLocaleString() + '</td></tr>';
+function renderGroup(p,N){
+  var g=groups[p], prev=decisions[p]||{}, isMerge=prev.action!=='keep';
+  var chips=groups.map(function(_,i){
+    var d=decisions[i], cl=!d?'':(d.action==='merge'?' done-merge':' done-keep');
+    var lbl=!d?(i===p?'▶ 组'+(i+1):'組'+(i+1)):(d.action==='merge'?'✓':'–')+' 組'+(i+1);
+    return '<span class="group-chip'+(i===p?' active':'')+cl+'" onclick="jumpTo('+i+')">'+lbl+'</span>';
   }).join('');
+  var rows=g.map(function(r){
+    return '<tr><td style="font-size:12px;color:#5f6368">列'+r.rowIndex+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.spec)+'</td>'
+      +'<td class="num">'+r.inQty.toLocaleString()+'</td><td class="num">'+r.outQty.toLocaleString()+'</td><td class="num">'+r.stock.toLocaleString()+'</td></tr>';
+  }).join('');
+  var opts=g.map(function(r,i){return '<option value="'+i+'">列'+r.rowIndex+'：'+esc(r.name)+' / '+esc(r.spec)+'</option>';}).join('')
+    +'<option value="custom">✏️ 自訂名稱/規格</option>';
+  var tIn=g.reduce(function(s,r){return s+r.inQty;},0);
+  var tOut=g.reduce(function(s,r){return s+r.outQty;},0);
+  var tStk=g.reduce(function(s,r){return s+r.stock;},0);
+  var selVal=(prev.masterIdx!==undefined&&!prev.custom)?prev.masterIdx:(prev.custom?'custom':0);
 
-  var opts = g.map(function(r, i) {
-    return '<option value="' + i + '">列' + r.rowIndex + '：' + esc(r.name) + ' / ' + esc(r.spec) + '</option>';
-  }).join('') + '<option value="custom">✏️ 自訂名稱/規格</option>';
+  document.getElementById('root').innerHTML=
+    '<div class="group-list">'+chips+'</div>'
+    +'<div class="card"><div class="card-title">第 '+(p+1)+' 組 / 共 '+N+' 組 — 疑似重複品項</div>'
+    +'<table><tr><th>列</th><th>產品名稱</th><th>規格</th><th>進貨量</th><th>出貨量</th><th>在庫量</th></tr>'+rows+'</table>'
+    +'<div class="radio-group">'
+      +'<label><input type="radio" name="act" value="merge"'+(isMerge?' checked':'')+'>合併為同一品項</label>'
+      +'<label><input type="radio" name="act" value="keep"'+(!isMerge?' checked':'')+'>維持原狀（不同品項）</label>'
+    +'</div>'
+    +'<div id="merge-opts">'
+      +'<div class="field-label">以哪一筆為主（其餘刪除，數量加總）</div>'
+      +'<select id="master-sel">'+opts+'</select>'
+      +'<div id="custom-fields" style="display:none"><div class="custom-row">'
+        +'<div><div class="field-label">產品名稱</div><input type="text" id="cname" value="'+esc(g[0].name)+'"></div>'
+        +'<div><div class="field-label">規格</div><input type="text" id="cspec" value="'+esc(g[0].spec)+'"></div>'
+      +'</div></div>'
+      +'<div class="qty-preview">'
+        +'<div class="qty-box"><div class="val">'+tIn.toLocaleString()+'</div><div class="lbl">合併後進貨量</div></div>'
+        +'<div class="qty-box"><div class="val">'+tOut.toLocaleString()+'</div><div class="lbl">合併後出貨量</div></div>'
+        +'<div class="qty-box"><div class="val">'+tStk.toLocaleString()+'</div><div class="lbl">合併後在庫量</div></div>'
+      +'</div>'
+    +'</div>'
+    +'<div class="nav">'
+      +'<button class="btn btn-secondary" onclick="goBack()"'+(p===0?' disabled':'')+'>← 上一組</button>'
+      +'<button class="btn btn-primary" onclick="confirm_()">'+(p===N-1?'完成確認 ✓':'確認 → 下一組')+'</button>'
+    +'</div></div>';
 
-  var tIn  = g.reduce(function(s, r) { return s + r.inQty;  }, 0);
-  var tOut = g.reduce(function(s, r) { return s + r.outQty; }, 0);
-  var tStk = g.reduce(function(s, r) { return s + r.stock;  }, 0);
-
-  var isMerge = prev.action !== 'keep';
-  var selVal  = (prev.masterIdx !== undefined && !prev.custom) ? prev.masterIdx : (prev.custom ? 'custom' : 0);
-
-  document.getElementById('app').innerHTML =
-    '<div style="margin-bottom:6px">'
-      + '<strong>第 ' + (p+1) + ' 組 / 共 ' + N + ' 組</strong>'
-      + '<span class="meta">' + done + '/' + N + ' 已確認</span>'
-    + '</div>'
-    + '<div class="progress-wrap"><div class="progress-bar" style="width:' + pct + '%"></div></div>'
-
-    + '<table>'
-      + '<tr><th>列</th><th>產品名稱</th><th>規格</th><th>進貨量</th><th>出貨量</th><th>在庫量</th></tr>'
-      + tableRows
-    + '</table>'
-
-    + '<div class="radio-group">'
-      + '<label><input type="radio" name="act" value="merge"' + (isMerge ? ' checked' : '') + '> 合併為同一品項</label>'
-      + '<label><input type="radio" name="act" value="keep"'  + (!isMerge ? ' checked' : '') + '> 維持原狀（不同品項）</label>'
-    + '</div>'
-
-    + '<div id="merge-opts">'
-      + '<hr>'
-      + '<div class="field-row"><label>以哪一筆為主（其餘刪除，數量加總）</label>'
-        + '<select id="master-sel">' + opts + '</select>'
-      + '</div>'
-      + '<div id="custom-fields" style="display:none">'
-        + '<div class="field-row"><label>產品名稱</label><input type="text" id="cname" value="' + esc(g[0].name) + '"></div>'
-        + '<div class="field-row"><label>規格</label><input type="text" id="cspec" value="' + esc(g[0].spec) + '"></div>'
-      + '</div>'
-      + '<div class="info">合併後 → 進貨量 <strong>' + tIn.toLocaleString() + '</strong>　出貨量 <strong>' + tOut.toLocaleString() + '</strong>　在庫量 <strong>' + tStk.toLocaleString() + '</strong></div>'
-    + '</div>'
-
-    + '<div class="nav">'
-      + '<button class="btn btn-secondary" onclick="goBack()" ' + (p === 0 ? 'disabled' : '') + '>← 上一組</button>'
-      + '<button class="btn btn-primary" onclick="confirm_()">' + (p === N-1 ? '完成 ✓' : '確認 → 下一組') + '</button>'
-    + '</div>';
-
-  // 初始化事件
-  document.getElementById('master-sel').value = selVal;
-  document.querySelectorAll('input[name=act]').forEach(function(r) {
-    r.addEventListener('change', updateMergeOpts);
-  });
-  document.getElementById('master-sel').addEventListener('change', toggleCustom);
-
-  // 還原自訂欄位
-  if (prev.custom) {
-    document.getElementById('cname').value = prev.finalName || g[0].name;
-    document.getElementById('cspec').value = prev.finalSpec || g[0].spec;
-  }
-
+  document.getElementById('master-sel').value=selVal;
+  if(prev.custom){document.getElementById('cname').value=prev.finalName||g[0].name;document.getElementById('cspec').value=prev.finalSpec||g[0].spec;}
+  document.querySelectorAll('input[name=act]').forEach(function(r){r.addEventListener('change',updateMergeOpts);});
+  document.getElementById('master-sel').addEventListener('change',toggleCustom);
   updateMergeOpts();
 }
 
-function updateMergeOpts() {
-  var isMerge = document.querySelector('input[name=act]:checked').value === 'merge';
-  document.getElementById('merge-opts').style.display = isMerge ? 'block' : 'none';
-  if (isMerge) toggleCustom();
+function updateMergeOpts(){
+  var m=document.querySelector('input[name=act]:checked').value==='merge';
+  document.getElementById('merge-opts').style.display=m?'block':'none';
+  if(m)toggleCustom();
 }
-
-function toggleCustom() {
-  var sel = document.getElementById('master-sel');
-  document.getElementById('custom-fields').style.display =
-    sel && sel.value === 'custom' ? 'block' : 'none';
+function toggleCustom(){
+  var s=document.getElementById('master-sel');
+  document.getElementById('custom-fields').style.display=s&&s.value==='custom'?'block':'none';
 }
-
-function confirm_() {
-  var N      = groups.length;
-  var g      = groups[page];
-  var action = document.querySelector('input[name=act]:checked').value;
-
-  if (action === 'merge') {
-    var sel      = document.getElementById('master-sel');
-    var isCustom = sel.value === 'custom';
-    var midx     = isCustom ? 0 : parseInt(sel.value);
-    decisions[page] = {
-      action: 'merge',
-      masterIdx:      midx,
-      custom:         isCustom,
-      finalName:      isCustom ? document.getElementById('cname').value.trim() : g[midx].name,
-      finalSpec:      isCustom ? document.getElementById('cspec').value.trim() : g[midx].spec,
-      masterRowIndex: g[midx].rowIndex,
-      rowIndices:     g.map(function(r) { return r.rowIndex; }),
-    };
-  } else {
-    decisions[page] = { action: 'keep' };
-  }
-
-  page = (page >= N - 1) ? N : page + 1;
-  render();
+function confirm_(){
+  var N=groups.length,g=groups[page],action=document.querySelector('input[name=act]:checked').value;
+  if(action==='merge'){
+    var s=document.getElementById('master-sel'),isC=s.value==='custom',midx=isC?0:parseInt(s.value);
+    decisions[page]={action:'merge',masterIdx:midx,custom:isC,
+      finalName:isC?document.getElementById('cname').value.trim():g[midx].name,
+      finalSpec:isC?document.getElementById('cspec').value.trim():g[midx].spec,
+      masterRowIndex:g[midx].rowIndex,rowIndices:g.map(function(r){return r.rowIndex;})};
+  }else{decisions[page]={action:'keep'};}
+  page=(page>=N-1)?N:page+1;render();
 }
+function goBack(){if(page>0){page--;render();}}
+function jumpTo(i){page=i;render();}
 
-function goBack() {
-  if (page > 0) { page--; render(); }
+function renderSummary(N){
+  var merges=[],keeps=[];
+  Object.keys(decisions).forEach(function(k){var d=decisions[k];if(d.action==='merge')merges.push({idx:+k,d:d});else keeps.push({idx:+k,d:d});});
+  document.getElementById('root').innerHTML=
+    '<div class="card"><div class="card-title">✅ 確認完成 — 變更摘要</div>'
+    +'<div class="stat-row">'+stat(N,'群組總數','#202124')+stat(merges.length,'合併','#1e8e3e')+stat(keeps.length,'分開','#5f6368')+'</div>'
+    +(merges.length?'<p style="font-weight:600;margin-bottom:6px">合併項目</p>'+merges.map(function(m){
+      return '<div class="summary-merge">組'+(m.idx+1)+'　'+groups[m.idx].map(function(r){return '「'+esc(r.name)+'」';}).join(' ＋ ')
+        +'　→　<strong>'+esc(m.d.finalName)+' / '+esc(m.d.finalSpec)+'</strong></div>';
+    }).join(''):'')
+    +(keeps.length?'<p style="font-weight:600;margin:10px 0 6px">維持原狀</p>'+keeps.map(function(k){
+      return '<div class="summary-keep">組'+(k.idx+1)+'　'+groups[k.idx].map(function(r){return '「'+esc(r.name)+'」';}).join('、')+'</div>';
+    }).join(''):'')
+    +'<div class="nav" style="margin-top:16px">'
+      +'<button class="btn btn-secondary" onclick="page=groups.length-1;render()">← 返回修改</button>'
+      +'<button class="btn btn-success" id="apply-btn" onclick="applyAll()">套用變更到試算表</button>'
+    +'</div><div id="status"></div></div>';
 }
-
-// ── 摘要頁 ────────────────────────────────────────
-function renderSummary(N) {
-  var merges = [], keeps = [];
-  Object.keys(decisions).forEach(function(k) {
-    var d = decisions[k];
-    if (d.action === 'merge') merges.push({ idx: parseInt(k), d: d });
-    else keeps.push({ idx: parseInt(k), d: d });
-  });
-
-  var html = '<h3>✅ 確認完成</h3>'
-    + '<div style="display:flex;gap:8px;margin:8px 0">'
-      + stat(N, '群組總數', '#5f6368')
-      + stat(merges.length, '合併', '#1a7f37')
-      + stat(keeps.length,  '分開', '#0c5460')
-    + '</div><hr>';
-
-  if (merges.length) {
-    html += '<h3 style="margin-bottom:4px">合併項目</h3>';
-    merges.forEach(function(m) {
-      var g    = groups[m.idx];
-      var orig = g.map(function(r) { return '「' + esc(r.name) + '」'; }).join(' ＋ ');
-      html += '<div class="summary-card card-merge">'
-        + '<strong>組' + (m.idx+1) + '</strong> ' + orig + '<br>'
-        + '→ <strong>' + esc(m.d.finalName) + ' / ' + esc(m.d.finalSpec) + '</strong>'
-      + '</div>';
-    });
-  }
-
-  if (keeps.length) {
-    html += '<h3 style="margin-top:8px;margin-bottom:4px">維持原狀</h3>';
-    keeps.forEach(function(k) {
-      var g     = groups[k.idx];
-      var names = g.map(function(r) { return '「' + esc(r.name) + '」'; }).join('、');
-      html += '<div class="summary-card card-keep"><strong>組' + (k.idx+1) + '</strong> ' + names + '</div>';
-    });
-  }
-
-  html += '<hr><div class="nav">'
-    + '<button class="btn btn-secondary" onclick="page=groups.length-1;render()">← 返回修改</button>'
-    + '<button class="btn btn-primary" id="apply-btn" onclick="applyAll()">套用到試算表</button>'
-  + '</div>'
-  + '<div id="status" style="margin-top:8px;font-size:12px"></div>';
-
-  document.getElementById('app').innerHTML = html;
+function stat(v,l,c){return '<div class="stat-box"><div class="val" style="color:'+c+'">'+v+'</div><div class="lbl">'+l+'</div></div>';}
+function applyAll(){
+  var list=Object.values(decisions).filter(function(d){return d.action==='merge';});
+  if(!list.length){document.getElementById('status').innerHTML='<span style="color:#e37400">⚠️ 沒有選擇合併的項目。</span>';return;}
+  document.getElementById('apply-btn').disabled=true;
+  document.getElementById('status').innerHTML='<span class="spinner"></span> 套用中，請勿關閉頁面…';
+  fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'applyDecisions',decisions:list})})
+    .then(function(r){return r.json();})
+    .then(function(res){document.getElementById('status').innerHTML='<span style="color:#1e8e3e">✅ 完成！已合併 '+list.length+' 組，刪除 '+res.deleted+' 列。</span>';})
+    .catch(function(e){document.getElementById('apply-btn').disabled=false;document.getElementById('status').innerHTML='<span style="color:#c5221f">❌ 錯誤：'+e.message+'</span>';});
 }
-
-function stat(val, label, color) {
-  return '<div style="flex:1;background:#f1f3f4;border-radius:6px;padding:8px;text-align:center">'
-    + '<div style="font-size:20px;font-weight:700;color:' + color + '">' + val + '</div>'
-    + '<div style="font-size:11px;color:#5f6368">' + label + '</div>'
-  + '</div>';
-}
-
-function applyAll() {
-  document.getElementById('apply-btn').disabled = true;
-  document.getElementById('status').innerHTML = '⏳ 套用中…';
-
-  var list = Object.values(decisions).filter(function(d) { return d.action === 'merge'; });
-
-  google.script.run
-    .withSuccessHandler(function(res) {
-      document.getElementById('status').innerHTML =
-        '✅ 完成！已合併 ' + list.length + ' 組，刪除 ' + res.deleted + ' 列。';
-    })
-    .withFailureHandler(function(err) {
-      document.getElementById('apply-btn').disabled = false;
-      document.getElementById('status').innerHTML = '❌ ' + err.message;
-    })
-    .applyDecisions(list);
-}
-
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 </script>
 </body>
 </html>
