@@ -204,22 +204,23 @@
     .st-table thead tr { background: var(--yellow2); }
     .st-table th {
       padding: .55rem .9rem; font-size: .76rem; font-weight: 800;
-      color: var(--brown2); letter-spacing: .05em;
+      color: var(--brown2); letter-spacing: .05em; text-align: right;
     }
     .st-table th:first-child { border-radius: 12px 0 0 0; text-align: left; }
-    .st-table th:last-child  { border-radius: 0 12px 0 0; text-align: right; }
+    .st-table th:last-child  { border-radius: 0 12px 0 0; }
     .st-table tbody { background: #fff; }
     .st-table td {
       padding: .65rem .9rem; font-size: .93rem; font-weight: 600;
-      color: var(--brown); border-top: 1px solid var(--yellow2);
+      color: var(--brown); border-top: 1px solid var(--yellow2); text-align: right;
     }
     .st-table td:first-child { text-align: left; }
-    .st-table td:last-child  { text-align: right; font-size: 1.05rem; font-weight: 800; }
+    .st-table td:last-child  { font-size: 1.05rem; font-weight: 800; }
     .st-table tbody tr:last-child td:first-child  { border-radius: 0 0 0 12px; }
     .st-table tbody tr:last-child td:last-child   { border-radius: 0 0 12px 0; }
     .st-table tbody tr { cursor: pointer; }
     .st-table tbody tr:hover { background: #FFFDE7; }
-    .st-table tbody tr:hover .st-go { opacity: 1; }
+    .st-table tbody tr:hover .st-go        { opacity: 1; }
+    .st-table tbody tr:hover .st-edit-icon { opacity: .75; }
     .st-go { opacity: 0; transition: opacity .15s; color: var(--amber); font-size: .85rem; padding-left: 4px; }
     .st-wrap {
       background: #fff; border-radius: 14px; overflow: hidden;
@@ -228,6 +229,17 @@
     .st-qty-ok   { color: var(--amber); }
     .st-qty-low  { color: #E53935; }
     .st-qty-zero { color: #90A4AE; }
+    /* 上期欄 */
+    .st-prev { color: #BDBDBD !important; font-size: .85rem !important; font-weight: 400 !important; }
+    /* 本期欄（可編輯） */
+    .st-edit-icon { font-size: .7rem; opacity: 0; transition: opacity .15s; margin-left: 3px; color: var(--amber); vertical-align: middle; }
+    /* 差異欄 */
+    .st-diff-up { color: #2E7D32; font-weight: 800; font-size: 1.05rem; }
+    .st-diff-dn { color: #C62828; font-weight: 800; font-size: 1.05rem; }
+    /* 行內編輯控件 */
+    .st-edit-input { width: 68px; padding: 2px 5px; border: 2px solid var(--amber); border-radius: 6px; font-size: .9rem; text-align: right; outline: none; }
+    .st-edit-btn { border: none; background: none; font-size: .95rem; cursor: pointer; padding: 1px 3px; line-height: 1.3; color: var(--brown2); }
+    .st-edit-btn:hover { color: var(--amber); }
     /* ── 盤點歷史面板 ── */
     .sth-table { width:100%; border-collapse:collapse; }
     .sth-table th { background:var(--yellow2); padding:10px 14px; font-size:.85rem; color:var(--brown); }
@@ -965,6 +977,7 @@ function stDetectPerson(data) {
 function stFilterProducts(data, personKey, person) {
   return Object.entries(data).filter(([k, v]) => {
     if (!k || !k.trim()) return false;
+    if (k === '_stRow') return false;                           // 內部列號，非品項
     if (STOCKTAKE_SKIP.includes(k)) return false;               // 已知 meta 欄
     if (PERSON_KEYS.includes(k)) return false;                  // 標準盤點人鍵名
     if (personKey && k === personKey) return false;             // 偵測到的 personKey
@@ -1018,28 +1031,86 @@ async function loadStocktake() {
         <i class="bi bi-clock"></i> ${stFmtTs(data['時間戳記'])}
       </div>`;
 
+    const prevData = stHistory[1] || null; // 上一期
+    const stRow    = data._stRow || 0;
     const products = stFilterProducts(data, personKey, person);
     let rows = '';
     products.forEach(([name, raw]) => {
-      const q   = raw === '' ? null : Number(raw);
-      const nil = q === null || isNaN(q);
-      const cls = nil ? 'st-qty-zero' : q === 0 ? 'st-qty-zero' : q < 20 ? 'st-qty-low' : 'st-qty-ok';
-      const _sn = name.replace(/'/g, "\\'");
+      const currQ   = raw === '' ? null : Number(raw);
+      const currNil = currQ === null || isNaN(currQ);
+
+      const prevRaw = prevData ? prevData[name] : undefined;
+      const prevQ   = (prevRaw === '' || prevRaw === null || prevRaw === undefined) ? null : Number(prevRaw);
+      const prevNil = prevQ === null || isNaN(prevQ);
+
+      const diff    = (!currNil && !prevNil) ? (currQ - prevQ) : null;
+      const diffStr = diff === null ? '—' : (diff > 0 ? '+' : '') + diff.toLocaleString();
+      const diffCls = diff === null ? 'st-qty-zero' : diff > 0 ? 'st-diff-up' : diff < 0 ? 'st-diff-dn' : 'st-qty-zero';
+      const currCls = currNil ? 'st-qty-zero' : currQ === 0 ? 'st-qty-zero' : currQ < 20 ? 'st-qty-low' : 'st-qty-ok';
+
+      const _sn   = name.replace(/'/g, "\\'");
+      const _dn   = name.replace(/"/g, '&quot;');
       rows += `<tr onclick="openSth('${_sn}')">
         <td>${name}<span class="st-go">›</span></td>
-        <td class="${cls}">${nil ? '—' : q.toLocaleString()}</td>
+        <td class="st-prev">${prevNil ? '—' : prevQ.toLocaleString()}</td>
+        <td class="${currCls}"
+            data-val="${currNil ? '' : currQ}"
+            data-name="${_dn}"
+            data-strow="${stRow}"
+            onclick="event.stopPropagation(); startEditSt(this)">
+          <span class="st-curr-val">${currNil ? '—' : currQ.toLocaleString()}</span><i class="bi bi-pencil-fill st-edit-icon"></i>
+        </td>
+        <td class="${diffCls}">${diffStr}</td>
       </tr>`;
     });
     document.getElementById('st-products').innerHTML = `
       <div class="section-title">📦 最新盤點數量</div>
       <div class="st-wrap">
         <table class="st-table">
-          <thead><tr><th>品項</th><th>數量</th></tr></thead>
+          <thead><tr><th>品項</th><th>上期</th><th>本期 ✏️</th><th>差異</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
   } catch(err) {
     document.getElementById('st-products').innerHTML = `<div class="text-center py-4 text-danger">❌ 載入失敗：${err.message}</div>`;
+  }
+}
+
+/* ── 本期數量行內編輯 ── */
+function startEditSt(td) {
+  if (td.querySelector('input')) return; // 已在編輯中
+  const curVal = td.dataset.val;
+  const name   = td.dataset.name;
+  const stRow  = td.dataset.strow;
+  const _sn    = name.replace(/'/g, "\\'");
+  td.innerHTML = `
+    <div class="d-flex align-items-center justify-content-end gap-1" onclick="event.stopPropagation()">
+      <input type="number" class="st-edit-input" value="${curVal}" min="0" onkeydown="if(event.key==='Enter') saveStocktake(this.nextElementSibling,'${_sn}',${stRow}); if(event.key==='Escape') loadStocktake();">
+      <button class="st-edit-btn" title="儲存" onclick="saveStocktake(this,'${_sn}',${stRow})">✓</button>
+      <button class="st-edit-btn" title="取消" onclick="loadStocktake()">✕</button>
+    </div>`;
+  const inp = td.querySelector('input');
+  inp.focus();
+  inp.select();
+}
+
+async function saveStocktake(btn, name, stRow) {
+  const td    = btn.closest('td');
+  const input = td.querySelector('input');
+  const val   = input.value.trim();
+  if (val === '' || isNaN(Number(val)) || Number(val) < 0) {
+    input.style.borderColor = '#E53935';
+    return;
+  }
+  btn.textContent = '⏳';
+  btn.disabled = true;
+  try {
+    await gasPost({ action: 'stocktake-update', row: Number(stRow), product: name, value: Number(val) });
+    await loadStocktake();
+  } catch(e) {
+    btn.textContent = '✓';
+    btn.disabled = false;
+    alert('儲存失敗：' + e.message);
   }
 }
 
