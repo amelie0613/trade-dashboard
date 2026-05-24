@@ -333,7 +333,13 @@
         <h6>🏷️ 產品資訊</h6>
         <div class="mb-3" id="f-vendor-row">
           <label class="form-label">供應商</label>
-          <input type="text" class="form-control" id="f-vendor" placeholder="供應商名稱" autocomplete="off">
+          <div class="ac-wrap">
+            <input type="text" class="form-control" id="f-vendor" placeholder="輸入關鍵字搜尋供應商…" autocomplete="off"
+              oninput="acVendorSearch()"
+              onkeydown="acVendorKeyNav(event)"
+              onblur="setTimeout(()=>acVendorHide(),180)">
+            <div class="ac-list" id="ac-vendor-list"></div>
+          </div>
         </div>
         <!-- 產品名稱（帶自動建議） -->
         <div class="mb-3">
@@ -680,26 +686,38 @@ let acIndex = -1; // 鍵盤選項游標
 function acBuildList(kw) {
   const kwL = kw.toLowerCase();
   const seen = new Set();
-  const result = [];
-  // 優先：名稱開頭吻合；次要：名稱含關鍵字；再次：規格含關鍵字
-  const buckets = [[], [], []];
+  // 優先級：名稱開頭 > 名稱含字 > 規格含字 > 備註含字
+  const buckets = [[], [], [], []];
   allRows.forEach(r => {
-    const name = String(r['產品名稱'] || '').trim();
-    const spec = String(r['規格']     || '').trim();
-    const cat  = String(r['產品類別'] || '').trim();
-    const unit = String(r['單位']     || '').trim();
+    const name  = String(r['產品名稱'] || '').trim();
+    const spec  = String(r['規格']     || '').trim();
+    const cat   = String(r['產品類別'] || '').trim();
+    const unit  = String(r['單位']     || '').trim();
+    const notes = String(r['備註']     || '').trim();
     if (!name) return;
-    const key = name + '|||' + spec;
+    const key  = name + '|||' + spec;
     if (seen.has(key)) return;
-    const nameL = name.toLowerCase();
-    const specL = spec.toLowerCase();
-    if (nameL.startsWith(kwL))          buckets[0].push({ name, spec, cat, unit });
-    else if (nameL.includes(kwL))       buckets[1].push({ name, spec, cat, unit });
-    else if (specL.includes(kwL))       buckets[2].push({ name, spec, cat, unit });
-    else return;
+    const nameL  = name.toLowerCase();
+    const specL  = spec.toLowerCase();
+    const notesL = notes.toLowerCase();
+    let bucket = -1;
+    if      (nameL.startsWith(kwL))  bucket = 0;
+    else if (nameL.includes(kwL))    bucket = 1;
+    else if (specL.includes(kwL))    bucket = 2;
+    else if (notesL.includes(kwL))   bucket = 3;
+    if (bucket < 0) return;
     seen.add(key);
+    // 備註命中時，在 meta 裡顯示匹配的備註片段
+    let matchNote = '';
+    if (bucket === 3) {
+      const idx = notesL.indexOf(kwL);
+      const start = Math.max(0, idx - 8);
+      const end   = Math.min(notes.length, idx + kwL.length + 12);
+      matchNote = (start > 0 ? '…' : '') + notes.slice(start, end) + (end < notes.length ? '…' : '');
+    }
+    buckets[bucket].push({ name, spec, cat, unit, matchNote });
   });
-  return [...buckets[0], ...buckets[1], ...buckets[2]].slice(0, 12);
+  return [...buckets[0], ...buckets[1], ...buckets[2], ...buckets[3]].slice(0, 12);
 }
 
 function acSearch() {
@@ -712,12 +730,13 @@ function acSearch() {
   if (!matches.length) { list.style.display = 'none'; return; }
 
   list.innerHTML = matches.map((m, i) => {
-    const meta = [m.spec, m.cat, m.unit].filter(Boolean).join(' · ');
+    const meta  = [m.spec, m.cat, m.unit].filter(Boolean).join(' · ');
+    const extra = m.matchNote ? `<span style="color:#8D6E63">📝 ${m.matchNote}</span>` : '';
     return `<div class="ac-item" data-idx="${i}"
         onmousedown="acSelect(${i})"
         onmouseover="acHighlight(${i})">
       <div class="ac-name">${m.name}</div>
-      ${meta ? `<div class="ac-meta">${meta}</div>` : ''}
+      ${(meta || extra) ? `<div class="ac-meta">${[meta, extra].filter(Boolean).join('　')}</div>` : ''}
     </div>`;
   }).join('');
   list._matches = matches;
@@ -780,6 +799,78 @@ function acSelect(idx) {
 
 function acHide() {
   document.getElementById('ac-list').style.display = 'none';
+}
+
+/* ═══════════════ 供應商自動補全 ═══════════════ */
+let acVendorIndex = -1;
+
+function acVendorSearch() {
+  acVendorIndex = -1;
+  const kw   = document.getElementById('f-vendor').value.trim().toLowerCase();
+  const list = document.getElementById('ac-vendor-list');
+
+  // 從 allRows 收集不重複的供應商（依首次出現順序）
+  const seen = new Set();
+  const all  = [];
+  allRows.forEach(r => {
+    const v = String(r['供應商名稱'] || '').trim();
+    if (v && !seen.has(v)) { seen.add(v); all.push(v); }
+  });
+
+  const matches = kw
+    ? all.filter(v => v.toLowerCase().includes(kw)).slice(0, 10)
+    : all.slice(0, 10); // 空字串時顯示前 10 筆
+
+  if (!matches.length) { list.style.display = 'none'; return; }
+
+  list.innerHTML = matches.map((v, i) =>
+    `<div class="ac-item" data-idx="${i}"
+        onmousedown="acVendorSelect(${JSON.stringify(v)})"
+        onmouseover="acVendorHighlight(${i})">
+      <div class="ac-name">${v}</div>
+    </div>`
+  ).join('');
+  list.style.display = 'block';
+}
+
+function acVendorHighlight(idx) {
+  acVendorIndex = idx;
+  document.querySelectorAll('#ac-vendor-list .ac-item').forEach((el, i) =>
+    el.classList.toggle('ac-active', i === idx));
+}
+
+function acVendorKeyNav(e) {
+  const list  = document.getElementById('ac-vendor-list');
+  if (list.style.display === 'none') {
+    if (e.key === 'ArrowDown') { acVendorSearch(); return; }
+    return;
+  }
+  const items = list.querySelectorAll('.ac-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    acVendorIndex = Math.min(acVendorIndex + 1, items.length - 1);
+    acVendorHighlight(acVendorIndex);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    acVendorIndex = Math.max(acVendorIndex - 1, 0);
+    acVendorHighlight(acVendorIndex);
+  } else if (e.key === 'Enter' && acVendorIndex >= 0) {
+    e.preventDefault();
+    items[acVendorIndex].dispatchEvent(new MouseEvent('mousedown'));
+  } else if (e.key === 'Escape') {
+    acVendorHide();
+  }
+}
+
+function acVendorSelect(vendor) {
+  document.getElementById('f-vendor').value = vendor;
+  acVendorHide();
+  // 選完供應商後游標跳到產品名稱
+  document.getElementById('f-product').focus();
+}
+
+function acVendorHide() {
+  document.getElementById('ac-vendor-list').style.display = 'none';
 }
 
 /* ═══════════════ 新增表單 ═══════════════ */
