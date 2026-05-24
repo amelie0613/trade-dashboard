@@ -121,6 +121,19 @@
     .qty-out  { color:#E65100; }
     .qty-borrow { color:#1565C0; }
 
+    /* ── 精準篩選提示 ── */
+    .ef-chip {
+      display: inline-flex; align-items: center; gap: .4rem;
+      background: #FFF3E0; border: 1.5px solid var(--amber);
+      border-radius: 20px; padding: .3em .75em;
+      font-size: .78rem; font-weight: 700; color: var(--amber);
+    }
+    .ef-chip button {
+      background: none; border: none; cursor: pointer;
+      color: var(--brown2); font-size: .8rem; padding: 0; line-height: 1;
+    }
+    .ef-chip button:hover { color: #E53935; }
+
     /* ── 排序列 ── */
     .sort-bar {
       display: flex; align-items: center; gap: .45rem;
@@ -348,7 +361,7 @@
     </div>
     <div class="search-bar">
       <div class="row g-2">
-        <div class="col-8"><input type="search" class="form-control" id="list-search" placeholder="🔍 搜尋產品、承辦人…" oninput="filterRecords()"></div>
+        <div class="col-8"><input type="search" class="form-control" id="list-search" placeholder="🔍 搜尋產品、承辦人…" oninput="exactFilter=null; filterRecords()"></div>
         <div class="col-4">
           <select class="form-select" id="list-filter" onchange="filterRecords()">
             <option value="">全部</option>
@@ -357,6 +370,13 @@
             <option value="借出">借出</option>
           </select>
         </div>
+      </div>
+    </div>
+    <div id="exact-filter-bar" style="display:none;margin-bottom:.5rem">
+      <div class="ef-chip">
+        <i class="bi bi-funnel-fill"></i>
+        <span id="ef-label"></span>
+        <button onclick="clearExactFilter()" title="清除篩選">✕</button>
       </div>
     </div>
     <div class="sort-bar">
@@ -541,7 +561,8 @@ function renderInventory(list) {
     const qtyCls = p.balance < 0 ? 'qty-abnormal' : p.balance === 0 ? 'qty-zero' : p.balance < 100 ? 'qty-low' : 'qty-ok';
     const badge  = p.balance < 0 ? '<span class="tag-abnormal ms-1">⚠️ 異常</span>' : '';
     const _sn = p.name.replace(/'/g, "\\'");
-    return `<div class="inv-card ${cls}" onclick="goToRecords('${_sn}')">
+    const _ss = p.spec.replace(/'/g, "\\'");
+    return `<div class="inv-card ${cls}" onclick="goToRecords('${_sn}','${_ss}')">
       <div class="info">
         <div class="pname">${p.name}${badge}</div>
         ${p.spec ? `<div class="spec">${p.spec}</div>` : ''}
@@ -571,11 +592,20 @@ function filterInventory() {
     p.name.toLowerCase().includes(kw) || p.spec.toLowerCase().includes(kw) || p.notes.toLowerCase().includes(kw)));
 }
 
-/* ─ 庫存卡片點擊 → 跳紀錄頁並自動篩選 ─ */
-function goToRecords(name) {
-  document.getElementById('list-search').value = name;
+/* ─ 庫存卡片點擊 → 跳紀錄頁並精準篩選（品名＋規格）─ */
+let exactFilter = null; // { name, spec }
+
+function goToRecords(name, spec) {
+  exactFilter = { name, spec };
+  document.getElementById('list-search').value = '';
   document.getElementById('list-filter').value = '';
-  navigate('list');  // loadRecords() → filterRecords() 會帶入搜尋值
+  navigate('list');
+}
+
+function clearExactFilter() {
+  exactFilter = null;
+  document.getElementById('exact-filter-bar').style.display = 'none';
+  filterRecords();
 }
 
 /* ═══════════════ 新增表單 ═══════════════ */
@@ -622,7 +652,7 @@ async function submitForm(e) {
   };
   btn.disabled = true; btn.textContent = '儲存中…';
   try {
-    await fetch(SCRIPT_URL, { method:'POST', body:JSON.stringify(data) });
+    await gasPost(data);
     showMsg('f-msg', '✅ 已成功儲存！', 'success');
     e.target.reset();
     document.getElementById('f-date').value  = new Date().toISOString().slice(0,10);
@@ -688,9 +718,30 @@ function renderStats(rows) {
 function filterRecords() {
   const kw   = document.getElementById('list-search').value.toLowerCase();
   const type = document.getElementById('list-filter').value;
+
+  // 精準篩選模式（從庫存卡片點擊進來）
+  const efBar = document.getElementById('exact-filter-bar');
+  if (exactFilter) {
+    const label = exactFilter.spec
+      ? `${exactFilter.name}　${exactFilter.spec}`
+      : exactFilter.name;
+    efBar.style.display = '';
+    document.getElementById('ef-label').textContent = label;
+  } else {
+    efBar.style.display = 'none';
+  }
+
   const f = allRows.filter(r => {
+    if (exactFilter) {
+      const nameOk = (r['產品名稱'] || '') === exactFilter.name;
+      const specOk = exactFilter.spec
+        ? (r['規格'] || '') === exactFilter.spec
+        : true;
+      const mt = !type || r['屬性'] === type;
+      return nameOk && specOk && mt;
+    }
     const mk = !kw   || Object.values(r).some(v=>String(v).toLowerCase().includes(kw));
-    const mt = !type || r['屬性']===type;
+    const mt = !type || r['屬性'] === type;
     return mk && mt;
   });
   const sorted = applySortToRows(f);
@@ -797,6 +848,19 @@ function onEditTypeChange() {
   document.getElementById('e-cost-row').style.display   = type === '入庫' ? '' : 'none';
 }
 
+
+/* POST 到 GAS：no-cors 避免 CORS redirect 掛住；10 秒 timeout 保底 */
+function gasPost(payload) {
+  const req = fetch(SCRIPT_URL, {
+    method: 'POST',
+    body:   JSON.stringify(payload),
+    mode:   'no-cors',            // GAS 回 redirect，no-cors 不等 body 直接完成
+  });
+  const timeout = new Promise((_, rej) =>
+    setTimeout(() => rej(new Error('timeout')), 10000));
+  return Promise.race([req, timeout]);
+}
+
 async function saveEdit() {
   const btn  = document.getElementById('e-save-btn');
   const type = document.getElementById('e-type').value;
@@ -820,11 +884,12 @@ async function saveEdit() {
   };
   btn.disabled = true; btn.textContent = '儲存中…';
   try {
-    await fetch(SCRIPT_URL, { method:'POST', body:JSON.stringify(data) });
+    await gasPost(data);
     showMsg('e-msg', '✅ 已更新！', 'success');
-    setTimeout(() => { closeEdit(); loadRecords(); }, 1000);
+    setTimeout(() => { closeEdit(); loadRecords(); }, 800);
   } catch {
     showMsg('e-msg', '❌ 更新失敗，請重試', 'danger');
+  } finally {
     btn.disabled = false; btn.textContent = '💾 儲存變更';
   }
 }
@@ -839,14 +904,12 @@ async function deleteRecord() {
   saveBtn.disabled = true; delBtn.disabled = true; delBtn.textContent = '刪除中…';
 
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body:   JSON.stringify({ action: 'delete', row }),
-    });
+    await gasPost({ action: 'delete', row });
     showMsg('e-msg', '🗑️ 已刪除！', 'success');
-    setTimeout(() => { closeEdit(); loadRecords(); }, 900);
+    setTimeout(() => { closeEdit(); loadRecords(); }, 800);
   } catch {
     showMsg('e-msg', '❌ 刪除失敗，請重試', 'danger');
+  } finally {
     saveBtn.disabled = false; delBtn.disabled = false; delBtn.textContent = '🗑️ 刪除此筆紀錄';
   }
 }
