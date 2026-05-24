@@ -76,7 +76,10 @@
       box-shadow: 0 2px 8px rgba(109,76,65,.09);
       border-left: 6px solid var(--yellow);
       display: flex; align-items: center; gap: .75rem;
+      cursor: pointer; transition: transform .1s, box-shadow .1s;
     }
+    .inv-card:hover  { box-shadow: 0 4px 14px rgba(109,76,65,.15); }
+    .inv-card:active { transform: scale(.98); }
     .inv-card.low  { border-left-color: #E53935; }
     .inv-card.zero { border-left-color: #B0BEC5; opacity: .7; }
 
@@ -260,7 +263,7 @@ function renderInventory(list) {
     const abnormalBadge = p.balance < 0
       ? `<span class="tag-abnormal ms-1">⚠️ 異常</span>` : '';
     return `
-      <div class="inv-card ${cls}">
+      <div class="inv-card ${cls}" onclick="location.href='otpompompurin-list.html?q=${encodeURIComponent(p.name)}'">
         <div class="info">
           <div class="pname">${p.name}${abnormalBadge}</div>
           ${p.spec ? `<div class="spec">${p.spec}</div>` : ''}

@@ -161,7 +161,12 @@
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnuNsZxMRs9S4aWW7AARlBGob2BQ7u7JMUzV_jZRDeRRk02qvp2KitVstrF_9NmQO6/exec';
 let allRows = [];
 
-window.addEventListener('DOMContentLoaded', loadRecords);
+window.addEventListener('DOMContentLoaded', () => {
+  // 讀取來自庫存頁的搜尋關鍵字（?q=productName）
+  const q = new URLSearchParams(location.search).get('q');
+  if (q) document.getElementById('search').value = q;
+  loadRecords();
+});
 
 async function loadRecords() {
   document.getElementById('rec-list').innerHTML =
@@ -169,8 +174,7 @@ async function loadRecords() {
   try {
     const res = await fetch(SCRIPT_URL);
     allRows = await res.json();
-    renderCards(allRows);
-    renderStats(allRows);
+    filterRecords(); // 保留搜尋狀態
   } catch (err) {
     document.getElementById('rec-list').innerHTML =
       `<div class="text-center py-4 text-danger">❌ 載入失敗：${err.message}</div>`;
@@ -183,7 +187,8 @@ function renderCards(rows) {
     el.innerHTML = '<div class="text-center py-4" style="color:#8D6E63">沒有資料</div>';
     return;
   }
-  el.innerHTML = rows.map((r, i) => {
+  el.innerHTML = rows.map((r) => {
+    const realIdx = allRows.indexOf(r);
     const type     = r['屬性'];
     const isIn     = type === '入庫';
     const cardCls  = isIn ? 'in' : type === '借出' ? 'borrow' : 'out';
@@ -191,7 +196,7 @@ function renderCards(rows) {
     const badgeCls = isIn ? 'badge-in' : type === '借出' ? 'badge-borrow' : 'badge-out';
     const qtyCls   = isIn ? 'qty-in'   : type === '借出' ? 'qty-borrow'   : 'qty-out';
     return `
-      <div class="rec-card ${cardCls}" onclick="openEdit(${i})">
+      <div class="rec-card ${cardCls}" onclick="openEdit(${realIdx})">
         <div class="rec-top">
           <div>
             <div class="rec-name">${r['產品名稱']}</div>

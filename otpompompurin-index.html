@@ -69,7 +69,10 @@
       background:#fff; border-radius:16px; padding:.9rem 1rem; margin-bottom:.6rem;
       box-shadow:0 2px 8px rgba(109,76,65,.09); border-left:6px solid var(--yellow);
       display:flex; align-items:center; gap:.75rem;
+      cursor:pointer; transition:transform .1s, box-shadow .1s;
     }
+    .inv-card:active { transform:scale(.98); box-shadow:0 1px 4px rgba(109,76,65,.1); }
+    .inv-card:hover  { box-shadow:0 4px 14px rgba(109,76,65,.15); }
     .inv-card.low      { border-left-color:#E53935; }
     .inv-card.zero     { border-left-color:#B0BEC5; opacity:.7; }
     .inv-card.abnormal { border-left-color:#7B1FA2; background:#F3E5F5; }
@@ -141,6 +144,54 @@
     .product-card .pqty  { font-size:1.75rem; font-weight:800; color:var(--amber); margin-top:.35rem; line-height:1; }
     .product-card .pqty.zero { color:#90A4AE; }
     .product-card .pqty.plow { color:#E53935; }
+
+    /* ── 盤點人 banner ── */
+    .st-person-banner {
+      background: var(--yellow); border-radius: 14px;
+      padding: .7rem 1rem; margin-bottom: .55rem;
+      display: flex; align-items: center; gap: .6rem;
+      box-shadow: 0 2px 8px rgba(109,76,65,.12);
+    }
+    .st-person-banner .icon { font-size: 1.4rem; line-height: 1; }
+    .st-person-banner .name { font-size: 1.1rem; font-weight: 800; color: var(--brown); }
+    .st-person-banner .sub  { font-size: .7rem; color: var(--brown2); font-weight: 700; margin-top: 1px; }
+
+    /* ── 盤點時間條 ── */
+    .st-time-bar {
+      background: #fff; border-radius: 11px;
+      padding: .5rem .9rem; margin-bottom: .8rem;
+      display: flex; align-items: center; gap: .4rem;
+      font-size: .8rem; color: var(--brown2); font-weight: 700;
+      box-shadow: 0 1px 4px rgba(109,76,65,.08);
+    }
+    .st-time-bar i { color: var(--brown2); }
+
+    /* ── 盤點表格 ── */
+    .st-table { width: 100%; border-collapse: collapse; }
+    .st-table thead tr { background: var(--yellow2); }
+    .st-table th {
+      padding: .55rem .9rem; font-size: .76rem; font-weight: 800;
+      color: var(--brown2); letter-spacing: .05em;
+    }
+    .st-table th:first-child { border-radius: 12px 0 0 0; text-align: left; }
+    .st-table th:last-child  { border-radius: 0 12px 0 0; text-align: right; }
+    .st-table tbody { background: #fff; }
+    .st-table td {
+      padding: .65rem .9rem; font-size: .93rem; font-weight: 600;
+      color: var(--brown); border-top: 1px solid var(--yellow2);
+    }
+    .st-table td:first-child { text-align: left; }
+    .st-table td:last-child  { text-align: right; font-size: 1.05rem; font-weight: 800; }
+    .st-table tbody tr:last-child td:first-child  { border-radius: 0 0 0 12px; }
+    .st-table tbody tr:last-child td:last-child   { border-radius: 0 0 12px 0; }
+    .st-table tbody tr:hover { background: #FFFDE7; }
+    .st-wrap {
+      background: #fff; border-radius: 14px; overflow: hidden;
+      box-shadow: 0 2px 8px rgba(109,76,65,.09);
+    }
+    .st-qty-ok   { color: var(--amber); }
+    .st-qty-low  { color: #E53935; }
+    .st-qty-zero { color: #90A4AE; }
   </style>
 </head>
 <body>
@@ -463,7 +514,7 @@ function renderInventory(list) {
     const cls    = p.balance < 0 ? 'abnormal' : p.balance === 0 ? 'zero' : p.balance < 100 ? 'low' : '';
     const qtyCls = p.balance < 0 ? 'qty-abnormal' : p.balance === 0 ? 'qty-zero' : p.balance < 100 ? 'qty-low' : 'qty-ok';
     const badge  = p.balance < 0 ? '<span class="tag-abnormal ms-1">⚠️ 異常</span>' : '';
-    return `<div class="inv-card ${cls}">
+    return `<div class="inv-card ${cls}" onclick="goToRecords(${JSON.stringify(p.name)})">
       <div class="info">
         <div class="pname">${p.name}${badge}</div>
         ${p.spec ? `<div class="spec">${p.spec}</div>` : ''}
@@ -490,6 +541,13 @@ function filterInventory() {
   const kw = document.getElementById('inv-search').value.toLowerCase();
   renderInventory(!kw ? allInventory : allInventory.filter(p =>
     p.name.toLowerCase().includes(kw) || p.spec.toLowerCase().includes(kw) || p.notes.toLowerCase().includes(kw)));
+}
+
+/* ─ 庫存卡片點擊 → 跳紀錄頁並自動篩選 ─ */
+function goToRecords(name) {
+  document.getElementById('list-search').value = name;
+  document.getElementById('list-filter').value = '';
+  navigate('list');  // loadRecords() → filterRecords() 會帶入搜尋值
 }
 
 /* ═══════════════ 新增表單 ═══════════════ */
@@ -554,8 +612,7 @@ async function loadRecords() {
   document.getElementById('rec-list').innerHTML = '<div class="text-center py-5" style="color:#8D6E63">🐾 載入中…</div>';
   try {
     allRows = await (await fetch(SCRIPT_URL)).json();
-    renderCards(allRows);
-    renderStats(allRows);
+    filterRecords(); // 保留搜尋狀態（含從庫存頁跳轉時帶入的關鍵字）
   } catch(err) {
     document.getElementById('rec-list').innerHTML = `<div class="text-center py-4 text-danger">❌ 載入失敗：${err.message}</div>`;
   }
@@ -564,13 +621,14 @@ async function loadRecords() {
 function renderCards(rows) {
   const el = document.getElementById('rec-list');
   if (!rows.length) { el.innerHTML = '<div class="text-center py-4" style="color:#8D6E63">沒有資料</div>'; return; }
-  el.innerHTML = rows.map((r, i) => {
+  el.innerHTML = rows.map((r) => {
+    const realIdx = allRows.indexOf(r); // 取 allRows 真實 index，避免篩選後錯位
     const type = r['屬性'], isIn = type === '入庫';
     const cls  = isIn ? 'in' : type === '借出' ? 'borrow' : 'out';
     const qty  = isIn ? r['入庫數量'] : r['出庫數量'];
     const bc   = isIn ? 'badge-in' : type === '借出' ? 'badge-borrow' : 'badge-out';
     const qc   = isIn ? 'qty-in'   : type === '借出' ? 'qty-borrow'   : 'qty-out';
-    return `<div class="rec-card ${cls}" onclick="openEdit(${i})">
+    return `<div class="rec-card ${cls}" onclick="openEdit(${realIdx})">
       <div class="rec-top">
         <div>
           <div class="rec-name">${r['產品名稱']}</div>
@@ -730,23 +788,38 @@ async function loadStocktake() {
     const tsStr = (ts && !isNaN(ts))
       ? ts.toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
       : rawTs || '—';
+    const person = data['盤點人'] || '—';
     document.getElementById('st-info').innerHTML = `
-      <div class="info-block">
-        <div><div class="lbl">盤點時間</div><div class="val">${tsStr}</div></div>
-        <div><div class="lbl">盤點人</div><div class="val">${data['盤點人']||'—'}</div></div>
+      <div class="st-person-banner">
+        <div class="icon">👤</div>
+        <div>
+          <div class="sub">盤點人</div>
+          <div class="name">${person}</div>
+        </div>
+      </div>
+      <div class="st-time-bar">
+        <i class="bi bi-clock"></i> ${tsStr}
       </div>`;
+
     const products = Object.entries(data).filter(([k]) => !STOCKTAKE_SKIP.includes(k));
-    let html = `<div class="section-title">📦 庫存數量</div><div class="row g-2">`;
+    let rows = '';
     products.forEach(([name, raw]) => {
       const q   = raw === '' ? null : Number(raw);
       const nil = q === null || isNaN(q);
-      const cls = nil ? 'zero' : q === 0 ? 'zero' : q < 20 ? 'plow' : '';
-      html += `<div class="col-6"><div class="product-card">
-        <div class="pname">${name}</div>
-        <div class="pqty ${cls}">${nil ? '—' : q.toLocaleString()}</div>
-      </div></div>`;
+      const cls = nil ? 'st-qty-zero' : q === 0 ? 'st-qty-zero' : q < 20 ? 'st-qty-low' : 'st-qty-ok';
+      rows += `<tr>
+        <td>${name}</td>
+        <td class="${cls}">${nil ? '—' : q.toLocaleString()}</td>
+      </tr>`;
     });
-    document.getElementById('st-products').innerHTML = html + '</div>';
+    document.getElementById('st-products').innerHTML = `
+      <div class="section-title">📦 庫存數量</div>
+      <div class="st-wrap">
+        <table class="st-table">
+          <thead><tr><th>品項</th><th>數量</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   } catch(err) {
     document.getElementById('st-products').innerHTML = `<div class="text-center py-4 text-danger">❌ 載入失敗：${err.message}</div>`;
   }
