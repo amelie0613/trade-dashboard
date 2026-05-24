@@ -82,112 +82,145 @@ function render(){
   var N=groups.length, done=Object.keys(decisions).length;
   document.getElementById('prog-label').textContent=done+' / '+N+' 已確認';
   document.getElementById('prog-bar').style.width=(N?done/N*100:100)+'%';
-  if(!N){document.getElementById('root').innerHTML='<div class="card" style="text-align:center;padding:40px;color:#1e8e3e">✅ 未發現疑似重複品項！</div>';return;}
+  if(!N){document.getElementById('root').innerHTML='<div class="card" style="text-align:center;padding:40px;color:#1e8e3e">✅ 未發現寫法不一致的品項！</div>';return;}
   if(page>=N){renderSummary(N);return;}
   renderGroup(page,N);
 }
 
 function renderGroup(p,N){
-  var g=groups[p], prev=decisions[p]||{}, isMerge=prev.action!=='keep';
+  var g=groups[p], prev=decisions[p]||{}, isStd=prev.action!=='skip';
+
+  // 群組導覽 chip
   var chips=groups.map(function(_,i){
-    var d=decisions[i], cl=!d?'':(d.action==='merge'?' done-merge':' done-keep');
-    var lbl=!d?(i===p?'▶ 组'+(i+1):'組'+(i+1)):(d.action==='merge'?'✓':'–')+' 組'+(i+1);
+    var d=decisions[i], cl=!d?'':(d.action==='standardize'?' done-merge':' done-keep');
+    var lbl=!d?(i===p?'▶ 組'+(i+1):'組'+(i+1)):(d.action==='standardize'?'✓':'–')+' 組'+(i+1);
     return '<span class="group-chip'+(i===p?' active':'')+cl+'" onclick="jumpTo('+i+')">'+lbl+'</span>';
   }).join('');
+
+  // 收集此群組所有單位
+  var allUnits=[];
+  g.forEach(function(r){(r.units||[]).forEach(function(u){if(allUnits.indexOf(u)<0)allUnits.push(u);});});
+
+  // 資料表
   var rows=g.map(function(r){
-    return '<tr><td style="font-size:12px;color:#5f6368">'+r.rowIndices.length+'筆</td><td>'+esc(r.name)+'</td><td>'+esc(r.spec)+'</td>'
-      +'<td class="num">'+r.inQty.toLocaleString()+'</td><td class="num">'+r.outQty.toLocaleString()+'</td><td class="num">'+r.stock.toLocaleString()+'</td></tr>';
+    return '<tr>'
+      +'<td style="font-size:12px;color:#5f6368">'+r.rowIndices.length+'筆</td>'
+      +'<td>'+esc(r.name)+'</td>'
+      +'<td>'+esc(r.spec)+'</td>'
+      +'<td>'+esc((r.units||[]).join('、'))+'</td>'
+      +'<td class="num">'+r.inQty.toLocaleString()+'</td>'
+      +'<td class="num">'+r.outQty.toLocaleString()+'</td>'
+      +'<td class="num">'+r.stock.toLocaleString()+'</td>'
+    +'</tr>';
   }).join('');
-  var opts=g.map(function(r,i){return '<option value="'+i+'">'+esc(r.name)+' / '+esc(r.spec)+'（'+r.rowIndices.length+'筆）</option>';}).join('')
-    +'<option value="custom">✏️ 自訂名稱/規格</option>';
-  var tIn=g.reduce(function(s,r){return s+r.inQty;},0);
-  var tOut=g.reduce(function(s,r){return s+r.outQty;},0);
-  var tStk=g.reduce(function(s,r){return s+r.stock;},0);
-  var selVal=(prev.masterIdx!==undefined&&!prev.custom)?prev.masterIdx:(prev.custom?'custom':0);
+
+  // 「以此列為準」下拉選單
+  var opts=g.map(function(r,i){
+    return '<option value="'+i+'">'+esc(r.name)+' ／ '+esc(r.spec||'（無規格）')+' ／ '+esc((r.units||[]).join('、')||'（無單位）')+'</option>';
+  }).join('');
+
+  // 單位下拉選單
+  var unitOpts='<option value="">— 不變更單位 —</option>'
+    +allUnits.map(function(u){return '<option value="'+esc(u)+'">'+esc(u)+'</option>';}).join('');
+
+  // 還原上次決定
+  var prevMaster = prev.masterIdx !== undefined ? prev.masterIdx : 0;
+  var prevName   = prev.finalName  || g[0].name;
+  var prevSpec   = prev.finalSpec  || g[0].spec;
+  var prevUnit   = prev.finalUnit  || '';
 
   document.getElementById('root').innerHTML=
     '<div class="group-list">'+chips+'</div>'
-    +'<div class="card"><div class="card-title">第 '+(p+1)+' 組 / 共 '+N+' 組 — 疑似重複品項</div>'
-    +'<table><tr><th>列</th><th>產品名稱</th><th>規格</th><th>進貨量</th><th>出貨量</th><th>在庫量</th></tr>'+rows+'</table>'
+    +'<div class="card"><div class="card-title">第 '+(p+1)+' 組 / 共 '+N+' 組 — 寫法不一致</div>'
+    +'<table><tr><th>筆數</th><th>產品名稱</th><th>規格</th><th>單位</th><th>進貨量</th><th>出貨量</th><th>在庫量</th></tr>'+rows+'</table>'
     +'<div class="radio-group">'
-      +'<label><input type="radio" name="act" value="merge"'+(isMerge?' checked':'')+'>合併為同一品項</label>'
-      +'<label><input type="radio" name="act" value="keep"'+(!isMerge?' checked':'')+'>維持原狀（不同品項）</label>'
+      +'<label><input type="radio" name="act" value="standardize"'+(isStd?' checked':'')+'>統一寫法（套用至所有相關紀錄）</label>'
+      +'<label><input type="radio" name="act" value="skip"'+(!isStd?' checked':'')+'>略過（確認為不同品項）</label>'
     +'</div>'
-    +'<div id="merge-opts">'
-      +'<div class="field-label">以哪一筆為主（其餘刪除，數量加總）</div>'
+    +'<div id="std-opts">'
+      +'<div class="field-label">以此列的寫法為準（可手動修改）</div>'
       +'<select id="master-sel">'+opts+'</select>'
-      +'<div id="custom-fields" style="display:none"><div class="custom-row">'
-        +'<div><div class="field-label">產品名稱</div><input type="text" id="cname" value="'+esc(g[0].name)+'"></div>'
-        +'<div><div class="field-label">規格</div><input type="text" id="cspec" value="'+esc(g[0].spec)+'"></div>'
-      +'</div></div>'
-      +'<div class="qty-preview">'
-        +'<div class="qty-box"><div class="val">'+tIn.toLocaleString()+'</div><div class="lbl">合併後進貨量</div></div>'
-        +'<div class="qty-box"><div class="val">'+tOut.toLocaleString()+'</div><div class="lbl">合併後出貨量</div></div>'
-        +'<div class="qty-box"><div class="val">'+tStk.toLocaleString()+'</div><div class="lbl">合併後在庫量</div></div>'
+      +'<div class="custom-row" style="margin-top:10px">'
+        +'<div><div class="field-label">統一品名</div><input type="text" id="cname" value="'+esc(prevName)+'"></div>'
+        +'<div><div class="field-label">統一規格</div><input type="text" id="cspec" value="'+esc(prevSpec)+'"></div>'
+      +'</div>'
+      +'<div style="margin-top:8px"><div class="field-label">統一單位</div>'
+        +'<select id="cunit" style="width:100%;padding:8px 10px;border:1px solid #dadce0;border-radius:6px;font-size:13px">'+unitOpts+'</select>'
       +'</div>'
     +'</div>'
-    +'<div class="nav">'
+    +'<div class="nav" style="margin-top:14px">'
       +'<button class="btn btn-secondary" onclick="goBack()"'+(p===0?' disabled':'')+'>← 上一組</button>'
       +'<button class="btn btn-primary" onclick="confirm_()">'+(p===N-1?'完成確認 ✓':'確認 → 下一組')+'</button>'
     +'</div></div>';
 
-  document.getElementById('master-sel').value=selVal;
-  if(prev.custom){document.getElementById('cname').value=prev.finalName||g[0].name;document.getElementById('cspec').value=prev.finalSpec||g[0].spec;}
-  document.querySelectorAll('input[name=act]').forEach(function(r){r.addEventListener('change',updateMergeOpts);});
-  document.getElementById('master-sel').addEventListener('change',toggleCustom);
-  updateMergeOpts();
+  document.getElementById('master-sel').value=prevMaster;
+  document.getElementById('cunit').value=prevUnit;
+  document.querySelectorAll('input[name=act]').forEach(function(r){r.addEventListener('change',updateStdOpts);});
+  document.getElementById('master-sel').addEventListener('change',syncMaster);
+  updateStdOpts();
 }
 
-function updateMergeOpts(){
-  var m=document.querySelector('input[name=act]:checked').value==='merge';
-  document.getElementById('merge-opts').style.display=m?'block':'none';
-  if(m)toggleCustom();
+function syncMaster(){
+  var g=groups[page], idx=parseInt(document.getElementById('master-sel').value)||0;
+  document.getElementById('cname').value=g[idx].name;
+  document.getElementById('cspec').value=g[idx].spec||'';
+  var u=document.getElementById('cunit');
+  if(g[idx].units&&g[idx].units[0]) u.value=g[idx].units[0]; else u.value='';
 }
-function toggleCustom(){
-  var s=document.getElementById('master-sel');
-  document.getElementById('custom-fields').style.display=s&&s.value==='custom'?'block':'none';
+function updateStdOpts(){
+  var on=document.querySelector('input[name=act]:checked').value==='standardize';
+  document.getElementById('std-opts').style.display=on?'block':'none';
 }
 function confirm_(){
-  var N=groups.length,g=groups[page],action=document.querySelector('input[name=act]:checked').value;
-  if(action==='merge'){
-    var s=document.getElementById('master-sel'),isC=s.value==='custom',midx=isC?0:parseInt(s.value);
-    decisions[page]={action:'merge',
-      finalName:isC?document.getElementById('cname').value.trim():g[midx].name,
-      finalSpec:isC?document.getElementById('cspec').value.trim():g[midx].spec,
-      groups:g.map(function(r){return {name:r.name,spec:r.spec,rowIndices:r.rowIndices};})};
-  }else{decisions[page]={action:'keep'};}
+  var N=groups.length, g=groups[page], action=document.querySelector('input[name=act]:checked').value;
+  if(action==='standardize'){
+    var midx=parseInt(document.getElementById('master-sel').value)||0;
+    decisions[page]={
+      action:'standardize',
+      masterIdx:midx,
+      finalName:document.getElementById('cname').value.trim(),
+      finalSpec:document.getElementById('cspec').value.trim(),
+      finalUnit:document.getElementById('cunit').value,
+      groups:g.map(function(r){return {name:r.name,spec:r.spec,units:r.units||[],rowIndices:r.rowIndices};})
+    };
+  }else{decisions[page]={action:'skip'};}
   page=(page>=N-1)?N:page+1;render();
 }
 function goBack(){if(page>0){page--;render();}}
 function jumpTo(i){page=i;render();}
 
 function renderSummary(N){
-  var merges=[],keeps=[];
-  Object.keys(decisions).forEach(function(k){var d=decisions[k];if(d.action==='merge')merges.push({idx:+k,d:d});else keeps.push({idx:+k,d:d});});
+  var stds=[],skips=[];
+  Object.keys(decisions).forEach(function(k){
+    var d=decisions[k];
+    if(d.action==='standardize') stds.push({idx:+k,d:d}); else skips.push({idx:+k,d:d});
+  });
   document.getElementById('root').innerHTML=
     '<div class="card"><div class="card-title">✅ 確認完成 — 變更摘要</div>'
-    +'<div class="stat-row">'+stat(N,'群組總數','#202124')+stat(merges.length,'合併','#1e8e3e')+stat(keeps.length,'分開','#5f6368')+'</div>'
-    +(merges.length?'<p style="font-weight:600;margin-bottom:6px">合併項目</p>'+merges.map(function(m){
-      return '<div class="summary-merge">組'+(m.idx+1)+'　'+groups[m.idx].map(function(r){return '「'+esc(r.name)+'」';}).join(' ＋ ')
-        +'　→　<strong>'+esc(m.d.finalName)+' / '+esc(m.d.finalSpec)+'</strong></div>';
+    +'<div class="stat-row">'+stat(N,'群組總數','#202124')+stat(stds.length,'統一寫法','#1e8e3e')+stat(skips.length,'略過','#5f6368')+'</div>'
+    +(stds.length?'<p style="font-weight:600;margin-bottom:6px">統一寫法項目</p>'+stds.map(function(m){
+      var unitHint=m.d.finalUnit?' ／ <strong>'+esc(m.d.finalUnit)+'</strong>':'';
+      return '<div class="summary-merge">組'+(m.idx+1)+'　'
+        +groups[m.idx].map(function(r){return '「'+esc(r.name)+'」';}).join(' ＋ ')
+        +'　→　<strong>'+esc(m.d.finalName)+' / '+esc(m.d.finalSpec)+'</strong>'+unitHint+'</div>';
     }).join(''):'')
-    +(keeps.length?'<p style="font-weight:600;margin:10px 0 6px">維持原狀</p>'+keeps.map(function(k){
+    +(skips.length?'<p style="font-weight:600;margin:10px 0 6px">略過</p>'+skips.map(function(k){
       return '<div class="summary-keep">組'+(k.idx+1)+'　'+groups[k.idx].map(function(r){return '「'+esc(r.name)+'」';}).join('、')+'</div>';
     }).join(''):'')
     +'<div class="nav" style="margin-top:16px">'
       +'<button class="btn btn-secondary" onclick="page=groups.length-1;render()">← 返回修改</button>'
-      +'<button class="btn btn-success" id="apply-btn" onclick="applyAll()">套用變更到試算表</button>'
+      +'<button class="btn btn-success" id="apply-btn" onclick="applyAll()">套用至試算表</button>'
     +'</div><div id="status"></div></div>';
 }
 function stat(v,l,c){return '<div class="stat-box"><div class="val" style="color:'+c+'">'+v+'</div><div class="lbl">'+l+'</div></div>';}
 function applyAll(){
-  var list=Object.values(decisions).filter(function(d){return d.action==='merge';});
-  if(!list.length){document.getElementById('status').innerHTML='<span style="color:#e37400">⚠️ 沒有選擇合併的項目。</span>';return;}
+  var list=Object.values(decisions).filter(function(d){return d.action==='standardize';});
+  if(!list.length){document.getElementById('status').innerHTML='<span style="color:#e37400">⚠️ 沒有選擇統一寫法的項目。</span>';return;}
   document.getElementById('apply-btn').disabled=true;
   document.getElementById('status').innerHTML='<span class="spinner"></span> 套用中，請勿關閉頁面…';
   fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'applyDecisions',decisions:list})})
     .then(function(r){return r.json();})
-    .then(function(res){document.getElementById('status').innerHTML='<span style="color:#1e8e3e">✅ 完成！已合併 '+list.length+' 組，更新 '+res.updated+' 筆紀錄的品名/規格。在庫統計將自動重算。</span>';})
+    .then(function(res){document.getElementById('status').innerHTML='<span style="color:#1e8e3e">✅ 完成！已統一 '+list.length+' 組，更新 '+res.updated+' 筆記錄的品名／規格／單位。在庫統計將自動重算。</span>';})
     .catch(function(e){document.getElementById('apply-btn').disabled=false;document.getElementById('status').innerHTML='<span style="color:#c5221f">❌ 錯誤：'+e.message+'</span>';});
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
