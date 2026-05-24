@@ -827,13 +827,14 @@ function acVendorSearch() {
 
   const matches = kw
     ? all.filter(v => v.toLowerCase().includes(kw)).slice(0, 10)
-    : all.slice(0, 10); // 空字串時顯示前 10 筆
+    : all.slice(0, 10);
 
   if (!matches.length) { list.style.display = 'none'; return; }
 
+  list._vendorMatches = matches; // 存起來讓 index 選取用
   list.innerHTML = matches.map((v, i) =>
-    `<div class="ac-item" data-idx="${i}"
-        onmousedown="acVendorSelect(${JSON.stringify(v)})"
+    `<div class="ac-item"
+        onmousedown="acVendorSelect(${i})"
         onmouseover="acVendorHighlight(${i})">
       <div class="ac-name">${v}</div>
     </div>`
@@ -848,7 +849,7 @@ function acVendorHighlight(idx) {
 }
 
 function acVendorKeyNav(e) {
-  const list  = document.getElementById('ac-vendor-list');
+  const list = document.getElementById('ac-vendor-list');
   if (list.style.display === 'none') {
     if (e.key === 'ArrowDown') { acVendorSearch(); return; }
     return;
@@ -864,16 +865,18 @@ function acVendorKeyNav(e) {
     acVendorHighlight(acVendorIndex);
   } else if (e.key === 'Enter' && acVendorIndex >= 0) {
     e.preventDefault();
-    items[acVendorIndex].dispatchEvent(new MouseEvent('mousedown'));
+    acVendorSelect(acVendorIndex);
   } else if (e.key === 'Escape') {
     acVendorHide();
   }
 }
 
-function acVendorSelect(vendor) {
+function acVendorSelect(idx) {
+  const list   = document.getElementById('ac-vendor-list');
+  const vendor = (list._vendorMatches || [])[idx];
+  if (!vendor) return;
   document.getElementById('f-vendor').value = vendor;
   acVendorHide();
-  // 選完供應商後游標跳到產品名稱
   document.getElementById('f-product').focus();
 }
 
