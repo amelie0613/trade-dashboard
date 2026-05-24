@@ -228,6 +228,19 @@
     .st-qty-ok   { color: var(--amber); }
     .st-qty-low  { color: #E53935; }
     .st-qty-zero { color: #90A4AE; }
+    /* ── 盤點歷史面板 ── */
+    .sth-table { width:100%; border-collapse:collapse; }
+    .sth-table th { background:var(--yellow2); padding:10px 14px; font-size:.85rem; color:var(--brown); }
+    .sth-table th:first-child  { text-align:left; border-radius:12px 0 0 0; }
+    .sth-table th:last-child   { text-align:right; border-radius:0 12px 0 0; }
+    .sth-table td { padding:11px 14px; border-bottom:1px solid #F5E9C9; font-size:.95rem; }
+    .sth-table td:first-child  { text-align:left; color:var(--brown2); }
+    .sth-table td:last-child   { text-align:right; font-weight:800; color:var(--amber); }
+    .sth-table td.sth-zero     { color:#90A4AE; font-weight:400; }
+    .sth-table tbody tr:last-child td:first-child { border-radius:0 0 0 12px; }
+    .sth-table tbody tr:last-child td:last-child  { border-radius:0 0 12px 0; }
+    .sth-table tbody tr:nth-child(even) { background:#FFFDE7; }
+    .sth-person { font-size:.82rem; color:var(--brown2); margin-left:6px; }
   </style>
 </head>
 <body>
@@ -404,6 +417,19 @@
   </div>
 </div>
 
+<!-- ═══ 盤點歷史覆蓋層 ═══ -->
+<div id="page-sth" style="display:none;position:fixed;inset:0;overflow-y:auto;background:var(--cream);z-index:200;padding-bottom:40px">
+  <div class="topbar" style="position:sticky;top:0;z-index:10">
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn-icon" onclick="closeSth()"><i class="bi bi-arrow-left"></i></button>
+      <h6 id="sth-title">📋 盤點歷史</h6>
+    </div>
+  </div>
+  <div class="container-fluid px-3 pt-3" style="max-width:600px">
+    <div id="sth-body"></div>
+  </div>
+</div>
+
 <!-- ═══ 編輯覆蓋層（全螢幕）═══ -->
 <div id="page-edit" style="display:none;position:fixed;inset:0;overflow-y:auto;background:var(--cream);z-index:200;padding-bottom:40px">
   <div class="topbar" style="position:sticky;top:0;z-index:10">
@@ -505,6 +531,7 @@ const STOCKTAKE_SKIP = ['時間戳記','盤點人'];
 let allRows = [];
 let allInventory = [];
 let currentEditRow = null;
+let stHistory = []; // 所有盤點紀錄（newest first）
 
 /* ═══════════════ 路由 ═══════════════ */
 function navigate(page) {
@@ -918,45 +945,54 @@ async function deleteRecord() {
 }
 
 /* ═══════════════ 盤點頁 ═══════════════ */
+const PERSON_KEYS = ['盤點人', '盤點人員', '姓名', '填寫人'];
+
+function stDetectPerson(data) {
+  // 層1：GAS 標準化後直接命中
+  for (const k of PERSON_KEYS) { if (data[k]) return { person: data[k], personKey: k }; }
+  // 層2：值為非空非數字字串
+  const f2 = Object.entries(data).find(([k, v]) =>
+    k && k.trim() && !STOCKTAKE_SKIP.includes(k) && !PERSON_KEYS.includes(k) && v && isNaN(Number(v)));
+  if (f2) return { person: f2[1], personKey: f2[0] };
+  // 層3：B 欄格式 → 鍵為姓名、值為空
+  const f3 = Object.entries(data).find(([k, v]) =>
+    k && k.trim() && !STOCKTAKE_SKIP.includes(k) && !PERSON_KEYS.includes(k)
+    && (v === '' || v === null) && isNaN(Number(k)));
+  if (f3) return { person: f3[0], personKey: f3[0] };
+  return { person: '—', personKey: null };
+}
+
+function stFilterProducts(data, personKey) {
+  return Object.entries(data).filter(([k, v]) => {
+    if (!k || !k.trim()) return false;
+    if (STOCKTAKE_SKIP.includes(k)) return false;
+    if (PERSON_KEYS.includes(k)) return false;
+    if (personKey && k === personKey) return false;
+    if (v !== '' && v !== null && isNaN(Number(v))) return false;
+    return true;
+  });
+}
+
+function stFmtTs(raw) {
+  if (!raw) return '—';
+  const ts = new Date(raw);
+  return (!isNaN(ts))
+    ? ts.toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+    : raw;
+}
+
 async function loadStocktake() {
   document.getElementById('st-products').innerHTML = '<div class="text-center py-5" style="color:#8D6E63">🐾 載入中…</div>';
   document.getElementById('st-info').innerHTML = '';
   try {
-    const data = await (await fetch(SCRIPT_URL + '?action=stocktake')).json();
-    if (!Object.keys(data).length) {
+    const all = await (await fetch(SCRIPT_URL + '?action=stocktake-history')).json();
+    stHistory = Array.isArray(all) ? all : [];
+    if (!stHistory.length) {
       document.getElementById('st-products').innerHTML = '<div class="text-center py-4" style="color:#8D6E63">尚無盤點紀錄</div>';
       return;
     }
-    const rawTs = data['時間戳記'] || '';
-    const ts    = rawTs ? new Date(rawTs) : null;
-    const tsStr = (ts && !isNaN(ts))
-      ? ts.toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
-      : rawTs || '—';
-
-    // 盤點人：依優先順序三層偵測
-    const PERSON_KEYS = ['盤點人', '盤點人員', '姓名', '填寫人'];
-    let person = '';
-    let personKey = null;  // 記錄偵測到的 key，之後從商品清單排除
-
-    // 層1：GAS 已標準化 → 直接用固定鍵
-    for (const k of PERSON_KEYS) {
-      if (data[k]) { person = data[k]; personKey = k; break; }
-    }
-    // 層2：值為非空非數字字串（舊格式：鍵=欄位名, 值=人名）
-    if (!person) {
-      const found = Object.entries(data).find(([k, v]) =>
-        k && k.trim() && !STOCKTAKE_SKIP.includes(k) && !PERSON_KEYS.includes(k)
-        && v && isNaN(Number(v)));
-      if (found) { person = found[1]; personKey = found[0]; }
-    }
-    // 層3：Google 表單 B 欄格式 → 鍵本身即為人名，值為空字串
-    if (!person) {
-      const found = Object.entries(data).find(([k, v]) =>
-        k && k.trim() && !STOCKTAKE_SKIP.includes(k) && !PERSON_KEYS.includes(k)
-        && (v === '' || v === null) && isNaN(Number(k)));
-      if (found) { person = found[0]; personKey = found[0]; }
-    }
-    person = person || '—';
+    const data = stHistory[0]; // 最新一筆
+    const { person, personKey } = stDetectPerson(data);
 
     document.getElementById('st-info').innerHTML = `
       <div class="st-person-banner">
@@ -967,31 +1003,23 @@ async function loadStocktake() {
         </div>
       </div>
       <div class="st-time-bar">
-        <i class="bi bi-clock"></i> ${tsStr}
+        <i class="bi bi-clock"></i> ${stFmtTs(data['時間戳記'])}
       </div>`;
 
-    // 只保留：有欄位名稱 + 值為空或數字（排除 metadata / 人名欄位）
-    const products = Object.entries(data).filter(([k, v]) => {
-      if (!k || !k.trim()) return false;                            // 跳過空白欄位名稱
-      if (STOCKTAKE_SKIP.includes(k)) return false;                 // 跳過已知 meta 欄
-      if (PERSON_KEYS.includes(k)) return false;                    // 跳過標準盤點人欄
-      if (personKey && k === personKey) return false;               // 跳過偵測到的人名欄
-      if (v !== '' && v !== null && isNaN(Number(v))) return false; // 跳過非數字值
-      return true;
-    });
+    const products = stFilterProducts(data, personKey);
     let rows = '';
     products.forEach(([name, raw]) => {
       const q   = raw === '' ? null : Number(raw);
       const nil = q === null || isNaN(q);
       const cls = nil ? 'st-qty-zero' : q === 0 ? 'st-qty-zero' : q < 20 ? 'st-qty-low' : 'st-qty-ok';
       const _sn = name.replace(/'/g, "\\'");
-      rows += `<tr onclick="goToRecords('${_sn}','')">
+      rows += `<tr onclick="openSth('${_sn}')">
         <td>${name}<span class="st-go">›</span></td>
         <td class="${cls}">${nil ? '—' : q.toLocaleString()}</td>
       </tr>`;
     });
     document.getElementById('st-products').innerHTML = `
-      <div class="section-title">📦 庫存數量</div>
+      <div class="section-title">📦 最新盤點數量</div>
       <div class="st-wrap">
         <table class="st-table">
           <thead><tr><th>品項</th><th>數量</th></tr></thead>
@@ -1001,6 +1029,42 @@ async function loadStocktake() {
   } catch(err) {
     document.getElementById('st-products').innerHTML = `<div class="text-center py-4 text-danger">❌ 載入失敗：${err.message}</div>`;
   }
+}
+
+/* ── 盤點歷史面板 ── */
+function openSth(name) {
+  if (!stHistory.length) return;
+  document.getElementById('sth-title').textContent = `📋 ${name}　盤點歷史`;
+
+  // 從每次盤點中取出該品項數量
+  const rows = stHistory.map(snap => {
+    const rawTs = snap['時間戳記'] || '';
+    const { person } = stDetectPerson(snap);
+    const raw = snap[name];
+    const q   = (raw === '' || raw === null || raw === undefined) ? null : Number(raw);
+    const nil = q === null || isNaN(q);
+    const cls = nil ? 'sth-zero' : '';
+    return `<tr>
+      <td>${stFmtTs(rawTs)}<span class="sth-person">${person}</span></td>
+      <td class="${cls}">${nil ? '—' : q.toLocaleString()}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('sth-body').innerHTML = `
+    <div class="st-wrap mt-2">
+      <table class="sth-table">
+        <thead><tr><th>盤點時間</th><th>數量</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  const panel = document.getElementById('page-sth');
+  panel.style.display = 'block';
+  panel.scrollTop = 0;
+}
+
+function closeSth() {
+  document.getElementById('page-sth').style.display = 'none';
 }
 
 /* ═══════════════ 工具 ═══════════════ */
