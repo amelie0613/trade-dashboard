@@ -585,6 +585,14 @@ function navigate(page) {
   if (page === 'inventory') loadInventory();
   if (page === 'list')      loadRecords();
   if (page === 'stocktake') loadStocktake();
+  if (page === 'form' && !allRows.length) ensureRowsForAC();
+}
+
+// 背景靜默載入紀錄，供表單自動補全使用
+async function ensureRowsForAC() {
+  try {
+    allRows = await (await fetch(SCRIPT_URL)).json();
+  } catch { /* 失敗不影響表單正常使用 */ }
 }
 
 /* ═══════════════ 庫存頁 ═══════════════ */
