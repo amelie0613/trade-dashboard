@@ -217,7 +217,10 @@
     .st-table td:last-child  { text-align: right; font-size: 1.05rem; font-weight: 800; }
     .st-table tbody tr:last-child td:first-child  { border-radius: 0 0 0 12px; }
     .st-table tbody tr:last-child td:last-child   { border-radius: 0 0 12px 0; }
+    .st-table tbody tr { cursor: pointer; }
     .st-table tbody tr:hover { background: #FFFDE7; }
+    .st-table tbody tr:hover .st-go { opacity: 1; }
+    .st-go { opacity: 0; transition: opacity .15s; color: var(--amber); font-size: .85rem; padding-left: 4px; }
     .st-wrap {
       background: #fff; border-radius: 14px; overflow: hidden;
       box-shadow: 0 2px 8px rgba(109,76,65,.09);
@@ -930,14 +933,28 @@ async function loadStocktake() {
       ? ts.toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
       : rawTs || '—';
 
-    // 盤點人：先試固定鍵，找不到就找值為非空非數字的第一個欄位
+    // 盤點人：依優先順序三層偵測
     const PERSON_KEYS = ['盤點人', '盤點人員', '姓名', '填寫人'];
     let person = '';
-    for (const k of PERSON_KEYS) { if (data[k]) { person = data[k]; break; } }
+    let personKey = null;  // 記錄偵測到的 key，之後從商品清單排除
+
+    // 層1：GAS 已標準化 → 直接用固定鍵
+    for (const k of PERSON_KEYS) {
+      if (data[k]) { person = data[k]; personKey = k; break; }
+    }
+    // 層2：值為非空非數字字串（舊格式：鍵=欄位名, 值=人名）
     if (!person) {
       const found = Object.entries(data).find(([k, v]) =>
-        k && k.trim() && !STOCKTAKE_SKIP.includes(k) && v && isNaN(Number(v)));
-      if (found) person = found[1];
+        k && k.trim() && !STOCKTAKE_SKIP.includes(k) && !PERSON_KEYS.includes(k)
+        && v && isNaN(Number(v)));
+      if (found) { person = found[1]; personKey = found[0]; }
+    }
+    // 層3：Google 表單 B 欄格式 → 鍵本身即為人名，值為空字串
+    if (!person) {
+      const found = Object.entries(data).find(([k, v]) =>
+        k && k.trim() && !STOCKTAKE_SKIP.includes(k) && !PERSON_KEYS.includes(k)
+        && (v === '' || v === null) && isNaN(Number(k)));
+      if (found) { person = found[0]; personKey = found[0]; }
     }
     person = person || '—';
 
@@ -955,10 +972,11 @@ async function loadStocktake() {
 
     // 只保留：有欄位名稱 + 值為空或數字（排除 metadata / 人名欄位）
     const products = Object.entries(data).filter(([k, v]) => {
-      if (!k || !k.trim()) return false;                       // 跳過空白欄位名稱
-      if (STOCKTAKE_SKIP.includes(k)) return false;            // 跳過已知 meta 欄
-      if (PERSON_KEYS.includes(k)) return false;               // 跳過盤點人欄
-      if (v !== '' && v !== null && isNaN(Number(v))) return false; // 跳過非數字值（人名等）
+      if (!k || !k.trim()) return false;                            // 跳過空白欄位名稱
+      if (STOCKTAKE_SKIP.includes(k)) return false;                 // 跳過已知 meta 欄
+      if (PERSON_KEYS.includes(k)) return false;                    // 跳過標準盤點人欄
+      if (personKey && k === personKey) return false;               // 跳過偵測到的人名欄
+      if (v !== '' && v !== null && isNaN(Number(v))) return false; // 跳過非數字值
       return true;
     });
     let rows = '';
@@ -966,8 +984,9 @@ async function loadStocktake() {
       const q   = raw === '' ? null : Number(raw);
       const nil = q === null || isNaN(q);
       const cls = nil ? 'st-qty-zero' : q === 0 ? 'st-qty-zero' : q < 20 ? 'st-qty-low' : 'st-qty-ok';
-      rows += `<tr>
-        <td>${name}</td>
+      const _sn = name.replace(/'/g, "\\'");
+      rows += `<tr onclick="goToRecords('${_sn}','')">
+        <td>${name}<span class="st-go">›</span></td>
         <td class="${cls}">${nil ? '—' : q.toLocaleString()}</td>
       </tr>`;
     });
