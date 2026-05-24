@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px; color: #202124; padding: 12px; }
+    h3  { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    table  { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12px; }
+    th, td { border: 1px solid #dadce0; padding: 5px 7px; }
+    th     { background: #f1f3f4; font-weight: 600; white-space: nowrap; }
+    td.num { text-align: right; }
+    .section { margin-bottom: 16px; }
+    .issue-card { border: 1px solid #f5c6cb; background: #fff5f5; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+    .issue-card.warn { border-color: #ffc107; background: #fffdf0; }
+    .issue-title { font-weight: 600; margin-bottom: 6px; font-size: 12px; }
+    .tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; margin: 1px; }
+    .tag-入庫 { background: #d4edda; color: #155724; }
+    .tag-出庫 { background: #cce5ff; color: #004085; }
+    .tag-期初 { background: #e2e3e5; color: #383d41; }
+    .fix-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 12px; }
+    .fix-row label { white-space: nowrap; color: #5f6368; min-width: 60px; }
+    .fix-row input { flex: 1; padding: 4px 6px; border: 1px solid #dadce0; border-radius: 4px; font-size: 12px; }
+    .fix-row select { flex: 1; padding: 4px 6px; border: 1px solid #dadce0; border-radius: 4px; font-size: 12px; }
+    .btn { padding: 7px 14px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 500; }
+    .btn-primary   { background: #1a73e8; color: #fff; }
+    .btn-secondary { background: #f1f3f4; color: #202124; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .info  { background: #e8f0fe; border-radius: 4px; padding: 7px 9px; font-size: 12px; color: #1a56db; margin: 6px 0; }
+    .loading { text-align: center; padding: 24px 0; color: #5f6368; }
+    hr { border: none; border-top: 1px solid #e8eaed; margin: 10px 0; }
+    #status { margin-top: 8px; font-size: 12px; }
+    .none-msg { color: #1a7f37; font-weight: 600; padding: 4px 0; }
+  </style>
+</head>
+<body>
+
+<div id="loading" class="loading">⏳ 檢查單位異常中…</div>
+<div id="app" style="display:none"></div>
+
+<script>
+var issueData = null;
+var fixes = {};   // rowIndex -> { unit, inQty, outQty }
+
+google.script.run
+  .withSuccessHandler(function(data) {
+    issueData = data;
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    render();
+  })
+  .withFailureHandler(function(err) {
+    document.getElementById('loading').innerHTML = '❌ ' + err.message;
+  })
+  .getUnitIssues();
+
+// ── 渲染 ─────────────────────────────────────────
+function render() {
+  var app = document.getElementById('app');
+  var d   = issueData;
+  var html = '';
+
+  // ① 直接衝突：同名稱+規格有多種單位
+  html += '<div class="section"><h3>① 同品項出現多種單位</h3>';
+  if (!d.directIssues.length) {
+    html += '<p class="none-msg">✅ 無異常</p>';
+  } else {
+    d.directIssues.forEach(function(issue, gi) {
+      html += buildDirectCard(issue, gi);
+    });
+  }
+  html += '</div><hr>';
+
+  // ② 模糊比對衝突：疑似同品項，單位不同
+  html += '<div class="section"><h3>② 疑似同品項但單位不同</h3>';
+  if (!d.fuzzyIssues.length) {
+    html += '<p class="none-msg">✅ 無異常</p>';
+  } else {
+    d.fuzzyIssues.forEach(function(pair, gi) {
+      html += buildFuzzyCard(pair, gi);
+    });
+  }
+  html += '</div>';
+
+  var hasIssues = d.directIssues.length || d.fuzzyIssues.length;
+  if (hasIssues) {
+    html += '<hr><button class="btn btn-primary" id="apply-btn" onclick="applyAll()" style="width:100%">套用所有修正到試算表</button>'
+          + '<div id="status"></div>';
+  }
+
+  app.innerHTML = html;
+}
+
+// 直接衝突卡片
+function buildDirectCard(issue, gi) {
+  var unitTags = issue.units.map(function(u) { return '<span class="tag" style="background:#ffc107;color:#333">' + esc(u) + '</span>'; }).join(' ');
+  var html = '<div class="issue-card">'
+    + '<div class="issue-title">🔴 ' + esc(issue.name) + '<span style="color:#5f6368"> / </span>' + esc(issue.spec) + '</div>'
+    + '<div style="margin-bottom:6px">使用了多種單位：' + unitTags + '</div>'
+    + '<table><tr><th>列</th><th>屬性</th><th>入庫量</th><th>出庫量</th><th>目前單位</th><th>修正為</th></tr>';
+
+  issue.rows.forEach(function(r) {
+    var fid = 'fix-' + r.rowIndex;
+    html += '<tr>'
+      + '<td style="font-size:11px">列' + r.rowIndex + '</td>'
+      + '<td><span class="tag tag-' + r.type + '">' + esc(r.type) + '</span></td>'
+      + '<td class="num">' + (r.inQty || '') + '</td>'
+      + '<td class="num">' + (r.outQty || '') + '</td>'
+      + '<td><strong>' + esc(r.unit) + '</strong></td>'
+      + '<td><select id="' + fid + '" onchange="setFix(' + r.rowIndex + ',\'unit\',this.value)">'
+        + unitOption(issue.units, r.unit)
+      + '</select></td>'
+    + '</tr>';
+    // 備註
+    if (r.note) {
+      html += '<tr><td colspan="6" style="color:#5f6368;font-size:11px;background:#fafafa">備註：' + esc(r.note) + '</td></tr>';
+    }
+  });
+
+  html += '</table>';
+
+  // 數量換算提示（若備註含換算資訊）
+  var convNote = issue.rows.find(function(r) { return r.note && r.note.match(/\d+[只箱組]/); });
+  if (convNote) {
+    html += '<div class="info">💡 備註含換算資訊：「' + esc(convNote.note) + '」，請確認數量是否需要換算後填入。</div>'
+      + buildQtyFixer(issue.rows);
+  }
+
+  html += '</div>';
+  return html;
+}
+
+// 模糊比對衝突卡片
+function buildFuzzyCard(pair, gi) {
+  var a = pair.a, b = pair.b;
+  var html = '<div class="issue-card warn">'
+    + '<div class="issue-title">🟠 疑似同品項，單位不一致</div>'
+    + '<table><tr><th>品名</th><th>規格</th><th>單位</th><th>筆數</th></tr>'
+    + '<tr><td>' + esc(a.name) + '</td><td>' + esc(a.spec) + '</td>'
+      + '<td><strong>' + a.units.join('、') + '</strong></td><td>' + a.rows.length + '</td></tr>'
+    + '<tr><td>' + esc(b.name) + '</td><td>' + esc(b.spec) + '</td>'
+      + '<td><strong>' + b.units.join('、') + '</strong></td><td>' + b.rows.length + '</td></tr>'
+    + '</table>'
+    + '<div class="info" style="margin-top:6px">🔍 請確認是否為同一品項，若是請先至「品項合併確認」工具合併，再統一單位。</div>'
+    + '</div>';
+  return html;
+}
+
+// 數量換算輔助欄
+function buildQtyFixer(rows) {
+  var html = '<div style="margin-top:6px;font-size:12px"><strong>數量修正（選填）</strong></div>'
+    + '<table><tr><th>列</th><th>屬性</th><th>修正入庫量</th><th>修正出庫量</th></tr>';
+  rows.forEach(function(r) {
+    html += '<tr>'
+      + '<td style="font-size:11px">列' + r.rowIndex + '</td>'
+      + '<td><span class="tag tag-' + r.type + '">' + esc(r.type) + '</span></td>'
+      + '<td><input type="number" placeholder="不改則留空" style="width:100%;padding:3px;border:1px solid #dadce0;border-radius:3px;font-size:12px"'
+        + ' onchange="setFix(' + r.rowIndex + ',\'inQty\',this.value?Number(this.value):undefined)"></td>'
+      + '<td><input type="number" placeholder="不改則留空" style="width:100%;padding:3px;border:1px solid #dadce0;border-radius:3px;font-size:12px"'
+        + ' onchange="setFix(' + r.rowIndex + ',\'outQty\',this.value?Number(this.value):undefined)"></td>'
+    + '</tr>';
+  });
+  html += '</table>';
+  return html;
+}
+
+function unitOption(units, current) {
+  return units.map(function(u) {
+    return '<option value="' + esc(u) + '"' + (u === current ? ' selected' : '') + '>' + esc(u) + '</option>';
+  }).join('');
+}
+
+function setFix(rowIndex, field, value) {
+  if (!fixes[rowIndex]) fixes[rowIndex] = { rowIndex: rowIndex };
+  if (value !== undefined) fixes[rowIndex][field] = value;
+}
+
+function applyAll() {
+  var list = Object.values(fixes).filter(function(f) {
+    return f.unit !== undefined || f.inQty !== undefined || f.outQty !== undefined;
+  });
+
+  if (!list.length) {
+    document.getElementById('status').innerHTML = '⚠️ 尚未設定任何修正';
+    return;
+  }
+
+  document.getElementById('apply-btn').disabled = true;
+  document.getElementById('status').innerHTML = '⏳ 套用中…';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      document.getElementById('status').innerHTML = '✅ 已修正 ' + res.fixed + ' 筆記錄。';
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('apply-btn').disabled = false;
+      document.getElementById('status').innerHTML = '❌ ' + err.message;
+    })
+    .applyUnitFix(list);
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
