@@ -150,8 +150,10 @@ function renderGroup(p,N){
     +'</div>'
     +'<div class="nav" style="margin-top:14px">'
       +'<button class="btn btn-secondary" onclick="goBack()"'+(p===0?' disabled':'')+'>← 上一組</button>'
-      +'<button class="btn btn-primary" onclick="confirm_()">'+(p===N-1?'完成確認 ✓':'確認 → 下一組')+'</button>'
-    +'</div></div>';
+      +'<button class="btn btn-primary" id="confirm-btn" onclick="confirm_()">統一並套用 →</button>'
+    +'</div>'
+    +'<div id="apply-status" style="margin-top:8px;font-size:13px"></div>'
+    +'</div>';
 
   document.getElementById('master-sel').value=prevMaster;
   document.getElementById('cunit').value=prevUnit;
@@ -170,66 +172,84 @@ function syncMaster(){
 function updateStdOpts(){
   var on=document.querySelector('input[name=act]:checked').value==='standardize';
   document.getElementById('std-opts').style.display=on?'block':'none';
+  var btn=document.getElementById('confirm-btn');
+  if(btn) btn.textContent=on?'統一並套用 →':'略過，下一組 →';
 }
 function confirm_(){
   var N=groups.length, g=groups[page], action=document.querySelector('input[name=act]:checked').value;
-  if(action==='standardize'){
-    var midx=parseInt(document.getElementById('master-sel').value)||0;
-    decisions[page]={
-      action:'standardize',
-      masterIdx:midx,
-      finalName:document.getElementById('cname').value.trim(),
-      finalSpec:document.getElementById('cspec').value.trim(),
-      finalUnit:document.getElementById('cunit').value,
-      groups:g.map(function(r){return {name:r.name,spec:r.spec,units:r.units||[],rowIndices:r.rowIndices};})
-    };
-  }else{decisions[page]={action:'skip'};}
-  page=(page>=N-1)?N:page+1;render();
+
+  // 略過：直接進下一組，不呼叫 API
+  if(action==='skip'){
+    decisions[page]={action:'skip'};
+    page=(page>=N-1)?N:page+1;
+    render();
+    return;
+  }
+
+  // 統一寫法：立即呼叫 API，成功後才進下一組
+  var midx=parseInt(document.getElementById('master-sel').value)||0;
+  var decision={
+    action:'standardize',
+    finalName:document.getElementById('cname').value.trim(),
+    finalSpec:document.getElementById('cspec').value.trim(),
+    finalUnit:document.getElementById('cunit').value,
+    groups:g.map(function(r){return {name:r.name,spec:r.spec,units:r.units||[],rowIndices:r.rowIndices};})
+  };
+
+  var btn=document.getElementById('confirm-btn');
+  var st=document.getElementById('apply-status');
+  btn.disabled=true;
+  btn.textContent='套用中…';
+  st.innerHTML='<span class="spinner"></span>';
+
+  fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'applyDecisions',decisions:[decision]})})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(res.error) throw new Error(res.error);
+      decisions[page]=Object.assign({},decision,{applied:true,updated:res.updated||0});
+      page=(page>=N-1)?N:page+1;
+      render();
+    })
+    .catch(function(e){
+      btn.disabled=false;
+      btn.textContent='統一並套用 →';
+      st.innerHTML='<span style="color:#c5221f">❌ 套用失敗：'+e.message+'（請確認 GAS 已重新部署）</span>';
+    });
 }
 function goBack(){if(page>0){page--;render();}}
 function jumpTo(i){page=i;render();}
 
 function renderSummary(N){
   var stds=[],skips=[];
+  var totalUpdated=0;
   Object.keys(decisions).forEach(function(k){
     var d=decisions[k];
-    if(d.action==='standardize') stds.push({idx:+k,d:d}); else skips.push({idx:+k,d:d});
+    if(d.action==='standardize'){stds.push({idx:+k,d:d});totalUpdated+=(d.updated||0);}
+    else skips.push({idx:+k,d:d});
   });
   document.getElementById('root').innerHTML=
-    '<div class="card"><div class="card-title">✅ 確認完成 — 變更摘要</div>'
-    +'<div class="stat-row">'+stat(N,'群組總數','#202124')+stat(stds.length,'統一寫法','#1e8e3e')+stat(skips.length,'略過','#5f6368')+'</div>'
-    +(stds.length?'<p style="font-weight:600;margin-bottom:6px">統一寫法項目</p>'+stds.map(function(m){
-      var unitHint=m.d.finalUnit?' ／ <strong>'+esc(m.d.finalUnit)+'</strong>':'';
+    '<div class="card"><div class="card-title">🎉 全部完成</div>'
+    +'<div class="stat-row">'
+      +stat(N,'群組總數','#202124')
+      +stat(stds.length,'已統一寫法','#1e8e3e')
+      +stat(totalUpdated,'更新筆數','#1a73e8')
+    +'</div>'
+    +(stds.length?'<p style="font-weight:600;margin-bottom:6px">已套用項目</p>'+stds.map(function(m){
+      var unitHint=m.d.finalUnit?' ／ '+esc(m.d.finalUnit):'';
       return '<div class="summary-merge">組'+(m.idx+1)+'　'
         +groups[m.idx].map(function(r){return '「'+esc(r.name)+'」';}).join(' ＋ ')
-        +'　→　<strong>'+esc(m.d.finalName)+' / '+esc(m.d.finalSpec)+'</strong>'+unitHint+'</div>';
+        +'　→　<strong>'+esc(m.d.finalName)+' / '+esc(m.d.finalSpec)+unitHint+'</strong>'
+        +'<span style="color:#5f6368;font-size:12px">（'+m.d.updated+'筆）</span></div>';
     }).join(''):'')
-    +(skips.length?'<p style="font-weight:600;margin:10px 0 6px">略過</p>'+skips.map(function(k){
+    +(skips.length?'<p style="font-weight:600;margin:10px 0 6px">略過（不同品項）</p>'+skips.map(function(k){
       return '<div class="summary-keep">組'+(k.idx+1)+'　'+groups[k.idx].map(function(r){return '「'+esc(r.name)+'」';}).join('、')+'</div>';
     }).join(''):'')
     +'<div class="nav" style="margin-top:16px">'
-      +'<button class="btn btn-secondary" onclick="page=groups.length-1;render()">← 返回修改</button>'
-      +'<button class="btn btn-success" id="apply-btn" onclick="applyAll()">套用至試算表</button>'
-    +'</div><div id="status"></div></div>';
+      +'<button class="btn btn-secondary" onclick="page=groups.length-1;render()">← 返回檢視</button>'
+      +'<button class="btn btn-primary" onclick="location.reload()">重新載入資料</button>'
+    +'</div></div>';
 }
 function stat(v,l,c){return '<div class="stat-box"><div class="val" style="color:'+c+'">'+v+'</div><div class="lbl">'+l+'</div></div>';}
-function applyAll(){
-  var list=Object.values(decisions).filter(function(d){return d.action==='standardize';});
-  if(!list.length){document.getElementById('status').innerHTML='<span style="color:#e37400">⚠️ 沒有選擇統一寫法的項目。</span>';return;}
-  document.getElementById('apply-btn').disabled=true;
-  document.getElementById('status').innerHTML='<span class="spinner"></span> 套用中，請勿關閉頁面…';
-  fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'applyDecisions',decisions:list})})
-    .then(function(r){return r.json();})
-    .then(function(res){
-      if(!res.ok) throw new Error(res.error||'GAS 回報失敗');
-      if(res.updated===0) {
-        document.getElementById('status').innerHTML='<span style="color:#e37400">⚠️ GAS 執行成功但更新了 0 筆，請確認 Apps Script 已重新部署最新版本。</span>';
-      } else {
-        document.getElementById('status').innerHTML='<span style="color:#1e8e3e">✅ 完成！已統一 '+list.length+' 組，更新 '+res.updated+' 筆記錄的品名／規格／單位。在庫統計將自動重算。</span>';
-      }
-    })
-    .catch(function(e){document.getElementById('apply-btn').disabled=false;document.getElementById('status').innerHTML='<span style="color:#c5221f">❌ 錯誤：'+e.message+'</span>';});
-}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 </script>
 </body>
