@@ -49,9 +49,15 @@ var fixes = {};
 
 fetch(SCRIPT_URL+'?action=unitIssues')
   .then(function(r){return r.json();})
-  .then(function(d){render(d);})
+  .then(function(d){
+    if(!d||!Array.isArray(d.directIssues)){
+      throw new Error('Apps Script 尚未更新，請將最新版 apps-script.gs 貼入 GAS 並重新部署，再重整此頁。');
+    }
+    render(d);
+  })
   .catch(function(e){
-    document.getElementById('root').innerHTML='<div class="card" style="color:#c5221f">❌ 載入失敗：'+e.message+'</div>';
+    document.getElementById('root').innerHTML='<div class="card"><p style="color:#c5221f;font-weight:600;margin-bottom:8px">❌ 載入失敗：'+e.message+'</p>'
+      +'<p style="font-size:12px;color:#5f6368">操作步驟：Google Apps Script → 部署 → 管理部署項目 → 編輯 → 新版本 → 部署</p></div>';
   });
 
 function render(d){
