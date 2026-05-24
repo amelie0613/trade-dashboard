@@ -986,7 +986,18 @@ async function loadStocktake() {
   document.getElementById('st-info').innerHTML = '';
   try {
     const all = await (await fetch(SCRIPT_URL + '?action=stocktake-history')).json();
-    stHistory = Array.isArray(all) ? all : [];
+
+    // 若 GAS 尚未重新部署，會回傳出入庫紀錄（含 _row 欄位）而非盤點資料
+    if (!Array.isArray(all) || (all.length && '_row' in all[0])) {
+      document.getElementById('st-products').innerHTML =
+        `<div class="text-center py-4" style="color:#E53935">
+           ⚠️ Apps Script 尚未更新。<br>
+           <small>請將 apps-script.gs 貼回 GAS 並<strong>重新部署新版本</strong>後重新整理。</small>
+         </div>`;
+      return;
+    }
+
+    stHistory = all;
     if (!stHistory.length) {
       document.getElementById('st-products').innerHTML = '<div class="text-center py-4" style="color:#8D6E63">尚無盤點紀錄</div>';
       return;
