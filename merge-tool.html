@@ -95,10 +95,10 @@ function renderGroup(p,N){
     return '<span class="group-chip'+(i===p?' active':'')+cl+'" onclick="jumpTo('+i+')">'+lbl+'</span>';
   }).join('');
   var rows=g.map(function(r){
-    return '<tr><td style="font-size:12px;color:#5f6368">列'+r.rowIndex+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.spec)+'</td>'
+    return '<tr><td style="font-size:12px;color:#5f6368">'+r.rowIndices.length+'筆</td><td>'+esc(r.name)+'</td><td>'+esc(r.spec)+'</td>'
       +'<td class="num">'+r.inQty.toLocaleString()+'</td><td class="num">'+r.outQty.toLocaleString()+'</td><td class="num">'+r.stock.toLocaleString()+'</td></tr>';
   }).join('');
-  var opts=g.map(function(r,i){return '<option value="'+i+'">列'+r.rowIndex+'：'+esc(r.name)+' / '+esc(r.spec)+'</option>';}).join('')
+  var opts=g.map(function(r,i){return '<option value="'+i+'">'+esc(r.name)+' / '+esc(r.spec)+'（'+r.rowIndices.length+'筆）</option>';}).join('')
     +'<option value="custom">✏️ 自訂名稱/規格</option>';
   var tIn=g.reduce(function(s,r){return s+r.inQty;},0);
   var tOut=g.reduce(function(s,r){return s+r.outQty;},0);
@@ -151,10 +151,10 @@ function confirm_(){
   var N=groups.length,g=groups[page],action=document.querySelector('input[name=act]:checked').value;
   if(action==='merge'){
     var s=document.getElementById('master-sel'),isC=s.value==='custom',midx=isC?0:parseInt(s.value);
-    decisions[page]={action:'merge',masterIdx:midx,custom:isC,
+    decisions[page]={action:'merge',
       finalName:isC?document.getElementById('cname').value.trim():g[midx].name,
       finalSpec:isC?document.getElementById('cspec').value.trim():g[midx].spec,
-      masterRowIndex:g[midx].rowIndex,rowIndices:g.map(function(r){return r.rowIndex;})};
+      groups:g.map(function(r){return {name:r.name,spec:r.spec,rowIndices:r.rowIndices};})};
   }else{decisions[page]={action:'keep'};}
   page=(page>=N-1)?N:page+1;render();
 }
@@ -187,7 +187,7 @@ function applyAll(){
   document.getElementById('status').innerHTML='<span class="spinner"></span> 套用中，請勿關閉頁面…';
   fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'applyDecisions',decisions:list})})
     .then(function(r){return r.json();})
-    .then(function(res){document.getElementById('status').innerHTML='<span style="color:#1e8e3e">✅ 完成！已合併 '+list.length+' 組，刪除 '+res.deleted+' 列。</span>';})
+    .then(function(res){document.getElementById('status').innerHTML='<span style="color:#1e8e3e">✅ 完成！已合併 '+list.length+' 組，更新 '+res.updated+' 筆紀錄的品名/規格。在庫統計將自動重算。</span>';})
     .catch(function(e){document.getElementById('apply-btn').disabled=false;document.getElementById('status').innerHTML='<span style="color:#c5221f">❌ 錯誤：'+e.message+'</span>';});
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
