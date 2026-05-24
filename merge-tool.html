@@ -220,7 +220,14 @@ function applyAll(){
   document.getElementById('status').innerHTML='<span class="spinner"></span> 套用中，請勿關閉頁面…';
   fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'applyDecisions',decisions:list})})
     .then(function(r){return r.json();})
-    .then(function(res){document.getElementById('status').innerHTML='<span style="color:#1e8e3e">✅ 完成！已統一 '+list.length+' 組，更新 '+res.updated+' 筆記錄的品名／規格／單位。在庫統計將自動重算。</span>';})
+    .then(function(res){
+      if(!res.ok) throw new Error(res.error||'GAS 回報失敗');
+      if(res.updated===0) {
+        document.getElementById('status').innerHTML='<span style="color:#e37400">⚠️ GAS 執行成功但更新了 0 筆，請確認 Apps Script 已重新部署最新版本。</span>';
+      } else {
+        document.getElementById('status').innerHTML='<span style="color:#1e8e3e">✅ 完成！已統一 '+list.length+' 組，更新 '+res.updated+' 筆記錄的品名／規格／單位。在庫統計將自動重算。</span>';
+      }
+    })
     .catch(function(e){document.getElementById('apply-btn').disabled=false;document.getElementById('status').innerHTML='<span style="color:#c5221f">❌ 錯誤：'+e.message+'</span>';});
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
