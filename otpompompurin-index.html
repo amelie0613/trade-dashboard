@@ -80,6 +80,7 @@
     .inv-card .pname   { font-weight:800; font-size:.95rem; color:var(--brown); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .inv-card .spec    { font-size:.75rem; color:var(--brown2); margin-top:2px; }
     .inv-card .numbers { display:flex; gap:.6rem; margin-top:.4rem; }
+    .inv-notes { font-size:.72rem; color:var(--brown2); margin-top:.3rem; line-height:1.4; white-space:pre-wrap; word-break:break-all; }
     .inv-card .itag    { font-size:.72rem; font-weight:700; border-radius:8px; padding:.15em .55em; }
     .itag-in  { background:#E8F5E9; color:#2E7D32; }
     .itag-out { background:#FBE9E7; color:#BF360C; }
@@ -115,9 +116,28 @@
     .badge-out    { background:#FBE9E7; color:#BF360C; }
     .badge-borrow { background:#E3F2FD; color:#1565C0; }
     .rec-qty  { font-weight:800; font-size:1rem; }
+    .rec-notes { font-size:.75rem; color:var(--brown2); margin-top:.35rem; padding-top:.35rem; border-top:1px solid var(--yellow2); line-height:1.45; word-break:break-all; }
     .qty-in   { color:#2E7D32; }
     .qty-out  { color:#E65100; }
     .qty-borrow { color:#1565C0; }
+
+    /* ── 排序列 ── */
+    .sort-bar {
+      display: flex; align-items: center; gap: .45rem;
+      margin-bottom: .6rem; flex-wrap: wrap;
+    }
+    .sort-lbl { font-size: .72rem; font-weight: 700; color: var(--brown2); white-space: nowrap; }
+    .sort-btn {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      font-size: .72rem; font-weight: 700;
+      border: 2px solid var(--yellow2); background: #fff;
+      color: var(--brown2); border-radius: 20px;
+      padding: .25em .75em; cursor: pointer;
+      transition: all .15s; white-space: nowrap;
+    }
+    .sort-btn:hover  { border-color: var(--amber); color: var(--amber); }
+    .sort-btn.active { background: var(--amber); border-color: var(--amber); color: #fff; }
+    .sort-btn .arrow { font-style: normal; font-size: .65rem; margin-left: .2em; }
 
     /* ── 表單（新增 + 編輯）── */
     .form-block {
@@ -339,6 +359,12 @@
         </div>
       </div>
     </div>
+    <div class="sort-bar">
+      <span class="sort-lbl">排序：</span>
+      <button class="sort-btn active" id="sort-date"   onclick="setSort('date')"  >🕐 時間</button>
+      <button class="sort-btn"        id="sort-name"   onclick="setSort('name')"  >🏷️ 品名</button>
+      <button class="sort-btn"        id="sort-type"   onclick="setSort('type')"  >📦 類型</button>
+    </div>
     <div id="rec-list"><div class="text-center py-5" style="color:var(--brown2)">🐾 載入中…</div></div>
   </div>
 </div>
@@ -514,7 +540,8 @@ function renderInventory(list) {
     const cls    = p.balance < 0 ? 'abnormal' : p.balance === 0 ? 'zero' : p.balance < 100 ? 'low' : '';
     const qtyCls = p.balance < 0 ? 'qty-abnormal' : p.balance === 0 ? 'qty-zero' : p.balance < 100 ? 'qty-low' : 'qty-ok';
     const badge  = p.balance < 0 ? '<span class="tag-abnormal ms-1">⚠️ 異常</span>' : '';
-    return `<div class="inv-card ${cls}" onclick="goToRecords(${JSON.stringify(p.name)})">
+    const _sn = p.name.replace(/'/g, "\\'");
+    return `<div class="inv-card ${cls}" onclick="goToRecords('${_sn}')">
       <div class="info">
         <div class="pname">${p.name}${badge}</div>
         ${p.spec ? `<div class="spec">${p.spec}</div>` : ''}
@@ -522,6 +549,7 @@ function renderInventory(list) {
           <span class="itag itag-in">入 ${p.inQty.toLocaleString()}</span>
           <span class="itag itag-out">出 ${p.outQty.toLocaleString()}</span>
         </div>
+        ${p.notes ? `<div class="inv-notes">${p.notes}</div>` : ''}
       </div>
       <div class="balance">
         <div class="qty ${qtyCls}">${p.balance.toLocaleString()}</div>
@@ -556,7 +584,7 @@ function onTypeChange() {
   document.getElementById('f-qty-label').textContent      = { '入庫':'入庫數量','出庫':'出庫數量','借出':'借出數量' }[type] || '數量';
   document.getElementById('f-location-label').textContent = { '入庫':'存放位置','出庫':'領取單位','借出':'領取單位' }[type] || '存放位置/領取單位';
   document.getElementById('f-location').placeholder = type === '入庫' ? '請輸入存放位置（例：包材室）' : '請輸入領取單位';
-  document.getElementById('f-vendor-row').style.display = type === '入庫' ? '' : 'none';
+  document.getElementById('f-vendor-row').style.display = (type === '入庫' || type === '') ? '' : 'none';
   document.getElementById('f-cost-row').style.display   = type === '入庫' ? '' : 'none';
 }
 
@@ -597,7 +625,8 @@ async function submitForm(e) {
     await fetch(SCRIPT_URL, { method:'POST', body:JSON.stringify(data) });
     showMsg('f-msg', '✅ 已成功儲存！', 'success');
     e.target.reset();
-    document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('f-date').value  = new Date().toISOString().slice(0,10);
+    document.getElementById('f-staff').value = '黃儀婷'; // 恢復預設承辦人
     document.getElementById('f-cat-other').style.display = 'none';
     onTypeChange();
   } catch {
@@ -645,6 +674,7 @@ function renderCards(rows) {
         ${r['承辦人員'] ? `<span class="rec-tag">${r['承辦人員']}</span>` : ''}
         <span style="margin-left:auto;font-size:.75rem;color:var(--brown2)"><i class="bi bi-pencil"></i> 點擊編輯</span>
       </div>
+      ${r['備註'] ? `<div class="rec-notes">${r['備註']}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -663,7 +693,55 @@ function filterRecords() {
     const mt = !type || r['屬性']===type;
     return mk && mt;
   });
-  renderCards(f); renderStats(f);
+  const sorted = applySortToRows(f);
+  renderCards(sorted); renderStats(sorted);
+}
+
+/* ═══════════════ 排序 ═══════════════ */
+let sortKey = 'date';   // 'date' | 'name' | 'type'
+let sortAsc = false;    // 最新在前（時間預設 desc）
+
+function setSort(key) {
+  if (sortKey === key) {
+    sortAsc = !sortAsc;
+  } else {
+    sortKey = key;
+    sortAsc = key !== 'date'; // 時間預設新→舊；品名/類型預設 A→Z
+  }
+  // 更新按鈕樣式
+  ['date','name','type'].forEach(k => {
+    const btn = document.getElementById('sort-' + k);
+    if (!btn) return;
+    btn.classList.toggle('active', k === sortKey);
+    const arrow = btn.querySelector('.arrow');
+    if (k === sortKey) {
+      if (!arrow) btn.innerHTML += '<i class="arrow">' + (sortAsc ? ' ↑' : ' ↓') + '</i>';
+      else arrow.textContent = sortAsc ? ' ↑' : ' ↓';
+    } else {
+      if (arrow) arrow.remove();
+    }
+  });
+  filterRecords();
+}
+
+function applySortToRows(rows) {
+  const TYPE_ORDER = { '入庫': 0, '出庫': 1, '借出': 2 };
+  return [...rows].sort((a, b) => {
+    let va, vb;
+    if (sortKey === 'date') {
+      va = new Date(a['日期'] || 0).getTime();
+      vb = new Date(b['日期'] || 0).getTime();
+    } else if (sortKey === 'name') {
+      va = (a['產品名稱'] || '').toLowerCase();
+      vb = (b['產品名稱'] || '').toLowerCase();
+    } else { // type
+      va = TYPE_ORDER[a['屬性']] ?? 9;
+      vb = TYPE_ORDER[b['屬性']] ?? 9;
+    }
+    if (va < vb) return sortAsc ? -1 : 1;
+    if (va > vb) return sortAsc ? 1 : -1;
+    return 0;
+  });
 }
 
 /* ═══════════════ 編輯覆蓋層 ═══════════════ */
@@ -788,7 +866,18 @@ async function loadStocktake() {
     const tsStr = (ts && !isNaN(ts))
       ? ts.toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
       : rawTs || '—';
-    const person = data['盤點人'] || '—';
+
+    // 盤點人：先試固定鍵，找不到就找值為非空非數字的第一個欄位
+    const PERSON_KEYS = ['盤點人', '盤點人員', '姓名', '填寫人'];
+    let person = '';
+    for (const k of PERSON_KEYS) { if (data[k]) { person = data[k]; break; } }
+    if (!person) {
+      const found = Object.entries(data).find(([k, v]) =>
+        k && k.trim() && !STOCKTAKE_SKIP.includes(k) && v && isNaN(Number(v)));
+      if (found) person = found[1];
+    }
+    person = person || '—';
+
     document.getElementById('st-info').innerHTML = `
       <div class="st-person-banner">
         <div class="icon">👤</div>
@@ -801,7 +890,14 @@ async function loadStocktake() {
         <i class="bi bi-clock"></i> ${tsStr}
       </div>`;
 
-    const products = Object.entries(data).filter(([k]) => !STOCKTAKE_SKIP.includes(k));
+    // 只保留：有欄位名稱 + 值為空或數字（排除 metadata / 人名欄位）
+    const products = Object.entries(data).filter(([k, v]) => {
+      if (!k || !k.trim()) return false;                       // 跳過空白欄位名稱
+      if (STOCKTAKE_SKIP.includes(k)) return false;            // 跳過已知 meta 欄
+      if (PERSON_KEYS.includes(k)) return false;               // 跳過盤點人欄
+      if (v !== '' && v !== null && isNaN(Number(v))) return false; // 跳過非數字值（人名等）
+      return true;
+    });
     let rows = '';
     products.forEach(([name, raw]) => {
       const q   = raw === '' ? null : Number(raw);
@@ -848,7 +944,8 @@ function toInputDate(v) {
 
 /* ═══════════════ 初始化 ═══════════════ */
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('f-date').value  = new Date().toISOString().slice(0,10);
+  document.getElementById('f-staff').value = '黃儀婷'; // 預設承辦人
   navigate('inventory');
 });
 </script>
