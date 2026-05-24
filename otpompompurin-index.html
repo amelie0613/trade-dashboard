@@ -962,12 +962,13 @@ function stDetectPerson(data) {
   return { person: '—', personKey: null };
 }
 
-function stFilterProducts(data, personKey) {
+function stFilterProducts(data, personKey, person) {
   return Object.entries(data).filter(([k, v]) => {
     if (!k || !k.trim()) return false;
-    if (STOCKTAKE_SKIP.includes(k)) return false;
-    if (PERSON_KEYS.includes(k)) return false;
-    if (personKey && k === personKey) return false;
+    if (STOCKTAKE_SKIP.includes(k)) return false;               // 已知 meta 欄
+    if (PERSON_KEYS.includes(k)) return false;                  // 標準盤點人鍵名
+    if (personKey && k === personKey) return false;             // 偵測到的 personKey
+    if (person && person !== '—' && k === person) return false; // 人名本身作為欄位名稱
     if (v !== '' && v !== null && isNaN(Number(v))) return false;
     return true;
   });
@@ -1017,7 +1018,7 @@ async function loadStocktake() {
         <i class="bi bi-clock"></i> ${stFmtTs(data['時間戳記'])}
       </div>`;
 
-    const products = stFilterProducts(data, personKey);
+    const products = stFilterProducts(data, personKey, person);
     let rows = '';
     products.forEach(([name, raw]) => {
       const q   = raw === '' ? null : Number(raw);
