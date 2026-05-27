@@ -494,13 +494,13 @@
       table-layout: fixed;
     }
 
-    .print-table col.no { width: 8%; }
-    .print-table col.batch { width: 22%; }
-    .print-table col.name { width: 31%; }
-    .print-table col.qty { width: 7%; }
-    .print-table col.unit { width: 7%; }
-    .print-table col.price { width: 11%; }
-    .print-table col.amount { width: 14%; }
+    .print-table col.no { width: 16mm; }
+    .print-table col.batch { width: 42mm; }
+    .print-table col.name { width: 62mm; }
+    .print-table col.qty { width: 13mm; }
+    .print-table col.unit { width: 13mm; }
+    .print-table col.price { width: 21mm; }
+    .print-table col.amount { width: 24mm; }
 
     .print-table td,
     .print-table th {
@@ -537,7 +537,7 @@
     }
     .customer-grid {
       display: grid;
-      grid-template-columns: 16mm 40mm 32mm 32mm 32mm 1fr;
+      grid-template-columns: 16mm 42mm 31mm 31mm 26mm 1fr;
       height: 6mm;
       width: 100%;
       border-top: 2px solid var(--line);
@@ -567,7 +567,10 @@
     }
     .item-print-row td {
       height: 8mm;
-      font-size: 14pt;
+      font-size: 13pt;
+    }
+    .fit-text {
+      white-space: nowrap !important;
     }
     .yellow { background: var(--yellow); }
     .center { text-align: center; }
@@ -577,7 +580,7 @@
     .outer-top { border-top-width: 2px !important; }
     .footer td {
       height: 7mm;
-      font-size: 14pt;
+      font-size: 13pt;
     }
 
     .side-copy {
@@ -842,7 +845,7 @@
               </tr>
               <tr class="footer">
                 <td class="outer-left center" colspan="2">&#20633;&#35387;</td>
-                <td colspan="5" class="yellow outer-right" data-out="note"></td>
+                <td colspan="5" class="yellow outer-right fit-text" data-out="note"></td>
               </tr>
             </table>
           </div>
@@ -1484,7 +1487,7 @@
         printRow.innerHTML = `
           <td class="outer-left center">${i + 1}</td>
           <td class="yellow center" data-print-item="${i}" data-prop="batch"></td>
-          <td class="yellow" data-print-item="${i}" data-prop="name"></td>
+          <td class="yellow fit-text" data-print-item="${i}" data-prop="name"></td>
           <td class="yellow center" data-print-item="${i}" data-prop="qty"></td>
           <td class="yellow center" data-print-item="${i}" data-prop="unit"></td>
           <td class="yellow right" data-print-item="${i}" data-prop="price"></td>
@@ -1501,6 +1504,26 @@
 
     function persist() {
       // Intentionally do not persist entry form values locally.
+    }
+
+    function fitTextToCell(cell, maxPt = 13, minPt = 7) {
+      if (!cell || !cell.textContent.trim() || cell.offsetWidth === 0) return;
+      cell.style.fontSize = `${maxPt}pt`;
+      cell.style.lineHeight = "1.08";
+
+      for (let size = maxPt; size >= minPt; size -= 0.5) {
+        cell.style.fontSize = `${size}pt`;
+        const fitsWidth = cell.scrollWidth <= cell.clientWidth + 1;
+        const fitsHeight = cell.scrollHeight <= cell.clientHeight + 1;
+        if (fitsWidth && fitsHeight) return;
+      }
+    }
+
+    function fitPrintText() {
+      document.querySelectorAll('[data-print-item][data-prop="name"]').forEach((cell) => {
+        fitTextToCell(cell, 13, 7);
+      });
+      fitTextToCell(document.querySelector('[data-out="note"]'), 13, 7);
     }
 
     function render() {
@@ -1529,6 +1552,7 @@
       }
 
       document.querySelector('[data-out="total"]').textContent = amountText(total) || "0";
+      fitPrintText();
       persist();
     }
 
