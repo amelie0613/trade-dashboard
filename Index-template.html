@@ -844,6 +844,9 @@
     const fields = ["company", "fillDate", "shipDate", "customer", "shipper", "poNo", "sales", "note"];
     const itemProps = ["batch", "name", "qty", "unit", "price"];
     const lookupApiUrl = window.location.href.split("?")[0];
+    const supabaseUrl = "https://yeposcucdppwkjmmoidi.supabase.co";
+    const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI";
+    const useSupabase = Boolean(supabaseUrl && supabaseAnonKey);
     const defaultLookups = {
       company: ["\u5927\u6f01\u6c34\u7522\u6709\u9650\u516c\u53f8"],
       sales: ["\u5442\u5bb6\u59a4"],
@@ -879,6 +882,134 @@
         button.textContent = button.dataset.originalText || button.textContent;
         button.disabled = false;
       }
+    }
+
+    async function supabaseFetch(path, options = {}) {
+      const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+        ...options,
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+          "Content-Type": "application/json",
+          ...(options.headers || {})
+        }
+      });
+      if (!response.ok) throw new Error(await response.text());
+      if (response.status === 204) return null;
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    }
+
+    function isoDate(value) {
+      return value || null;
+    }
+
+    async function supabaseLoadLookups() {
+      const rows = await supabaseFetch("lookup_values?select=kind,value&enabled=eq.true&order=kind.asc,value.asc");
+      return {
+        company: rows.filter((row) => row.kind === "company").map((row) => row.value),
+        sales: rows.filter((row) => row.kind === "sales").map((row) => row.value),
+        product: rows.filter((row) => row.kind === "product").map((row) => row.value),
+        unit: rows.filter((row) => row.kind === "unit").map((row) => row.value)
+      };
+    }
+
+    async function supabaseSaveLookupValues(values) {
+      const rows = Object.entries(values).flatMap(([kind, list]) =>
+        list.map((value) => ({ kind, value }))
+      );
+      if (rows.length === 0) return;
+      await supabaseFetch("lookup_values?on_conflict=kind,value", {
+        method: "POST",
+        headers: { Prefer: "resolution=ignore-duplicates" },
+        body: JSON.stringify(rows)
+      });
+    }
+
+    async function supabaseSaveOrder(order) {
+      const main = {
+        id: order.id,
+        updated_at: new Date().toISOString(),
+        company: order.fields.company || null,
+        fill_date: isoDate(order.fields.fillDate),
+        ship_date: isoDate(order.fields.shipDate),
+        customer: order.fields.customer || null,
+        shipper: order.fields.shipper || null,
+        po_no: order.fields.poNo || null,
+        sales: order.fields.sales || null,
+        note: order.fields.note || null,
+        total: parseAmount(order.total)
+      };
+      await supabaseFetch("orders?on_conflict=id", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates" },
+        body: JSON.stringify(main)
+      });
+      await supabaseFetch(`order_items?order_id=eq.${encodeURIComponent(order.id)}`, { method: "DELETE" });
+      if (order.items.length > 0) {
+        const rows = order.items.map((item) => ({
+          order_id: order.id,
+          line_no: item.index,
+          batch: item.batch || null,
+          name: item.name || null,
+          qty: item.qty === "" ? null : parseAmount(item.qty),
+          unit: item.unit || null,
+          price: item.price === "" ? null : parseAmount(item.price),
+          amount: parseAmount(item.amount)
+        }));
+        await supabaseFetch("order_items", {
+          method: "POST",
+          body: JSON.stringify(rows)
+        });
+      }
+    }
+
+    async function supabaseLoadOrders() {
+      const rows = await supabaseFetch("orders?select=id,ship_date,customer,sales,total&printed=eq.false&order=updated_at.desc");
+      return rows.map((row) => ({
+        id: row.id,
+        date: row.ship_date || "",
+        customer: row.customer || "",
+        sales: row.sales || "",
+        total: amountText(row.total)
+      }));
+    }
+
+    async function supabaseLoadOrder(orderId) {
+      const orders = await supabaseFetch(`orders?select=*&id=eq.${encodeURIComponent(orderId)}&limit=1`);
+      const order = orders[0];
+      if (!order) return null;
+      const items = await supabaseFetch(`order_items?select=*&order_id=eq.${encodeURIComponent(orderId)}&order=line_no.asc`);
+      return {
+        id: order.id,
+        fields: {
+          company: order.company || "",
+          fillDate: order.fill_date || "",
+          shipDate: order.ship_date || "",
+          customer: order.customer || "",
+          shipper: order.shipper || "",
+          poNo: order.po_no || "",
+          sales: order.sales || "",
+          note: order.note || ""
+        },
+        items: items.map((item) => ({
+          index: item.line_no,
+          batch: item.batch || "",
+          name: item.name || "",
+          qty: item.qty ?? "",
+          unit: item.unit || "",
+          price: item.price ?? "",
+          amount: item.amount ?? ""
+        }))
+      };
+    }
+
+    async function supabaseMarkPrinted(ids) {
+      if (ids.length === 0) return;
+      await supabaseFetch(`orders?id=in.(${ids.map(encodeURIComponent).join(",")})`, {
+        method: "PATCH",
+        body: JSON.stringify({ printed: true, printed_at: new Date().toISOString() })
+      });
     }
 
     function generateOrderId() {
@@ -956,8 +1087,7 @@
 
       if (lookupApiUrl) {
         try {
-          const response = await fetch(`${lookupApiUrl}?action=lookups`);
-          const data = await response.json();
+          const data = useSupabase ? await supabaseLoadLookups() : await (await fetch(`${lookupApiUrl}?action=lookups`)).json();
           lookups.company.push(...(data.company || []));
           lookups.sales.push(...(data.sales || []));
           lookups.product.push(...(data.product || []));
@@ -996,8 +1126,12 @@
     }
 
     async function saveLookupValues() {
-      if (!lookupApiUrl) return;
+      if (!lookupApiUrl && !useSupabase) return;
       try {
+        if (useSupabase) {
+          await supabaseSaveLookupValues(collectLookupValues());
+          return;
+        }
         await fetch(lookupApiUrl, {
           method: "POST",
           mode: "no-cors",
@@ -1041,7 +1175,13 @@
       if (!validateBeforePrint()) return false;
       saveLookupValues();
 
-      if (lookupApiUrl) {
+      if (useSupabase) {
+        try {
+          await supabaseSaveOrder(collectOrder());
+        } catch (error) {
+          console.warn("Order could not be saved to Supabase.", error);
+        }
+      } else if (lookupApiUrl) {
         try {
           await fetch(lookupApiUrl, {
             method: "POST",
@@ -1060,11 +1200,9 @@
     }
 
     async function loadSavedOrders() {
-      if (!lookupApiUrl) return;
+      if (!lookupApiUrl && !useSupabase) return;
       try {
-        const response = await fetch(`${lookupApiUrl}?action=orders`);
-        const data = await response.json();
-        savedOrders = data.orders || [];
+        savedOrders = useSupabase ? await supabaseLoadOrders() : (await (await fetch(`${lookupApiUrl}?action=orders`)).json()).orders || [];
         const available = new Set(savedOrders.map((order) => String(order.id)));
         [...selectedOrderIds].forEach((id) => {
           if (!available.has(id)) selectedOrderIds.delete(id);
@@ -1140,10 +1278,11 @@
     }
 
     async function loadOrder(orderId) {
-      if (!lookupApiUrl || !orderId) return;
+      if ((!lookupApiUrl && !useSupabase) || !orderId) return;
       try {
-        const response = await fetch(`${lookupApiUrl}?action=order&id=${encodeURIComponent(orderId)}`);
-        const data = await response.json();
+        const data = useSupabase
+          ? { order: await supabaseLoadOrder(orderId) }
+          : await (await fetch(`${lookupApiUrl}?action=order&id=${encodeURIComponent(orderId)}`)).json();
         if (!data.order) return;
 
         currentOrderId = data.order.id;
@@ -1174,12 +1313,16 @@
       if (!confirm(`\u78ba\u5b9a\u8981\u5c07 ${ids.length} \u5f35\u55ae\u64da\u6a19\u8a18\u70ba\u5df2\u5217\u5370\uff1f\u6a19\u8a18\u5f8c\u5c07\u4e0d\u6703\u51fa\u73fe\u5728\u672a\u5217\u5370\u6e05\u55ae\u3002`)) return;
 
       try {
-        await fetch(lookupApiUrl, {
+        if (useSupabase) {
+          await supabaseMarkPrinted(ids);
+        } else {
+          await fetch(lookupApiUrl, {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({ type: "markPrinted", ids })
-        });
+          });
+        }
       } catch (error) {
         console.warn("Order could not be marked printed.", error);
       }
