@@ -1090,6 +1090,7 @@
           if (checkbox.checked) selectedOrderIds.add(String(order.id));
           else selectedOrderIds.delete(String(order.id));
           updateSelectAllState();
+          previewSelectedOrder();
         });
         tr.addEventListener("dblclick", () => loadOrder(order.id));
         savedOrderTable.appendChild(tr);
@@ -1106,6 +1107,15 @@
 
     function selectedOrderIdList() {
       return [...selectedOrderIds];
+    }
+
+    async function previewSelectedOrder() {
+      const ids = selectedOrderIdList();
+      if (ids.length === 0) {
+        previewWrap.hidden = true;
+        return;
+      }
+      await loadOrder(ids[0]);
     }
 
     async function loadOrder(orderId) {
@@ -1172,6 +1182,27 @@
       printConfirmModal.hidden = true;
     }
 
+    function focusNextField(current) {
+      const fields = [...document.querySelectorAll('#entryView input, #entryView select, #entryView textarea')]
+        .filter((field) => !field.disabled && field.offsetParent !== null);
+      const index = fields.indexOf(current);
+      const next = fields[index + 1];
+      if (next) {
+        next.focus();
+        if (typeof next.select === "function") next.select();
+      }
+    }
+
+    function enableEnterNavigation() {
+      document.querySelectorAll('#entryView input, #entryView select').forEach((field) => {
+        field.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          focusNextField(field);
+        });
+      });
+    }
+
     async function printSelectedOrders() {
       const ids = selectedOrderIdList();
       if (ids.length === 0) return;
@@ -1212,6 +1243,7 @@
 
     function loadSaved() {
       localStorage.removeItem(storageKey);
+      document.querySelector('[data-field="fillDate"]').value = todayISO();
     }
 
     function persist() {
@@ -1282,6 +1314,7 @@
       localStorage.removeItem(storageKey);
       currentOrderId = generateOrderId();
       document.querySelectorAll("input, textarea").forEach((input) => { input.value = ""; });
+      document.querySelector('[data-field="fillDate"]').value = todayISO();
       document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
       errorBox.classList.remove("show");
       errorBox.textContent = "";
@@ -1293,6 +1326,7 @@
     loadLookupOptions();
     loadSavedOrders();
     loadSaved();
+    enableEnterNavigation();
     document.querySelectorAll("input, textarea").forEach((input) => {
       input.addEventListener("input", () => {
         input.classList.remove("invalid");
@@ -1321,6 +1355,7 @@
         else selectedOrderIds.delete(String(order.id));
       });
       renderSavedOrderTable();
+      previewSelectedOrder();
     });
     document.querySelectorAll("[data-view-button]").forEach((button) => {
       button.addEventListener("click", () => switchView(button.dataset.viewButton));
