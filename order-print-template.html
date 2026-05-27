@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>&#20986;&#36008;&#21934;&#36664;&#20837;&#33287;&#21015;&#21360;</title>
+  <style>
+    :root {
+      --paper: #fff;
+      --ink: #111;
+      --line: #111;
+      --yellow: #fff36a;
+      --yellow-soft: #fffbd1;
+      --bg: #eef2f5;
+      --panel: #fff;
+      --muted: #637083;
+      --blue: #1f5f8b;
+      --border: #d5dce5;
+      --error: #c62828;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: "Microsoft JhengHei", Arial, sans-serif;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(360px, 470px) minmax(900px, 1fr);
+      gap: 16px;
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .input-panel {
+      align-self: start;
+      position: sticky;
+      top: 12px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 3px 14px rgba(18, 31, 45, 0.08);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    .hint {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 1px solid #8793a0;
+      border-radius: 6px;
+      background: #fff;
+      color: #1f2933;
+      padding: 8px 12px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button.primary {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    label.wide { grid-column: 1 / -1; }
+    .req::after { content: " *"; color: var(--error); }
+
+    .input-panel input,
+    .input-panel select,
+    .input-panel textarea {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 7px 9px;
+      color: var(--ink);
+      background: #fff;
+      font: 15px/1.35 "Microsoft JhengHei", Arial, sans-serif;
+    }
+
+    .input-panel [data-required="true"] {
+      background: var(--yellow-soft);
+      border-color: #d9c54a;
+    }
+
+    .input-panel .invalid {
+      border-color: var(--error) !important;
+      box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.12);
+    }
+
+    .input-panel textarea {
+      resize: vertical;
+      min-height: 56px;
+    }
+
+    .error-box {
+      display: none;
+      margin: 0 0 12px;
+      padding: 8px 10px;
+      border: 1px solid #ef9a9a;
+      border-radius: 6px;
+      background: #fff2f2;
+      color: var(--error);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .error-box.show { display: block; }
+
+    .items {
+      margin-top: 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .item-header,
+    .item-row {
+      display: grid;
+      grid-template-columns: 34px 1fr 1.7fr 62px 56px 76px;
+      gap: 0;
+    }
+
+    .item-header div {
+      background: #f5f7f9;
+      color: #435061;
+      padding: 7px 5px;
+      border-right: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .item-header div:last-child { border-right: 0; }
+
+    .item-row {
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .item-row .index {
+      display: grid;
+      place-items: center;
+      color: #4d5968;
+      font-size: 13px;
+      border-right: 1px solid var(--border);
+    }
+
+    .item-row input {
+      min-height: 34px;
+      border: 0;
+      border-right: 1px solid var(--border);
+      border-radius: 0;
+      padding: 6px;
+      font-size: 14px;
+    }
+
+    .item-row input:last-child { border-right: 0; }
+
+    .input-panel .section-title {
+      margin: 14px 0 6px;
+      color: #435061;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .preview-wrap {
+      min-width: 0;
+      overflow: auto;
+    }
+
+    .page {
+      width: 215.9mm;
+      height: 139.7mm;
+      margin: 0 auto;
+      padding: 2.4mm 2.4mm 1.8mm;
+      background: var(--paper);
+      box-shadow: 0 6px 24px rgba(18, 31, 45, 0.16);
+      font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
+      font-weight: 900;
+    }
+
+    .print-header {
+      position: relative;
+      height: 17mm;
+      font-weight: 700;
+    }
+
+    .company-title {
+      text-align: center;
+      font-size: 15pt;
+      line-height: 1.15;
+    }
+
+    .doc-title {
+      text-align: center;
+      margin-top: 3mm;
+      font-size: 13pt;
+      line-height: 1;
+    }
+
+    .company-info {
+      position: absolute;
+      top: 0;
+      right: 3mm;
+      width: 68mm;
+      font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
+      font-size: 7.5pt;
+      line-height: 1.25;
+      font-weight: 700;
+      text-align: left;
+      white-space: pre-line;
+    }
+
+    .order-area {
+      display: grid;
+      grid-template-columns: 1fr 7mm;
+      align-items: stretch;
+      width: 100%;
+    }
+
+    .form-table {
+      width: 100%;
+    }
+
+    .print-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .print-table col.no { width: 8%; }
+    .print-table col.batch { width: 22%; }
+    .print-table col.name { width: 31%; }
+    .print-table col.qty { width: 7%; }
+    .print-table col.unit { width: 7%; }
+    .print-table col.price { width: 11%; }
+    .print-table col.amount { width: 14%; }
+
+    .print-table td,
+    .print-table th {
+      height: 5.2mm;
+      border: 1px solid var(--line);
+      padding: 0.45mm 0.9mm;
+      vertical-align: middle;
+      font-size: 10.5pt;
+      font-weight: 700;
+      line-height: 1.08;
+      overflow: hidden;
+      white-space: pre-wrap;
+    }
+
+    .top-row td {
+      height: 6mm;
+      font-size: 9.5pt;
+    }
+    .meta-row td {
+      border: 0 !important;
+      white-space: nowrap;
+    }
+    .meta-row .date-label {
+      width: 20mm;
+      min-width: 20mm;
+    }
+    .customer-meta-cell {
+      border: 0 !important;
+      padding: 0 !important;
+      height: 6mm;
+    }
+    .customer-grid {
+      display: grid;
+      grid-template-columns: 16mm 48mm 43mm 44mm 28mm 1fr;
+      height: 6mm;
+      width: 100%;
+      border-top: 2px solid var(--line);
+      border-left: 2px solid var(--line);
+      border-right: 2px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .customer-grid > div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid var(--line);
+      padding: 0.45mm 0.9mm;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .customer-grid > div:last-child { border-right: 0; }
+    .customer-grid .label {
+      justify-content: flex-start;
+      font-weight: 700;
+    }
+    .head-row th {
+      height: 5.5mm;
+      text-align: center;
+      border-bottom: 3px double var(--line);
+      font-size: 9.5pt;
+    }
+    .item-print-row td {
+      height: 8mm;
+      font-size: 12pt;
+    }
+    .yellow { background: var(--yellow); }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .outer-left { border-left-width: 2px !important; }
+    .outer-right { border-right-width: 2px !important; }
+    .outer-top { border-top-width: 2px !important; }
+    .footer td {
+      height: 7mm;
+      font-size: 11pt;
+    }
+
+    .side-copy {
+      display: grid;
+      grid-template-rows: repeat(4, 1fr);
+      border: 0;
+      font-size: 8pt;
+      font-weight: 700;
+      line-height: 1.05;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .copy-line {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 0;
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      letter-spacing: 0;
+    }
+
+    .signature-line {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      padding: 3.2mm 0 0 1mm;
+      font-size: 10pt;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    @media (max-width: 1180px) {
+      .app { grid-template-columns: 1fr; }
+      .input-panel { position: static; }
+    }
+
+    @media print {
+      @page {
+        size: 215.9mm 139.7mm;
+        margin: 0;
+      }
+
+      html,
+      body {
+        width: 215.9mm;
+        height: 139.7mm;
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        overflow: hidden;
+      }
+
+      .input-panel { display: none !important; }
+
+      .app {
+        display: block;
+        width: 215.9mm;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .preview-wrap {
+        width: 215.9mm;
+        height: 139.7mm;
+        overflow: hidden;
+      }
+
+      .page {
+        width: 215.9mm;
+        height: 139.7mm;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+      }
+
+      .print-table {
+        width: 100%;
+      }
+
+      .yellow,
+      .title-company {
+        background: transparent !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+
+    .page .yellow,
+    .page .title-company {
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="input-panel" aria-label="input">
+      <div class="panel-head">
+        <h1>&#20986;&#36008;&#21934;&#36664;&#20837;</h1>
+        <div class="actions">
+          <button type="button" id="saveBtn">&#20786;&#23384;</button>
+          <button class="primary" type="button" id="printBtn">&#21015;&#21360;</button>
+          <button type="button" id="clearBtn">&#28165;&#31354;</button>
+        </div>
+      </div>
+      <p class="hint">&#40643;&#33394;&#27396;&#20301;&#28858;&#24517;&#22635;&#65307;&#21697;&#38917;&#21482;&#35201;&#38283;&#22987;&#22635;&#26576;&#19968;&#21015;&#65292;&#35442;&#21015;&#40643;&#33394;&#27396;&#20301;&#37117;&#35201;&#22635;&#23436;&#25972;&#12290;</p>
+      <div class="error-box" id="errorBox" role="alert"></div>
+      <div class="form-grid">
+        <label class="wide">&#21462;&#22238;&#24050;&#20786;&#23384;&#21934;&#25818;
+          <select id="savedOrderSelect">
+            <option value="">&#36984;&#25799;&#21934;&#34399;</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="form-grid">
+        <label class="wide"><span class="req">&#20844;&#21496;&#21517;&#31281;</span>
+          <input data-field="company" data-required="true" list="companyOptions" value="&#22823;&#28417;&#27700;&#29986;&#26377;&#38480;&#20844;&#21496;">
+        </label>
+        <label><span class="req">&#22635;&#21934;&#26085;&#26399;</span>
+          <input type="date" data-field="fillDate" data-required="true">
+        </label>
+        <label><span class="req">&#20986;&#36008;&#26085;&#26399;</span>
+          <input type="date" data-field="shipDate" data-required="true">
+        </label>
+        <label><span class="req">&#23458;&#25142;</span>
+          <input data-field="customer" data-required="true">
+        </label>
+        <label><span>&#30332;&#36008;&#20154;</span>
+          <input data-field="shipper">
+        </label>
+        <label><span>&#20986;&#36008;(PO)&#32232;&#34399;</span>
+          <input data-field="poNo">
+        </label>
+        <label><span class="req">&#26989;&#21209;</span>
+          <input data-field="sales" data-required="true" list="salesOptions" value="&#21570;&#23478;&#22980;">
+        </label>
+        <label class="wide"><span class="req">&#20633;&#35387;</span>
+          <textarea data-field="note" data-required="true"></textarea>
+        </label>
+        <label class="wide">&#21491;&#19978;&#35282;&#22320;&#22336;&#38651;&#35441;
+          <textarea data-field="companyInfo">&#22320;&#22336;:&#39640;&#38596;&#24066;&#21069;&#37806;&#21312;&#26032;&#34909;&#36335;363&#34399;
+&#38651;&#35441;:07-8415137
+&#20659;&#30495;:07-8416426</textarea>
+        </label>
+      </div>
+
+      <div class="items">
+        <div class="item-header">
+          <div>#</div>
+          <div>&#25209;&#34399; *</div>
+          <div>&#29986;&#21697;&#21517;&#31281; *</div>
+          <div>&#25976;&#37327; *</div>
+          <div>&#21934;&#20301; *</div>
+          <div>&#21934;&#20729; *</div>
+        </div>
+        <div id="inputItems"></div>
+      </div>
+    </section>
+
+    <section class="preview-wrap" aria-label="preview">
+      <div class="page">
+        <div class="print-header">
+          <div class="company-title" data-out="company"></div>
+          <div class="doc-title">&#20986;&#36008;&#21934;</div>
+          <div class="company-info" data-out="companyInfo"></div>
+        </div>
+        <div class="order-area">
+          <div class="form-table">
+            <table class="print-table" aria-label="meta">
+              <colgroup>
+                <col class="no"><col class="batch"><col class="name"><col class="qty">
+                <col class="unit"><col class="price"><col class="amount">
+              </colgroup>
+              <tr class="top-row meta-row">
+                <td class="no-border right date-label">&#22635;&#21934;&#26085;&#26399;&#65306;</td>
+                <td class="no-border yellow" colspan="3" data-out="fillDate"></td>
+                <td class="no-border"></td>
+                <td class="no-border right">&#30332;&#36008;&#20154;</td>
+                <td class="no-border yellow" data-out="shipper"></td>
+              </tr>
+            </table>
+            <div class="customer-grid">
+              <div class="label">&#23458;&#25142;&#65306;</div>
+              <div data-out="customer"></div>
+              <div>&#20986;&#36008;&#26085;&#26399;</div>
+              <div data-out="shipDate"></div>
+              <div>&#20986;&#36008;(PO)&#32232;&#34399;</div>
+              <div data-out="poNo"></div>
+            </div>
+            <table class="print-table" aria-label="order">
+              <colgroup>
+                <col class="no"><col class="batch"><col class="name"><col class="qty">
+                <col class="unit"><col class="price"><col class="amount">
+              </colgroup>
+              <tr class="head-row">
+                <th class="outer-left">&#38917;&#27425;</th>
+                <th>&#25209;&#34399;</th>
+                <th>&#29986;&#21697;&#21517;&#31281;,&#35215;&#26684;/&#31561;&#32026;</th>
+                <th>&#25976;&#37327;</th>
+                <th>&#21934;&#20301;</th>
+                <th>&#21934;&#20729;</th>
+                <th class="outer-right">&#37329;&#38989;</th>
+              </tr>
+              <tbody id="printItems"></tbody>
+              <tr class="footer">
+                <td class="outer-left center" colspan="2">&#26989;&#21209;</td>
+                <td class="yellow" data-out="sales"></td>
+                <td colspan="2"></td>
+                <td class="center">&#21512;&#35336;</td>
+                <td class="outer-right right" data-out="total">0</td>
+              </tr>
+              <tr class="footer">
+                <td class="outer-left center" colspan="2">&#20633;&#35387;</td>
+                <td colspan="5" class="yellow outer-right" data-out="note"></td>
+              </tr>
+            </table>
+          </div>
+          <div class="side-copy" aria-label="copies">
+            <div class="copy-line">&#31532;&#19968;&#32879;&#65306;&#23384;&#26681;</div>
+            <div class="copy-line">&#31532;&#20108;&#32879;&#65306;&#26371;&#35336;</div>
+            <div class="copy-line">&#31532;&#19977;&#32879;&#65306;&#20489;&#24235;</div>
+            <div class="copy-line">&#31532;&#22235;&#32879;&#65306;&#23458;&#25142;</div>
+          </div>
+        </div>
+        <div class="signature-line">
+          <div>&#24288;&#38263;&#65306;</div>
+          <div>&#20489;&#31649;&#65306;</div>
+          <div>&#31805;&#25910;&#65306;</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <datalist id="companyOptions"></datalist>
+  <datalist id="salesOptions"></datalist>
+  <datalist id="productOptions"></datalist>
+  <datalist id="unitOptions"></datalist>
+
+  <script>
+    const storageKey = "dayu-order-input-v5";
+    const fields = ["company", "companyInfo", "fillDate", "shipDate", "customer", "shipper", "poNo", "sales", "note"];
+    const itemProps = ["batch", "name", "qty", "unit", "price"];
+    const lookupApiUrl = "https://script.google.com/macros/s/AKfycbxT_TcLYriZmzWZ8RSVEaqbWSjwq9ThDZbmP0mG6wWYDlulebkPdB3F1oF0Eo2sIWk-sQ/exec";
+    const defaultLookups = {
+      company: ["\u5927\u6f01\u6c34\u7522\u6709\u9650\u516c\u53f8"],
+      sales: ["\u5442\u5bb6\u59a4"],
+      product: ["\u5e72\u8c9d2L", "\u548c\u725bA5", "\u9b77\u9b5a\u4e00\u591c\u5e72 300g/"],
+      unit: ["\u76d2", "KG", "\u5c3e"]
+    };
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
+    const inputItems = document.getElementById("inputItems");
+    const printItems = document.getElementById("printItems");
+    const errorBox = document.getElementById("errorBox");
+    const savedOrderSelect = document.getElementById("savedOrderSelect");
+    let currentOrderId = saved.orderId || generateOrderId();
+    const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
+
+    function generateOrderId() {
+      const now = new Date();
+      const pad = (value) => String(value).padStart(2, "0");
+      const stamp = [
+        now.getFullYear(),
+        pad(now.getMonth() + 1),
+        pad(now.getDate()),
+        pad(now.getHours()),
+        pad(now.getMinutes()),
+        pad(now.getSeconds())
+      ].join("");
+      return `P${stamp}${Math.floor(Math.random() * 900 + 100)}`;
+    }
+
+    function todayISO() {
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      return new Date(now - offset).toISOString().slice(0, 10);
+    }
+
+    function formatDate(value, kind) {
+      if (!value) return "";
+      const date = new Date(`${value}T00:00:00`);
+      if (Number.isNaN(date.getTime())) return value;
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      return kind === "short" ? `${month}\u6708${day}\u65e5` : `${date.getFullYear()}\u5e74${month}\u6708${day}\u65e5`;
+    }
+
+    function amountText(value) {
+      const number = Number(value);
+      return Number.isFinite(number) && number !== 0 ? money.format(Math.round(number)) : "";
+    }
+
+    function uniqueValues(values) {
+      return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+    }
+
+    function setDatalist(id, values) {
+      const list = document.getElementById(id);
+      list.innerHTML = "";
+      uniqueValues(values).forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        list.appendChild(option);
+      });
+    }
+
+    async function loadLookupOptions() {
+      const lookups = {
+        company: [...defaultLookups.company],
+        sales: [...defaultLookups.sales],
+        product: [...defaultLookups.product],
+        unit: [...defaultLookups.unit]
+      };
+
+      if (lookupApiUrl) {
+        try {
+          const response = await fetch(lookupApiUrl);
+          const data = await response.json();
+          lookups.company.push(...(data.company || []));
+          lookups.sales.push(...(data.sales || []));
+          lookups.product.push(...(data.product || []));
+          lookups.unit.push(...(data.unit || []));
+        } catch (error) {
+          console.warn("Lookup API could not be loaded.", error);
+        }
+      }
+
+      setDatalist("companyOptions", lookups.company);
+      setDatalist("salesOptions", lookups.sales);
+      setDatalist("productOptions", lookups.product);
+      setDatalist("unitOptions", lookups.unit);
+    }
+
+    function collectLookupValues() {
+      const values = {
+        company: [document.querySelector('[data-field="company"]').value],
+        sales: [document.querySelector('[data-field="sales"]').value],
+        product: [],
+        unit: []
+      };
+
+      for (let i = 0; i < 10; i += 1) {
+        if (!itemRowHasAnyValue(i)) continue;
+        values.product.push(document.querySelector(`[data-item="${i}"][data-prop="name"]`).value);
+        values.unit.push(document.querySelector(`[data-item="${i}"][data-prop="unit"]`).value);
+      }
+
+      return {
+        company: uniqueValues(values.company),
+        sales: uniqueValues(values.sales),
+        product: uniqueValues(values.product),
+        unit: uniqueValues(values.unit)
+      };
+    }
+
+    async function saveLookupValues() {
+      if (!lookupApiUrl) return;
+      try {
+        await fetch(lookupApiUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(collectLookupValues())
+        });
+      } catch (error) {
+        console.warn("Lookup API could not be saved.", error);
+      }
+    }
+
+    function collectOrder() {
+      const order = {
+        id: currentOrderId,
+        fields: {},
+        items: [],
+        total: document.querySelector('[data-out="total"]').textContent
+      };
+
+      fields.forEach((field) => {
+        const input = document.querySelector(`[data-field="${field}"]`);
+        order.fields[field] = input ? input.value : "";
+      });
+
+      for (let i = 0; i < 10; i += 1) {
+        const item = { index: i + 1 };
+        itemProps.forEach((prop) => {
+          item[prop] = document.querySelector(`[data-item="${i}"][data-prop="${prop}"]`).value;
+        });
+        item.amount = document.querySelector(`[data-print-item="${i}"][data-prop="amount"]`).textContent;
+        if (itemProps.some((prop) => String(item[prop] || "").trim() !== "")) {
+          order.items.push(item);
+        }
+      }
+
+      return order;
+    }
+
+    async function saveOrder(showMessage = true) {
+      render();
+      if (!validateBeforePrint()) return false;
+      await saveLookupValues();
+
+      if (lookupApiUrl) {
+        try {
+          await fetch(lookupApiUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ type: "order", order: collectOrder() })
+          });
+        } catch (error) {
+          console.warn("Order could not be saved.", error);
+        }
+      }
+
+      await loadSavedOrders();
+      if (showMessage) alert("\u5df2\u5132\u5b58\u55ae\u64da\uff0c\u55ae\u865f\uff1a" + currentOrderId);
+      return true;
+    }
+
+    async function loadSavedOrders() {
+      if (!lookupApiUrl) return;
+      try {
+        const response = await fetch(`${lookupApiUrl}?action=orders`);
+        const data = await response.json();
+        savedOrderSelect.innerHTML = '<option value="">\u9078\u64c7\u55ae\u865f</option>';
+        (data.orders || []).forEach((order) => {
+          const option = document.createElement("option");
+          option.value = order.id;
+          option.textContent = `${order.id} | ${order.date || ""} | ${order.customer || ""}`;
+          savedOrderSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.warn("Saved orders could not be loaded.", error);
+      }
+    }
+
+    async function loadOrder(orderId) {
+      if (!lookupApiUrl || !orderId) return;
+      try {
+        const response = await fetch(`${lookupApiUrl}?action=order&id=${encodeURIComponent(orderId)}`);
+        const data = await response.json();
+        if (!data.order) return;
+
+        currentOrderId = data.order.id;
+        fields.forEach((field) => {
+          const input = document.querySelector(`[data-field="${field}"]`);
+          if (input) input.value = data.order.fields[field] || "";
+        });
+        document.querySelectorAll("[data-item]").forEach((input) => { input.value = ""; });
+        (data.order.items || []).forEach((item, index) => {
+          itemProps.forEach((prop) => {
+            const input = document.querySelector(`[data-item="${index}"][data-prop="${prop}"]`);
+            if (input) input.value = item[prop] || "";
+          });
+        });
+        render();
+      } catch (error) {
+        console.warn("Order could not be loaded.", error);
+      }
+    }
+
+    function buildItemRows() {
+      for (let i = 0; i < 10; i += 1) {
+        const row = document.createElement("div");
+        row.className = "item-row";
+        row.innerHTML = `
+          <div class="index">${i + 1}</div>
+          <input data-item="${i}" data-prop="batch" data-required="true">
+          <input data-item="${i}" data-prop="name" data-required="true" list="productOptions">
+          <input data-item="${i}" data-prop="qty" data-required="true" inputmode="decimal">
+          <input data-item="${i}" data-prop="unit" data-required="true" list="unitOptions">
+          <input data-item="${i}" data-prop="price" data-required="true" inputmode="decimal">
+        `;
+        inputItems.appendChild(row);
+
+        const printRow = document.createElement("tr");
+        printRow.className = "item-print-row";
+        printRow.innerHTML = `
+          <td class="outer-left center">${i + 1}</td>
+          <td class="yellow center" data-print-item="${i}" data-prop="batch"></td>
+          <td class="yellow" data-print-item="${i}" data-prop="name"></td>
+          <td class="yellow center" data-print-item="${i}" data-prop="qty"></td>
+          <td class="yellow center" data-print-item="${i}" data-prop="unit"></td>
+          <td class="yellow right" data-print-item="${i}" data-prop="price"></td>
+          <td class="yellow outer-right right" data-print-item="${i}" data-prop="amount"></td>
+        `;
+        printItems.appendChild(printRow);
+      }
+    }
+
+    function loadSaved() {
+      document.querySelectorAll("[data-field]").forEach((input) => {
+        const key = input.dataset.field;
+        if (saved[key] !== undefined) input.value = saved[key];
+      });
+      if (!document.querySelector('[data-field="fillDate"]').value) {
+        document.querySelector('[data-field="fillDate"]').value = todayISO();
+      }
+      document.querySelectorAll("[data-item]").forEach((input) => {
+        const key = `item${input.dataset.item}_${input.dataset.prop}`;
+        if (saved[key] !== undefined) input.value = saved[key];
+      });
+    }
+
+    function persist() {
+      const data = {};
+      data.orderId = currentOrderId;
+      document.querySelectorAll("[data-field]").forEach((input) => {
+        data[input.dataset.field] = input.value;
+      });
+      document.querySelectorAll("[data-item]").forEach((input) => {
+        data[`item${input.dataset.item}_${input.dataset.prop}`] = input.value;
+      });
+      localStorage.setItem(storageKey, JSON.stringify(data));
+    }
+
+    function render() {
+      fields.forEach((field) => {
+        const input = document.querySelector(`[data-field="${field}"]`);
+        const output = document.querySelector(`[data-out="${field}"]`);
+        if (!input || !output) return;
+        if (field === "fillDate") output.textContent = formatDate(input.value, "long");
+        else if (field === "shipDate") output.textContent = formatDate(input.value, "short");
+        else output.textContent = input.value;
+      });
+
+      let total = 0;
+      for (let i = 0; i < 10; i += 1) {
+        const qty = document.querySelector(`[data-item="${i}"][data-prop="qty"]`).value;
+        const price = document.querySelector(`[data-item="${i}"][data-prop="price"]`).value;
+        const amount = Math.round(Number(qty || 0) * Number(price || 0));
+        total += amount;
+        itemProps.forEach((prop) => {
+          const input = document.querySelector(`[data-item="${i}"][data-prop="${prop}"]`);
+          const output = document.querySelector(`[data-print-item="${i}"][data-prop="${prop}"]`);
+          output.textContent = prop === "price" ? amountText(input.value) : input.value;
+        });
+        document.querySelector(`[data-print-item="${i}"][data-prop="amount"]`).textContent = amountText(amount);
+      }
+
+      document.querySelector('[data-out="total"]').textContent = amountText(total) || "0";
+      persist();
+    }
+
+    function itemRowHasAnyValue(index) {
+      return itemProps.some((prop) => {
+        const input = document.querySelector(`[data-item="${index}"][data-prop="${prop}"]`);
+        return input.value.trim() !== "";
+      });
+    }
+
+    function validateBeforePrint() {
+      const missing = [];
+      document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
+
+      document.querySelectorAll("[data-field][data-required='true']").forEach((input) => {
+        if (input.value.trim() === "") {
+          input.classList.add("invalid");
+          missing.push(input);
+        }
+      });
+
+      let hasItem = false;
+      for (let i = 0; i < 10; i += 1) {
+        const rowStarted = itemRowHasAnyValue(i);
+        if (rowStarted) hasItem = true;
+        if (!rowStarted) continue;
+        itemProps.forEach((prop) => {
+          const input = document.querySelector(`[data-item="${i}"][data-prop="${prop}"]`);
+          if (input.value.trim() === "") {
+            input.classList.add("invalid");
+            missing.push(input);
+          }
+        });
+      }
+
+      if (!hasItem) {
+        const firstName = document.querySelector('[data-item="0"][data-prop="name"]');
+        firstName.classList.add("invalid");
+        missing.push(firstName);
+      }
+
+      if (missing.length > 0) {
+        errorBox.textContent = "\u8acb\u5148\u586b\u5b8c\u9ec3\u8272\u5fc5\u586b\u6b04\u4f4d\u3002\u54c1\u9805\u81f3\u5c11\u8981\u6709\u4e00\u7b46\uff1b\u5df2\u958b\u59cb\u586b\u5beb\u7684\u54c1\u9805\u5217\uff0c\u6279\u865f\u3001\u7522\u54c1\u3001\u6578\u91cf\u3001\u55ae\u4f4d\u3001\u55ae\u50f9\u90fd\u8981\u5b8c\u6574\u3002";
+        errorBox.classList.add("show");
+        missing[0].focus();
+        missing[0].scrollIntoView({ behavior: "smooth", block: "center" });
+        return false;
+      }
+
+      errorBox.classList.remove("show");
+      errorBox.textContent = "";
+      return true;
+    }
+
+    function clearAll() {
+      localStorage.removeItem(storageKey);
+      currentOrderId = generateOrderId();
+      document.querySelectorAll("input, textarea").forEach((input) => { input.value = ""; });
+      document.querySelector('[data-field="company"]').value = "\u5927\u6f01\u6c34\u7522\u6709\u9650\u516c\u53f8";
+      document.querySelector('[data-field="companyInfo"]').value = "\u5730\u5740:\u9ad8\u96c4\u5e02\u524d\u93ae\u5340\u65b0\u8859\u8def363\u865f\n\u96fb\u8a71:07-8415137\n\u50b3\u771f:07-8416426";
+      document.querySelector('[data-field="sales"]').value = "\u5442\u5bb6\u59a4";
+      document.querySelector('[data-field="fillDate"]').value = todayISO();
+      document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
+      errorBox.classList.remove("show");
+      errorBox.textContent = "";
+      render();
+    }
+
+    buildItemRows();
+    loadLookupOptions();
+    loadSavedOrders();
+    loadSaved();
+    document.querySelectorAll("input, textarea").forEach((input) => {
+      input.addEventListener("input", () => {
+        input.classList.remove("invalid");
+        render();
+      });
+    });
+    document.getElementById("printBtn").addEventListener("click", async () => {
+      render();
+      if (validateBeforePrint()) {
+        await saveOrder(false);
+        window.print();
+      }
+    });
+    document.getElementById("saveBtn").addEventListener("click", saveOrder);
+    document.getElementById("clearBtn").addEventListener("click", clearAll);
+    savedOrderSelect.addEventListener("change", () => loadOrder(savedOrderSelect.value));
+    render();
+  </script>
+</body>
+</html>
