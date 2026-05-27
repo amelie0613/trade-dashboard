@@ -123,6 +123,14 @@
       min-height: 36px;
     }
 
+    .list-toolbar .toolbar-left,
+    .list-toolbar .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
     .order-list {
       width: 100%;
       border-collapse: collapse;
@@ -155,6 +163,25 @@
 
     .order-list .left {
       text-align: left;
+    }
+
+    .order-actions {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .mini-btn {
+      min-height: 30px;
+      padding: 5px 10px;
+      font-size: 13px;
+    }
+
+    .danger {
+      border-color: #ef4444;
+      background: #ef4444;
+      color: #fff;
     }
 
     .list-footer {
@@ -714,17 +741,28 @@
       <div class="view" id="savedView" hidden>
         <p class="hint">&#21246;&#36984;&#35201;&#21015;&#21360;&#30340;&#21934;&#25818;&#65292;&#20877;&#25353;&#21015;&#21360;&#36984;&#21462;&#21934;&#25818;&#12290;</p>
         <div class="list-toolbar">
-          <label>&#39023;&#31034;
-            <select id="pageSizeSelect">
-              <option value="10">10</option>
-              <option value="25" selected>25</option>
-              <option value="50">50</option>
-            </select>
-            &#38917;&#32080;&#26524;
-          </label>
-          <label>&#25628;&#23563;
-            <input id="orderSearchInput" type="search">
-          </label>
+          <div class="toolbar-left">
+            <label>&#39023;&#31034;
+              <select id="pageSizeSelect">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+              </select>
+              &#38917;&#32080;&#26524;
+            </label>
+            <label>&#29376;&#24907;
+              <select id="printStatusFilter">
+                <option value="unprinted" selected>&#26410;&#21015;&#21360;</option>
+                <option value="printed">&#24050;&#30906;&#35469;&#21015;&#21360;</option>
+                <option value="all">&#20840;&#37096;</option>
+              </select>
+            </label>
+          </div>
+          <div class="toolbar-right">
+            <label>&#25628;&#23563;
+              <input id="orderSearchInput" type="search">
+            </label>
+          </div>
         </div>
         <table class="order-list">
           <thead>
@@ -736,13 +774,15 @@
               <th>&#23458;&#25142;</th>
               <th>&#26989;&#21209;</th>
               <th>&#37329;&#38989;</th>
+              <th>&#29376;&#24907;</th>
+              <th>&#25805;&#20316;</th>
             </tr>
           </thead>
           <tbody id="savedOrderTable"></tbody>
         </table>
         <div class="list-footer">
           <span id="savedOrderSummary">&#39023;&#31034; 0 &#38917;&#32080;&#26524;</span>
-          <span>&#26410;&#21015;&#21360;&#21934;&#25818;</span>
+          <span id="savedOrderStatusText">&#26410;&#21015;&#21360;&#21934;&#25818;</span>
         </div>
         <div class="actions" style="margin-top: 14px;">
           <button class="primary" type="button" id="savedPrintBtn">&#21015;&#21360;&#36984;&#21462;&#21934;&#25818;</button>
@@ -861,9 +901,11 @@
     const savedOrderSummary = document.getElementById("savedOrderSummary");
     const orderSearchInput = document.getElementById("orderSearchInput");
     const pageSizeSelect = document.getElementById("pageSizeSelect");
+    const printStatusFilter = document.getElementById("printStatusFilter");
     const selectAllOrders = document.getElementById("selectAllOrders");
     const printConfirmModal = document.getElementById("printConfirmModal");
     const printConfirmText = document.getElementById("printConfirmText");
+    const savedOrderStatusText = document.getElementById("savedOrderStatusText");
     const entryView = document.getElementById("entryView");
     const savedView = document.getElementById("savedView");
     const previewWrap = document.getElementById("previewWrap");
@@ -964,14 +1006,16 @@
       }
     }
 
-    async function supabaseLoadOrders() {
-      const rows = await supabaseFetch("orders?select=id,ship_date,customer,sales,total&printed=eq.false&order=updated_at.desc");
+    async function supabaseLoadOrders(status = "unprinted") {
+      const statusQuery = status === "all" ? "" : `&printed=eq.${status === "printed" ? "true" : "false"}`;
+      const rows = await supabaseFetch(`orders?select=id,ship_date,customer,sales,total,printed&order=updated_at.desc${statusQuery}`);
       return rows.map((row) => ({
         id: row.id,
         date: row.ship_date || "",
         customer: row.customer || "",
         sales: row.sales || "",
-        total: amountText(row.total)
+        total: amountText(row.total),
+        printed: Boolean(row.printed)
       }));
     }
 
@@ -1010,6 +1054,10 @@
         method: "PATCH",
         body: JSON.stringify({ printed: true, printed_at: new Date().toISOString() })
       });
+    }
+
+    async function supabaseDeleteOrder(orderId) {
+      await supabaseFetch(`orders?id=eq.${encodeURIComponent(orderId)}`, { method: "DELETE" });
     }
 
     function generateOrderId() {
@@ -1202,7 +1250,9 @@
     async function loadSavedOrders() {
       if (!lookupApiUrl && !useSupabase) return;
       try {
-        savedOrders = useSupabase ? await supabaseLoadOrders() : (await (await fetch(`${lookupApiUrl}?action=orders`)).json()).orders || [];
+        const status = printStatusFilter.value || "unprinted";
+        savedOrders = useSupabase ? await supabaseLoadOrders(status) : (await (await fetch(`${lookupApiUrl}?action=orders`)).json()).orders || [];
+        if (!useSupabase && status === "printed") savedOrders = [];
         const available = new Set(savedOrders.map((order) => String(order.id)));
         [...selectedOrderIds].forEach((id) => {
           if (!available.has(id)) selectedOrderIds.delete(id);
@@ -1242,6 +1292,13 @@
           <td class="left">${order.customer || ""}</td>
           <td>${order.sales || ""}</td>
           <td>${order.total || ""}</td>
+          <td>${order.printed ? "\u5df2\u78ba\u8a8d" : "\u672a\u5217\u5370"}</td>
+          <td>
+            <div class="order-actions">
+              <button class="mini-btn" type="button" data-action="edit" data-order-id="${order.id}">\u7de8\u8f2f</button>
+              <button class="mini-btn danger" type="button" data-action="delete" data-order-id="${order.id}">\u522a\u9664</button>
+            </div>
+          </td>
         `;
         const checkbox = tr.querySelector("input");
         checkbox.checked = selectedOrderIds.has(String(order.id));
@@ -1252,9 +1309,21 @@
           previewSelectedOrder();
         });
         tr.addEventListener("dblclick", () => loadOrder(order.id));
+        tr.querySelector('[data-action="edit"]').addEventListener("click", async () => {
+          await loadOrder(order.id);
+          switchView("entry");
+          document.querySelector('[data-field="customer"]').focus();
+        });
+        tr.querySelector('[data-action="delete"]').addEventListener("click", () => deleteSavedOrder(order.id));
         savedOrderTable.appendChild(tr);
       });
       savedOrderSummary.textContent = `\u986f\u793a ${rows.length} \u9805\u7d50\u679c\uff0c\u5171 ${savedOrders.length} \u9805`;
+      const statusTextMap = {
+        unprinted: "\u26410\u5217\u5370\u55ae\u64da",
+        printed: "\u5df2\u78ba\u8a8d\u5217\u5370\u55ae\u64da",
+        all: "\u5168\u90e8\u55ae\u64da"
+      };
+      savedOrderStatusText.textContent = statusTextMap[printStatusFilter.value] || statusTextMap.unprinted;
       updateSelectAllState();
     }
 
@@ -1301,6 +1370,26 @@
         previewWrap.hidden = false;
       } catch (error) {
         console.warn("Order could not be loaded.", error);
+      }
+    }
+
+    async function deleteSavedOrder(orderId) {
+      if (!orderId) return;
+      if (!confirm(`\u78ba\u5b9a\u8981\u522a\u9664\u55ae\u865f ${orderId} \uff1f\u522a\u9664\u5f8c\u7121\u6cd5\u5fa9\u539f\u3002`)) return;
+      try {
+        if (useSupabase) {
+          await supabaseDeleteOrder(orderId);
+        } else {
+          alert("\u522a\u9664\u529f\u80fd\u76ee\u524d\u50c5\u652f\u63f4 Supabase \u7248\u672c\u3002");
+          return;
+        }
+        selectedOrderIds.delete(String(orderId));
+        if (currentOrderId === orderId) clearAll();
+        await loadSavedOrders();
+        previewSelectedOrder();
+      } catch (error) {
+        console.warn("Order could not be deleted.", error);
+        alert("\u522a\u9664\u5931\u6557\uff0c\u8acb\u78ba\u8a8d Supabase orders \u6709 delete policy\u3002");
       }
     }
 
@@ -1520,6 +1609,11 @@
     document.getElementById("cancelBatchPrintBtn").addEventListener("click", closePrintConfirm);
     orderSearchInput.addEventListener("input", renderSavedOrderTable);
     pageSizeSelect.addEventListener("change", renderSavedOrderTable);
+    printStatusFilter.addEventListener("change", async () => {
+      selectedOrderIds.clear();
+      previewWrap.hidden = true;
+      await loadSavedOrders();
+    });
     selectAllOrders.addEventListener("change", () => {
       filteredOrders().forEach((order) => {
         if (selectAllOrders.checked) selectedOrderIds.add(String(order.id));
