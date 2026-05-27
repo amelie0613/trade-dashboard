@@ -35,7 +35,7 @@
 
     .app {
       display: grid;
-      grid-template-columns: minmax(360px, 470px) minmax(900px, 1fr);
+      grid-template-columns: 1fr;
       gap: 16px;
       max-width: 1600px;
       margin: 0 auto;
@@ -44,8 +44,6 @@
 
     .input-panel {
       align-self: start;
-      position: sticky;
-      top: 12px;
       background: var(--panel);
       border: 1px solid var(--border);
       border-top: 4px solid var(--blue);
@@ -324,7 +322,7 @@
     .item-header,
     .item-row {
       display: grid;
-      grid-template-columns: 34px 1fr 1.7fr 62px 56px 76px;
+      grid-template-columns: 34px 1fr 1.7fr 62px 56px 76px 82px;
       gap: 0;
     }
 
@@ -364,6 +362,17 @@
 
     .item-row input:last-child { border-right: 0; }
 
+    .item-amount {
+      display: grid;
+      place-items: center end;
+      min-height: 34px;
+      padding: 6px;
+      border-right: 0;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
     .input-panel .section-title {
       margin: 14px 0 6px;
       color: #435061;
@@ -374,6 +383,11 @@
     .preview-wrap {
       min-width: 0;
       overflow: auto;
+      order: 2;
+    }
+
+    .preview-wrap[hidden] {
+      display: none;
     }
 
     .page {
@@ -382,9 +396,14 @@
       margin: 0 auto;
       padding: 2.4mm 2.4mm 1.8mm;
       background: var(--paper);
+      color: #000;
       box-shadow: 0 6px 24px rgba(18, 31, 45, 0.16);
       font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
       font-weight: 900;
+    }
+
+    .page * {
+      color: #000 !important;
     }
 
     .print-header {
@@ -429,6 +448,18 @@
     .form-table {
       width: 100%;
     }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 28mm 68mm 1fr 24mm 34mm;
+      align-items: center;
+      height: 6mm;
+      font-size: 12pt;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .meta-grid > div {
+      overflow: visible;
+    }
 
     .print-table {
       width: 100%;
@@ -468,6 +499,9 @@
     .meta-row .date-label {
       width: 20mm;
       min-width: 20mm;
+    }
+    .meta-row .fill-date-value {
+      min-width: 52mm;
     }
     .customer-meta-cell {
       border: 0 !important;
@@ -656,19 +690,17 @@
         <label class="wide"><span class="req">&#20633;&#35387;</span>
           <textarea data-field="note" data-required="true"></textarea>
         </label>
-        <label class="wide">&#21491;&#19978;&#35282;&#22320;&#22336;&#38651;&#35441;
-          <textarea data-field="companyInfo"></textarea>
-        </label>
       </div>
 
       <div class="items">
         <div class="item-header">
           <div>#</div>
-          <div>&#25209;&#34399; *</div>
-          <div>&#29986;&#21697;&#21517;&#31281; *</div>
-          <div>&#25976;&#37327; *</div>
-          <div>&#21934;&#20301; *</div>
-          <div>&#21934;&#20729; *</div>
+          <div>&#25209;&#34399;</div>
+          <div>&#29986;&#21697;&#21517;&#31281;</div>
+          <div>&#25976;&#37327;</div>
+          <div>&#21934;&#20301;</div>
+          <div>&#21934;&#20729;</div>
+          <div>&#37329;&#38989;</div>
         </div>
         <div id="inputItems"></div>
       </div>
@@ -720,28 +752,24 @@
       </div>
     </section>
 
-    <section class="preview-wrap" aria-label="preview">
+    <section class="preview-wrap" id="previewWrap" aria-label="preview" hidden>
       <div class="page">
         <div class="print-header">
           <div class="company-title" data-out="company"></div>
           <div class="doc-title">&#20986;&#36008;&#21934;</div>
-          <div class="company-info" data-out="companyInfo"></div>
+          <div class="company-info">&#22320;&#22336;:&#39640;&#38596;&#24066;&#21069;&#37806;&#21312;&#26032;&#34909;&#36335;363&#34399;
+&#38651;&#35441;:07-8415137
+&#20659;&#30495;:07-8416426</div>
         </div>
         <div class="order-area">
           <div class="form-table">
-            <table class="print-table" aria-label="meta">
-              <colgroup>
-                <col class="no"><col class="batch"><col class="name"><col class="qty">
-                <col class="unit"><col class="price"><col class="amount">
-              </colgroup>
-              <tr class="top-row meta-row">
-                <td class="no-border right date-label">&#22635;&#21934;&#26085;&#26399;&#65306;</td>
-                <td class="no-border yellow" colspan="3" data-out="fillDate"></td>
-                <td class="no-border"></td>
-                <td class="no-border right">&#30332;&#36008;&#20154;</td>
-                <td class="no-border yellow" data-out="shipper"></td>
-              </tr>
-            </table>
+            <div class="meta-grid">
+              <div>&#22635;&#21934;&#26085;&#26399;&#65306;</div>
+              <div data-out="fillDate"></div>
+              <div></div>
+              <div>&#30332;&#36008;&#20154;</div>
+              <div data-out="shipper"></div>
+            </div>
             <div class="customer-grid">
               <div class="label">&#23458;&#25142;&#65306;</div>
               <div data-out="customer"></div>
@@ -813,7 +841,7 @@
 
   <script>
     const storageKey = "dayu-order-input-v6";
-    const fields = ["company", "companyInfo", "fillDate", "shipDate", "customer", "shipper", "poNo", "sales", "note"];
+    const fields = ["company", "fillDate", "shipDate", "customer", "shipper", "poNo", "sales", "note"];
     const itemProps = ["batch", "name", "qty", "unit", "price"];
     const lookupApiUrl = "https://script.google.com/macros/s/AKfycbxT_TcLYriZmzWZ8RSVEaqbWSjwq9ThDZbmP0mG6wWYDlulebkPdB3F1oF0Eo2sIWk-sQ/exec";
     const defaultLookups = {
@@ -822,7 +850,7 @@
       product: ["\u5e72\u8c9d2L", "\u548c\u725bA5", "\u9b77\u9b5a\u4e00\u591c\u5e72 300g/"],
       unit: ["\u76d2", "KG", "\u5c3e"]
     };
-    const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
+    const saved = {};
     const inputItems = document.getElementById("inputItems");
     const printItems = document.getElementById("printItems");
     const errorBox = document.getElementById("errorBox");
@@ -835,7 +863,8 @@
     const printConfirmText = document.getElementById("printConfirmText");
     const entryView = document.getElementById("entryView");
     const savedView = document.getElementById("savedView");
-    let currentOrderId = saved.orderId || generateOrderId();
+    const previewWrap = document.getElementById("previewWrap");
+    let currentOrderId = generateOrderId();
     let savedOrders = [];
     const selectedOrderIds = new Set();
     const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
@@ -878,6 +907,7 @@
       const isSaved = viewName === "saved";
       entryView.hidden = isSaved;
       savedView.hidden = !isSaved;
+      previewWrap.hidden = true;
       document.querySelectorAll("[data-view-button]").forEach((button) => {
         button.classList.toggle("active", button.dataset.viewButton === viewName);
       });
@@ -1098,6 +1128,7 @@
           });
         });
         render();
+        previewWrap.hidden = false;
       } catch (error) {
         console.warn("Order could not be loaded.", error);
       }
@@ -1155,11 +1186,12 @@
         row.className = "item-row";
         row.innerHTML = `
           <div class="index">${i + 1}</div>
-          <input data-item="${i}" data-prop="batch" data-required="true">
-          <input data-item="${i}" data-prop="name" data-required="true" list="productOptions">
-          <input data-item="${i}" data-prop="qty" data-required="true" inputmode="decimal">
-          <input data-item="${i}" data-prop="unit" data-required="true" list="unitOptions">
-          <input data-item="${i}" data-prop="price" data-required="true" inputmode="decimal">
+          <input data-item="${i}" data-prop="batch">
+          <input data-item="${i}" data-prop="name" list="productOptions">
+          <input data-item="${i}" data-prop="qty" inputmode="decimal">
+          <input data-item="${i}" data-prop="unit" list="unitOptions">
+          <input data-item="${i}" data-prop="price" inputmode="decimal">
+          <div class="item-amount" data-input-amount="${i}"></div>
         `;
         inputItems.appendChild(row);
 
@@ -1179,26 +1211,11 @@
     }
 
     function loadSaved() {
-      document.querySelectorAll("[data-field]").forEach((input) => {
-        const key = input.dataset.field;
-        if (saved[key] !== undefined) input.value = saved[key];
-      });
-      document.querySelectorAll("[data-item]").forEach((input) => {
-        const key = `item${input.dataset.item}_${input.dataset.prop}`;
-        if (saved[key] !== undefined) input.value = saved[key];
-      });
+      localStorage.removeItem(storageKey);
     }
 
     function persist() {
-      const data = {};
-      data.orderId = currentOrderId;
-      document.querySelectorAll("[data-field]").forEach((input) => {
-        data[input.dataset.field] = input.value;
-      });
-      document.querySelectorAll("[data-item]").forEach((input) => {
-        data[`item${input.dataset.item}_${input.dataset.prop}`] = input.value;
-      });
-      localStorage.setItem(storageKey, JSON.stringify(data));
+      // Intentionally do not persist entry form values locally.
     }
 
     function render() {
@@ -1217,6 +1234,7 @@
         const price = document.querySelector(`[data-item="${i}"][data-prop="price"]`).value;
         const amount = Math.round(Number(qty || 0) * Number(price || 0));
         total += amount;
+        document.querySelector(`[data-input-amount="${i}"]`).textContent = amountText(amount);
         itemProps.forEach((prop) => {
           const input = document.querySelector(`[data-item="${i}"][data-prop="${prop}"]`);
           const output = document.querySelector(`[data-print-item="${i}"][data-prop="${prop}"]`);
@@ -1247,28 +1265,8 @@
         }
       });
 
-      let hasItem = false;
-      for (let i = 0; i < 10; i += 1) {
-        const rowStarted = itemRowHasAnyValue(i);
-        if (rowStarted) hasItem = true;
-        if (!rowStarted) continue;
-        itemProps.forEach((prop) => {
-          const input = document.querySelector(`[data-item="${i}"][data-prop="${prop}"]`);
-          if (input.value.trim() === "") {
-            input.classList.add("invalid");
-            missing.push(input);
-          }
-        });
-      }
-
-      if (!hasItem) {
-        const firstName = document.querySelector('[data-item="0"][data-prop="name"]');
-        firstName.classList.add("invalid");
-        missing.push(firstName);
-      }
-
       if (missing.length > 0) {
-        errorBox.textContent = "\u8acb\u5148\u586b\u5b8c\u9ec3\u8272\u5fc5\u586b\u6b04\u4f4d\u3002\u54c1\u9805\u81f3\u5c11\u8981\u6709\u4e00\u7b46\uff1b\u5df2\u958b\u59cb\u586b\u5beb\u7684\u54c1\u9805\u5217\uff0c\u6279\u865f\u3001\u7522\u54c1\u3001\u6578\u91cf\u3001\u55ae\u4f4d\u3001\u55ae\u50f9\u90fd\u8981\u5b8c\u6574\u3002";
+        errorBox.textContent = "\u8acb\u5148\u586b\u5b8c\u9ec3\u8272\u5fc5\u586b\u6b04\u4f4d\u3002";
         errorBox.classList.add("show");
         missing[0].focus();
         missing[0].scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1287,6 +1285,7 @@
       document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
       errorBox.classList.remove("show");
       errorBox.textContent = "";
+      previewWrap.hidden = true;
       render();
     }
 
