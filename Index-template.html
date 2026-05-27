@@ -1,0 +1,1431 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>&#20986;&#36008;&#21934;&#36664;&#20837;&#33287;&#21015;&#21360;</title>
+  <style>
+    :root {
+      --paper: #fff;
+      --ink: #0b1d35;
+      --line: #111;
+      --yellow: #fff36a;
+      --yellow-soft: #fff7ed;
+      --bg: #f0f6fc;
+      --panel: #ffffff;
+      --muted: #64748b;
+      --blue: #0369a1;
+      --wave: #0ea5e9;
+      --gold: #d97706;
+      --gold2: #fbbf24;
+      --jade: #16a34a;
+      --border: #e2e8f0;
+      --error: #dc2626;
+      --pay-border: #fed7aa;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: "Microsoft JhengHei", Arial, sans-serif;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .input-panel {
+      align-self: start;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-top: 4px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 3px 14px rgba(18, 31, 45, 0.08);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      color: var(--ink);
+    }
+
+    .hint {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+
+    .mode-tab {
+      min-width: 0;
+      background: #f8fafc;
+      font-weight: 700;
+    }
+
+    .mode-tab.active {
+      border-color: var(--blue);
+      background: linear-gradient(90deg, var(--blue), var(--wave));
+      color: #fff;
+    }
+
+    .view[hidden] { display: none; }
+
+    .list-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .list-toolbar label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .list-toolbar input,
+    .list-toolbar select {
+      width: auto;
+      min-height: 36px;
+    }
+
+    .order-list {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 14px;
+    }
+
+    .order-list th,
+    .order-list td {
+      border-bottom: 1px solid var(--border);
+      padding: 9px 8px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .order-list th {
+      background: #f8fafc;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .order-list tbody tr {
+      background: #e0f2fe;
+    }
+
+    .order-list tbody tr:nth-child(even) {
+      background: #f0f9ff;
+    }
+
+    .order-list .left {
+      text-align: left;
+    }
+
+    .list-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .modal-backdrop[hidden] { display: none; }
+
+    .modal {
+      width: min(520px, calc(100vw - 32px));
+      border-radius: 8px;
+      background: #fff;
+      padding: 28px;
+      text-align: center;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
+    }
+
+    .modal-mark {
+      display: grid;
+      place-items: center;
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 16px;
+      border: 4px solid #c7d8e2;
+      border-radius: 50%;
+      color: #7fa0c0;
+      font-size: 52px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .modal h2 {
+      margin: 0 0 14px;
+      color: #334155;
+      font-size: 28px;
+    }
+
+    .modal p {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .success {
+      border-color: var(--jade);
+      background: var(--jade);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .danger {
+      border-color: var(--error);
+      background: var(--error);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    button {
+      border: 1px solid #8793a0;
+      border-radius: 6px;
+      background: #fff;
+      color: #1f2933;
+      padding: 8px 12px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button.primary {
+      border-color: var(--blue);
+      background: linear-gradient(90deg, var(--blue), var(--wave));
+      color: #fff;
+      font-weight: 700;
+    }
+
+    button:hover {
+      border-color: var(--wave);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    label {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    label.wide { grid-column: 1 / -1; }
+    .req::after { content: " *"; color: var(--error); }
+
+    .input-panel input,
+    .input-panel select,
+    .input-panel textarea {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 7px 9px;
+      color: var(--ink);
+      background: #fff;
+      font: 15px/1.35 "Microsoft JhengHei", Arial, sans-serif;
+    }
+
+    .input-panel [data-required="true"] {
+      background: var(--yellow-soft);
+      border-color: var(--pay-border);
+    }
+
+    .input-panel .invalid {
+      border-color: var(--error) !important;
+      box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.12);
+    }
+
+    .input-panel textarea {
+      resize: vertical;
+      min-height: 56px;
+    }
+
+    .error-box {
+      display: none;
+      margin: 0 0 12px;
+      padding: 8px 10px;
+      border: 1px solid #ef9a9a;
+      border-radius: 6px;
+      background: #fff2f2;
+      color: var(--error);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .error-box.show { display: block; }
+
+    .items {
+      margin-top: 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .item-header,
+    .item-row {
+      display: grid;
+      grid-template-columns: 34px 1fr 1.7fr 62px 56px 76px 82px;
+      gap: 0;
+    }
+
+    .item-header div {
+      background: #f5f7f9;
+      color: #435061;
+      padding: 7px 5px;
+      border-right: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .item-header div:last-child { border-right: 0; }
+
+    .item-row {
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .item-row .index {
+      display: grid;
+      place-items: center;
+      color: #4d5968;
+      font-size: 13px;
+      border-right: 1px solid var(--border);
+    }
+
+    .item-row input {
+      min-height: 34px;
+      border: 0;
+      border-right: 1px solid var(--border);
+      border-radius: 0;
+      padding: 6px;
+      font-size: 14px;
+    }
+
+    .item-row input:last-child { border-right: 0; }
+
+    .item-amount {
+      display: grid;
+      place-items: center end;
+      min-height: 34px;
+      padding: 6px;
+      border-right: 0;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .input-panel .section-title {
+      margin: 14px 0 6px;
+      color: #435061;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .preview-wrap {
+      min-width: 0;
+      overflow: auto;
+      order: 2;
+    }
+
+    .preview-wrap[hidden] {
+      display: none;
+    }
+
+    .page {
+      width: 215.9mm;
+      height: 139.7mm;
+      margin: 0 auto;
+      padding: 2.4mm 2.4mm 1.8mm;
+      background: var(--paper);
+      color: #000;
+      box-shadow: 0 6px 24px rgba(18, 31, 45, 0.16);
+      font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
+      font-weight: 900;
+    }
+
+    .page * {
+      color: #000 !important;
+    }
+
+    .print-header {
+      position: relative;
+      height: 17mm;
+      font-weight: 700;
+    }
+
+    .company-title {
+      text-align: center;
+      font-size: 18pt;
+      line-height: 1.15;
+    }
+
+    .doc-title {
+      text-align: center;
+      margin-top: 3mm;
+      font-size: 16pt;
+      line-height: 1;
+    }
+
+    .company-info {
+      position: absolute;
+      top: 0;
+      right: 3mm;
+      width: 68mm;
+      font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
+      font-size: 10pt;
+      line-height: 1.25;
+      font-weight: 700;
+      text-align: left;
+      white-space: pre-line;
+    }
+
+    .order-area {
+      display: grid;
+      grid-template-columns: 1fr 7mm;
+      align-items: stretch;
+      width: 100%;
+    }
+
+    .form-table {
+      width: 100%;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 28mm 68mm 1fr 24mm 34mm;
+      align-items: center;
+      height: 6mm;
+      font-size: 12pt;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .meta-grid > div {
+      overflow: visible;
+    }
+
+    .print-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .print-table col.no { width: 8%; }
+    .print-table col.batch { width: 22%; }
+    .print-table col.name { width: 31%; }
+    .print-table col.qty { width: 7%; }
+    .print-table col.unit { width: 7%; }
+    .print-table col.price { width: 11%; }
+    .print-table col.amount { width: 14%; }
+
+    .print-table td,
+    .print-table th {
+      height: 5.2mm;
+      border: 1px solid var(--line);
+      padding: 0.45mm 0.9mm;
+      vertical-align: middle;
+      font-size: 10.5pt;
+      font-weight: 700;
+      line-height: 1.08;
+      overflow: hidden;
+      white-space: pre-wrap;
+    }
+
+    .top-row td {
+      height: 6mm;
+      font-size: 12pt;
+    }
+    .meta-row td {
+      border: 0 !important;
+      white-space: nowrap;
+    }
+    .meta-row .date-label {
+      width: 20mm;
+      min-width: 20mm;
+    }
+    .meta-row .fill-date-value {
+      min-width: 52mm;
+    }
+    .customer-meta-cell {
+      border: 0 !important;
+      padding: 0 !important;
+      height: 6mm;
+    }
+    .customer-grid {
+      display: grid;
+      grid-template-columns: 16mm 40mm 32mm 32mm 32mm 1fr;
+      height: 6mm;
+      width: 100%;
+      border-top: 2px solid var(--line);
+      border-left: 2px solid var(--line);
+      border-right: 2px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .customer-grid > div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid var(--line);
+      padding: 0.45mm 0.9mm;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .customer-grid > div:last-child { border-right: 0; }
+    .customer-grid .label {
+      justify-content: flex-start;
+      font-weight: 700;
+    }
+    .head-row th {
+      height: 5.5mm;
+      text-align: center;
+      border-bottom: 3px double var(--line);
+      font-size: 9.5pt;
+    }
+    .item-print-row td {
+      height: 8mm;
+      font-size: 14pt;
+    }
+    .yellow { background: var(--yellow); }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .outer-left { border-left-width: 2px !important; }
+    .outer-right { border-right-width: 2px !important; }
+    .outer-top { border-top-width: 2px !important; }
+    .footer td {
+      height: 7mm;
+      font-size: 14pt;
+    }
+
+    .side-copy {
+      display: grid;
+      grid-template-rows: repeat(4, 1fr);
+      border: 0;
+      font-size: 8pt;
+      font-weight: 700;
+      line-height: 1.05;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .copy-line {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 0;
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      letter-spacing: 0;
+    }
+
+    .signature-line {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      padding: 3.2mm 0 0 1mm;
+      font-size: 10pt;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    @media (max-width: 1180px) {
+      .app { grid-template-columns: 1fr; }
+      .input-panel { position: static; }
+    }
+
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 0 6mm 0 6mm;
+      }
+
+      html,
+      body {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        overflow: visible;
+      }
+
+      .input-panel { display: none !important; }
+
+      .app {
+        display: block;
+        width: auto;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .preview-wrap {
+        width: auto;
+        height: auto;
+        overflow: visible;
+      }
+
+      .page {
+        width: 198mm;
+        height: auto;
+        min-height: 0;
+        margin: 8mm auto 0;
+        padding: 0;
+        box-shadow: none;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+        transform: none;
+      }
+
+      .print-table {
+        width: 100%;
+      }
+
+      .yellow,
+      .title-company {
+        background: transparent !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+
+    .page .yellow,
+    .page .title-company {
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="input-panel" aria-label="input">
+      <div class="panel-head">
+        <h1>&#20986;&#36008;&#21934;&#36664;&#20837;</h1>
+      </div>
+      <div class="mode-tabs">
+        <button class="mode-tab active" type="button" data-view-button="entry">&#36039;&#26009;&#36664;&#20837;</button>
+        <button class="mode-tab" type="button" data-view-button="saved">&#36984;&#21462;&#21934;&#34399;&#21015;&#21360;</button>
+      </div>
+
+      <div class="view" id="entryView">
+      <p class="hint">&#40643;&#33394;&#27396;&#20301;&#28858;&#24517;&#22635;&#65307;&#21697;&#38917;&#21482;&#35201;&#38283;&#22987;&#22635;&#26576;&#19968;&#21015;&#65292;&#35442;&#21015;&#40643;&#33394;&#27396;&#20301;&#37117;&#35201;&#22635;&#23436;&#25972;&#12290;</p>
+      <div class="error-box" id="errorBox" role="alert"></div>
+
+      <div class="form-grid">
+        <label class="wide"><span class="req">&#20844;&#21496;&#21517;&#31281;</span>
+          <input data-field="company" data-required="true" list="companyOptions">
+        </label>
+        <label><span class="req">&#22635;&#21934;&#26085;&#26399;</span>
+          <input type="date" data-field="fillDate" data-required="true">
+        </label>
+        <label><span class="req">&#20986;&#36008;&#26085;&#26399;</span>
+          <input type="date" data-field="shipDate" data-required="true">
+        </label>
+        <label><span class="req">&#23458;&#25142;</span>
+          <input data-field="customer" data-required="true">
+        </label>
+        <label><span>&#30332;&#36008;&#20154;</span>
+          <input data-field="shipper">
+        </label>
+        <label><span>&#20986;&#36008;(PO)&#32232;&#34399;</span>
+          <input data-field="poNo">
+        </label>
+        <label><span class="req">&#26989;&#21209;</span>
+          <input data-field="sales" data-required="true" list="salesOptions">
+        </label>
+        <label class="wide"><span class="req">&#20633;&#35387;</span>
+          <textarea data-field="note" data-required="true"></textarea>
+        </label>
+      </div>
+
+      <div class="items">
+        <div class="item-header">
+          <div>#</div>
+          <div>&#25209;&#34399;</div>
+          <div>&#29986;&#21697;&#21517;&#31281;</div>
+          <div>&#25976;&#37327;</div>
+          <div>&#21934;&#20301;</div>
+          <div>&#21934;&#20729;</div>
+          <div>&#37329;&#38989;</div>
+        </div>
+        <div id="inputItems"></div>
+      </div>
+      <div class="actions" style="margin-top: 14px;">
+        <button type="button" id="saveBtn">&#20786;&#23384;</button>
+        <button class="primary" type="button" id="printBtn">&#21015;&#21360;</button>
+        <button type="button" id="clearBtn">&#28165;&#31354;</button>
+      </div>
+      </div>
+
+      <div class="view" id="savedView" hidden>
+        <p class="hint">&#21246;&#36984;&#35201;&#21015;&#21360;&#30340;&#21934;&#25818;&#65292;&#20877;&#25353;&#21015;&#21360;&#36984;&#21462;&#21934;&#25818;&#12290;</p>
+        <div class="list-toolbar">
+          <label>&#39023;&#31034;
+            <select id="pageSizeSelect">
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+            </select>
+            &#38917;&#32080;&#26524;
+          </label>
+          <label>&#25628;&#23563;
+            <input id="orderSearchInput" type="search">
+          </label>
+        </div>
+        <table class="order-list">
+          <thead>
+            <tr>
+              <th><input id="selectAllOrders" type="checkbox"></th>
+              <th>#</th>
+              <th>&#26085;&#26399;</th>
+              <th>&#21934;&#34399;</th>
+              <th>&#23458;&#25142;</th>
+              <th>&#26989;&#21209;</th>
+              <th>&#37329;&#38989;</th>
+            </tr>
+          </thead>
+          <tbody id="savedOrderTable"></tbody>
+        </table>
+        <div class="list-footer">
+          <span id="savedOrderSummary">&#39023;&#31034; 0 &#38917;&#32080;&#26524;</span>
+          <span>&#26410;&#21015;&#21360;&#21934;&#25818;</span>
+        </div>
+        <div class="actions" style="margin-top: 14px;">
+          <button class="primary" type="button" id="savedPrintBtn">&#21015;&#21360;&#36984;&#21462;&#21934;&#25818;</button>
+          <button type="button" id="confirmPrintedBtn">&#30906;&#35469;&#24050;&#21015;&#21360;</button>
+          <button type="button" id="refreshOrdersBtn">&#21047;&#26032;&#21934;&#34399;</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="preview-wrap" id="previewWrap" aria-label="preview" hidden>
+      <div class="page">
+        <div class="print-header">
+          <div class="company-title" data-out="company"></div>
+          <div class="doc-title">&#20986;&#36008;&#21934;</div>
+          <div class="company-info">&#22320;&#22336;:&#39640;&#38596;&#24066;&#21069;&#37806;&#21312;&#26032;&#34909;&#36335;363&#34399;
+&#38651;&#35441;:07-8415137
+&#20659;&#30495;:07-8416426</div>
+        </div>
+        <div class="order-area">
+          <div class="form-table">
+            <div class="meta-grid">
+              <div>&#22635;&#21934;&#26085;&#26399;&#65306;</div>
+              <div data-out="fillDate"></div>
+              <div></div>
+              <div>&#30332;&#36008;&#20154;</div>
+              <div data-out="shipper"></div>
+            </div>
+            <div class="customer-grid">
+              <div class="label">&#23458;&#25142;&#65306;</div>
+              <div data-out="customer"></div>
+              <div>&#20986;&#36008;&#26085;&#26399;</div>
+              <div data-out="shipDate"></div>
+              <div>&#20986;&#36008;(PO)&#32232;&#34399;</div>
+              <div data-out="poNo"></div>
+            </div>
+            <table class="print-table" aria-label="order">
+              <colgroup>
+                <col class="no"><col class="batch"><col class="name"><col class="qty">
+                <col class="unit"><col class="price"><col class="amount">
+              </colgroup>
+              <tr class="head-row">
+                <th class="outer-left">&#38917;&#27425;</th>
+                <th>&#25209;&#34399;</th>
+                <th>&#29986;&#21697;&#21517;&#31281;,&#35215;&#26684;/&#31561;&#32026;</th>
+                <th>&#25976;&#37327;</th>
+                <th>&#21934;&#20301;</th>
+                <th>&#21934;&#20729;</th>
+                <th class="outer-right">&#37329;&#38989;</th>
+              </tr>
+              <tbody id="printItems"></tbody>
+              <tr class="footer">
+                <td class="outer-left center" colspan="2">&#26989;&#21209;</td>
+                <td class="yellow" data-out="sales"></td>
+                <td colspan="2"></td>
+                <td class="center">&#21512;&#35336;</td>
+                <td class="outer-right right" data-out="total">0</td>
+              </tr>
+              <tr class="footer">
+                <td class="outer-left center" colspan="2">&#20633;&#35387;</td>
+                <td colspan="5" class="yellow outer-right" data-out="note"></td>
+              </tr>
+            </table>
+          </div>
+          <div class="side-copy" aria-label="copies">
+            <div class="copy-line">&#31532;&#19968;&#32879;&#65306;&#23384;&#26681;</div>
+            <div class="copy-line">&#31532;&#20108;&#32879;&#65306;&#26371;&#35336;</div>
+            <div class="copy-line">&#31532;&#19977;&#32879;&#65306;&#20489;&#24235;</div>
+            <div class="copy-line">&#31532;&#22235;&#32879;&#65306;&#23458;&#25142;</div>
+          </div>
+        </div>
+        <div class="signature-line">
+          <div>&#24288;&#38263;&#65306;</div>
+          <div>&#20489;&#31649;&#65306;</div>
+          <div>&#31805;&#25910;&#65306;</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="printConfirmModal" hidden>
+    <div class="modal">
+      <div class="modal-mark">?</div>
+      <h2>&#30906;&#35469;&#25209;&#27425;&#21015;&#21360;</h2>
+      <p id="printConfirmText"></p>
+      <div class="modal-actions">
+        <button class="success" type="button" id="confirmBatchPrintBtn">&#30906;&#23450;&#21015;&#21360;</button>
+        <button class="danger" type="button" id="cancelBatchPrintBtn">&#21462;&#28040;</button>
+      </div>
+    </div>
+  </div>
+
+  <datalist id="companyOptions"></datalist>
+  <datalist id="salesOptions"></datalist>
+  <datalist id="productOptions"></datalist>
+  <datalist id="unitOptions"></datalist>
+
+  <script>
+    const storageKey = "dayu-order-input-v6";
+    const lookupCacheKey = "dayu-lookup-cache-v1";
+    const orderCacheKey = "dayu-order-list-cache-v1";
+    const fields = ["company", "fillDate", "shipDate", "customer", "shipper", "poNo", "sales", "note"];
+    const itemProps = ["batch", "name", "qty", "unit", "price"];
+    const lookupApiUrl = window.location.href.split("?")[0];
+    const defaultLookups = {
+      company: ["\u5927\u6f01\u6c34\u7522\u6709\u9650\u516c\u53f8"],
+      sales: ["\u5442\u5bb6\u59a4"],
+      product: ["\u5e72\u8c9d2L", "\u548c\u725bA5", "\u9b77\u9b5a\u4e00\u591c\u5e72 300g/"],
+      unit: ["\u76d2", "KG", "\u5c3e"]
+    };
+    const saved = {};
+    const inputItems = document.getElementById("inputItems");
+    const printItems = document.getElementById("printItems");
+    const errorBox = document.getElementById("errorBox");
+    const savedOrderTable = document.getElementById("savedOrderTable");
+    const savedOrderSummary = document.getElementById("savedOrderSummary");
+    const orderSearchInput = document.getElementById("orderSearchInput");
+    const pageSizeSelect = document.getElementById("pageSizeSelect");
+    const selectAllOrders = document.getElementById("selectAllOrders");
+    const printConfirmModal = document.getElementById("printConfirmModal");
+    const printConfirmText = document.getElementById("printConfirmText");
+    const entryView = document.getElementById("entryView");
+    const savedView = document.getElementById("savedView");
+    const previewWrap = document.getElementById("previewWrap");
+    let currentOrderId = generateOrderId();
+    let savedOrders = [];
+    const selectedOrderIds = new Set();
+    const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
+
+    function readCache(key, fallback) {
+      try {
+        return JSON.parse(localStorage.getItem(key) || "") || fallback;
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    function writeCache(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch (error) {
+        console.warn("Cache could not be written.", error);
+      }
+    }
+
+    function setBusy(button, busy, text) {
+      if (!button) return;
+      if (busy) {
+        button.dataset.originalText = button.textContent;
+        button.textContent = text;
+        button.disabled = true;
+      } else {
+        button.textContent = button.dataset.originalText || button.textContent;
+        button.disabled = false;
+      }
+    }
+
+    function generateOrderId() {
+      const now = new Date();
+      const pad = (value) => String(value).padStart(2, "0");
+      const stamp = [
+        now.getFullYear(),
+        pad(now.getMonth() + 1),
+        pad(now.getDate()),
+        pad(now.getHours()),
+        pad(now.getMinutes()),
+        pad(now.getSeconds())
+      ].join("");
+      return `P${stamp}${Math.floor(Math.random() * 900 + 100)}`;
+    }
+
+    function todayISO() {
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      return new Date(now - offset).toISOString().slice(0, 10);
+    }
+
+    function formatDate(value, kind) {
+      if (!value) return "";
+      const date = new Date(`${value}T00:00:00`);
+      if (Number.isNaN(date.getTime())) return value;
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      return kind === "short" ? `${month}\u6708${day}\u65e5` : `${date.getFullYear()}\u5e74${month}\u6708${day}\u65e5`;
+    }
+
+    function amountText(value) {
+      const number = Number(value);
+      return Number.isFinite(number) && number !== 0 ? money.format(Math.round(number)) : "";
+    }
+
+    function parseAmount(value) {
+      const cleaned = String(value || "").replace(/,/g, "").trim();
+      const number = Number(cleaned);
+      return Number.isFinite(number) ? number : 0;
+    }
+
+    function switchView(viewName) {
+      const isSaved = viewName === "saved";
+      entryView.hidden = isSaved;
+      savedView.hidden = !isSaved;
+      previewWrap.hidden = true;
+      document.querySelectorAll("[data-view-button]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.viewButton === viewName);
+      });
+      if (isSaved) loadSavedOrders();
+    }
+
+    function uniqueValues(values) {
+      return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+    }
+
+    function setDatalist(id, values) {
+      const list = document.getElementById(id);
+      list.innerHTML = "";
+      uniqueValues(values).forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        list.appendChild(option);
+      });
+    }
+
+    async function loadLookupOptions() {
+      const cached = readCache(lookupCacheKey, null);
+      const lookups = {
+        company: [...defaultLookups.company, ...((cached && cached.company) || [])],
+        sales: [...defaultLookups.sales, ...((cached && cached.sales) || [])],
+        product: [...defaultLookups.product, ...((cached && cached.product) || [])],
+        unit: [...defaultLookups.unit, ...((cached && cached.unit) || [])]
+      };
+
+      setDatalist("companyOptions", lookups.company);
+      setDatalist("salesOptions", lookups.sales);
+      setDatalist("productOptions", lookups.product);
+      setDatalist("unitOptions", lookups.unit);
+
+      if (lookupApiUrl) {
+        try {
+          const response = await fetch(`${lookupApiUrl}?action=lookups`);
+          const data = await response.json();
+          lookups.company.push(...(data.company || []));
+          lookups.sales.push(...(data.sales || []));
+          lookups.product.push(...(data.product || []));
+          lookups.unit.push(...(data.unit || []));
+          writeCache(lookupCacheKey, {
+            company: uniqueValues(lookups.company),
+            sales: uniqueValues(lookups.sales),
+            product: uniqueValues(lookups.product),
+            unit: uniqueValues(lookups.unit)
+          });
+        } catch (error) {
+          console.warn("Lookup API could not be loaded.", error);
+        }
+      }
+
+      setDatalist("companyOptions", lookups.company);
+      setDatalist("salesOptions", lookups.sales);
+      setDatalist("productOptions", lookups.product);
+      setDatalist("unitOptions", lookups.unit);
+    }
+
+    function collectLookupValues() {
+      const values = {
+        company: [document.querySelector('[data-field="company"]').value],
+        sales: [document.querySelector('[data-field="sales"]').value],
+        product: [],
+        unit: []
+      };
+
+      for (let i = 0; i < 10; i += 1) {
+        if (!itemRowHasAnyValue(i)) continue;
+        values.product.push(document.querySelector(`[data-item="${i}"][data-prop="name"]`).value);
+        values.unit.push(document.querySelector(`[data-item="${i}"][data-prop="unit"]`).value);
+      }
+
+      return {
+        company: uniqueValues(values.company),
+        sales: uniqueValues(values.sales),
+        product: uniqueValues(values.product),
+        unit: uniqueValues(values.unit)
+      };
+    }
+
+    async function saveLookupValues() {
+      if (!lookupApiUrl) return;
+      try {
+        await fetch(lookupApiUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(collectLookupValues())
+        });
+      } catch (error) {
+        console.warn("Lookup API could not be saved.", error);
+      }
+    }
+
+    function collectOrder() {
+      const order = {
+        id: currentOrderId,
+        fields: {},
+        items: [],
+        total: document.querySelector('[data-out="total"]').textContent
+      };
+
+      fields.forEach((field) => {
+        const input = document.querySelector(`[data-field="${field}"]`);
+        order.fields[field] = input ? input.value : "";
+      });
+
+      for (let i = 0; i < 10; i += 1) {
+        const item = { index: i + 1 };
+        itemProps.forEach((prop) => {
+          item[prop] = document.querySelector(`[data-item="${i}"][data-prop="${prop}"]`).value;
+        });
+        item.amount = document.querySelector(`[data-print-item="${i}"][data-prop="amount"]`).textContent;
+        if (itemProps.some((prop) => String(item[prop] || "").trim() !== "")) {
+          order.items.push(item);
+        }
+      }
+
+      return order;
+    }
+
+    async function saveOrder(showMessage = true) {
+      render();
+      if (!validateBeforePrint()) return false;
+      saveLookupValues();
+
+      if (lookupApiUrl) {
+        try {
+          await fetch(lookupApiUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ type: "order", order: collectOrder() })
+          });
+        } catch (error) {
+          console.warn("Order could not be saved.", error);
+        }
+      }
+
+      await loadSavedOrders();
+      writeCache(orderCacheKey, { orders: savedOrders, cachedAt: Date.now() });
+      if (showMessage) alert("\u5df2\u5132\u5b58\u55ae\u64da\uff0c\u55ae\u865f\uff1a" + currentOrderId);
+      return true;
+    }
+
+    async function loadSavedOrders() {
+      const cached = readCache(orderCacheKey, null);
+      if (cached && Array.isArray(cached.orders)) {
+        savedOrders = cached.orders;
+        selectedOrderIds.clear();
+        renderSavedOrderTable();
+      }
+
+      if (!lookupApiUrl) return;
+      try {
+        const response = await fetch(`${lookupApiUrl}?action=orders`);
+        const data = await response.json();
+        savedOrders = data.orders || [];
+        writeCache(orderCacheKey, { orders: savedOrders, cachedAt: Date.now() });
+        selectedOrderIds.clear();
+        renderSavedOrderTable();
+      } catch (error) {
+        console.warn("Saved orders could not be loaded.", error);
+      }
+    }
+
+    function formatOrderDate(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) return formatDate(date.toISOString().slice(0, 10), "long");
+      return value;
+    }
+
+    function filteredOrders() {
+      const term = orderSearchInput.value.trim().toLowerCase();
+      const rows = term
+        ? savedOrders.filter((order) => [order.id, order.date, order.customer, order.sales]
+          .some((value) => String(value || "").toLowerCase().includes(term)))
+        : savedOrders;
+      return rows.slice(0, Number(pageSizeSelect.value || 25));
+    }
+
+    function renderSavedOrderTable() {
+      const rows = filteredOrders();
+      savedOrderTable.innerHTML = "";
+      rows.forEach((order, index) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input type="checkbox" data-order-id="${order.id}"></td>
+          <td>${index + 1}</td>
+          <td>${formatOrderDate(order.date)}</td>
+          <td>${order.id || ""}</td>
+          <td class="left">${order.customer || ""}</td>
+          <td>${order.sales || ""}</td>
+          <td>${order.total || ""}</td>
+        `;
+        const checkbox = tr.querySelector("input");
+        checkbox.checked = selectedOrderIds.has(String(order.id));
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) selectedOrderIds.add(String(order.id));
+          else selectedOrderIds.delete(String(order.id));
+          updateSelectAllState();
+          previewSelectedOrder();
+        });
+        tr.addEventListener("dblclick", () => loadOrder(order.id));
+        savedOrderTable.appendChild(tr);
+      });
+      savedOrderSummary.textContent = `\u986f\u793a ${rows.length} \u9805\u7d50\u679c\uff0c\u5171 ${savedOrders.length} \u9805`;
+      updateSelectAllState();
+    }
+
+    function updateSelectAllState() {
+      const boxes = [...savedOrderTable.querySelectorAll("input[type='checkbox']")];
+      selectAllOrders.checked = boxes.length > 0 && boxes.every((box) => box.checked);
+      selectAllOrders.indeterminate = boxes.some((box) => box.checked) && !selectAllOrders.checked;
+    }
+
+    function selectedOrderIdList() {
+      return [...selectedOrderIds];
+    }
+
+    async function previewSelectedOrder() {
+      const ids = selectedOrderIdList();
+      if (ids.length === 0) {
+        previewWrap.hidden = true;
+        return;
+      }
+      await loadOrder(ids[0]);
+    }
+
+    async function loadOrder(orderId) {
+      if (!lookupApiUrl || !orderId) return;
+      try {
+        const response = await fetch(`${lookupApiUrl}?action=order&id=${encodeURIComponent(orderId)}`);
+        const data = await response.json();
+        if (!data.order) return;
+
+        currentOrderId = data.order.id;
+        fields.forEach((field) => {
+          const input = document.querySelector(`[data-field="${field}"]`);
+          if (input) input.value = data.order.fields[field] || "";
+        });
+        document.querySelectorAll("[data-item]").forEach((input) => { input.value = ""; });
+        (data.order.items || []).forEach((item, index) => {
+          itemProps.forEach((prop) => {
+            const input = document.querySelector(`[data-item="${index}"][data-prop="${prop}"]`);
+            if (input) input.value = item[prop] || "";
+          });
+        });
+        render();
+        previewWrap.hidden = false;
+      } catch (error) {
+        console.warn("Order could not be loaded.", error);
+      }
+    }
+
+    async function confirmPrinted() {
+      const ids = selectedOrderIdList();
+      if (ids.length === 0) {
+        alert("\u8acb\u5148\u9078\u64c7\u55ae\u865f");
+        return;
+      }
+      if (!confirm(`\u78ba\u5b9a\u8981\u5c07 ${ids.length} \u5f35\u55ae\u64da\u6a19\u8a18\u70ba\u5df2\u5217\u5370\uff1f\u6a19\u8a18\u5f8c\u5c07\u4e0d\u6703\u51fa\u73fe\u5728\u672a\u5217\u5370\u6e05\u55ae\u3002`)) return;
+
+      try {
+        await fetch(lookupApiUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ type: "markPrinted", ids })
+        });
+      } catch (error) {
+        console.warn("Order could not be marked printed.", error);
+      }
+
+      selectedOrderIds.clear();
+      await loadSavedOrders();
+      alert("\u5df2\u78ba\u8a8d\u5217\u5370");
+    }
+
+    function openPrintConfirm() {
+      const ids = selectedOrderIdList();
+      if (ids.length === 0) {
+        alert("\u8acb\u5148\u9078\u64c7\u55ae\u865f");
+        return;
+      }
+      printConfirmText.textContent = `\u60a8\u5df2\u9078\u64c7 ${ids.length} \u7b46\u8a02\u8cfc\u6191\u55ae\uff0c\u78ba\u5b9a\u8981\u9032\u884c\u5217\u5370\u55ce\uff1f`;
+      printConfirmModal.hidden = false;
+    }
+
+    function closePrintConfirm() {
+      printConfirmModal.hidden = true;
+    }
+
+    function focusNextField(current) {
+      const fields = [...document.querySelectorAll('#entryView input, #entryView select, #entryView textarea')]
+        .filter((field) => !field.disabled && field.offsetParent !== null);
+      const index = fields.indexOf(current);
+      const next = fields[index + 1];
+      if (next) {
+        next.focus();
+        if (typeof next.select === "function") next.select();
+      }
+    }
+
+    function enableEnterNavigation() {
+      document.querySelectorAll('#entryView input, #entryView select').forEach((field) => {
+        field.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          focusNextField(field);
+        });
+      });
+    }
+
+    async function printSelectedOrders() {
+      const ids = selectedOrderIdList();
+      if (ids.length === 0) return;
+      closePrintConfirm();
+      await loadOrder(ids[0]);
+      window.print();
+    }
+
+    function buildItemRows() {
+      for (let i = 0; i < 10; i += 1) {
+        const row = document.createElement("div");
+        row.className = "item-row";
+        row.innerHTML = `
+          <div class="index">${i + 1}</div>
+          <input data-item="${i}" data-prop="batch">
+          <input data-item="${i}" data-prop="name" list="productOptions">
+          <input data-item="${i}" data-prop="qty" inputmode="decimal">
+          <input data-item="${i}" data-prop="unit" list="unitOptions">
+          <input data-item="${i}" data-prop="price" inputmode="decimal">
+          <div class="item-amount" data-input-amount="${i}"></div>
+        `;
+        inputItems.appendChild(row);
+
+        const printRow = document.createElement("tr");
+        printRow.className = "item-print-row";
+        printRow.innerHTML = `
+          <td class="outer-left center">${i + 1}</td>
+          <td class="yellow center" data-print-item="${i}" data-prop="batch"></td>
+          <td class="yellow" data-print-item="${i}" data-prop="name"></td>
+          <td class="yellow center" data-print-item="${i}" data-prop="qty"></td>
+          <td class="yellow center" data-print-item="${i}" data-prop="unit"></td>
+          <td class="yellow right" data-print-item="${i}" data-prop="price"></td>
+          <td class="yellow outer-right right" data-print-item="${i}" data-prop="amount"></td>
+        `;
+        printItems.appendChild(printRow);
+      }
+    }
+
+    function loadSaved() {
+      localStorage.removeItem(storageKey);
+      document.querySelector('[data-field="fillDate"]').value = todayISO();
+    }
+
+    function persist() {
+      // Intentionally do not persist entry form values locally.
+    }
+
+    function render() {
+      fields.forEach((field) => {
+        const input = document.querySelector(`[data-field="${field}"]`);
+        const output = document.querySelector(`[data-out="${field}"]`);
+        if (!input || !output) return;
+        if (field === "fillDate") output.textContent = formatDate(input.value, "long");
+        else if (field === "shipDate") output.textContent = formatDate(input.value, "short");
+        else output.textContent = input.value;
+      });
+
+      let total = 0;
+      for (let i = 0; i < 10; i += 1) {
+        const qty = document.querySelector(`[data-item="${i}"][data-prop="qty"]`).value;
+        const price = document.querySelector(`[data-item="${i}"][data-prop="price"]`).value;
+        const amount = Math.round(parseAmount(qty) * parseAmount(price));
+        total += amount;
+        document.querySelector(`[data-input-amount="${i}"]`).textContent = amountText(amount);
+        itemProps.forEach((prop) => {
+          const input = document.querySelector(`[data-item="${i}"][data-prop="${prop}"]`);
+          const output = document.querySelector(`[data-print-item="${i}"][data-prop="${prop}"]`);
+          output.textContent = prop === "price" ? amountText(input.value) : input.value;
+        });
+        document.querySelector(`[data-print-item="${i}"][data-prop="amount"]`).textContent = amountText(amount);
+      }
+
+      document.querySelector('[data-out="total"]').textContent = amountText(total) || "0";
+      persist();
+    }
+
+    function itemRowHasAnyValue(index) {
+      return itemProps.some((prop) => {
+        const input = document.querySelector(`[data-item="${index}"][data-prop="${prop}"]`);
+        return input.value.trim() !== "";
+      });
+    }
+
+    function validateBeforePrint() {
+      const missing = [];
+      document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
+
+      document.querySelectorAll("[data-field][data-required='true']").forEach((input) => {
+        if (input.value.trim() === "") {
+          input.classList.add("invalid");
+          missing.push(input);
+        }
+      });
+
+      if (missing.length > 0) {
+        errorBox.textContent = "\u8acb\u5148\u586b\u5b8c\u9ec3\u8272\u5fc5\u586b\u6b04\u4f4d\u3002";
+        errorBox.classList.add("show");
+        missing[0].focus();
+        missing[0].scrollIntoView({ behavior: "smooth", block: "center" });
+        return false;
+      }
+
+      errorBox.classList.remove("show");
+      errorBox.textContent = "";
+      return true;
+    }
+
+    function clearAll() {
+      localStorage.removeItem(storageKey);
+      currentOrderId = generateOrderId();
+      document.querySelectorAll("input, textarea").forEach((input) => { input.value = ""; });
+      document.querySelector('[data-field="fillDate"]').value = todayISO();
+      document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
+      errorBox.classList.remove("show");
+      errorBox.textContent = "";
+      previewWrap.hidden = true;
+      render();
+    }
+
+    buildItemRows();
+    loadLookupOptions();
+    loadSavedOrders();
+    loadSaved();
+    enableEnterNavigation();
+    document.querySelectorAll("input, textarea").forEach((input) => {
+      input.addEventListener("input", () => {
+        input.classList.remove("invalid");
+        render();
+      });
+    });
+    document.getElementById("printBtn").addEventListener("click", async () => {
+      render();
+      if (validateBeforePrint()) {
+        await saveOrder(false);
+        window.print();
+      }
+    });
+    document.getElementById("saveBtn").addEventListener("click", async (event) => {
+      setBusy(event.currentTarget, true, "\u5132\u5b58\u4e2d...");
+      await saveOrder();
+      setBusy(event.currentTarget, false);
+    });
+    document.getElementById("clearBtn").addEventListener("click", clearAll);
+    document.getElementById("savedPrintBtn").addEventListener("click", openPrintConfirm);
+    document.getElementById("confirmPrintedBtn").addEventListener("click", confirmPrinted);
+    document.getElementById("refreshOrdersBtn").addEventListener("click", async (event) => {
+      setBusy(event.currentTarget, true, "\u5237\u65b0\u4e2d...");
+      await loadSavedOrders();
+      setBusy(event.currentTarget, false);
+    });
+    document.getElementById("confirmBatchPrintBtn").addEventListener("click", printSelectedOrders);
+    document.getElementById("cancelBatchPrintBtn").addEventListener("click", closePrintConfirm);
+    orderSearchInput.addEventListener("input", renderSavedOrderTable);
+    pageSizeSelect.addEventListener("change", renderSavedOrderTable);
+    selectAllOrders.addEventListener("change", () => {
+      filteredOrders().forEach((order) => {
+        if (selectAllOrders.checked) selectedOrderIds.add(String(order.id));
+        else selectedOrderIds.delete(String(order.id));
+      });
+      renderSavedOrderTable();
+      previewSelectedOrder();
+    });
+    document.querySelectorAll("[data-view-button]").forEach((button) => {
+      button.addEventListener("click", () => switchView(button.dataset.viewButton));
+    });
+    render();
+  </script>
+</body>
+</html>
