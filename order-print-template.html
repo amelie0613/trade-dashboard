@@ -7,16 +7,21 @@
   <style>
     :root {
       --paper: #fff;
-      --ink: #111;
+      --ink: #0b1d35;
       --line: #111;
       --yellow: #fff36a;
-      --yellow-soft: #fffbd1;
-      --bg: #eef2f5;
-      --panel: #fff;
-      --muted: #637083;
-      --blue: #1f5f8b;
-      --border: #d5dce5;
-      --error: #c62828;
+      --yellow-soft: #fff7ed;
+      --bg: #f0f6fc;
+      --panel: #ffffff;
+      --muted: #64748b;
+      --blue: #0369a1;
+      --wave: #0ea5e9;
+      --gold: #d97706;
+      --gold2: #fbbf24;
+      --jade: #16a34a;
+      --border: #e2e8f0;
+      --error: #dc2626;
+      --pay-border: #fed7aa;
     }
 
     * { box-sizing: border-box; }
@@ -43,6 +48,7 @@
       top: 12px;
       background: var(--panel);
       border: 1px solid var(--border);
+      border-top: 4px solid var(--blue);
       border-radius: 8px;
       padding: 14px;
       box-shadow: 0 3px 14px rgba(18, 31, 45, 0.08);
@@ -60,6 +66,7 @@
       margin: 0;
       font-size: 20px;
       line-height: 1.2;
+      color: var(--ink);
     }
 
     .hint {
@@ -75,6 +82,158 @@
       flex-wrap: wrap;
     }
 
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+
+    .mode-tab {
+      min-width: 0;
+      background: #f8fafc;
+      font-weight: 700;
+    }
+
+    .mode-tab.active {
+      border-color: var(--blue);
+      background: linear-gradient(90deg, var(--blue), var(--wave));
+      color: #fff;
+    }
+
+    .view[hidden] { display: none; }
+
+    .list-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .list-toolbar label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .list-toolbar input,
+    .list-toolbar select {
+      width: auto;
+      min-height: 36px;
+    }
+
+    .order-list {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--border);
+      background: #fff;
+      font-size: 14px;
+    }
+
+    .order-list th,
+    .order-list td {
+      border-bottom: 1px solid var(--border);
+      padding: 9px 8px;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .order-list th {
+      background: #f8fafc;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .order-list tbody tr {
+      background: #e0f2fe;
+    }
+
+    .order-list tbody tr:nth-child(even) {
+      background: #f0f9ff;
+    }
+
+    .order-list .left {
+      text-align: left;
+    }
+
+    .list-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .modal-backdrop[hidden] { display: none; }
+
+    .modal {
+      width: min(520px, calc(100vw - 32px));
+      border-radius: 8px;
+      background: #fff;
+      padding: 28px;
+      text-align: center;
+      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
+    }
+
+    .modal-mark {
+      display: grid;
+      place-items: center;
+      width: 88px;
+      height: 88px;
+      margin: 0 auto 16px;
+      border: 4px solid #c7d8e2;
+      border-radius: 50%;
+      color: #7fa0c0;
+      font-size: 52px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .modal h2 {
+      margin: 0 0 14px;
+      color: #334155;
+      font-size: 28px;
+    }
+
+    .modal p {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .success {
+      border-color: var(--jade);
+      background: var(--jade);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .danger {
+      border-color: var(--error);
+      background: var(--error);
+      color: #fff;
+      font-weight: 700;
+    }
+
     button {
       border: 1px solid #8793a0;
       border-radius: 6px;
@@ -87,9 +246,13 @@
 
     button.primary {
       border-color: var(--blue);
-      background: var(--blue);
+      background: linear-gradient(90deg, var(--blue), var(--wave));
       color: #fff;
       font-weight: 700;
+    }
+
+    button:hover {
+      border-color: var(--wave);
     }
 
     .form-grid {
@@ -124,7 +287,7 @@
 
     .input-panel [data-required="true"] {
       background: var(--yellow-soft);
-      border-color: #d9c54a;
+      border-color: var(--pay-border);
     }
 
     .input-panel .invalid {
@@ -232,14 +395,14 @@
 
     .company-title {
       text-align: center;
-      font-size: 15pt;
+      font-size: 18pt;
       line-height: 1.15;
     }
 
     .doc-title {
       text-align: center;
       margin-top: 3mm;
-      font-size: 13pt;
+      font-size: 16pt;
       line-height: 1;
     }
 
@@ -249,7 +412,7 @@
       right: 3mm;
       width: 68mm;
       font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
-      font-size: 7.5pt;
+      font-size: 10pt;
       line-height: 1.25;
       font-weight: 700;
       text-align: left;
@@ -296,7 +459,7 @@
 
     .top-row td {
       height: 6mm;
-      font-size: 9.5pt;
+      font-size: 12pt;
     }
     .meta-row td {
       border: 0 !important;
@@ -313,7 +476,7 @@
     }
     .customer-grid {
       display: grid;
-      grid-template-columns: 16mm 48mm 43mm 44mm 28mm 1fr;
+      grid-template-columns: 16mm 40mm 32mm 32mm 32mm 1fr;
       height: 6mm;
       width: 100%;
       border-top: 2px solid var(--line);
@@ -343,7 +506,7 @@
     }
     .item-print-row td {
       height: 8mm;
-      font-size: 12pt;
+      font-size: 14pt;
     }
     .yellow { background: var(--yellow); }
     .center { text-align: center; }
@@ -353,7 +516,7 @@
     .outer-top { border-top-width: 2px !important; }
     .footer td {
       height: 7mm;
-      font-size: 11pt;
+      font-size: 14pt;
     }
 
     .side-copy {
@@ -458,25 +621,19 @@
     <section class="input-panel" aria-label="input">
       <div class="panel-head">
         <h1>&#20986;&#36008;&#21934;&#36664;&#20837;</h1>
-        <div class="actions">
-          <button type="button" id="saveBtn">&#20786;&#23384;</button>
-          <button class="primary" type="button" id="printBtn">&#21015;&#21360;</button>
-          <button type="button" id="clearBtn">&#28165;&#31354;</button>
-        </div>
       </div>
+      <div class="mode-tabs">
+        <button class="mode-tab active" type="button" data-view-button="entry">&#36039;&#26009;&#36664;&#20837;</button>
+        <button class="mode-tab" type="button" data-view-button="saved">&#36984;&#21462;&#21934;&#34399;&#21015;&#21360;</button>
+      </div>
+
+      <div class="view" id="entryView">
       <p class="hint">&#40643;&#33394;&#27396;&#20301;&#28858;&#24517;&#22635;&#65307;&#21697;&#38917;&#21482;&#35201;&#38283;&#22987;&#22635;&#26576;&#19968;&#21015;&#65292;&#35442;&#21015;&#40643;&#33394;&#27396;&#20301;&#37117;&#35201;&#22635;&#23436;&#25972;&#12290;</p>
       <div class="error-box" id="errorBox" role="alert"></div>
-      <div class="form-grid">
-        <label class="wide">&#21462;&#22238;&#24050;&#20786;&#23384;&#21934;&#25818;
-          <select id="savedOrderSelect">
-            <option value="">&#36984;&#25799;&#21934;&#34399;</option>
-          </select>
-        </label>
-      </div>
 
       <div class="form-grid">
         <label class="wide"><span class="req">&#20844;&#21496;&#21517;&#31281;</span>
-          <input data-field="company" data-required="true" list="companyOptions" value="&#22823;&#28417;&#27700;&#29986;&#26377;&#38480;&#20844;&#21496;">
+          <input data-field="company" data-required="true" list="companyOptions">
         </label>
         <label><span class="req">&#22635;&#21934;&#26085;&#26399;</span>
           <input type="date" data-field="fillDate" data-required="true">
@@ -494,15 +651,13 @@
           <input data-field="poNo">
         </label>
         <label><span class="req">&#26989;&#21209;</span>
-          <input data-field="sales" data-required="true" list="salesOptions" value="&#21570;&#23478;&#22980;">
+          <input data-field="sales" data-required="true" list="salesOptions">
         </label>
         <label class="wide"><span class="req">&#20633;&#35387;</span>
           <textarea data-field="note" data-required="true"></textarea>
         </label>
         <label class="wide">&#21491;&#19978;&#35282;&#22320;&#22336;&#38651;&#35441;
-          <textarea data-field="companyInfo">&#22320;&#22336;:&#39640;&#38596;&#24066;&#21069;&#37806;&#21312;&#26032;&#34909;&#36335;363&#34399;
-&#38651;&#35441;:07-8415137
-&#20659;&#30495;:07-8416426</textarea>
+          <textarea data-field="companyInfo"></textarea>
         </label>
       </div>
 
@@ -516,6 +671,52 @@
           <div>&#21934;&#20729; *</div>
         </div>
         <div id="inputItems"></div>
+      </div>
+      <div class="actions" style="margin-top: 14px;">
+        <button type="button" id="saveBtn">&#20786;&#23384;</button>
+        <button class="primary" type="button" id="printBtn">&#21015;&#21360;</button>
+        <button type="button" id="clearBtn">&#28165;&#31354;</button>
+      </div>
+      </div>
+
+      <div class="view" id="savedView" hidden>
+        <p class="hint">&#21246;&#36984;&#35201;&#21015;&#21360;&#30340;&#21934;&#25818;&#65292;&#20877;&#25353;&#21015;&#21360;&#36984;&#21462;&#21934;&#25818;&#12290;</p>
+        <div class="list-toolbar">
+          <label>&#39023;&#31034;
+            <select id="pageSizeSelect">
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+            </select>
+            &#38917;&#32080;&#26524;
+          </label>
+          <label>&#25628;&#23563;
+            <input id="orderSearchInput" type="search">
+          </label>
+        </div>
+        <table class="order-list">
+          <thead>
+            <tr>
+              <th><input id="selectAllOrders" type="checkbox"></th>
+              <th>#</th>
+              <th>&#26085;&#26399;</th>
+              <th>&#21934;&#34399;</th>
+              <th>&#23458;&#25142;</th>
+              <th>&#26989;&#21209;</th>
+              <th>&#37329;&#38989;</th>
+            </tr>
+          </thead>
+          <tbody id="savedOrderTable"></tbody>
+        </table>
+        <div class="list-footer">
+          <span id="savedOrderSummary">&#39023;&#31034; 0 &#38917;&#32080;&#26524;</span>
+          <span>&#26410;&#21015;&#21360;&#21934;&#25818;</span>
+        </div>
+        <div class="actions" style="margin-top: 14px;">
+          <button class="primary" type="button" id="savedPrintBtn">&#21015;&#21360;&#36984;&#21462;&#21934;&#25818;</button>
+          <button type="button" id="confirmPrintedBtn">&#30906;&#35469;&#24050;&#21015;&#21360;</button>
+          <button type="button" id="refreshOrdersBtn">&#21047;&#26032;&#21934;&#34399;</button>
+        </div>
       </div>
     </section>
 
@@ -593,13 +794,25 @@
     </section>
   </main>
 
+  <div class="modal-backdrop" id="printConfirmModal" hidden>
+    <div class="modal">
+      <div class="modal-mark">?</div>
+      <h2>&#30906;&#35469;&#25209;&#27425;&#21015;&#21360;</h2>
+      <p id="printConfirmText"></p>
+      <div class="modal-actions">
+        <button class="success" type="button" id="confirmBatchPrintBtn">&#30906;&#23450;&#21015;&#21360;</button>
+        <button class="danger" type="button" id="cancelBatchPrintBtn">&#21462;&#28040;</button>
+      </div>
+    </div>
+  </div>
+
   <datalist id="companyOptions"></datalist>
   <datalist id="salesOptions"></datalist>
   <datalist id="productOptions"></datalist>
   <datalist id="unitOptions"></datalist>
 
   <script>
-    const storageKey = "dayu-order-input-v5";
+    const storageKey = "dayu-order-input-v6";
     const fields = ["company", "companyInfo", "fillDate", "shipDate", "customer", "shipper", "poNo", "sales", "note"];
     const itemProps = ["batch", "name", "qty", "unit", "price"];
     const lookupApiUrl = "https://script.google.com/macros/s/AKfycbxT_TcLYriZmzWZ8RSVEaqbWSjwq9ThDZbmP0mG6wWYDlulebkPdB3F1oF0Eo2sIWk-sQ/exec";
@@ -613,8 +826,18 @@
     const inputItems = document.getElementById("inputItems");
     const printItems = document.getElementById("printItems");
     const errorBox = document.getElementById("errorBox");
-    const savedOrderSelect = document.getElementById("savedOrderSelect");
+    const savedOrderTable = document.getElementById("savedOrderTable");
+    const savedOrderSummary = document.getElementById("savedOrderSummary");
+    const orderSearchInput = document.getElementById("orderSearchInput");
+    const pageSizeSelect = document.getElementById("pageSizeSelect");
+    const selectAllOrders = document.getElementById("selectAllOrders");
+    const printConfirmModal = document.getElementById("printConfirmModal");
+    const printConfirmText = document.getElementById("printConfirmText");
+    const entryView = document.getElementById("entryView");
+    const savedView = document.getElementById("savedView");
     let currentOrderId = saved.orderId || generateOrderId();
+    let savedOrders = [];
+    const selectedOrderIds = new Set();
     const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
 
     function generateOrderId() {
@@ -649,6 +872,16 @@
     function amountText(value) {
       const number = Number(value);
       return Number.isFinite(number) && number !== 0 ? money.format(Math.round(number)) : "";
+    }
+
+    function switchView(viewName) {
+      const isSaved = viewName === "saved";
+      entryView.hidden = isSaved;
+      savedView.hidden = !isSaved;
+      document.querySelectorAll("[data-view-button]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.viewButton === viewName);
+      });
+      if (isSaved) loadSavedOrders();
     }
 
     function uniqueValues(values) {
@@ -783,16 +1016,66 @@
       try {
         const response = await fetch(`${lookupApiUrl}?action=orders`);
         const data = await response.json();
-        savedOrderSelect.innerHTML = '<option value="">\u9078\u64c7\u55ae\u865f</option>';
-        (data.orders || []).forEach((order) => {
-          const option = document.createElement("option");
-          option.value = order.id;
-          option.textContent = `${order.id} | ${order.date || ""} | ${order.customer || ""}`;
-          savedOrderSelect.appendChild(option);
-        });
+        savedOrders = data.orders || [];
+        selectedOrderIds.clear();
+        renderSavedOrderTable();
       } catch (error) {
         console.warn("Saved orders could not be loaded.", error);
       }
+    }
+
+    function formatOrderDate(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) return formatDate(date.toISOString().slice(0, 10), "long");
+      return value;
+    }
+
+    function filteredOrders() {
+      const term = orderSearchInput.value.trim().toLowerCase();
+      const rows = term
+        ? savedOrders.filter((order) => [order.id, order.date, order.customer, order.sales]
+          .some((value) => String(value || "").toLowerCase().includes(term)))
+        : savedOrders;
+      return rows.slice(0, Number(pageSizeSelect.value || 25));
+    }
+
+    function renderSavedOrderTable() {
+      const rows = filteredOrders();
+      savedOrderTable.innerHTML = "";
+      rows.forEach((order, index) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input type="checkbox" data-order-id="${order.id}"></td>
+          <td>${index + 1}</td>
+          <td>${formatOrderDate(order.date)}</td>
+          <td>${order.id || ""}</td>
+          <td class="left">${order.customer || ""}</td>
+          <td>${order.sales || ""}</td>
+          <td>${order.total || ""}</td>
+        `;
+        const checkbox = tr.querySelector("input");
+        checkbox.checked = selectedOrderIds.has(String(order.id));
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) selectedOrderIds.add(String(order.id));
+          else selectedOrderIds.delete(String(order.id));
+          updateSelectAllState();
+        });
+        tr.addEventListener("dblclick", () => loadOrder(order.id));
+        savedOrderTable.appendChild(tr);
+      });
+      savedOrderSummary.textContent = `\u986f\u793a ${rows.length} \u9805\u7d50\u679c\uff0c\u5171 ${savedOrders.length} \u9805`;
+      updateSelectAllState();
+    }
+
+    function updateSelectAllState() {
+      const boxes = [...savedOrderTable.querySelectorAll("input[type='checkbox']")];
+      selectAllOrders.checked = boxes.length > 0 && boxes.every((box) => box.checked);
+      selectAllOrders.indeterminate = boxes.some((box) => box.checked) && !selectAllOrders.checked;
+    }
+
+    function selectedOrderIdList() {
+      return [...selectedOrderIds];
     }
 
     async function loadOrder(orderId) {
@@ -818,6 +1101,52 @@
       } catch (error) {
         console.warn("Order could not be loaded.", error);
       }
+    }
+
+    async function confirmPrinted() {
+      const ids = selectedOrderIdList();
+      if (ids.length === 0) {
+        alert("\u8acb\u5148\u9078\u64c7\u55ae\u865f");
+        return;
+      }
+      if (!confirm(`\u78ba\u5b9a\u8981\u5c07 ${ids.length} \u5f35\u55ae\u64da\u6a19\u8a18\u70ba\u5df2\u5217\u5370\uff1f\u6a19\u8a18\u5f8c\u5c07\u4e0d\u6703\u51fa\u73fe\u5728\u672a\u5217\u5370\u6e05\u55ae\u3002`)) return;
+
+      try {
+        await fetch(lookupApiUrl, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ type: "markPrinted", ids })
+        });
+      } catch (error) {
+        console.warn("Order could not be marked printed.", error);
+      }
+
+      selectedOrderIds.clear();
+      await loadSavedOrders();
+      alert("\u5df2\u78ba\u8a8d\u5217\u5370");
+    }
+
+    function openPrintConfirm() {
+      const ids = selectedOrderIdList();
+      if (ids.length === 0) {
+        alert("\u8acb\u5148\u9078\u64c7\u55ae\u865f");
+        return;
+      }
+      printConfirmText.textContent = `\u60a8\u5df2\u9078\u64c7 ${ids.length} \u7b46\u8a02\u8cfc\u6191\u55ae\uff0c\u78ba\u5b9a\u8981\u9032\u884c\u5217\u5370\u55ce\uff1f`;
+      printConfirmModal.hidden = false;
+    }
+
+    function closePrintConfirm() {
+      printConfirmModal.hidden = true;
+    }
+
+    async function printSelectedOrders() {
+      const ids = selectedOrderIdList();
+      if (ids.length === 0) return;
+      closePrintConfirm();
+      await loadOrder(ids[0]);
+      window.print();
     }
 
     function buildItemRows() {
@@ -854,9 +1183,6 @@
         const key = input.dataset.field;
         if (saved[key] !== undefined) input.value = saved[key];
       });
-      if (!document.querySelector('[data-field="fillDate"]').value) {
-        document.querySelector('[data-field="fillDate"]').value = todayISO();
-      }
       document.querySelectorAll("[data-item]").forEach((input) => {
         const key = `item${input.dataset.item}_${input.dataset.prop}`;
         if (saved[key] !== undefined) input.value = saved[key];
@@ -958,10 +1284,6 @@
       localStorage.removeItem(storageKey);
       currentOrderId = generateOrderId();
       document.querySelectorAll("input, textarea").forEach((input) => { input.value = ""; });
-      document.querySelector('[data-field="company"]').value = "\u5927\u6f01\u6c34\u7522\u6709\u9650\u516c\u53f8";
-      document.querySelector('[data-field="companyInfo"]').value = "\u5730\u5740:\u9ad8\u96c4\u5e02\u524d\u93ae\u5340\u65b0\u8859\u8def363\u865f\n\u96fb\u8a71:07-8415137\n\u50b3\u771f:07-8416426";
-      document.querySelector('[data-field="sales"]').value = "\u5442\u5bb6\u59a4";
-      document.querySelector('[data-field="fillDate"]').value = todayISO();
       document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
       errorBox.classList.remove("show");
       errorBox.textContent = "";
@@ -987,7 +1309,23 @@
     });
     document.getElementById("saveBtn").addEventListener("click", saveOrder);
     document.getElementById("clearBtn").addEventListener("click", clearAll);
-    savedOrderSelect.addEventListener("change", () => loadOrder(savedOrderSelect.value));
+    document.getElementById("savedPrintBtn").addEventListener("click", openPrintConfirm);
+    document.getElementById("confirmPrintedBtn").addEventListener("click", confirmPrinted);
+    document.getElementById("refreshOrdersBtn").addEventListener("click", loadSavedOrders);
+    document.getElementById("confirmBatchPrintBtn").addEventListener("click", printSelectedOrders);
+    document.getElementById("cancelBatchPrintBtn").addEventListener("click", closePrintConfirm);
+    orderSearchInput.addEventListener("input", renderSavedOrderTable);
+    pageSizeSelect.addEventListener("change", renderSavedOrderTable);
+    selectAllOrders.addEventListener("change", () => {
+      filteredOrders().forEach((order) => {
+        if (selectAllOrders.checked) selectedOrderIds.add(String(order.id));
+        else selectedOrderIds.delete(String(order.id));
+      });
+      renderSavedOrderTable();
+    });
+    document.querySelectorAll("[data-view-button]").forEach((button) => {
+      button.addEventListener("click", () => switchView(button.dataset.viewButton));
+    });
     render();
   </script>
 </body>
