@@ -841,8 +841,6 @@
 
   <script>
     const storageKey = "dayu-order-input-v6";
-    const lookupCacheKey = "dayu-lookup-cache-v1";
-    const orderCacheKey = "dayu-order-list-cache-v1";
     const fields = ["company", "fillDate", "shipDate", "customer", "shipper", "poNo", "sales", "note"];
     const itemProps = ["batch", "name", "qty", "unit", "price"];
     const lookupApiUrl = window.location.href.split("?")[0];
@@ -870,22 +868,6 @@
     let savedOrders = [];
     const selectedOrderIds = new Set();
     const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
-
-    function readCache(key, fallback) {
-      try {
-        return JSON.parse(localStorage.getItem(key) || "") || fallback;
-      } catch (error) {
-        return fallback;
-      }
-    }
-
-    function writeCache(key, value) {
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-      } catch (error) {
-        console.warn("Cache could not be written.", error);
-      }
-    }
 
     function setBusy(button, busy, text) {
       if (!button) return;
@@ -965,18 +947,12 @@
     }
 
     async function loadLookupOptions() {
-      const cached = readCache(lookupCacheKey, null);
       const lookups = {
-        company: [...defaultLookups.company, ...((cached && cached.company) || [])],
-        sales: [...defaultLookups.sales, ...((cached && cached.sales) || [])],
-        product: [...defaultLookups.product, ...((cached && cached.product) || [])],
-        unit: [...defaultLookups.unit, ...((cached && cached.unit) || [])]
+        company: [...defaultLookups.company],
+        sales: [...defaultLookups.sales],
+        product: [...defaultLookups.product],
+        unit: [...defaultLookups.unit]
       };
-
-      setDatalist("companyOptions", lookups.company);
-      setDatalist("salesOptions", lookups.sales);
-      setDatalist("productOptions", lookups.product);
-      setDatalist("unitOptions", lookups.unit);
 
       if (lookupApiUrl) {
         try {
@@ -986,12 +962,6 @@
           lookups.sales.push(...(data.sales || []));
           lookups.product.push(...(data.product || []));
           lookups.unit.push(...(data.unit || []));
-          writeCache(lookupCacheKey, {
-            company: uniqueValues(lookups.company),
-            sales: uniqueValues(lookups.sales),
-            product: uniqueValues(lookups.product),
-            unit: uniqueValues(lookups.unit)
-          });
         } catch (error) {
           console.warn("Lookup API could not be loaded.", error);
         }
@@ -1085,26 +1055,20 @@
       }
 
       await loadSavedOrders();
-      writeCache(orderCacheKey, { orders: savedOrders, cachedAt: Date.now() });
       if (showMessage) alert("\u5df2\u5132\u5b58\u55ae\u64da\uff0c\u55ae\u865f\uff1a" + currentOrderId);
       return true;
     }
 
     async function loadSavedOrders() {
-      const cached = readCache(orderCacheKey, null);
-      if (cached && Array.isArray(cached.orders)) {
-        savedOrders = cached.orders;
-        selectedOrderIds.clear();
-        renderSavedOrderTable();
-      }
-
       if (!lookupApiUrl) return;
       try {
         const response = await fetch(`${lookupApiUrl}?action=orders`);
         const data = await response.json();
         savedOrders = data.orders || [];
-        writeCache(orderCacheKey, { orders: savedOrders, cachedAt: Date.now() });
-        selectedOrderIds.clear();
+        const available = new Set(savedOrders.map((order) => String(order.id)));
+        [...selectedOrderIds].forEach((id) => {
+          if (!available.has(id)) selectedOrderIds.delete(id);
+        });
         renderSavedOrderTable();
       } catch (error) {
         console.warn("Saved orders could not be loaded.", error);
@@ -1381,7 +1345,6 @@
 
     buildItemRows();
     loadLookupOptions();
-    loadSavedOrders();
     loadSaved();
     enableEnterNavigation();
     document.querySelectorAll("input, textarea").forEach((input) => {
