@@ -869,6 +869,18 @@
     const selectedOrderIds = new Set();
     const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
 
+    function setBusy(button, busy, text) {
+      if (!button) return;
+      if (busy) {
+        button.dataset.originalText = button.textContent;
+        button.textContent = text;
+        button.disabled = true;
+      } else {
+        button.textContent = button.dataset.originalText || button.textContent;
+        button.disabled = false;
+      }
+    }
+
     function generateOrderId() {
       const now = new Date();
       const pad = (value) => String(value).padStart(2, "0");
@@ -901,6 +913,12 @@
     function amountText(value) {
       const number = Number(value);
       return Number.isFinite(number) && number !== 0 ? money.format(Math.round(number)) : "";
+    }
+
+    function parseAmount(value) {
+      const cleaned = String(value || "").replace(/,/g, "").trim();
+      const number = Number(cleaned);
+      return Number.isFinite(number) ? number : 0;
     }
 
     function switchView(viewName) {
@@ -938,7 +956,7 @@
 
       if (lookupApiUrl) {
         try {
-          const response = await fetch(lookupApiUrl);
+          const response = await fetch(`${lookupApiUrl}?action=lookups`);
           const data = await response.json();
           lookups.company.push(...(data.company || []));
           lookups.sales.push(...(data.sales || []));
@@ -1021,7 +1039,7 @@
     async function saveOrder(showMessage = true) {
       render();
       if (!validateBeforePrint()) return false;
-      await saveLookupValues();
+      saveLookupValues();
 
       if (lookupApiUrl) {
         try {
@@ -1047,7 +1065,10 @@
         const response = await fetch(`${lookupApiUrl}?action=orders`);
         const data = await response.json();
         savedOrders = data.orders || [];
-        selectedOrderIds.clear();
+        const available = new Set(savedOrders.map((order) => String(order.id)));
+        [...selectedOrderIds].forEach((id) => {
+          if (!available.has(id)) selectedOrderIds.delete(id);
+        });
         renderSavedOrderTable();
       } catch (error) {
         console.warn("Saved orders could not be loaded.", error);
@@ -1264,7 +1285,7 @@
       for (let i = 0; i < 10; i += 1) {
         const qty = document.querySelector(`[data-item="${i}"][data-prop="qty"]`).value;
         const price = document.querySelector(`[data-item="${i}"][data-prop="price"]`).value;
-        const amount = Math.round(Number(qty || 0) * Number(price || 0));
+        const amount = Math.round(parseAmount(qty) * parseAmount(price));
         total += amount;
         document.querySelector(`[data-input-amount="${i}"]`).textContent = amountText(amount);
         itemProps.forEach((prop) => {
@@ -1324,7 +1345,6 @@
 
     buildItemRows();
     loadLookupOptions();
-    loadSavedOrders();
     loadSaved();
     enableEnterNavigation();
     document.querySelectorAll("input, textarea").forEach((input) => {
@@ -1340,11 +1360,19 @@
         window.print();
       }
     });
-    document.getElementById("saveBtn").addEventListener("click", saveOrder);
+    document.getElementById("saveBtn").addEventListener("click", async (event) => {
+      setBusy(event.currentTarget, true, "\u5132\u5b58\u4e2d...");
+      await saveOrder();
+      setBusy(event.currentTarget, false);
+    });
     document.getElementById("clearBtn").addEventListener("click", clearAll);
     document.getElementById("savedPrintBtn").addEventListener("click", openPrintConfirm);
     document.getElementById("confirmPrintedBtn").addEventListener("click", confirmPrinted);
-    document.getElementById("refreshOrdersBtn").addEventListener("click", loadSavedOrders);
+    document.getElementById("refreshOrdersBtn").addEventListener("click", async (event) => {
+      setBusy(event.currentTarget, true, "\u5237\u65b0\u4e2d...");
+      await loadSavedOrders();
+      setBusy(event.currentTarget, false);
+    });
     document.getElementById("confirmBatchPrintBtn").addEventListener("click", printSelectedOrders);
     document.getElementById("cancelBatchPrintBtn").addEventListener("click", closePrintConfirm);
     orderSearchInput.addEventListener("input", renderSavedOrderTable);
