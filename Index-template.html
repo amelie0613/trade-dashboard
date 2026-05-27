@@ -325,6 +325,33 @@
       min-height: 56px;
     }
 
+    .check-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: #fff;
+    }
+
+    .check-group label {
+      display: inline-flex;
+      grid-template-columns: none;
+      align-items: center;
+      gap: 5px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .check-group input {
+      width: auto;
+      min-height: 0;
+      margin: 0;
+    }
+
     .error-box {
       display: none;
       margin: 0 0 12px;
@@ -418,6 +445,7 @@
     }
 
     .page {
+      position: relative;
       width: 215.9mm;
       height: 139.7mm;
       margin: 0 auto;
@@ -470,6 +498,31 @@
       grid-template-columns: 1fr 7mm;
       align-items: stretch;
       width: 100%;
+    }
+
+    .left-flags {
+      position: absolute;
+      left: 0;
+      top: 31mm;
+      width: 7mm;
+      min-height: 76mm;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 4mm;
+      font-size: 10pt;
+      font-weight: 700;
+      line-height: 1.05;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .left-flag {
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      letter-spacing: 0;
+      white-space: nowrap;
     }
 
     .form-table {
@@ -708,18 +761,28 @@
         <label><span class="req">&#23458;&#25142;</span>
           <input data-field="customer" data-required="true">
         </label>
-        <label><span>&#30332;&#36008;&#20154;</span>
-          <input data-field="shipper">
+        <label><span class="req">&#26989;&#21209;</span>
+          <input data-field="sales" data-required="true" list="salesOptions">
         </label>
         <label><span>&#20986;&#36008;(PO)&#32232;&#34399;</span>
           <input data-field="poNo">
         </label>
-        <label><span class="req">&#26989;&#21209;</span>
-          <input data-field="sales" data-required="true" list="salesOptions">
+        <label><span>&#30332;&#36008;&#20154;</span>
+          <input data-field="shipper">
         </label>
         <label class="wide"><span class="req">&#20633;&#35387;</span>
           <textarea data-field="note" data-required="true"></textarea>
         </label>
+        <div class="wide">
+          <span class="hint" style="display:block;margin-bottom:4px;">&#21015;&#21360;&#24038;&#20596;&#27161;&#35352;</span>
+          <div class="check-group" id="docFlagInputs">
+            <label><input type="checkbox" data-doc-flag value="&#22577;&#20729;&#21934;">&#22577;&#20729;&#21934;</label>
+            <label><input type="checkbox" data-doc-flag value="&#30332;&#31080;">&#30332;&#31080;</label>
+            <label><input type="checkbox" data-doc-flag value="&#20489;&#24235;&#37197;&#36865;">&#20489;&#24235;&#37197;&#36865;</label>
+            <label><input type="checkbox" data-doc-flag value="&#37109;&#23616;&#37197;&#36865;">&#37109;&#23616;&#37197;&#36865;</label>
+            <label><input type="checkbox" data-doc-flag value="&#25910;&#29694;&#37329;">&#25910;&#29694;&#37329;</label>
+          </div>
+        </div>
       </div>
 
       <div class="items">
@@ -797,6 +860,7 @@
 
     <section class="preview-wrap" id="previewWrap" aria-label="preview" hidden>
       <div class="page">
+        <div class="left-flags" id="leftFlags"></div>
         <div class="print-header">
           <div class="company-title" data-out="company"></div>
           <div class="doc-title">&#20986;&#36008;&#21934;</div>
@@ -912,6 +976,7 @@
     const entryView = document.getElementById("entryView");
     const savedView = document.getElementById("savedView");
     const previewWrap = document.getElementById("previewWrap");
+    const leftFlags = document.getElementById("leftFlags");
     let currentOrderId = generateOrderId();
     let savedOrders = [];
     const selectedOrderIds = new Set();
@@ -983,6 +1048,7 @@
         po_no: order.fields.poNo || null,
         sales: order.fields.sales || null,
         note: order.fields.note || null,
+        doc_flags: order.docFlags || [],
         total: parseAmount(order.total)
       };
       await supabaseFetch("orders?on_conflict=id", {
@@ -1039,6 +1105,7 @@
           sales: order.sales || "",
           note: order.note || ""
         },
+        docFlags: Array.isArray(order.doc_flags) ? order.doc_flags : [],
         items: items.map((item) => ({
           index: item.line_no,
           batch: item.batch || "",
@@ -1198,6 +1265,7 @@
       const order = {
         id: currentOrderId,
         fields: {},
+        docFlags: selectedDocFlags(),
         items: [],
         total: document.querySelector('[data-out="total"]').textContent
       };
@@ -1219,6 +1287,17 @@
       }
 
       return order;
+    }
+
+    function selectedDocFlags() {
+      return [...document.querySelectorAll("[data-doc-flag]:checked")].map((input) => input.value);
+    }
+
+    function setDocFlags(values) {
+      const selected = new Set(values || []);
+      document.querySelectorAll("[data-doc-flag]").forEach((input) => {
+        input.checked = selected.has(input.value);
+      });
     }
 
     async function saveOrder(showMessage = true) {
@@ -1362,6 +1441,7 @@
           const input = document.querySelector(`[data-field="${field}"]`);
           if (input) input.value = data.order.fields[field] || "";
         });
+        setDocFlags(data.order.docFlags || []);
         document.querySelectorAll("[data-item]").forEach((input) => { input.value = ""; });
         (data.order.items || []).forEach((item, index) => {
           itemProps.forEach((prop) => {
@@ -1552,6 +1632,7 @@
       }
 
       document.querySelector('[data-out="total"]').textContent = amountText(total) || "0";
+      leftFlags.innerHTML = selectedDocFlags().map((flag) => `<div class="left-flag">${flag}</div>`).join("");
       fitPrintText();
       persist();
     }
@@ -1590,7 +1671,8 @@
     function clearAll() {
       localStorage.removeItem(storageKey);
       currentOrderId = generateOrderId();
-      document.querySelectorAll("input, textarea").forEach((input) => { input.value = ""; });
+      document.querySelectorAll("input:not([type='checkbox']), textarea").forEach((input) => { input.value = ""; });
+      document.querySelectorAll("[data-doc-flag]").forEach((input) => { input.checked = false; });
       document.querySelector('[data-field="fillDate"]').value = todayISO();
       document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
       errorBox.classList.remove("show");
@@ -1608,6 +1690,9 @@
         input.classList.remove("invalid");
         render();
       });
+    });
+    document.querySelectorAll("[data-doc-flag]").forEach((input) => {
+      input.addEventListener("change", render);
     });
     document.getElementById("printBtn").addEventListener("click", async () => {
       render();
