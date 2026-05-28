@@ -444,6 +444,14 @@
       display: none;
     }
 
+    .batch-print-wrap[hidden] {
+      display: none;
+    }
+
+    .batch-print-wrap .page {
+      margin-top: 16px;
+    }
+
     .page {
       position: relative;
       width: 215.9mm;
@@ -699,6 +707,14 @@
 
       .input-panel { display: none !important; }
 
+      body.batch-printing .preview-wrap {
+        display: none !important;
+      }
+
+      body.batch-printing .batch-print-wrap {
+        display: block !important;
+      }
+
       .app {
         display: block;
         width: auto;
@@ -723,6 +739,16 @@
         page-break-after: avoid;
         page-break-inside: avoid;
         transform: translateX(-4mm);
+      }
+
+      .batch-print-wrap .page {
+        break-after: page;
+        page-break-after: always;
+      }
+
+      .batch-print-wrap .page:last-child {
+        break-after: auto;
+        page-break-after: avoid;
       }
 
       .print-table {
@@ -943,6 +969,7 @@
         </div>
       </div>
     </section>
+    <section class="batch-print-wrap" id="batchPrintWrap" aria-label="batch preview" hidden></section>
   </main>
 
   <div class="modal-backdrop" id="printConfirmModal" hidden>
@@ -992,6 +1019,7 @@
     const entryView = document.getElementById("entryView");
     const savedView = document.getElementById("savedView");
     const previewWrap = document.getElementById("previewWrap");
+    const batchPrintWrap = document.getElementById("batchPrintWrap");
     const leftFlags = document.getElementById("leftFlags");
     let currentOrderId = generateOrderId();
     let savedOrders = [];
@@ -1439,37 +1467,69 @@
       const ids = selectedOrderIdList();
       if (ids.length === 0) {
         previewWrap.hidden = true;
+        batchPrintWrap.hidden = true;
+        batchPrintWrap.innerHTML = "";
         return;
       }
-      await loadOrder(ids[0]);
+      if (ids.length === 1) {
+        batchPrintWrap.hidden = true;
+        batchPrintWrap.innerHTML = "";
+        await loadOrder(ids[0]);
+        return;
+      }
+      await buildBatchPreview(ids);
+    }
+
+    async function fetchOrderData(orderId) {
+      if ((!lookupApiUrl && !useSupabase) || !orderId) return null;
+      const data = useSupabase
+        ? { order: await supabaseLoadOrder(orderId) }
+        : await (await fetch(`${lookupApiUrl}?action=order&id=${encodeURIComponent(orderId)}`)).json();
+      return data.order || null;
+    }
+
+    function applyOrderToForm(order) {
+      currentOrderId = order.id;
+      fields.forEach((field) => {
+        const input = document.querySelector(`[data-field="${field}"]`);
+        if (input) input.value = order.fields[field] || "";
+      });
+      setDocFlags(order.docFlags || []);
+      document.querySelectorAll("[data-item]").forEach((input) => { input.value = ""; });
+      (order.items || []).forEach((item, index) => {
+        itemProps.forEach((prop) => {
+          const input = document.querySelector(`[data-item="${index}"][data-prop="${prop}"]`);
+          if (input) input.value = item[prop] || "";
+        });
+      });
+      render();
     }
 
     async function loadOrder(orderId) {
-      if ((!lookupApiUrl && !useSupabase) || !orderId) return;
       try {
-        const data = useSupabase
-          ? { order: await supabaseLoadOrder(orderId) }
-          : await (await fetch(`${lookupApiUrl}?action=order&id=${encodeURIComponent(orderId)}`)).json();
-        if (!data.order) return;
-
-        currentOrderId = data.order.id;
-        fields.forEach((field) => {
-          const input = document.querySelector(`[data-field="${field}"]`);
-          if (input) input.value = data.order.fields[field] || "";
-        });
-        setDocFlags(data.order.docFlags || []);
-        document.querySelectorAll("[data-item]").forEach((input) => { input.value = ""; });
-        (data.order.items || []).forEach((item, index) => {
-          itemProps.forEach((prop) => {
-            const input = document.querySelector(`[data-item="${index}"][data-prop="${prop}"]`);
-            if (input) input.value = item[prop] || "";
-          });
-        });
-        render();
+        const order = await fetchOrderData(orderId);
+        if (!order) return;
+        applyOrderToForm(order);
+        batchPrintWrap.hidden = true;
+        batchPrintWrap.innerHTML = "";
         previewWrap.hidden = false;
       } catch (error) {
         console.warn("Order could not be loaded.", error);
       }
+    }
+
+    async function buildBatchPreview(ids) {
+      batchPrintWrap.innerHTML = "";
+      for (const id of ids) {
+        const order = await fetchOrderData(id);
+        if (!order) continue;
+        applyOrderToForm(order);
+        const page = previewWrap.querySelector(".page").cloneNode(true);
+        page.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+        batchPrintWrap.appendChild(page);
+      }
+      previewWrap.hidden = true;
+      batchPrintWrap.hidden = batchPrintWrap.children.length === 0;
     }
 
     async function deleteSavedOrder(orderId) {
@@ -1485,7 +1545,7 @@
         selectedOrderIds.delete(String(orderId));
         if (currentOrderId === orderId) clearAll();
         await loadSavedOrders();
-        previewSelectedOrder();
+        await previewSelectedOrder();
       } catch (error) {
         console.warn("Order could not be deleted.", error);
         alert("\u522a\u9664\u5931\u6557\uff0c\u8acb\u78ba\u8a8d Supabase orders \u6709 delete policy\u3002");
@@ -1559,8 +1619,17 @@
       const ids = selectedOrderIdList();
       if (ids.length === 0) return;
       closePrintConfirm();
-      await loadOrder(ids[0]);
+      if (ids.length === 1) {
+        await loadOrder(ids[0]);
+        document.body.classList.remove("batch-printing");
+      } else {
+        await buildBatchPreview(ids);
+        document.body.classList.add("batch-printing");
+      }
       window.print();
+      setTimeout(() => {
+        document.body.classList.remove("batch-printing");
+      }, 500);
     }
 
     function buildItemRows() {
@@ -1694,6 +1763,8 @@
       errorBox.classList.remove("show");
       errorBox.textContent = "";
       previewWrap.hidden = true;
+      batchPrintWrap.hidden = true;
+      batchPrintWrap.innerHTML = "";
       render();
     }
 
@@ -1737,6 +1808,8 @@
     printStatusFilter.addEventListener("change", async () => {
       selectedOrderIds.clear();
       previewWrap.hidden = true;
+      batchPrintWrap.hidden = true;
+      batchPrintWrap.innerHTML = "";
       await loadSavedOrders();
     });
     selectAllOrders.addEventListener("change", () => {
