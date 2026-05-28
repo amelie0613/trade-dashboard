@@ -759,13 +759,13 @@
       }
 
       .batch-print-wrap .page {
-        break-after: page;
-        page-break-after: always;
+        break-after: auto;
+        page-break-after: auto;
       }
 
-      .batch-print-wrap .page:last-child {
-        break-after: auto;
-        page-break-after: avoid;
+      .batch-print-wrap .page + .page {
+        break-before: page;
+        page-break-before: always;
       }
 
       .print-table {
