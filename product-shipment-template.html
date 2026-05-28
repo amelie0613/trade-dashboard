@@ -1372,7 +1372,7 @@
         fields: {},
         docFlags: selectedDocFlags(),
         items: [],
-        total: document.querySelector('[data-out="total"]').textContent
+        total: "0"
       };
 
       fields.forEach((field) => {
@@ -1780,7 +1780,8 @@
         if (noteOutput) noteOutput.textContent = i === 0 ? document.querySelector('[data-field="note"]').value : "";
       }
 
-      document.querySelector('[data-out="total"]').textContent = amountText(total) || "0";
+      const totalOut = document.querySelector('[data-out="total"]');
+      if (totalOut) totalOut.textContent = amountText(total) || "0";
       const totalQtyOut = document.querySelector('[data-out="totalQty"]');
       const summaryUnitOut = document.querySelector('[data-out="summaryUnit"]');
       if (totalQtyOut) totalQtyOut.textContent = totalQty ? amountText(totalQty) : "";
