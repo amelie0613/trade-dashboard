@@ -668,6 +668,18 @@
       display: none;
     }
 
+    .template-product .product-extra-row {
+      display: none;
+    }
+
+    .template-product .side-copy {
+      grid-template-rows: repeat(3, 1fr);
+    }
+
+    .template-product .product-hide-copy {
+      display: none;
+    }
+
     .inspection-table {
       display: none;
       width: 100%;
@@ -1077,7 +1089,7 @@
             <div class="copy-line">&#31532;&#19968;&#32879;&#65306;&#23384;&#26681;</div>
             <div class="copy-line">&#31532;&#20108;&#32879;&#65306;&#26371;&#35336;</div>
             <div class="copy-line">&#31532;&#19977;&#32879;&#65306;&#20489;&#24235;</div>
-            <div class="copy-line">&#31532;&#22235;&#32879;&#65306;&#23458;&#25142;</div>
+            <div class="copy-line product-hide-copy">&#31532;&#22235;&#32879;&#65306;&#23458;&#25142;</div>
           </div>
         </div>
         <div class="signature-line">
@@ -1771,7 +1783,7 @@
         inputItems.appendChild(row);
 
         const printRow = document.createElement("tr");
-        printRow.className = "item-print-row";
+        printRow.className = `item-print-row${i >= 4 ? " product-extra-row" : ""}`;
         printRow.innerHTML = `
           <td class="outer-left center">${i + 1}</td>
           <td class="yellow center" data-print-item="${i}" data-prop="batch"></td>
