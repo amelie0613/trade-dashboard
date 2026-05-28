@@ -663,11 +663,17 @@
 
     .signature-line {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      padding: 3.2mm 0 0 1mm;
+      grid-template-columns: 7mm 1fr 7mm;
+      padding: 3.2mm 0 0;
       font-size: 10pt;
       font-weight: 700;
       line-height: 1;
+    }
+
+    .signature-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      padding-left: 1mm;
     }
 
     @media (max-width: 1180px) {
@@ -786,6 +792,7 @@
             <label><input type="checkbox" data-doc-flag value="&#37109;&#23616;&#37197;&#36865;">&#37109;&#23616;&#37197;&#36865;</label>
             <label><input type="checkbox" data-doc-flag value="&#25910;&#29694;&#37329;">&#25910;&#29694;&#37329;</label>
             <label><input type="checkbox" data-doc-flag value="&#22235;&#32879;&#21934;">&#22235;&#32879;&#21934;</label>
+            <label><input type="checkbox" data-doc-flag value="&#33258;&#21462;">&#33258;&#21462;</label>
           </div>
         </div>
       </div>
@@ -926,9 +933,13 @@
           </div>
         </div>
         <div class="signature-line">
-          <div>&#24288;&#38263;&#65306;</div>
-          <div>&#20489;&#31649;&#65306;</div>
-          <div>&#31805;&#25910;&#65306;</div>
+          <div></div>
+          <div class="signature-inner">
+            <div>&#24288;&#38263;&#65306;</div>
+            <div>&#20489;&#31649;&#65306;</div>
+            <div>&#31805;&#25910;&#65306;</div>
+          </div>
+          <div></div>
         </div>
       </div>
     </section>
