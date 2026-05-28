@@ -731,14 +731,31 @@
 
       .page {
         width: 205mm;
-        height: auto;
+        height: 137mm;
         min-height: 0;
-        margin: 2mm auto 0;
+        margin: 1mm auto 0;
         padding: 0;
+        overflow: hidden;
         box-shadow: none;
         page-break-after: avoid;
         page-break-inside: avoid;
         transform: translateX(-4mm);
+      }
+
+      .print-header {
+        height: 15mm;
+      }
+
+      .item-print-row td {
+        height: 7.2mm;
+      }
+
+      .footer td {
+        height: 6.2mm;
+      }
+
+      .signature-line {
+        padding-top: 1mm;
       }
 
       .batch-print-wrap .page {
