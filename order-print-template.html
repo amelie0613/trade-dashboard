@@ -603,7 +603,7 @@
     .customer-grid {
       display: grid;
       grid-template-columns: 16mm 42mm 31mm 31mm 26mm 1fr;
-      height: 6mm;
+      height: 10mm;
       width: 100%;
       border-top: 2px solid var(--line);
       border-left: 2px solid var(--line);
@@ -912,6 +912,7 @@
             <label><input type="checkbox" data-doc-flag value="&#25910;&#29694;&#37329;">&#25910;&#29694;&#37329;</label>
             <label><input type="checkbox" data-doc-flag value="&#22235;&#32879;&#21934;">&#22235;&#32879;&#21934;</label>
             <label><input type="checkbox" data-doc-flag value="&#33258;&#21462;">&#33258;&#21462;</label>
+            <label><input type="checkbox" data-doc-flag value="&#21512;&#26684;">&#21512;&#26684;</label>
           </div>
         </div>
       </div>
@@ -985,8 +986,8 @@
           <label style="display:flex;align-items:center;gap:8px;">
             <span>&#21015;&#21360;&#27169;&#26495;</span>
             <select id="printTemplateSelect">
-              <option value="normal" selected>&#19968;&#33324;&#20986;&#36008;&#21934;</option>
-              <option value="product">&#29986;&#21697;&#20986;&#36008;&#21934;</option>
+              <option value="normal" selected>&#22235;&#32879;&#21934;</option>
+              <option value="product">&#19977;&#32879;&#21934;</option>
             </select>
           </label>
           <button class="primary" type="button" id="savedPrintBtn">&#21015;&#21360;&#36984;&#21462;&#21934;&#25818;</button>
@@ -1071,14 +1072,14 @@
               </tr>
               <tr>
                 <td>&#22534;&#30090;&#31278;&#22290;</td>
-                <td>&#9633;&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
+                <td><span data-auto-pass="qualified"></span>&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
                 <td>&#36554;&#31665;&#28165;&#28500;&#24230;</td>
-                <td>&#9633;&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
+                <td><span data-auto-pass="qualified"></span>&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
                 <td>&#26159;&#21542;&#28415;&#36554;</td>
-                <td>&#9633;&#26159; &#9633;&#21542;</td>
+                <td><span data-auto-pass="yes"></span>&#26159; &#9633;&#21542;</td>
               </tr>
               <tr>
-                <td colspan="2">&#36554;&#21608;&#28961;&#28961;&#30772;&#25613;&#25110;&#20854;&#20182;&#24433;&#38911;&#29986;&#21697;&#20043;&#29376;&#27841;<br>&#9633;&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
+                <td colspan="2">&#36554;&#21608;&#28961;&#28961;&#30772;&#25613;&#25110;&#20854;&#20182;&#24433;&#38911;&#29986;&#21697;&#20043;&#29376;&#27841;<br><span data-auto-pass="qualified"></span>&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
                 <td>&#27298;&#26597;&#32773;&#65306;</td>
                 <td colspan="2" class="left" data-out="sales"></td>
                 <td class="inspection-note">&#20633;&#35387;&#65306;<br>*&#25910;&#21040;&#21830;&#21697;&#22914;&#26377;&#21839;&#38988;&#65292;&#35531;&#22312;&#19977;&#22825;&#20839;&#21453;&#25033;&#12290;<br>*&#20912;&#39854;&#12289;&#20919;&#20941;&#21830;&#21697;&#35531;&#30433;&#36895;&#39511;&#25910;&#12290;</td>
@@ -1088,7 +1089,7 @@
           <div class="side-copy" aria-label="copies">
             <div class="copy-line">&#31532;&#19968;&#32879;&#65306;&#23384;&#26681;</div>
             <div class="copy-line">&#31532;&#20108;&#32879;&#65306;&#26371;&#35336;</div>
-            <div class="copy-line">&#31532;&#19977;&#32879;&#65306;&#20489;&#24235;</div>
+            <div class="copy-line" data-copy-third>&#31532;&#19977;&#32879;&#65306;&#20489;&#24235;</div>
             <div class="copy-line product-hide-copy">&#31532;&#22235;&#32879;&#65306;&#23458;&#25142;</div>
           </div>
         </div>
@@ -1479,6 +1480,11 @@
       });
     }
 
+    function autoInspectionMark(type) {
+      const passed = selectedDocFlags().includes("\u5408\u683c");
+      return passed ? "\u2611" : "\u25a1";
+    }
+
     async function saveOrder(showMessage = true) {
       render();
       if (!validateBeforePrint()) return false;
@@ -1557,6 +1563,7 @@
           <td>
             <div class="order-actions">
               <button class="mini-btn" type="button" data-action="edit" data-order-id="${order.id}">\u7de8\u8f2f</button>
+              <button class="mini-btn" type="button" data-action="copy" data-order-id="${order.id}">\u8907\u88fd</button>
               <button class="mini-btn danger" type="button" data-action="delete" data-order-id="${order.id}">\u522a\u9664</button>
             </div>
           </td>
@@ -1575,6 +1582,7 @@
           switchView("entry");
           document.querySelector('[data-field="customer"]').focus();
         });
+        tr.querySelector('[data-action="copy"]').addEventListener("click", () => copySavedOrder(order.id));
         tr.querySelector('[data-action="delete"]').addEventListener("click", () => deleteSavedOrder(order.id));
         savedOrderTable.appendChild(tr);
       });
@@ -1665,6 +1673,25 @@
       }
       previewWrap.hidden = true;
       batchPrintWrap.hidden = batchPrintWrap.children.length === 0;
+    }
+
+    async function copySavedOrder(orderId) {
+      try {
+        const order = await fetchOrderData(orderId);
+        if (!order) return;
+        applyOrderToForm(order);
+        currentOrderId = generateOrderId();
+        selectedOrderIds.clear();
+        batchPrintWrap.hidden = true;
+        batchPrintWrap.innerHTML = "";
+        previewWrap.hidden = false;
+        switchView("entry");
+        document.querySelector('[data-field="customer"]').focus();
+        alert("\u5df2\u8907\u88fd\u55ae\u64da\uff0c\u5132\u5b58\u5f8c\u6703\u7522\u751f\u65b0\u55ae\u865f\u3002");
+      } catch (error) {
+        console.warn("Order could not be copied.", error);
+        alert("\u8907\u88fd\u5931\u6557\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002");
+      }
     }
 
     async function deleteSavedOrder(orderId) {
@@ -1838,11 +1865,13 @@
       if (title) title.textContent = isProduct ? "\u7522\u54c1\u51fa\u8ca8\u55ae" : "\u51fa\u8ca8\u55ae";
       const priceHead = page.querySelector("[data-head-price]");
       const amountHead = page.querySelector("[data-head-amount]");
+      const thirdCopy = page.querySelector("[data-copy-third]");
       if (priceHead) priceHead.textContent = isProduct ? "\u5099\u8a3b" : "\u55ae\u50f9";
       if (amountHead) {
         amountHead.textContent = isProduct ? "" : "\u91d1\u984d";
         amountHead.classList.toggle("product-hidden", isProduct);
       }
+      if (thirdCopy) thirdCopy.textContent = isProduct ? "\u7b2c\u4e09\u806f\uff1a\u6536\u8ca8\u5ba2\u6236" : "\u7b2c\u4e09\u806f\uff1a\u5009\u5eab";
       page.querySelectorAll('[data-print-item][data-prop="amount"]').forEach((cell) => {
         cell.classList.toggle("product-hidden", isProduct);
       });
@@ -1891,9 +1920,12 @@
       document.querySelector('[data-out="total"]').textContent = amountText(total) || "0";
       const totalQtyOut = document.querySelector('[data-out="totalQty"]');
       const summaryUnitOut = document.querySelector('[data-out="summaryUnit"]');
-      if (totalQtyOut) totalQtyOut.textContent = totalQty ? amountText(totalQty) : "";
-      if (summaryUnitOut) summaryUnitOut.textContent = summaryUnit;
+      if (totalQtyOut) totalQtyOut.textContent = isProductTemplate ? "" : (totalQty ? amountText(totalQty) : "");
+      if (summaryUnitOut) summaryUnitOut.textContent = isProductTemplate ? "" : summaryUnit;
       leftFlags.innerHTML = selectedDocFlags().map((flag) => `<div class="left-flag">${flag}</div>`).join("");
+      document.querySelectorAll("[data-auto-pass]").forEach((mark) => {
+        mark.textContent = autoInspectionMark(mark.dataset.autoPass);
+      });
       fitPrintText();
       persist();
     }
