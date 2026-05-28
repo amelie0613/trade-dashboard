@@ -648,6 +648,57 @@
       font-size: 13pt;
     }
 
+    .template-product .normal-only {
+      display: none;
+    }
+
+    .product-only {
+      display: none;
+    }
+
+    .template-product .product-only {
+      display: table-row;
+    }
+
+    .template-product .print-table col.batch { width: 32mm; }
+    .template-product .print-table col.name { width: 66mm; }
+    .template-product .print-table col.price { width: 48mm; }
+    .template-product .print-table col.amount { width: 0; }
+    .template-product .product-hidden {
+      display: none;
+    }
+
+    .inspection-table {
+      display: none;
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 10pt;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .template-product .inspection-table {
+      display: table;
+    }
+
+    .inspection-table td,
+    .inspection-table th {
+      border: 1px solid var(--line);
+      padding: 0.5mm 0.8mm;
+      height: 6mm;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .inspection-table .left { text-align: left; }
+
+    .inspection-note {
+      font-size: 8pt;
+      line-height: 1.2;
+      text-align: left;
+    }
+
     .side-copy {
       display: grid;
       grid-template-rows: repeat(4, 1fr);
@@ -752,6 +803,19 @@
 
       .footer td {
         height: 6.2mm;
+      }
+
+      .template-product .item-print-row td {
+        height: 7.6mm;
+      }
+
+      .template-product .footer td {
+        height: 5.8mm;
+      }
+
+      .inspection-table td,
+      .inspection-table th {
+        height: 4.8mm;
       }
 
       .signature-line {
@@ -906,6 +970,13 @@
           <span id="savedOrderStatusText">&#26410;&#21015;&#21360;&#21934;&#25818;</span>
         </div>
         <div class="actions" style="margin-top: 14px;">
+          <label style="display:flex;align-items:center;gap:8px;">
+            <span>&#21015;&#21360;&#27169;&#26495;</span>
+            <select id="printTemplateSelect">
+              <option value="normal" selected>&#19968;&#33324;&#20986;&#36008;&#21934;</option>
+              <option value="product">&#29986;&#21697;&#20986;&#36008;&#21934;</option>
+            </select>
+          </label>
           <button class="primary" type="button" id="savedPrintBtn">&#21015;&#21360;&#36984;&#21462;&#21934;&#25818;</button>
           <button type="button" id="confirmPrintedBtn">&#30906;&#35469;&#24050;&#21015;&#21360;</button>
           <button type="button" id="refreshOrdersBtn">&#21047;&#26032;&#21934;&#34399;</button>
@@ -917,7 +988,7 @@
       <div class="page">
         <div class="print-header">
           <div class="company-title" data-out="company"></div>
-          <div class="doc-title">&#20986;&#36008;&#21934;</div>
+          <div class="doc-title" data-doc-title>&#20986;&#36008;&#21934;</div>
           <div class="company-info">&#22320;&#22336;: &#39640;&#38596;&#24066;&#21069;&#37806;&#21312;&#26032;&#34909;&#36335;363&#34399;
 &#38651;&#35441;:07-8415137
 &#20659;&#30495;:07-8416426</div>
@@ -951,20 +1022,54 @@
                 <th>&#29986;&#21697;&#21517;&#31281;,&#35215;&#26684;/&#31561;&#32026;</th>
                 <th>&#25976;&#37327;</th>
                 <th>&#21934;&#20301;</th>
-                <th>&#21934;&#20729;</th>
-                <th class="outer-right">&#37329;&#38989;</th>
+                <th data-head-price>&#21934;&#20729;</th>
+                <th class="outer-right" data-head-amount>&#37329;&#38989;</th>
               </tr>
               <tbody id="printItems"></tbody>
-              <tr class="footer">
+              <tr class="footer normal-only">
                 <td class="outer-left center" colspan="2">&#26989;&#21209;</td>
                 <td class="yellow" data-out="sales"></td>
                 <td colspan="2"></td>
                 <td class="center">&#21512;&#35336;</td>
                 <td class="outer-right right" data-out="total">0</td>
               </tr>
-              <tr class="footer">
+              <tr class="footer normal-only">
                 <td class="outer-left center" colspan="2">&#20633;&#35387;</td>
                 <td colspan="5" class="yellow outer-right fit-text" data-out="note"></td>
+              </tr>
+              <tr class="footer product-only">
+                <td class="outer-left center" colspan="2">&#21512;&#35336;</td>
+                <td></td>
+                <td class="center" data-out="totalQty"></td>
+                <td class="center" data-out="summaryUnit"></td>
+                <td class="outer-right" colspan="2"></td>
+              </tr>
+            </table>
+            <table class="inspection-table" aria-label="inspection">
+              <tr>
+                <td colspan="6">&#36554;&#36635;&#27298;&#26597;</td>
+              </tr>
+              <tr>
+                <td>&#36554;&#34399;</td>
+                <td>&#40657;&#35987;&#39640;&#38596;&#25152;</td>
+                <td>&#36554;&#31665;&#28331;&#24230;</td>
+                <td>-20&#24230;C</td>
+                <td>&#20986;&#36008;&#26178;&#38291;</td>
+                <td data-out="shipDate"></td>
+              </tr>
+              <tr>
+                <td>&#22534;&#30090;&#31278;&#22290;</td>
+                <td>&#9633;&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
+                <td>&#36554;&#31665;&#28165;&#28500;&#24230;</td>
+                <td>&#9633;&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
+                <td>&#26159;&#21542;&#28415;&#36554;</td>
+                <td>&#9633;&#26159; &#9633;&#21542;</td>
+              </tr>
+              <tr>
+                <td colspan="2">&#36554;&#21608;&#28961;&#28961;&#30772;&#25613;&#25110;&#20854;&#20182;&#24433;&#38911;&#29986;&#21697;&#20043;&#29376;&#27841;<br>&#9633;&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
+                <td>&#27298;&#26597;&#32773;&#65306;</td>
+                <td colspan="2" class="left" data-out="sales"></td>
+                <td class="inspection-note">&#20633;&#35387;&#65306;<br>*&#25910;&#21040;&#21830;&#21697;&#22914;&#26377;&#21839;&#38988;&#65292;&#35531;&#22312;&#19977;&#22825;&#20839;&#21453;&#25033;&#12290;<br>*&#20912;&#39854;&#12289;&#20919;&#20941;&#21830;&#21697;&#35531;&#30433;&#36895;&#39511;&#25910;&#12290;</td>
               </tr>
             </table>
           </div>
@@ -1029,6 +1134,7 @@
     const orderSearchInput = document.getElementById("orderSearchInput");
     const pageSizeSelect = document.getElementById("pageSizeSelect");
     const printStatusFilter = document.getElementById("printStatusFilter");
+    const printTemplateSelect = document.getElementById("printTemplateSelect");
     const selectAllOrders = document.getElementById("selectAllOrders");
     const printConfirmModal = document.getElementById("printConfirmModal");
     const printConfirmText = document.getElementById("printConfirmText");
@@ -1708,32 +1814,73 @@
       fitTextToCell(document.querySelector('[data-out="note"]'), 13, 7);
     }
 
+    function selectedPrintTemplate() {
+      return printTemplateSelect ? printTemplateSelect.value : "normal";
+    }
+
+    function applyPrintTemplate(page = previewWrap.querySelector(".page")) {
+      if (!page) return;
+      const isProduct = selectedPrintTemplate() === "product";
+      page.classList.toggle("template-product", isProduct);
+      const title = page.querySelector("[data-doc-title]");
+      if (title) title.textContent = isProduct ? "\u7522\u54c1\u51fa\u8ca8\u55ae" : "\u51fa\u8ca8\u55ae";
+      const priceHead = page.querySelector("[data-head-price]");
+      const amountHead = page.querySelector("[data-head-amount]");
+      if (priceHead) priceHead.textContent = isProduct ? "\u5099\u8a3b" : "\u55ae\u50f9";
+      if (amountHead) {
+        amountHead.textContent = isProduct ? "" : "\u91d1\u984d";
+        amountHead.classList.toggle("product-hidden", isProduct);
+      }
+      page.querySelectorAll('[data-print-item][data-prop="amount"]').forEach((cell) => {
+        cell.classList.toggle("product-hidden", isProduct);
+      });
+    }
+
     function render() {
+      applyPrintTemplate();
+      const isProductTemplate = selectedPrintTemplate() === "product";
       fields.forEach((field) => {
         const input = document.querySelector(`[data-field="${field}"]`);
-        const output = document.querySelector(`[data-out="${field}"]`);
-        if (!input || !output) return;
-        if (field === "fillDate") output.textContent = formatDate(input.value, "long");
-        else if (field === "shipDate") output.textContent = formatDate(input.value, "short");
-        else output.textContent = input.value;
+        const outputs = document.querySelectorAll(`[data-out="${field}"]`);
+        if (!input || outputs.length === 0) return;
+        outputs.forEach((output) => {
+          if (field === "fillDate") output.textContent = formatDate(input.value, "long");
+          else if (field === "shipDate") output.textContent = formatDate(input.value, "short");
+          else output.textContent = input.value;
+        });
       });
 
       let total = 0;
+      let totalQty = 0;
+      let summaryUnit = "";
       for (let i = 0; i < 10; i += 1) {
         const qty = document.querySelector(`[data-item="${i}"][data-prop="qty"]`).value;
         const price = document.querySelector(`[data-item="${i}"][data-prop="price"]`).value;
         const amount = Math.round(parseAmount(qty) * parseAmount(price));
         total += amount;
+        totalQty += parseAmount(qty);
+        if (!summaryUnit) summaryUnit = document.querySelector(`[data-item="${i}"][data-prop="unit"]`).value;
         document.querySelector(`[data-input-amount="${i}"]`).textContent = amountText(amount);
         itemProps.forEach((prop) => {
           const input = document.querySelector(`[data-item="${i}"][data-prop="${prop}"]`);
           const output = document.querySelector(`[data-print-item="${i}"][data-prop="${prop}"]`);
-          output.textContent = prop === "price" ? amountText(input.value) : input.value;
+          if (!output) return;
+          if (isProductTemplate && prop === "price") {
+            output.textContent = i === 0 ? document.querySelector('[data-field="note"]').value : "";
+            output.classList.remove("right");
+          } else {
+            output.textContent = prop === "price" ? amountText(input.value) : input.value;
+            if (prop === "price") output.classList.add("right");
+          }
         });
         document.querySelector(`[data-print-item="${i}"][data-prop="amount"]`).textContent = amountText(amount);
       }
 
       document.querySelector('[data-out="total"]').textContent = amountText(total) || "0";
+      const totalQtyOut = document.querySelector('[data-out="totalQty"]');
+      const summaryUnitOut = document.querySelector('[data-out="summaryUnit"]');
+      if (totalQtyOut) totalQtyOut.textContent = totalQty ? amountText(totalQty) : "";
+      if (summaryUnitOut) summaryUnitOut.textContent = summaryUnit;
       leftFlags.innerHTML = selectedDocFlags().map((flag) => `<div class="left-flag">${flag}</div>`).join("");
       fitPrintText();
       persist();
@@ -1822,6 +1969,10 @@
     document.getElementById("cancelBatchPrintBtn").addEventListener("click", closePrintConfirm);
     orderSearchInput.addEventListener("input", renderSavedOrderTable);
     pageSizeSelect.addEventListener("change", renderSavedOrderTable);
+    printTemplateSelect.addEventListener("change", async () => {
+      await previewSelectedOrder();
+      render();
+    });
     printStatusFilter.addEventListener("change", async () => {
       selectedOrderIds.clear();
       previewWrap.hidden = true;
