@@ -672,6 +672,10 @@
       display: none;
     }
 
+    .template-product .product-fifth-row {
+      display: table-row;
+    }
+
     .template-product .side-copy {
       grid-template-rows: repeat(3, 1fr);
     }
@@ -709,6 +713,7 @@
       font-size: 8pt;
       line-height: 1.2;
       text-align: left;
+      padding-left: 1.2mm !important;
     }
 
     .side-copy {
@@ -818,11 +823,11 @@
       }
 
       .template-product .item-print-row td {
-        height: 7.6mm;
+        height: 9mm;
       }
 
       .template-product .footer td {
-        height: 5.8mm;
+        height: 9mm;
       }
 
       .inspection-table td,
@@ -1810,7 +1815,7 @@
         inputItems.appendChild(row);
 
         const printRow = document.createElement("tr");
-        printRow.className = `item-print-row${i >= 4 ? " product-extra-row" : ""}`;
+        printRow.className = `item-print-row${i === 4 ? " product-fifth-row" : ""}${i >= 5 ? " product-extra-row" : ""}`;
         printRow.innerHTML = `
           <td class="outer-left center">${i + 1}</td>
           <td class="yellow center" data-print-item="${i}" data-prop="batch"></td>
@@ -1922,7 +1927,8 @@
       const summaryUnitOut = document.querySelector('[data-out="summaryUnit"]');
       if (totalQtyOut) totalQtyOut.textContent = isProductTemplate ? "" : (totalQty ? amountText(totalQty) : "");
       if (summaryUnitOut) summaryUnitOut.textContent = isProductTemplate ? "" : summaryUnit;
-      leftFlags.innerHTML = selectedDocFlags().map((flag) => `<div class="left-flag">${flag}</div>`).join("");
+      const visibleFlags = selectedDocFlags().filter((flag) => !(isProductTemplate && flag === "\u5408\u683c"));
+      leftFlags.innerHTML = visibleFlags.map((flag) => `<div class="left-flag">${flag}</div>`).join("");
       document.querySelectorAll("[data-auto-pass]").forEach((mark) => {
         mark.textContent = autoInspectionMark(mark.dataset.autoPass);
       });
