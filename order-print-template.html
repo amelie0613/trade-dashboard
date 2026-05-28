@@ -709,10 +709,10 @@
 
     .inspection-table .left { text-align: left; }
 
-    .inspection-note {
+    .inspection-table .inspection-note {
       font-size: 8pt;
       line-height: 1.2;
-      text-align: left;
+      text-align: left !important;
       padding-left: 1.2mm !important;
     }
 
@@ -750,6 +750,27 @@
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
       padding-left: 1mm;
+    }
+
+    .signature-note-row {
+      display: none;
+      grid-column: 2;
+      grid-template-columns: 1fr 1fr 1fr;
+      padding: 0 0 1mm 1mm;
+      font-size: 10pt;
+      font-weight: 700;
+    }
+
+    .page.template-product .signature-note-row {
+      display: grid;
+    }
+
+    .page.template-product .signature-line {
+      grid-template-rows: auto auto;
+    }
+
+    .page.template-product .signature-inner {
+      grid-column: 2;
     }
 
     @media (max-width: 1180px) {
@@ -832,7 +853,7 @@
 
       .inspection-table td,
       .inspection-table th {
-        height: 4.8mm;
+        height: 6mm;
       }
 
       .signature-line {
@@ -1084,7 +1105,7 @@
                 <td><span data-auto-pass="yes"></span>&#26159; &#9633;&#21542;</td>
               </tr>
               <tr>
-                <td colspan="2">&#36554;&#21608;&#28961;&#28961;&#30772;&#25613;&#25110;&#20854;&#20182;&#24433;&#38911;&#29986;&#21697;&#20043;&#29376;&#27841;<br><span data-auto-pass="qualified"></span>&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
+                <td colspan="2">&#36554;&#21608;&#28961;&#28961;&#30772;&#25613;&#25110;&#20854;&#20182;&#24433;&#38911;&#29986;&#21697;&#20043;&#29376;&#27841;<br><br><span data-auto-pass="qualified"></span>&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
                 <td>&#27298;&#26597;&#32773;&#65306;</td>
                 <td colspan="2" class="left" data-out="sales"></td>
                 <td class="inspection-note">&#20633;&#35387;&#65306;<br>*&#25910;&#21040;&#21830;&#21697;&#22914;&#26377;&#21839;&#38988;&#65292;&#35531;&#22312;&#19977;&#22825;&#20839;&#21453;&#25033;&#12290;<br>*&#20912;&#39854;&#12289;&#20919;&#20941;&#21830;&#21697;&#35531;&#30433;&#36895;&#39511;&#25910;&#12290;</td>
@@ -1099,6 +1120,12 @@
           </div>
         </div>
         <div class="signature-line">
+          <div></div>
+          <div class="signature-note-row">
+            <div>(&#26412;&#32000;&#37636;&#19981;&#24471;&#22615;&#25913;)</div>
+            <div></div>
+            <div>&#34920;&#21934;&#32232;&#34399;:FS-1-F-03-04 ; &#29256;&#26412;:1</div>
+          </div>
           <div></div>
           <div class="signature-inner">
             <div>&#24288;&#38263;&#65306;</div>
