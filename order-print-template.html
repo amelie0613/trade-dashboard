@@ -872,7 +872,7 @@
       }
 
       .item-print-row td {
-        height: 7.2mm;
+        height: 7mm;
       }
 
       .footer td {
@@ -1066,7 +1066,7 @@
         <div class="print-header">
           <div class="company-title" data-out="company"></div>
           <div class="doc-title" data-doc-title>出貨單</div>
-          <div class="company-info">地址: 高雄市前鎮區新衙路363號
+          <div class="company-info">地址: 高雄市前鎮區新衝路363號
 電話:07-8415137
 傳真:07-8416426</div>
         </div>
@@ -1077,7 +1077,7 @@
               <div>填單日期：</div>
               <div data-out="fillDate"></div>
               <div></div>
-              <div>發貨人：</div>
+              <div>發貨人</div>
               <div data-out="shipper"></div>
             </div>
             <div class="customer-grid">
@@ -1135,7 +1135,7 @@
                 <td data-out="shipDate"></td>
               </tr>
               <tr>
-                <td>堆疊穩固</td>
+                <td>堆疊種園</td>
                 <td><span data-auto-pass="qualified"></span>合格 □不合格</td>
                 <td>車箱清潔度</td>
                 <td><span data-auto-pass="qualified"></span>合格 □不合格</td>
@@ -1928,6 +1928,11 @@
       document.querySelectorAll('[data-print-item][data-prop="name"]').forEach((cell) => {
         fitTextToCell(cell, 13, 7);
       });
+      if (selectedPrintTemplate() === "product") {
+        document.querySelectorAll('[data-print-item][data-prop="price"]').forEach((cell) => {
+          fitTextToCell(cell, 13, 6);
+        });
+      }
       fitTextToCell(document.querySelector('[data-out="note"]'), 13, 7);
     }
 

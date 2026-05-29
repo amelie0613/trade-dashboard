@@ -872,7 +872,7 @@
       }
 
       .item-print-row td {
-        height: 7.2mm;
+        height: 7mm;
       }
 
       .footer td {
@@ -1928,6 +1928,11 @@
       document.querySelectorAll('[data-print-item][data-prop="name"]').forEach((cell) => {
         fitTextToCell(cell, 13, 7);
       });
+      if (selectedPrintTemplate() === "product") {
+        document.querySelectorAll('[data-print-item][data-prop="price"]').forEach((cell) => {
+          fitTextToCell(cell, 13, 6);
+        });
+      }
       fitTextToCell(document.querySelector('[data-out="note"]'), 13, 7);
     }
 
