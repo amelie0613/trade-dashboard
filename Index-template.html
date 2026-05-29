@@ -449,25 +449,43 @@
       display: none;
     }
 
-    .batch-print-wrap .print-sheet {
-      margin-top: 16px;
+    .batch-print-wrap {
+      display: grid;
+      justify-items: center;
+      row-gap: 12px;
+    }
+
+    .print-sheet {
+      width: 215.9mm;
+      height: 139.7mm;
+      min-height: 139.7mm;
+      max-height: 139.7mm;
+      margin: 0 auto;
+      padding: 0;
+      overflow: hidden;
+      background: var(--paper);
+      box-shadow: 0 6px 24px rgba(18, 31, 45, 0.16);
     }
 
     .batch-print-wrap .page {
-      margin-top: 16px;
+      margin-top: 0;
     }
 
     .page {
       position: relative;
-      width: 215.9mm;
-      height: 139.7mm;
+      width: 205mm;
+      height: 138.5mm;
+      min-height: 138.5mm;
+      max-height: 138.5mm;
       margin: 0 auto;
-      padding: 2.4mm 2.4mm 1.8mm;
+      padding: 4mm 0 0;
+      overflow: hidden;
       background: var(--paper);
       color: #000;
-      box-shadow: 0 6px 24px rgba(18, 31, 45, 0.16);
+      box-shadow: none;
       font-family: "DFKai-SB", "BiauKai", "標楷體", "Microsoft JhengHei", "Noto Sans TC", serif;
       font-weight: 900;
+      transform: translateX(-4mm);
     }
 
     .page * {
@@ -476,7 +494,7 @@
 
     .print-header {
       position: relative;
-      height: 17mm;
+      height: 15mm;
       font-weight: 700;
     }
 
@@ -636,7 +654,7 @@
       font-size: 9.5pt;
     }
     .item-print-row td {
-      height: 8mm;
+      height: 7mm;
       font-size: 13pt;
     }
     .fit-text {
@@ -649,8 +667,16 @@
     .outer-right { border-right-width: 2px !important; }
     .outer-top { border-top-width: 2px !important; }
     .footer td {
-      height: 7mm;
+      height: 6.2mm;
       font-size: 13pt;
+    }
+
+    .template-product .item-print-row td {
+      height: 9mm;
+    }
+
+    .template-product .footer td {
+      height: 9mm;
     }
 
     .template-product .normal-only {
@@ -749,7 +775,7 @@
     .signature-line {
       display: grid;
       grid-template-columns: 7mm 1fr 7mm;
-      padding: 3.2mm 0 0;
+      padding: 1mm 0 0;
       font-size: 10pt;
       font-weight: 700;
       line-height: 1;
@@ -835,6 +861,7 @@
         height: auto;
         margin: 0;
         padding: 0;
+        row-gap: 0;
         overflow: visible;
       }
 
@@ -846,6 +873,7 @@
         margin: 0;
         padding: 0;
         overflow: hidden;
+        box-shadow: none;
         break-inside: avoid;
         page-break-inside: avoid;
       }
@@ -1062,6 +1090,7 @@
     </section>
 
     <section class="preview-wrap" id="previewWrap" aria-label="preview" hidden>
+      <div class="print-sheet">
       <div class="page">
         <div class="print-header">
           <div class="company-title" data-out="company"></div>
@@ -1172,6 +1201,7 @@
           </div>
           <div></div>
         </div>
+      </div>
       </div>
     </section>
     <section class="batch-print-wrap" id="batchPrintWrap" aria-label="batch preview" hidden></section>
