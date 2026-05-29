@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="zh-Hant-TW">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Language" content="zh-Hant-TW">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>&#20986;&#36008;&#21934;&#36664;&#20837;&#33287;&#21015;&#21360;</title>
+  <title>出貨單輸入與列印</title>
   <style>
     :root {
       --paper: #fff;
@@ -30,7 +31,7 @@
       margin: 0;
       color: var(--ink);
       background: var(--bg);
-      font-family: "Microsoft JhengHei", Arial, sans-serif;
+      font-family: "Microsoft JhengHei", "Noto Sans TC", "PingFang TC", Arial, sans-serif;
     }
 
     .app {
@@ -461,7 +462,7 @@
       background: var(--paper);
       color: #000;
       box-shadow: 0 6px 24px rgba(18, 31, 45, 0.16);
-      font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
+      font-family: "DFKai-SB", "BiauKai", "標楷體", "Microsoft JhengHei", "Noto Sans TC", serif;
       font-weight: 900;
     }
 
@@ -493,7 +494,7 @@
       top: 0;
       right: 3mm;
       width: 68mm;
-      font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
+      font-family: "DFKai-SB", "BiauKai", "標楷體", "Microsoft JhengHei", "Noto Sans TC", serif;
       font-size: 10pt;
       line-height: 1.25;
       font-weight: 700;
@@ -827,9 +828,9 @@
 
       .page {
         width: 205mm;
-        height: 137mm;
+        height: 134mm;
         min-height: 0;
-        margin: 1mm auto 0;
+        margin: 4mm auto 0;
         padding: 0;
         overflow: hidden;
         box-shadow: none;
@@ -899,53 +900,53 @@
   <main class="app">
     <section class="input-panel" aria-label="input">
       <div class="panel-head">
-        <h1>&#20986;&#36008;&#21934;&#36664;&#20837;</h1>
+        <h1>出貨單輸入</h1>
       </div>
       <div class="mode-tabs">
-        <button class="mode-tab active" type="button" data-view-button="entry">&#36039;&#26009;&#36664;&#20837;</button>
-        <button class="mode-tab" type="button" data-view-button="saved">&#36984;&#21462;&#21934;&#34399;&#21015;&#21360;</button>
+        <button class="mode-tab active" type="button" data-view-button="entry">資料輸入</button>
+        <button class="mode-tab" type="button" data-view-button="saved">選取單號列印</button>
       </div>
 
       <div class="view" id="entryView">
-      <p class="hint">&#40643;&#33394;&#27396;&#20301;&#28858;&#24517;&#22635;&#65307;&#21697;&#38917;&#21482;&#35201;&#38283;&#22987;&#22635;&#26576;&#19968;&#21015;&#65292;&#35442;&#21015;&#40643;&#33394;&#27396;&#20301;&#37117;&#35201;&#22635;&#23436;&#25972;&#12290;</p>
+      <p class="hint">黃色欄位為必填；品項只要開始填某一列，該列黃色欄位都要填完整。</p>
       <div class="error-box" id="errorBox" role="alert"></div>
 
       <div class="form-grid">
-        <label class="wide"><span class="req">&#20844;&#21496;&#21517;&#31281;</span>
+        <label class="wide"><span class="req">公司名稱</span>
           <input data-field="company" data-required="true" list="companyOptions">
         </label>
-        <label><span class="req">&#22635;&#21934;&#26085;&#26399;</span>
+        <label><span class="req">填單日期</span>
           <input type="date" data-field="fillDate" data-required="true">
         </label>
-        <label><span class="req">&#20986;&#36008;&#26085;&#26399;</span>
+        <label><span class="req">出貨日期</span>
           <input type="date" data-field="shipDate" data-required="true">
         </label>
-        <label><span class="req">&#23458;&#25142;</span>
+        <label><span class="req">客戶</span>
           <input data-field="customer" data-required="true">
         </label>
-        <label><span class="req">&#26989;&#21209;</span>
+        <label><span class="req">業務</span>
           <input data-field="sales" data-required="true" list="salesOptions">
         </label>
-        <label><span>&#20986;&#36008;(PO)&#32232;&#34399;</span>
+        <label><span>出貨(PO)編號</span>
           <input data-field="poNo">
         </label>
-        <label><span>&#30332;&#36008;&#20154;</span>
+        <label><span>發貨人</span>
           <input data-field="shipper">
         </label>
-        <label class="wide"><span class="req">&#20633;&#35387;</span>
+        <label class="wide"><span class="req">備註</span>
           <textarea data-field="note" data-required="true"></textarea>
         </label>
         <div class="wide">
-          <span class="hint" style="display:block;margin-bottom:4px;">&#21015;&#21360;&#24038;&#20596;&#27161;&#35352;</span>
+          <span class="hint" style="display:block;margin-bottom:4px;">列印左側標記</span>
           <div class="check-group" id="docFlagInputs">
-            <label><input type="checkbox" data-doc-flag value="&#22577;&#20729;&#21934;">&#22577;&#20729;&#21934;</label>
-            <label><input type="checkbox" data-doc-flag value="&#30332;&#31080;">&#30332;&#31080;</label>
-            <label><input type="checkbox" data-doc-flag value="&#20489;&#24235;&#37197;&#36865;">&#20489;&#24235;&#37197;&#36865;</label>
-            <label><input type="checkbox" data-doc-flag value="&#37109;&#23616;&#37197;&#36865;">&#37109;&#23616;&#37197;&#36865;</label>
-            <label><input type="checkbox" data-doc-flag value="&#25910;&#29694;&#37329;">&#25910;&#29694;&#37329;</label>
-            <label><input type="checkbox" data-doc-flag value="&#22235;&#32879;&#21934;">&#22235;&#32879;&#21934;</label>
-            <label><input type="checkbox" data-doc-flag value="&#33258;&#21462;">&#33258;&#21462;</label>
-            <label><input type="checkbox" data-doc-flag value="&#21512;&#26684;">&#21512;&#26684;</label>
+            <label><input type="checkbox" data-doc-flag value="報價單">報價單</label>
+            <label><input type="checkbox" data-doc-flag value="發票">發票</label>
+            <label><input type="checkbox" data-doc-flag value="倉庫配送">倉庫配送</label>
+            <label><input type="checkbox" data-doc-flag value="郵局配送">郵局配送</label>
+            <label><input type="checkbox" data-doc-flag value="收現金">收現金</label>
+            <label><input type="checkbox" data-doc-flag value="四聯單">四聯單</label>
+            <label><input type="checkbox" data-doc-flag value="自取">自取</label>
+            <label><input type="checkbox" data-doc-flag value="合格">合格</label>
           </div>
         </div>
       </div>
@@ -953,44 +954,44 @@
       <div class="items">
         <div class="item-header">
           <div>#</div>
-          <div>&#25209;&#34399;</div>
-          <div>&#29986;&#21697;&#21517;&#31281;</div>
-          <div>&#25976;&#37327;</div>
-          <div>&#21934;&#20301;</div>
-          <div>&#21934;&#20729;</div>
-          <div>&#37329;&#38989;</div>
+          <div>批號</div>
+          <div>產品名稱</div>
+          <div>數量</div>
+          <div>單位</div>
+          <div>單價</div>
+          <div>金額</div>
         </div>
         <div id="inputItems"></div>
       </div>
       <div class="actions" style="margin-top: 14px;">
-        <button type="button" id="saveBtn">&#20786;&#23384;</button>
-        <button class="primary" type="button" id="printBtn">&#21015;&#21360;</button>
-        <button type="button" id="clearBtn">&#28165;&#31354;</button>
+        <button type="button" id="saveBtn">儲存</button>
+        <button class="primary" type="button" id="printBtn">列印</button>
+        <button type="button" id="clearBtn">清空</button>
       </div>
       </div>
 
       <div class="view" id="savedView" hidden>
-        <p class="hint">&#21246;&#36984;&#35201;&#21015;&#21360;&#30340;&#21934;&#25818;&#65292;&#20877;&#25353;&#21015;&#21360;&#36984;&#21462;&#21934;&#25818;&#12290;</p>
+        <p class="hint">勾選要列印的單據，再按列印選取單據。</p>
         <div class="list-toolbar">
           <div class="toolbar-left">
-            <label>&#39023;&#31034;
+            <label>顯示
               <select id="pageSizeSelect">
                 <option value="10">10</option>
                 <option value="25" selected>25</option>
                 <option value="50">50</option>
               </select>
-              &#38917;&#32080;&#26524;
+              項結果
             </label>
-            <label>&#29376;&#24907;
+            <label>狀態
               <select id="printStatusFilter">
-                <option value="unprinted" selected>&#26410;&#21015;&#21360;</option>
-                <option value="printed">&#24050;&#30906;&#35469;&#21015;&#21360;</option>
-                <option value="all">&#20840;&#37096;</option>
+                <option value="unprinted" selected>未列印</option>
+                <option value="printed">已確認列印</option>
+                <option value="all">全部</option>
               </select>
             </label>
           </div>
           <div class="toolbar-right">
-            <label>&#25628;&#23563;
+            <label>搜尋
               <input id="orderSearchInput" type="search">
             </label>
           </div>
@@ -1000,32 +1001,32 @@
             <tr>
               <th><input id="selectAllOrders" type="checkbox"></th>
               <th>#</th>
-              <th>&#26085;&#26399;</th>
-              <th>&#21934;&#34399;</th>
-              <th>&#23458;&#25142;</th>
-              <th>&#26989;&#21209;</th>
-              <th>&#37329;&#38989;</th>
-              <th>&#29376;&#24907;</th>
-              <th>&#25805;&#20316;</th>
+              <th>日期</th>
+              <th>單號</th>
+              <th>客戶</th>
+              <th>業務</th>
+              <th>金額</th>
+              <th>狀態</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody id="savedOrderTable"></tbody>
         </table>
         <div class="list-footer">
-          <span id="savedOrderSummary">&#39023;&#31034; 0 &#38917;&#32080;&#26524;</span>
-          <span id="savedOrderStatusText">&#26410;&#21015;&#21360;&#21934;&#25818;</span>
+          <span id="savedOrderSummary">顯示 0 項結果</span>
+          <span id="savedOrderStatusText">未列印單據</span>
         </div>
         <div class="actions" style="margin-top: 14px;">
           <label style="display:flex;align-items:center;gap:8px;">
-            <span>&#21015;&#21360;&#27169;&#26495;</span>
+            <span>列印模板</span>
             <select id="printTemplateSelect">
-              <option value="normal" selected>&#22235;&#32879;&#21934;</option>
-              <option value="product">&#19977;&#32879;&#21934;</option>
+              <option value="normal" selected>四聯單</option>
+              <option value="product">三聯單</option>
             </select>
           </label>
-          <button class="primary" type="button" id="savedPrintBtn">&#21015;&#21360;&#36984;&#21462;&#21934;&#25818;</button>
-          <button type="button" id="confirmPrintedBtn">&#30906;&#35469;&#24050;&#21015;&#21360;</button>
-          <button type="button" id="refreshOrdersBtn">&#21047;&#26032;&#21934;&#34399;</button>
+          <button class="primary" type="button" id="savedPrintBtn">列印選取單據</button>
+          <button type="button" id="confirmPrintedBtn">確認已列印</button>
+          <button type="button" id="refreshOrdersBtn">刷新單號</button>
         </div>
       </div>
     </section>
@@ -1034,27 +1035,27 @@
       <div class="page">
         <div class="print-header">
           <div class="company-title" data-out="company"></div>
-          <div class="doc-title" data-doc-title>&#20986;&#36008;&#21934;</div>
-          <div class="company-info">&#22320;&#22336;: &#39640;&#38596;&#24066;&#21069;&#37806;&#21312;&#26032;&#34909;&#36335;363&#34399;
-&#38651;&#35441;:07-8415137
-&#20659;&#30495;:07-8416426</div>
+          <div class="doc-title" data-doc-title>出貨單</div>
+          <div class="company-info">地址: 高雄市前鎮區新衝路363號
+電話:07-8415137
+傳真:07-8416426</div>
         </div>
         <div class="order-area">
           <div class="left-flags" id="leftFlags"></div>
           <div class="form-table">
             <div class="meta-grid">
-              <div>&#22635;&#21934;&#26085;&#26399;&#65306;</div>
+              <div>填單日期：</div>
               <div data-out="fillDate"></div>
               <div></div>
-              <div>&#30332;&#36008;&#20154;</div>
+              <div>發貨人</div>
               <div data-out="shipper"></div>
             </div>
             <div class="customer-grid">
-              <div class="label">&#23458;&#25142;&#65306;</div>
+              <div class="label">客戶：</div>
               <div data-out="customer"></div>
-              <div>&#20986;&#36008;&#26085;&#26399;</div>
+              <div>出貨日期</div>
               <div data-out="shipDate"></div>
-              <div>&#20986;&#36008;(PO)&#32232;&#34399;</div>
+              <div>出貨(PO)編號</div>
               <div data-out="poNo"></div>
             </div>
             <table class="print-table" aria-label="order">
@@ -1063,28 +1064,28 @@
                 <col class="unit"><col class="price"><col class="amount">
               </colgroup>
               <tr class="head-row">
-                <th class="outer-left">&#38917;&#27425;</th>
-                <th>&#25209;&#34399;</th>
-                <th>&#29986;&#21697;&#21517;&#31281;,&#35215;&#26684;/&#31561;&#32026;</th>
-                <th>&#25976;&#37327;</th>
-                <th>&#21934;&#20301;</th>
-                <th data-head-price>&#21934;&#20729;</th>
-                <th class="outer-right" data-head-amount>&#37329;&#38989;</th>
+                <th class="outer-left">項次</th>
+                <th>批號</th>
+                <th>產品名稱,規格/等級</th>
+                <th>數量</th>
+                <th>單位</th>
+                <th data-head-price>單價</th>
+                <th class="outer-right" data-head-amount>金額</th>
               </tr>
               <tbody id="printItems"></tbody>
               <tr class="footer normal-only">
-                <td class="outer-left center" colspan="2">&#26989;&#21209;</td>
+                <td class="outer-left center" colspan="2">業務</td>
                 <td class="yellow" data-out="sales"></td>
                 <td colspan="2"></td>
-                <td class="center">&#21512;&#35336;</td>
+                <td class="center">合計</td>
                 <td class="outer-right right" data-out="total">0</td>
               </tr>
               <tr class="footer normal-only">
-                <td class="outer-left center" colspan="2">&#20633;&#35387;</td>
+                <td class="outer-left center" colspan="2">備註</td>
                 <td colspan="5" class="yellow outer-right fit-text" data-out="note"></td>
               </tr>
               <tr class="footer product-only">
-                <td class="outer-left center" colspan="2">&#21512;&#35336;</td>
+                <td class="outer-left center" colspan="2">合計</td>
                 <td></td>
                 <td class="center" data-out="totalQty"></td>
                 <td class="center" data-out="summaryUnit"></td>
@@ -1093,51 +1094,51 @@
             </table>
             <table class="inspection-table" aria-label="inspection">
               <tr>
-                <td colspan="6">&#36554;&#36635;&#27298;&#26597;</td>
+                <td colspan="6">車輛檢查</td>
               </tr>
               <tr>
-                <td>&#36554;&#34399;</td>
-                <td>&#40657;&#35987;&#39640;&#38596;&#25152;</td>
-                <td>&#36554;&#31665;&#28331;&#24230;</td>
-                <td>-20&#24230;C</td>
-                <td>&#20986;&#36008;&#26178;&#38291;</td>
+                <td>車號</td>
+                <td>黑貓高雄所</td>
+                <td>車箱溫度</td>
+                <td>-20度C</td>
+                <td>出貨時間</td>
                 <td data-out="shipDate"></td>
               </tr>
               <tr>
-                <td>&#22534;&#30090;&#31278;&#22290;</td>
-                <td><span data-auto-pass="qualified"></span>&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
-                <td>&#36554;&#31665;&#28165;&#28500;&#24230;</td>
-                <td><span data-auto-pass="qualified"></span>&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
-                <td>&#26159;&#21542;&#28415;&#36554;</td>
-                <td><span data-auto-pass="yes"></span>&#26159; &#9633;&#21542;</td>
+                <td>堆疊種園</td>
+                <td><span data-auto-pass="qualified"></span>合格 □不合格</td>
+                <td>車箱清潔度</td>
+                <td><span data-auto-pass="qualified"></span>合格 □不合格</td>
+                <td>是否滿車</td>
+                <td><span data-auto-pass="yes"></span>是 □否</td>
               </tr>
               <tr>
-                <td colspan="2">&#36554;&#21608;&#28961;&#28961;&#30772;&#25613;&#25110;&#20854;&#20182;&#24433;&#38911;&#29986;&#21697;&#20043;&#29376;&#27841;<br><br><span data-auto-pass="qualified"></span>&#21512;&#26684; &#9633;&#19981;&#21512;&#26684;</td>
-                <td>&#27298;&#26597;&#32773;&#65306;</td>
+                <td colspan="2">車周無無破損或其他影響產品之狀況<br><br><span data-auto-pass="qualified"></span>合格 □不合格</td>
+                <td>檢查者：</td>
                 <td colspan="2" class="left" data-out="sales"></td>
-                <td class="inspection-note">&#20633;&#35387;&#65306;<br>*&#25910;&#21040;&#21830;&#21697;&#22914;&#26377;&#21839;&#38988;&#65292;&#35531;&#22312;&#19977;&#22825;&#20839;&#21453;&#25033;&#12290;<br>*&#20912;&#39854;&#12289;&#20919;&#20941;&#21830;&#21697;&#35531;&#30433;&#36895;&#39511;&#25910;&#12290;</td>
+                <td class="inspection-note">備註：<br>*收到商品如有問題，請在三天內反應。<br>*冰鮮、冷凍商品請盡速驗收。</td>
               </tr>
             </table>
           </div>
           <div class="side-copy" aria-label="copies">
-            <div class="copy-line">&#31532;&#19968;&#32879;&#65306;&#23384;&#26681;</div>
-            <div class="copy-line">&#31532;&#20108;&#32879;&#65306;&#26371;&#35336;</div>
-            <div class="copy-line" data-copy-third>&#31532;&#19977;&#32879;&#65306;&#20489;&#24235;</div>
-            <div class="copy-line product-hide-copy">&#31532;&#22235;&#32879;&#65306;&#23458;&#25142;</div>
+            <div class="copy-line">第一聯：存根</div>
+            <div class="copy-line">第二聯：會計</div>
+            <div class="copy-line" data-copy-third>第三聯：倉庫</div>
+            <div class="copy-line product-hide-copy">第四聯：客戶</div>
           </div>
         </div>
         <div class="signature-line">
           <div></div>
           <div class="signature-note-row">
-            <div>(&#26412;&#32000;&#37636;&#19981;&#24471;&#22615;&#25913;)</div>
+            <div>(本紀錄不得塗改)</div>
             <div></div>
-            <div>&#34920;&#21934;&#32232;&#34399;:FS-1-F-03-04 ; &#29256;&#26412;:1</div>
+            <div>表單編號:FS-1-F-03-04 ; 版本:1</div>
           </div>
           <div></div>
           <div class="signature-inner">
-            <div>&#24288;&#38263;&#65306;</div>
-            <div>&#20489;&#31649;&#65306;</div>
-            <div>&#31805;&#25910;&#65306;</div>
+            <div>廠長：</div>
+            <div>倉管：</div>
+            <div>簽收：</div>
           </div>
           <div></div>
         </div>
@@ -1149,11 +1150,11 @@
   <div class="modal-backdrop" id="printConfirmModal" hidden>
     <div class="modal">
       <div class="modal-mark">?</div>
-      <h2>&#30906;&#35469;&#25209;&#27425;&#21015;&#21360;</h2>
+      <h2>確認批次列印</h2>
       <p id="printConfirmText"></p>
       <div class="modal-actions">
-        <button class="success" type="button" id="confirmBatchPrintBtn">&#30906;&#23450;&#21015;&#21360;</button>
-        <button class="danger" type="button" id="cancelBatchPrintBtn">&#21462;&#28040;</button>
+        <button class="success" type="button" id="confirmBatchPrintBtn">確定列印</button>
+        <button class="danger" type="button" id="cancelBatchPrintBtn">取消</button>
       </div>
     </div>
   </div>
@@ -1172,10 +1173,10 @@
     const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI";
     const useSupabase = Boolean(supabaseUrl && supabaseAnonKey);
     const defaultLookups = {
-      company: ["\u5927\u6f01\u6c34\u7522\u6709\u9650\u516c\u53f8"],
-      sales: ["\u5442\u5bb6\u59a4"],
-      product: ["\u5e72\u8c9d2L", "\u548c\u725bA5", "\u9b77\u9b5a\u4e00\u591c\u5e72 300g/"],
-      unit: ["\u76d2", "KG", "\u5c3e"]
+      company: ["大漁水產有限公司"],
+      sales: ["呂家妤"],
+      product: ["干貝2L", "和牛A5", "魷魚一夜干 300g/"],
+      unit: ["盒", "KG", "尾"]
     };
     const saved = {};
     const inputItems = document.getElementById("inputItems");
@@ -1375,7 +1376,7 @@
       if (Number.isNaN(date.getTime())) return value;
       const month = date.getMonth() + 1;
       const day = date.getDate();
-      return kind === "short" ? `${month}\u6708${day}\u65e5` : `${date.getFullYear()}\u5e74${month}\u6708${day}\u65e5`;
+      return kind === "short" ? `${month}月${day}日` : `${date.getFullYear()}年${month}月${day}日`;
     }
 
     function amountText(value) {
@@ -1520,8 +1521,8 @@
     }
 
     function autoInspectionMark(type) {
-      const passed = selectedDocFlags().includes("\u5408\u683c");
-      return passed ? "\u2611" : "\u25a1";
+      const passed = selectedDocFlags().includes("合格");
+      return passed ? "☑" : "□";
     }
 
     async function saveOrder(showMessage = true) {
@@ -1549,7 +1550,7 @@
       }
 
       await loadSavedOrders();
-      if (showMessage) alert("\u5df2\u5132\u5b58\u55ae\u64da\uff0c\u55ae\u865f\uff1a" + currentOrderId);
+      if (showMessage) alert("已儲存單據，單號：" + currentOrderId);
       return true;
     }
 
@@ -1598,12 +1599,12 @@
           <td class="left">${order.customer || ""}</td>
           <td>${order.sales || ""}</td>
           <td>${order.total || ""}</td>
-          <td>${order.printed ? "\u5df2\u78ba\u8a8d" : "\u672a\u5217\u5370"}</td>
+          <td>${order.printed ? "已確認" : "未列印"}</td>
           <td>
             <div class="order-actions">
-              <button class="mini-btn" type="button" data-action="edit" data-order-id="${order.id}">\u7de8\u8f2f</button>
-              <button class="mini-btn" type="button" data-action="copy" data-order-id="${order.id}">\u8907\u88fd</button>
-              <button class="mini-btn danger" type="button" data-action="delete" data-order-id="${order.id}">\u522a\u9664</button>
+              <button class="mini-btn" type="button" data-action="edit" data-order-id="${order.id}">編輯</button>
+              <button class="mini-btn" type="button" data-action="copy" data-order-id="${order.id}">複製</button>
+              <button class="mini-btn danger" type="button" data-action="delete" data-order-id="${order.id}">刪除</button>
             </div>
           </td>
         `;
@@ -1625,11 +1626,11 @@
         tr.querySelector('[data-action="delete"]').addEventListener("click", () => deleteSavedOrder(order.id));
         savedOrderTable.appendChild(tr);
       });
-      savedOrderSummary.textContent = `\u986f\u793a ${rows.length} \u9805\u7d50\u679c\uff0c\u5171 ${savedOrders.length} \u9805`;
+      savedOrderSummary.textContent = `顯示 ${rows.length} 項結果，共 ${savedOrders.length} 項`;
       const statusTextMap = {
-        unprinted: "\u26410\u5217\u5370\u55ae\u64da",
-        printed: "\u5df2\u78ba\u8a8d\u5217\u5370\u55ae\u64da",
-        all: "\u5168\u90e8\u55ae\u64da"
+        unprinted: "♁0列印單據",
+        printed: "已確認列印單據",
+        all: "全部單據"
       };
       savedOrderStatusText.textContent = statusTextMap[printStatusFilter.value] || statusTextMap.unprinted;
       updateSelectAllState();
@@ -1731,21 +1732,21 @@
         previewWrap.hidden = false;
         switchView("entry");
         document.querySelector('[data-field="customer"]').focus();
-        alert("\u5df2\u8907\u88fd\u55ae\u64da\uff0c\u5132\u5b58\u5f8c\u6703\u7522\u751f\u65b0\u55ae\u865f\u3002");
+        alert("已複製單據，儲存後會產生新單號。");
       } catch (error) {
         console.warn("Order could not be copied.", error);
-        alert("\u8907\u88fd\u5931\u6557\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002");
+        alert("複製失敗，請稍後再試。");
       }
     }
 
     async function deleteSavedOrder(orderId) {
       if (!orderId) return;
-      if (!confirm(`\u78ba\u5b9a\u8981\u522a\u9664\u55ae\u865f ${orderId} \uff1f\u522a\u9664\u5f8c\u7121\u6cd5\u5fa9\u539f\u3002`)) return;
+      if (!confirm(`確定要刪除單號 ${orderId} ？刪除後無法復原。`)) return;
       try {
         if (useSupabase) {
           await supabaseDeleteOrder(orderId);
         } else {
-          alert("\u522a\u9664\u529f\u80fd\u76ee\u524d\u50c5\u652f\u63f4 Supabase \u7248\u672c\u3002");
+          alert("刪除功能目前僅支援 Supabase 版本。");
           return;
         }
         selectedOrderIds.delete(String(orderId));
@@ -1754,17 +1755,17 @@
         await previewSelectedOrder();
       } catch (error) {
         console.warn("Order could not be deleted.", error);
-        alert("\u522a\u9664\u5931\u6557\uff0c\u8acb\u78ba\u8a8d Supabase orders \u6709 delete policy\u3002");
+        alert("刪除失敗，請確認 Supabase orders 有 delete policy。");
       }
     }
 
     async function confirmPrinted() {
       const ids = selectedOrderIdList();
       if (ids.length === 0) {
-        alert("\u8acb\u5148\u9078\u64c7\u55ae\u865f");
+        alert("請先選擇單號");
         return;
       }
-      if (!confirm(`\u78ba\u5b9a\u8981\u5c07 ${ids.length} \u5f35\u55ae\u64da\u6a19\u8a18\u70ba\u5df2\u5217\u5370\uff1f\u6a19\u8a18\u5f8c\u5c07\u4e0d\u6703\u51fa\u73fe\u5728\u672a\u5217\u5370\u6e05\u55ae\u3002`)) return;
+      if (!confirm(`確定要將 ${ids.length} 張單據標記為已列印？標記後將不會出現在未列印清單。`)) return;
 
       try {
         if (useSupabase) {
@@ -1783,16 +1784,16 @@
 
       selectedOrderIds.clear();
       await loadSavedOrders();
-      alert("\u5df2\u78ba\u8a8d\u5217\u5370");
+      alert("已確認列印");
     }
 
     function openPrintConfirm() {
       const ids = selectedOrderIdList();
       if (ids.length === 0) {
-        alert("\u8acb\u5148\u9078\u64c7\u55ae\u865f");
+        alert("請先選擇單號");
         return;
       }
-      printConfirmText.textContent = `\u60a8\u5df2\u9078\u64c7 ${ids.length} \u7b46\u8a02\u8cfc\u6191\u55ae\uff0c\u78ba\u5b9a\u8981\u9032\u884c\u5217\u5370\u55ce\uff1f`;
+      printConfirmText.textContent = `您已選擇 ${ids.length} 筆訂購憑單，確定要進行列印嗎？`;
       printConfirmModal.hidden = false;
     }
 
@@ -1906,16 +1907,16 @@
       const isProduct = selectedPrintTemplate() === "product";
       page.classList.toggle("template-product", isProduct);
       const title = page.querySelector("[data-doc-title]");
-      if (title) title.textContent = isProduct ? "\u7522\u54c1\u51fa\u8ca8\u55ae" : "\u51fa\u8ca8\u55ae";
+      if (title) title.textContent = isProduct ? "產品出貨單" : "出貨單";
       const priceHead = page.querySelector("[data-head-price]");
       const amountHead = page.querySelector("[data-head-amount]");
       const thirdCopy = page.querySelector("[data-copy-third]");
-      if (priceHead) priceHead.textContent = isProduct ? "\u5099\u8a3b" : "\u55ae\u50f9";
+      if (priceHead) priceHead.textContent = isProduct ? "備註" : "單價";
       if (amountHead) {
-        amountHead.textContent = isProduct ? "" : "\u91d1\u984d";
+        amountHead.textContent = isProduct ? "" : "金額";
         amountHead.classList.toggle("product-hidden", isProduct);
       }
-      if (thirdCopy) thirdCopy.textContent = isProduct ? "\u7b2c\u4e09\u806f\uff1a\u6536\u8ca8\u5ba2\u6236" : "\u7b2c\u4e09\u806f\uff1a\u5009\u5eab";
+      if (thirdCopy) thirdCopy.textContent = isProduct ? "第三聯：收貨客戶" : "第三聯：倉庫";
       page.querySelectorAll('[data-print-item][data-prop="amount"]').forEach((cell) => {
         cell.classList.toggle("product-hidden", isProduct);
       });
@@ -1966,7 +1967,7 @@
       const summaryUnitOut = document.querySelector('[data-out="summaryUnit"]');
       if (totalQtyOut) totalQtyOut.textContent = isProductTemplate ? "" : (totalQty ? amountText(totalQty) : "");
       if (summaryUnitOut) summaryUnitOut.textContent = isProductTemplate ? "" : summaryUnit;
-      const visibleFlags = selectedDocFlags().filter((flag) => !(isProductTemplate && flag === "\u5408\u683c"));
+      const visibleFlags = selectedDocFlags().filter((flag) => !(isProductTemplate && flag === "合格"));
       leftFlags.innerHTML = visibleFlags.map((flag) => `<div class="left-flag">${flag}</div>`).join("");
       document.querySelectorAll("[data-auto-pass]").forEach((mark) => {
         mark.textContent = autoInspectionMark(mark.dataset.autoPass);
@@ -1994,7 +1995,7 @@
       });
 
       if (missing.length > 0) {
-        errorBox.textContent = "\u8acb\u5148\u586b\u5b8c\u9ec3\u8272\u5fc5\u586b\u6b04\u4f4d\u3002";
+        errorBox.textContent = "請先填完黃色必填欄位。";
         errorBox.classList.add("show");
         missing[0].focus();
         missing[0].scrollIntoView({ behavior: "smooth", block: "center" });
@@ -2042,7 +2043,7 @@
       }
     });
     document.getElementById("saveBtn").addEventListener("click", async (event) => {
-      setBusy(event.currentTarget, true, "\u5132\u5b58\u4e2d...");
+      setBusy(event.currentTarget, true, "儲存中...");
       await saveOrder();
       setBusy(event.currentTarget, false);
     });
@@ -2050,7 +2051,7 @@
     document.getElementById("savedPrintBtn").addEventListener("click", openPrintConfirm);
     document.getElementById("confirmPrintedBtn").addEventListener("click", confirmPrinted);
     document.getElementById("refreshOrdersBtn").addEventListener("click", async (event) => {
-      setBusy(event.currentTarget, true, "\u5237\u65b0\u4e2d...");
+      setBusy(event.currentTarget, true, "刷新中...");
       await loadSavedOrders();
       setBusy(event.currentTarget, false);
     });
