@@ -748,8 +748,14 @@
 
     .signature-inner {
       display: grid;
+      grid-column: 2;
+      grid-row: 1;
       grid-template-columns: 1fr 1fr 1fr;
       padding-left: 1mm;
+    }
+
+    .signature-line > div:not(.signature-inner):not(.signature-note-row) {
+      display: none;
     }
 
     .signature-note-row {
@@ -771,6 +777,7 @@
 
     .page.template-product .signature-inner {
       grid-column: 2;
+      grid-row: 2;
     }
 
     @media (max-width: 1180px) {
