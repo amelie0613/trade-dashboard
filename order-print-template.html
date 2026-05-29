@@ -748,8 +748,14 @@
 
     .signature-inner {
       display: grid;
+      grid-column: 2;
+      grid-row: 1;
       grid-template-columns: 1fr 1fr 1fr;
       padding-left: 1mm;
+    }
+
+    .signature-line > div:not(.signature-inner):not(.signature-note-row) {
+      display: none;
     }
 
     .signature-note-row {
@@ -771,6 +777,7 @@
 
     .page.template-product .signature-inner {
       grid-column: 2;
+      grid-row: 2;
     }
 
     @media (max-width: 1180px) {
@@ -822,7 +829,7 @@
         width: 205mm;
         height: 137mm;
         min-height: 0;
-        margin: 1mm auto 0;
+        margin: 1.5mm auto 0;
         padding: 0;
         overflow: hidden;
         box-shadow: none;
@@ -1954,7 +1961,7 @@
       const summaryUnitOut = document.querySelector('[data-out="summaryUnit"]');
       if (totalQtyOut) totalQtyOut.textContent = isProductTemplate ? "" : (totalQty ? amountText(totalQty) : "");
       if (summaryUnitOut) summaryUnitOut.textContent = isProductTemplate ? "" : summaryUnit;
-      const visibleFlags = selectedDocFlags().filter((flag) => !(isProductTemplate && flag === "\u5408\u683c"));
+      const visibleFlags = isProductTemplate ? [] : selectedDocFlags();
       leftFlags.innerHTML = visibleFlags.map((flag) => `<div class="left-flag">${flag}</div>`).join("");
       document.querySelectorAll("[data-auto-pass]").forEach((mark) => {
         mark.textContent = autoInspectionMark(mark.dataset.autoPass);
