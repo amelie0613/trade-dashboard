@@ -2035,7 +2035,7 @@
       const summaryUnitOut = document.querySelector('[data-out="summaryUnit"]');
       if (totalQtyOut) totalQtyOut.textContent = isProductTemplate ? "" : (totalQty ? amountText(totalQty) : "");
       if (summaryUnitOut) summaryUnitOut.textContent = isProductTemplate ? "" : summaryUnit;
-      const visibleFlags = selectedDocFlags().filter((flag) => !(isProductTemplate && flag === "合格"));
+      const visibleFlags = isProductTemplate ? [] : selectedDocFlags();
       leftFlags.innerHTML = visibleFlags.map((flag) => `<div class="left-flag">${flag}</div>`).join("");
       document.querySelectorAll("[data-auto-pass]").forEach((mark) => {
         mark.textContent = autoInspectionMark(mark.dataset.autoPass);
