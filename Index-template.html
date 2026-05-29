@@ -795,6 +795,7 @@
       html,
       body {
         width: 215.9mm;
+        height: 139.7mm;
         min-height: 139.7mm;
         margin: 0;
         padding: 0;
@@ -820,21 +821,28 @@
         padding: 0;
       }
 
-      .preview-wrap {
-        width: auto;
+      .preview-wrap,
+      .batch-print-wrap {
+        width: 215.9mm;
         height: auto;
+        margin: 0;
+        padding: 0;
         overflow: visible;
       }
 
       .page {
         width: 205mm;
-        height: 134mm;
-        min-height: 0;
-        margin: 4mm auto 0;
-        padding: 0;
+        height: 138.5mm;
+        min-height: 138.5mm;
+        max-height: 138.5mm;
+        margin: 0 auto;
+        padding: 4mm 0 0;
+        box-sizing: border-box;
         overflow: hidden;
         box-shadow: none;
+        break-after: avoid;
         page-break-after: avoid;
+        break-inside: avoid;
         page-break-inside: avoid;
         transform: translateX(-4mm);
       }
@@ -874,6 +882,7 @@
       }
 
       .batch-print-wrap .page + .page {
+        margin-top: 0;
         break-before: page;
         page-break-before: always;
       }
@@ -1036,7 +1045,7 @@
         <div class="print-header">
           <div class="company-title" data-out="company"></div>
           <div class="doc-title" data-doc-title>出貨單</div>
-          <div class="company-info">地址: 高雄市前鎮區新衙路363號
+          <div class="company-info">地址: 高雄市前鎮區新衝路363號
 電話:07-8415137
 傳真:07-8416426</div>
         </div>
@@ -1047,7 +1056,7 @@
               <div>填單日期：</div>
               <div data-out="fillDate"></div>
               <div></div>
-              <div>發貨人：</div>
+              <div>發貨人</div>
               <div data-out="shipper"></div>
             </div>
             <div class="customer-grid">
@@ -1105,7 +1114,7 @@
                 <td data-out="shipDate"></td>
               </tr>
               <tr>
-                <td>堆疊穩固</td>
+                <td>堆疊種園</td>
                 <td><span data-auto-pass="qualified"></span>合格 □不合格</td>
                 <td>車箱清潔度</td>
                 <td><span data-auto-pass="qualified"></span>合格 □不合格</td>
@@ -1628,7 +1637,7 @@
       });
       savedOrderSummary.textContent = `顯示 ${rows.length} 項結果，共 ${savedOrders.length} 項`;
       const statusTextMap = {
-        unprinted: "♁0列印單據",
+        unprinted: "未列印單據",
         printed: "已確認列印單據",
         all: "全部單據"
       };
