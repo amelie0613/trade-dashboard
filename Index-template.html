@@ -456,12 +456,12 @@
     }
 
     .print-sheet {
-      width: 240.2mm;
-      height: 150mm;
-      min-height: 150mm;
-      max-height: 150mm;
+      width: 241mm;
+      height: 139.7mm;
+      min-height: 139.7mm;
+      max-height: 139.7mm;
       margin: 0 auto;
-      padding: 0;
+      padding: 8mm 0 10mm;
       overflow: hidden;
       background: var(--paper);
       box-shadow: 0 6px 24px rgba(18, 31, 45, 0.16);
@@ -473,19 +473,19 @@
 
     .page {
       position: relative;
-      width: 205mm;
-      height: 148.8mm;
-      min-height: 148.8mm;
-      max-height: 148.8mm;
-      margin: 0 auto;
-      padding: 4mm 0 0;
+      width: 215.9mm;
+      height: 121.7mm;
+      min-height: 121.7mm;
+      max-height: 121.7mm;
+      margin: 0 0 0 16.55mm;
+      padding: 0;
       overflow: hidden;
       background: var(--paper);
       color: #000;
       box-shadow: none;
       font-family: "DFKai-SB", "BiauKai", "標楷體", "Microsoft JhengHei", "Noto Sans TC", serif;
       font-weight: 900;
-      transform: translateX(-4mm);
+      transform: none;
     }
 
     .page * {
@@ -822,15 +822,15 @@
 
     @media print {
       @page {
-        size: 240.2mm 150mm;
+        size: 241mm 139.7mm;
         margin: 0;
       }
 
       html,
       body {
-        width: 240.2mm;
-        height: 150mm;
-        min-height: 150mm;
+        width: 241mm;
+        height: 139.7mm;
+        min-height: 139.7mm;
         margin: 0;
         padding: 0;
         background: #fff;
@@ -857,7 +857,7 @@
 
       .preview-wrap,
       .batch-print-wrap {
-        width: 240.2mm;
+        width: 241mm;
         height: auto;
         margin: 0;
         padding: 0;
@@ -866,12 +866,12 @@
       }
 
       .print-sheet {
-        width: 240.2mm;
-        height: 150mm;
-        min-height: 150mm;
-        max-height: 150mm;
+        width: 241mm;
+        height: 139.7mm;
+        min-height: 139.7mm;
+        max-height: 139.7mm;
         margin: 0;
-        padding: 0;
+        padding: 8mm 0 10mm;
         overflow: hidden;
         box-shadow: none;
         break-inside: avoid;
@@ -879,12 +879,12 @@
       }
 
       .page {
-        width: 205mm;
-        height: 148.8mm;
-        min-height: 148.8mm;
-        max-height: 148.8mm;
-        margin: 0 auto;
-        padding: 4mm 0 0;
+        width: 215.9mm;
+        height: 121.7mm;
+        min-height: 121.7mm;
+        max-height: 121.7mm;
+        margin: 0 0 0 16.55mm;
+        padding: 0;
         box-sizing: border-box;
         overflow: hidden;
         box-shadow: none;
@@ -892,7 +892,7 @@
         page-break-after: avoid;
         break-inside: avoid;
         page-break-inside: avoid;
-        transform: translateX(-4mm);
+        transform: none;
       }
 
       .print-header {
