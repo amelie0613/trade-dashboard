@@ -1708,6 +1708,11 @@
         applyOrderToForm(order);
         const page = previewWrap.querySelector(".page").cloneNode(true);
         page.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+        page.querySelectorAll("[data-out], [data-auto-pass], [data-print-item]").forEach((node) => {
+          node.removeAttribute("data-out");
+          node.removeAttribute("data-auto-pass");
+          node.removeAttribute("data-print-item");
+        });
         batchPrintWrap.appendChild(page);
       }
       previewWrap.hidden = true;
