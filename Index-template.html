@@ -449,6 +449,10 @@
       display: none;
     }
 
+    .batch-print-wrap .print-sheet {
+      margin-top: 16px;
+    }
+
     .batch-print-wrap .page {
       margin-top: 16px;
     }
@@ -685,6 +689,10 @@
       display: none;
     }
 
+    .template-product .left-flags {
+      visibility: hidden;
+    }
+
     .inspection-table {
       display: none;
       width: 100%;
@@ -830,6 +838,18 @@
         overflow: visible;
       }
 
+      .print-sheet {
+        width: 215.9mm;
+        height: 139.7mm;
+        min-height: 139.7mm;
+        max-height: 139.7mm;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
       .page {
         width: 205mm;
         height: 138.5mm;
@@ -877,11 +897,12 @@
       }
 
       .batch-print-wrap .page {
+        margin: 0 auto;
         break-after: auto;
         page-break-after: auto;
       }
 
-      .batch-print-wrap .page + .page {
+      .batch-print-wrap .print-sheet + .print-sheet {
         margin-top: 0;
         break-before: page;
         page-break-before: always;
@@ -1723,7 +1744,10 @@
           node.removeAttribute("data-auto-pass");
           node.removeAttribute("data-print-item");
         });
-        batchPrintWrap.appendChild(page);
+        const sheet = document.createElement("div");
+        sheet.className = "print-sheet";
+        sheet.appendChild(page);
+        batchPrintWrap.appendChild(sheet);
       }
       previewWrap.hidden = true;
       batchPrintWrap.hidden = batchPrintWrap.children.length === 0;
