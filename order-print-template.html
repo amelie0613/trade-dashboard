@@ -1173,6 +1173,7 @@
     const supabaseUrl = "https://yeposcucdppwkjmmoidi.supabase.co";
     const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI";
     const useSupabase = Boolean(supabaseUrl && supabaseAnonKey);
+    const requestTimeoutMs = 10000;
     const defaultLookups = {
       company: ["\u5927\u6f01\u6c34\u7522\u6709\u9650\u516c\u53f8"],
       sales: ["\u5442\u5bb6\u59a4"],
@@ -1216,19 +1217,29 @@
     }
 
     async function supabaseFetch(path, options = {}) {
-      const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
-        ...options,
-        headers: {
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${supabaseAnonKey}`,
-          "Content-Type": "application/json",
-          ...(options.headers || {})
-        }
-      });
-      if (!response.ok) throw new Error(await response.text());
-      if (response.status === 204) return null;
-      const text = await response.text();
-      return text ? JSON.parse(text) : null;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
+      try {
+        const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+          ...options,
+          signal: controller.signal,
+          headers: {
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+            "Content-Type": "application/json",
+            ...(options.headers || {})
+          }
+        });
+        if (!response.ok) throw new Error(await response.text());
+        if (response.status === 204) return null;
+        const text = await response.text();
+        return text ? JSON.parse(text) : null;
+      } catch (error) {
+        if (error.name === "AbortError") throw new Error("Supabase request timed out.");
+        throw error;
+      } finally {
+        clearTimeout(timeoutId);
+      }
     }
 
     function isoDate(value) {
@@ -1531,9 +1542,11 @@
       if (!validateBeforePrint()) return false;
       saveLookupValues();
 
+      let savedOk = false;
       if (useSupabase) {
         try {
           await supabaseSaveOrder(collectOrder());
+          savedOk = true;
         } catch (error) {
           console.warn("Order could not be saved to Supabase.", error);
         }
@@ -1545,9 +1558,18 @@
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({ type: "order", order: collectOrder() })
           });
+          savedOk = true;
         } catch (error) {
           console.warn("Order could not be saved.", error);
         }
+      } else {
+        savedOk = true;
+      }
+
+      if (!savedOk) {
+        errorBox.textContent = "\u5132\u5b58\u5931\u6557\uff0c\u8acb\u6aa2\u67e5\u7db2\u8def\u5f8c\u91cd\u8a66\u3002";
+        errorBox.classList.add("show");
+        return false;
       }
 
       await loadSavedOrders();
@@ -2040,16 +2062,22 @@
     });
     document.getElementById("saveBtn").addEventListener("click", async (event) => {
       setBusy(event.currentTarget, true, "\u5132\u5b58\u4e2d...");
-      await saveOrder();
-      setBusy(event.currentTarget, false);
+      try {
+        await saveOrder();
+      } finally {
+        setBusy(event.currentTarget, false);
+      }
     });
     document.getElementById("clearBtn").addEventListener("click", clearAll);
     document.getElementById("savedPrintBtn").addEventListener("click", openPrintConfirm);
     document.getElementById("confirmPrintedBtn").addEventListener("click", confirmPrinted);
     document.getElementById("refreshOrdersBtn").addEventListener("click", async (event) => {
       setBusy(event.currentTarget, true, "\u5237\u65b0\u4e2d...");
-      await loadSavedOrders();
-      setBusy(event.currentTarget, false);
+      try {
+        await loadSavedOrders();
+      } finally {
+        setBusy(event.currentTarget, false);
+      }
     });
     document.getElementById("confirmBatchPrintBtn").addEventListener("click", printSelectedOrders);
     document.getElementById("cancelBatchPrintBtn").addEventListener("click", closePrintConfirm);
