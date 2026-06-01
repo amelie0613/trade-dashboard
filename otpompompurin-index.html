@@ -1,2083 +1,1423 @@
-<!doctype html>
-<html lang="zh-Hant">
+<!DOCTYPE html>
+<html lang="zh-TW">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>出貨單輸入與列印</title>
-  <style>
-    :root {
-      --paper: #fff;
-      --ink: #0b1d35;
-      --line: #111;
-      --yellow: #fff36a;
-      --yellow-soft: #fff7ed;
-      --bg: #f0f6fc;
-      --panel: #ffffff;
-      --muted: #64748b;
-      --blue: #0369a1;
-      --wave: #0ea5e9;
-      --gold: #d97706;
-      --gold2: #fbbf24;
-      --jade: #16a34a;
-      --border: #e2e8f0;
-      --error: #dc2626;
-      --pay-border: #fed7aa;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      color: var(--ink);
-      background: var(--bg);
-      font-family: "Microsoft JhengHei", Arial, sans-serif;
-    }
-
-    .app {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 16px;
-      max-width: 1600px;
-      margin: 0 auto;
-      padding: 16px;
-    }
-
-    .input-panel {
-      align-self: start;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-top: 4px solid var(--blue);
-      border-radius: 8px;
-      padding: 14px;
-      box-shadow: 0 3px 14px rgba(18, 31, 45, 0.08);
-    }
-
-    .panel-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 20px;
-      line-height: 1.2;
-      color: var(--ink);
-    }
-
-    .hint {
-      margin: 0 0 12px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    .actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .mode-tabs {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin: 0 0 12px;
-    }
-
-    .mode-tab {
-      min-width: 0;
-      background: #f8fafc;
-      font-weight: 700;
-    }
-
-    .mode-tab.active {
-      border-color: var(--blue);
-      background: linear-gradient(90deg, var(--blue), var(--wave));
-      color: #fff;
-    }
-
-    .view[hidden] { display: none; }
-
-    .list-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 10px;
-    }
-
-    .list-toolbar label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--ink);
-      font-size: 14px;
-    }
-
-    .list-toolbar input,
-    .list-toolbar select {
-      width: auto;
-      min-height: 36px;
-    }
-
-    .list-toolbar .toolbar-left,
-    .list-toolbar .toolbar-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .order-list {
-      width: 100%;
-      border-collapse: collapse;
-      border: 1px solid var(--border);
-      background: #fff;
-      font-size: 14px;
-    }
-
-    .order-list th,
-    .order-list td {
-      border-bottom: 1px solid var(--border);
-      padding: 9px 8px;
-      text-align: center;
-      vertical-align: middle;
-    }
-
-    .order-list th {
-      background: #f8fafc;
-      color: var(--ink);
-      font-weight: 700;
-    }
-
-    .order-list tbody tr {
-      background: #e0f2fe;
-    }
-
-    .order-list tbody tr:nth-child(even) {
-      background: #f0f9ff;
-    }
-
-    .order-list .left {
-      text-align: left;
-    }
-
-    .order-actions {
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .mini-btn {
-      min-height: 30px;
-      padding: 5px 10px;
-      font-size: 13px;
-    }
-
-    .danger {
-      border-color: #ef4444;
-      background: #ef4444;
-      color: #fff;
-    }
-
-    .list-footer {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 50;
-      display: grid;
-      place-items: center;
-      background: rgba(15, 23, 42, 0.45);
-    }
-
-    .modal-backdrop[hidden] { display: none; }
-
-    .modal {
-      width: min(520px, calc(100vw - 32px));
-      border-radius: 8px;
-      background: #fff;
-      padding: 28px;
-      text-align: center;
-      box-shadow: 0 18px 50px rgba(15, 23, 42, 0.28);
-    }
-
-    .modal-mark {
-      display: grid;
-      place-items: center;
-      width: 88px;
-      height: 88px;
-      margin: 0 auto 16px;
-      border: 4px solid #c7d8e2;
-      border-radius: 50%;
-      color: #7fa0c0;
-      font-size: 52px;
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    .modal h2 {
-      margin: 0 0 14px;
-      color: #334155;
-      font-size: 28px;
-    }
-
-    .modal p {
-      margin: 0 0 22px;
-      color: var(--muted);
-      font-size: 18px;
-    }
-
-    .modal-actions {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .success {
-      border-color: var(--jade);
-      background: var(--jade);
-      color: #fff;
-      font-weight: 700;
-    }
-
-    .danger {
-      border-color: var(--error);
-      background: var(--error);
-      color: #fff;
-      font-weight: 700;
-    }
-
-    button {
-      border: 1px solid #8793a0;
-      border-radius: 6px;
-      background: #fff;
-      color: #1f2933;
-      padding: 8px 12px;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    button.primary {
-      border-color: var(--blue);
-      background: linear-gradient(90deg, var(--blue), var(--wave));
-      color: #fff;
-      font-weight: 700;
-    }
-
-    button:hover {
-      border-color: var(--wave);
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    label {
-      display: grid;
-      gap: 4px;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    label.wide { grid-column: 1 / -1; }
-    .req::after { content: " *"; color: var(--error); }
-
-    .input-panel input,
-    .input-panel select,
-    .input-panel textarea {
-      width: 100%;
-      min-height: 36px;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      padding: 7px 9px;
-      color: var(--ink);
-      background: #fff;
-      font: 15px/1.35 "Microsoft JhengHei", Arial, sans-serif;
-    }
-
-    .input-panel [data-required="true"] {
-      background: var(--yellow-soft);
-      border-color: var(--pay-border);
-    }
-
-    .input-panel .invalid {
-      border-color: var(--error) !important;
-      box-shadow: 0 0 0 2px rgba(198, 40, 40, 0.12);
-    }
-
-    .input-panel textarea {
-      resize: vertical;
-      min-height: 56px;
-    }
-
-    .check-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px 14px;
-      padding: 8px 10px;
-      border: 1px solid var(--border);
-      border-radius: 5px;
-      background: #fff;
-    }
-
-    .check-group label {
-      display: inline-flex;
-      grid-template-columns: none;
-      align-items: center;
-      gap: 5px;
-      color: var(--ink);
-      font-size: 14px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .check-group input {
-      width: auto;
-      min-height: 0;
-      margin: 0;
-    }
-
-    .error-box {
-      display: none;
-      margin: 0 0 12px;
-      padding: 8px 10px;
-      border: 1px solid #ef9a9a;
-      border-radius: 6px;
-      background: #fff2f2;
-      color: var(--error);
-      font-size: 14px;
-      line-height: 1.45;
-    }
-
-    .error-box.show { display: block; }
-
-    .items {
-      margin-top: 14px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      overflow: hidden;
-    }
-
-    .item-header,
-    .item-row {
-      display: grid;
-      grid-template-columns: 34px 1fr 1.7fr 62px 56px 76px 82px;
-      gap: 0;
-    }
-
-    .item-header div {
-      background: #f5f7f9;
-      color: #435061;
-      padding: 7px 5px;
-      border-right: 1px solid var(--border);
-      font-size: 12px;
-      font-weight: 700;
-      text-align: center;
-    }
-
-    .item-header div:last-child { border-right: 0; }
-
-    .item-row {
-      border-top: 1px solid var(--border);
-      background: #fff;
-    }
-
-    .item-row .index {
-      display: grid;
-      place-items: center;
-      color: #4d5968;
-      font-size: 13px;
-      border-right: 1px solid var(--border);
-    }
-
-    .item-row input {
-      min-height: 34px;
-      border: 0;
-      border-right: 1px solid var(--border);
-      border-radius: 0;
-      padding: 6px;
-      font-size: 14px;
-    }
-
-    .item-row input:last-child { border-right: 0; }
-
-    .item-amount {
-      display: grid;
-      place-items: center end;
-      min-height: 34px;
-      padding: 6px;
-      border-right: 0;
-      color: var(--ink);
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .input-panel .section-title {
-      margin: 14px 0 6px;
-      color: #435061;
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .preview-wrap {
-      min-width: 0;
-      overflow: auto;
-      order: 2;
-    }
-
-    .preview-wrap[hidden] {
-      display: none;
-    }
-
-    .batch-print-wrap[hidden] {
-      display: none;
-    }
-
-    .batch-print-wrap .page {
-      margin-top: 16px;
-    }
-
-    .page {
-      position: relative;
-      width: 215.9mm;
-      height: 139.7mm;
-      margin: 0 auto;
-      padding: 2.4mm 2.4mm 1.8mm;
-      background: var(--paper);
-      color: #000;
-      box-shadow: 0 6px 24px rgba(18, 31, 45, 0.16);
-      font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
-      font-weight: 900;
-    }
-
-    .page * {
-      color: #000 !important;
-    }
-
-    .print-header {
-      position: relative;
-      height: 17mm;
-      font-weight: 700;
-    }
-
-    .company-title {
-      text-align: center;
-      font-size: 18pt;
-      line-height: 1.15;
-    }
-
-    .doc-title {
-      text-align: center;
-      margin-top: 3mm;
-      font-size: 16pt;
-      line-height: 1;
-    }
-
-    .company-info {
-      position: absolute;
-      top: 0;
-      right: 3mm;
-      width: 68mm;
-      font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
-      font-size: 10pt;
-      line-height: 1.25;
-      font-weight: 700;
-      text-align: left;
-      white-space: pre-line;
-    }
-
-    .order-area {
-      display: grid;
-      grid-template-columns: 7mm 1fr 7mm;
-      align-items: stretch;
-      width: 100%;
-    }
-
-    .left-flags {
-      display: grid;
-      grid-template-rows: repeat(5, 1fr);
-      align-items: center;
-      justify-items: center;
-      width: 7mm;
-      height: 100%;
-      padding: 2mm 1.2mm;
-      font-size: 11pt;
-      font-weight: 700;
-      line-height: 1.05;
-      text-align: center;
-      overflow: hidden;
-      pointer-events: none;
-    }
-
-    .left-flag {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 100%;
-      padding: 0 0.6mm;
-      writing-mode: vertical-rl;
-      text-orientation: upright;
-      letter-spacing: 0;
-      white-space: nowrap;
-    }
-
-    .form-table {
-      width: 100%;
-    }
-    .meta-grid {
-      display: grid;
-      grid-template-columns: 28mm 68mm 1fr 24mm 34mm;
-      align-items: center;
-      height: 6mm;
-      font-size: 12pt;
-      font-weight: 900;
-      white-space: nowrap;
-    }
-    .meta-grid > div {
-      overflow: visible;
-    }
-
-    .print-table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-
-    .print-table col.no { width: 16mm; }
-    .print-table col.batch { width: 42mm; }
-    .print-table col.name { width: 62mm; }
-    .print-table col.qty { width: 13mm; }
-    .print-table col.unit { width: 13mm; }
-    .print-table col.price { width: 21mm; }
-    .print-table col.amount { width: 24mm; }
-
-    .print-table td,
-    .print-table th {
-      height: 5.2mm;
-      border: 1px solid var(--line);
-      padding: 0.45mm 0.9mm;
-      vertical-align: middle;
-      font-size: 10.5pt;
-      font-weight: 700;
-      line-height: 1.08;
-      overflow: hidden;
-      white-space: pre-wrap;
-    }
-
-    .top-row td {
-      height: 6mm;
-      font-size: 12pt;
-    }
-    .meta-row td {
-      border: 0 !important;
-      white-space: nowrap;
-    }
-    .meta-row .date-label {
-      width: 20mm;
-      min-width: 20mm;
-    }
-    .meta-row .fill-date-value {
-      min-width: 52mm;
-    }
-    .customer-meta-cell {
-      border: 0 !important;
-      padding: 0 !important;
-      height: 6mm;
-    }
-    .customer-grid {
-      display: grid;
-      grid-template-columns: 16mm 42mm 31mm 31mm 26mm 1fr;
-      height: 10mm;
-      width: 100%;
-      border-top: 2px solid var(--line);
-      border-left: 2px solid var(--line);
-      border-right: 2px solid var(--line);
-      border-bottom: 1px solid var(--line);
-    }
-    .customer-grid > div {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-right: 1px solid var(--line);
-      padding: 0.45mm 0.9mm;
-      overflow: hidden;
-      white-space: nowrap;
-    }
-    .customer-grid > div:last-child { border-right: 0; }
-    .customer-grid .label {
-      justify-content: flex-start;
-      font-weight: 700;
-    }
-    .head-row th {
-      height: 5.5mm;
-      text-align: center;
-      border-bottom: 3px double var(--line);
-      font-size: 9.5pt;
-    }
-    .item-print-row td {
-      height: 8mm;
-      font-size: 13pt;
-    }
-    .fit-text {
-      white-space: nowrap !important;
-    }
-    .yellow { background: var(--yellow); }
-    .center { text-align: center; }
-    .right { text-align: right; }
-    .outer-left { border-left-width: 2px !important; }
-    .outer-right { border-right-width: 2px !important; }
-    .outer-top { border-top-width: 2px !important; }
-    .footer td {
-      height: 7mm;
-      font-size: 13pt;
-    }
-
-    .template-product .normal-only {
-      display: none;
-    }
-
-    .product-only {
-      display: none;
-    }
-
-    .template-product .product-only {
-      display: table-row;
-    }
-
-    .template-product .print-table col.batch { width: 32mm; }
-    .template-product .print-table col.name { width: 66mm; }
-    .template-product .print-table col.price { width: 48mm; }
-    .template-product .print-table col.amount { width: 0; }
-    .template-product .product-hidden {
-      display: none;
-    }
-
-    .template-product .product-extra-row {
-      display: none;
-    }
-
-    .template-product .product-fifth-row {
-      display: table-row;
-    }
-
-    .template-product .side-copy {
-      grid-template-rows: repeat(3, 1fr);
-    }
-
-    .template-product .product-hide-copy {
-      display: none;
-    }
-
-    .inspection-table {
-      display: none;
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 10pt;
-      font-weight: 700;
-      line-height: 1.1;
-    }
-
-    .template-product .inspection-table {
-      display: table;
-    }
-
-    .inspection-table td,
-    .inspection-table th {
-      border: 1px solid var(--line);
-      padding: 0.5mm 0.8mm;
-      height: 6mm;
-      text-align: center;
-      vertical-align: middle;
-    }
-
-    .inspection-table .left { text-align: left; }
-
-    .inspection-table .inspection-note {
-      font-size: 8pt;
-      line-height: 1.2;
-      text-align: left !important;
-      padding-left: 1.2mm !important;
-    }
-
-    .side-copy {
-      display: grid;
-      grid-template-rows: repeat(4, 1fr);
-      border: 0;
-      font-size: 11pt;
-      font-weight: 700;
-      line-height: 1.05;
-      text-align: center;
-      overflow: hidden;
-    }
-
-    .copy-line {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-bottom: 0;
-      writing-mode: vertical-rl;
-      text-orientation: upright;
-      letter-spacing: 0;
-    }
-
-    .signature-line {
-      display: grid;
-      grid-template-columns: 7mm 1fr 7mm;
-      padding: 3.2mm 0 0;
-      font-size: 10pt;
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    .signature-inner {
-      display: grid;
-      grid-column: 2;
-      grid-row: 1;
-      grid-template-columns: 1fr 1fr 1fr;
-      padding-left: 1mm;
-    }
-
-    .signature-line > div:not(.signature-inner):not(.signature-note-row) {
-      display: none;
-    }
-
-    .signature-note-row {
-      display: none;
-      grid-column: 2;
-      grid-template-columns: 1fr 1fr 1fr;
-      padding: 0 0 1mm 1mm;
-      font-size: 10pt;
-      font-weight: 700;
-    }
-
-    .page.template-product .signature-note-row {
-      display: grid;
-    }
-
-    .page.template-product .signature-line {
-      grid-template-rows: auto auto;
-    }
-
-    .page.template-product .signature-inner {
-      grid-column: 2;
-      grid-row: 2;
-    }
-
-    @media (max-width: 1180px) {
-      .app { grid-template-columns: 1fr; }
-      .input-panel { position: static; }
-    }
-
-    @media print {
-      @page {
-        size: 215.9mm 139.7mm;
-        margin: 0;
-      }
-
-      html,
-      body {
-        width: 215.9mm;
-        min-height: 139.7mm;
-        margin: 0;
-        padding: 0;
-        background: #fff;
-        overflow: visible;
-      }
-
-      .input-panel { display: none !important; }
-
-      body.batch-printing .preview-wrap {
-        display: none !important;
-      }
-
-      body.batch-printing .batch-print-wrap {
-        display: block !important;
-      }
-
-      .app {
-        display: block;
-        width: auto;
-        max-width: none;
-        margin: 0;
-        padding: 0;
-      }
-
-      .preview-wrap {
-        width: auto;
-        height: auto;
-        overflow: visible;
-      }
-
-      .page {
-        width: 205mm;
-        height: 137mm;
-        min-height: 0;
-        margin: 3mm auto 0;
-        padding: 0;
-        overflow: hidden;
-        box-shadow: none;
-        page-break-after: avoid;
-        page-break-inside: avoid;
-        transform: translateX(-4mm);
-      }
-
-      .print-header {
-        height: 15mm;
-      }
-
-      .item-print-row td {
-        height: 7.2mm;
-      }
-
-      .footer td {
-        height: 6.2mm;
-      }
-
-      .template-product .item-print-row td {
-        height: 8mm;
-      }
-
-      .template-product .footer td {
-        height: 6mm;
-      }
-
-      .inspection-table td,
-      .inspection-table th {
-        height: 6mm;
-      }
-
-      .signature-line {
-        padding-top: 1mm;
-      }
-
-      .batch-print-wrap .page {
-        margin: 3mm auto 0;
-        break-after: auto;
-        page-break-after: auto;
-      }
-
-      .batch-print-wrap .page + .page {
-        margin-top: 3mm;
-        break-before: page;
-        page-break-before: always;
-      }
-
-      .print-table {
-        width: 100%;
-      }
-
-      .yellow,
-      .title-company {
-        background: transparent !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-      }
-    }
-
-    .page .yellow,
-    .page .title-company {
-      background: transparent;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>倉庫管理系統</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root { --yellow:#FFD54F; --yellow2:#FFECB3; --cream:#FFF8E1; --brown:#6D4C41; --brown2:#8D6E63; --amber:#FF8F00; }
+* { font-family:'M PLUS Rounded 1c','Microsoft JhengHei',sans-serif; }
+body { background:var(--cream); padding-bottom:76px; }
+
+/* ── topbar ── */
+.topbar {
+background: var(--yellow) url('pompompurin-bg.jpg') left center / auto 100% repeat-x;
+padding:.8rem 1rem; position:sticky; top:0; z-index:50;
+display:flex; align-items:center; justify-content:space-between;
+box-shadow:0 2px 8px rgba(109,76,65,.15);
+}
+.topbar h6 { margin:0; color:var(--brown); font-weight:800; font-size:1.05rem; }
+.btn-icon {
+background:rgba(109,76,65,.15); border:none; border-radius:10px;
+padding:.3rem .6rem; color:var(--brown); font-size:1rem; cursor:pointer; line-height:1;
+}
+
+/* ── bottom nav ── */
+.bottom-nav {
+position:fixed; bottom:0; left:0; right:0; z-index:100;
+background:#fff; border-top:3px solid var(--yellow);
+display:flex; box-shadow:0 -2px 12px rgba(109,76,65,.12);
+}
+.bottom-nav a {
+flex:1; display:flex; flex-direction:column; align-items:center;
+padding:9px 0; color:var(--brown2); text-decoration:none;
+font-size:.6rem; font-weight:700; gap:2px; cursor:pointer;
+}
+.bottom-nav a i { font-size:1.2rem; }
+.bottom-nav a.active { color:var(--amber); }
+
+/* ── shared ── */
+.stat-card {
+background:#fff; border-radius:16px; padding:.85rem .5rem;
+text-align:center; box-shadow:0 3px 10px rgba(109,76,65,.1);
+border-bottom:4px solid var(--yellow);
+}
+.stat-card .num { font-size:1.35rem; font-weight:800; }
+.stat-card .lbl { font-size:.68rem; color:var(--brown2); font-weight:700; margin-top:2px; }
+.search-bar {
+background:#fff; border-radius:16px; padding:.75rem;
+margin-bottom:.75rem; box-shadow:0 2px 8px rgba(109,76,65,.08);
+}
+.form-control,.form-select {
+font-family:'M PLUS Rounded 1c',sans-serif;
+font-size:.88rem; border-radius:10px; border:2px solid var(--yellow2);
+}
+.form-control:focus,.form-select:focus {
+border-color:var(--yellow); box-shadow:0 0 0 .2rem rgba(255,213,79,.3);
+}
+.section-title {
+font-size:.78rem; font-weight:800; color:var(--brown2);
+text-transform:uppercase; letter-spacing:.06em; margin:.75rem 0 .4rem .25rem;
+}
+.alert { border-radius:14px; font-weight:700; }
+
+/* ── 庫存 ── */
+.inv-card {
+background:#fff; border-radius:16px; padding:.9rem 1rem; margin-bottom:.6rem;
+box-shadow:0 2px 8px rgba(109,76,65,.09); border-left:6px solid var(--yellow);
+display:flex; align-items:center; gap:.75rem;
+cursor:pointer; transition:transform .1s, box-shadow .1s;
+}
+.inv-card:active { transform:scale(.98); box-shadow:0 1px 4px rgba(109,76,65,.1); }
+.inv-card:hover  { box-shadow:0 4px 14px rgba(109,76,65,.15); }
+.inv-card.low      { border-left-color:#E53935; }
+.inv-card.zero     { border-left-color:#B0BEC5; opacity:.7; }
+.inv-card.abnormal { border-left-color:#7B1FA2; background:#F3E5F5; }
+.inv-card .info    { flex:1; min-width:0; }
+.inv-card .pname   { font-weight:800; font-size:.95rem; color:var(--brown); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.inv-card .spec    { font-size:.75rem; color:var(--brown2); margin-top:2px; }
+.inv-card .numbers { display:flex; gap:.6rem; margin-top:.4rem; }
+.inv-notes { font-size:.72rem; color:var(--brown2); margin-top:.3rem; line-height:1.4; white-space:pre-wrap; word-break:break-all; }
+.inv-card .itag    { font-size:.72rem; font-weight:700; border-radius:8px; padding:.15em .55em; }
+.itag-in  { background:#E8F5E9; color:#2E7D32; }
+.itag-out { background:#FBE9E7; color:#BF360C; }
+.inv-card .balance      { text-align:right; flex-shrink:0; }
+.inv-card .balance .qty { font-size:1.5rem; font-weight:800; line-height:1; }
+.inv-card .balance .unit{ font-size:.72rem; color:var(--brown2); font-weight:700; }
+.qty-ok       { color:#2E7D32; }
+.qty-low      { color:#E53935; }
+.qty-zero     { color:#90A4AE; }
+.qty-abnormal { color:#7B1FA2; }
+.tag-abnormal {
+font-size:.72rem; font-weight:800; border-radius:8px; padding:.15em .6em;
+background:#7B1FA2; color:#fff; animation:pulse-ab 1.2s infinite;
+}
+@keyframes pulse-ab { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+/* ── 紀錄 ── */
+.rec-card {
+background:#fff; border-radius:14px; padding:.85rem 1rem; margin-bottom:.5rem;
+box-shadow:0 2px 8px rgba(109,76,65,.08); cursor:pointer;
+transition:transform .1s; border-left:5px solid var(--yellow);
+}
+.rec-card.in     { border-left-color:#2E7D32; }
+.rec-card.out    { border-left-color:#E65100; }
+.rec-card.borrow { border-left-color:#1565C0; }
+.rec-card:active { transform:scale(.98); }
+.rec-top  { display:flex; justify-content:space-between; align-items:flex-start; gap:.5rem; }
+.rec-name { font-weight:800; font-size:.95rem; color:var(--brown); }
+.rec-spec { font-size:.75rem; color:var(--brown2); margin-top:1px; }
+.rec-meta { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.4rem; align-items:center; }
+.rec-tag  { font-size:.7rem; font-weight:700; border-radius:8px; padding:.2em .55em; background:var(--yellow2); color:var(--brown); }
+.badge-in     { background:#E8F5E9; color:#2E7D32; }
+.badge-out    { background:#FBE9E7; color:#BF360C; }
+.badge-borrow { background:#E3F2FD; color:#1565C0; }
+.rec-qty  { font-weight:800; font-size:1rem; }
+.rec-notes { font-size:.75rem; color:var(--brown2); margin-top:.35rem; padding-top:.35rem; border-top:1px solid var(--yellow2); line-height:1.45; word-break:break-all; }
+.qty-in   { color:#2E7D32; }
+.qty-out  { color:#E65100; }
+.qty-borrow { color:#1565C0; }
+
+/* ── 精準篩選提示 ── */
+.ef-chip {
+display: inline-flex; align-items: center; gap: .4rem;
+background: #FFF3E0; border: 1.5px solid var(--amber);
+border-radius: 20px; padding: .3em .75em;
+font-size: .78rem; font-weight: 700; color: var(--amber);
+}
+.ef-chip button {
+background: none; border: none; cursor: pointer;
+color: var(--brown2); font-size: .8rem; padding: 0; line-height: 1;
+}
+.ef-chip button:hover { color: #E53935; }
+
+/* ── 排序列 ── */
+.sort-bar {
+display: flex; align-items: center; gap: .45rem;
+margin-bottom: .6rem; flex-wrap: wrap;
+}
+.sort-lbl { font-size: .72rem; font-weight: 700; color: var(--brown2); white-space: nowrap; }
+.sort-btn {
+font-family: 'M PLUS Rounded 1c', sans-serif;
+font-size: .72rem; font-weight: 700;
+border: 2px solid var(--yellow2); background: #fff;
+color: var(--brown2); border-radius: 20px;
+padding: .25em .75em; cursor: pointer;
+transition: all .15s; white-space: nowrap;
+}
+.sort-btn:hover  { border-color: var(--amber); color: var(--amber); }
+.sort-btn.active { background: var(--amber); border-color: var(--amber); color: #fff; }
+.sort-btn .arrow { font-style: normal; font-size: .65rem; margin-left: .2em; }
+
+/* ── 表單（新增 + 編輯）── */
+.form-block {
+background:#fff; border-radius:20px; padding:1.1rem; margin-bottom:.8rem;
+box-shadow:0 3px 10px rgba(109,76,65,.1); border-top:4px solid var(--yellow);
+}
+.form-block h6 { font-size:.78rem; font-weight:800; color:var(--brown2); text-transform:uppercase; letter-spacing:.06em; margin-bottom:.85rem; }
+.form-block .form-control,
+.form-block .form-select { font-size:.95rem; min-height:46px; border-radius:12px; }
+.form-label  { font-weight:700; font-size:.88rem; color:var(--brown); }
+.btn-submit  { background:var(--amber); border:none; color:#fff; border-radius:16px; min-height:52px; font-size:1.05rem; font-weight:800; box-shadow:0 4px 12px rgba(255,143,0,.35); width:100%; }
+.btn-submit:hover    { background:#E65100; color:#fff; }
+.btn-submit:disabled { background:var(--brown2); }
+.btn-delete  { background:#fff; border:2px solid #E53935; color:#E53935; border-radius:16px; min-height:46px; font-size:.95rem; font-weight:800; width:100%; cursor:pointer; }
+.btn-delete:hover    { background:#FFEBEE; }
+.btn-delete:disabled { opacity:.5; cursor:not-allowed; }
+
+/* ── 盤點 ── */
+.info-block { background:#fff; border-radius:16px; padding:.9rem 1rem; margin-bottom:.75rem; box-shadow:0 3px 10px rgba(109,76,65,.1); border-top:4px solid var(--yellow); display:flex; gap:2rem; align-items:center; }
+.info-block .lbl { font-size:.72rem; color:var(--brown2); font-weight:700; }
+.info-block .val { font-size:.95rem; font-weight:800; color:var(--brown); margin-top:2px; }
+.product-card { background:#fff; border-radius:14px; padding:.8rem .5rem; text-align:center; box-shadow:0 2px 8px rgba(109,76,65,.09); border-bottom:4px solid var(--yellow); height:100%; }
+.product-card .pname { font-size:.8rem; font-weight:700; color:var(--brown); line-height:1.35; min-height:2.7em; display:flex; align-items:center; justify-content:center; }
+.product-card .pqty  { font-size:1.75rem; font-weight:800; color:var(--amber); margin-top:.35rem; line-height:1; }
+.product-card .pqty.zero { color:#90A4AE; }
+.product-card .pqty.plow { color:#E53935; }
+
+/* ── 盤點人 banner ── */
+.st-person-banner {
+background: var(--yellow); border-radius: 14px;
+padding: .7rem 1rem; margin-bottom: .55rem;
+display: flex; align-items: center; gap: .6rem;
+box-shadow: 0 2px 8px rgba(109,76,65,.12);
+}
+.st-person-banner .icon { font-size: 1.4rem; line-height: 1; }
+.st-person-banner .name { font-size: 1.1rem; font-weight: 800; color: var(--brown); }
+.st-person-banner .sub  { font-size: .7rem; color: var(--brown2); font-weight: 700; margin-top: 1px; }
+
+/* ── 盤點時間條 ── */
+.st-time-bar {
+background: #fff; border-radius: 11px;
+padding: .5rem .9rem; margin-bottom: .8rem;
+display: flex; align-items: center; gap: .4rem;
+font-size: .8rem; color: var(--brown2); font-weight: 700;
+box-shadow: 0 1px 4px rgba(109,76,65,.08);
+}
+.st-time-bar i { color: var(--brown2); }
+
+/* ── 盤點表格 ── */
+.st-table { width: 100%; border-collapse: collapse; }
+.st-table thead tr { background: var(--yellow2); }
+.st-table th {
+padding: .55rem .9rem; font-size: .76rem; font-weight: 800;
+color: var(--brown2); letter-spacing: .05em; text-align: right;
+}
+.st-table th:first-child { border-radius: 12px 0 0 0; text-align: left; }
+.st-table th:last-child  { border-radius: 0 12px 0 0; }
+.st-table tbody { background: #fff; }
+.st-table td {
+padding: .65rem .9rem; font-size: .93rem; font-weight: 600;
+color: var(--brown); border-top: 1px solid var(--yellow2); text-align: right;
+}
+.st-table td:first-child { text-align: left; }
+.st-table td:last-child  { font-size: 1.05rem; font-weight: 800; }
+.st-table tbody tr:last-child td:first-child  { border-radius: 0 0 0 12px; }
+.st-table tbody tr:last-child td:last-child   { border-radius: 0 0 12px 0; }
+.st-table tbody tr { cursor: pointer; }
+.st-table tbody tr:hover { background: #FFFDE7; }
+.st-table tbody tr:hover .st-go        { opacity: 1; }
+.st-table tbody tr:hover .st-edit-icon { opacity: .75; }
+.st-go { opacity: 0; transition: opacity .15s; color: var(--amber); font-size: .85rem; padding-left: 4px; }
+.st-wrap {
+background: #fff; border-radius: 14px; overflow: hidden;
+box-shadow: 0 2px 8px rgba(109,76,65,.09);
+}
+.st-qty-ok   { color: var(--amber); }
+.st-qty-low  { color: #E53935; }
+.st-qty-zero { color: #90A4AE; }
+/* 上期欄 */
+.st-prev { color: #BDBDBD !important; font-size: .85rem !important; font-weight: 400 !important; }
+/* 本期欄（可編輯） */
+.st-edit-icon { font-size: .7rem; opacity: 0; transition: opacity .15s; margin-left: 3px; color: var(--amber); vertical-align: middle; }
+/* 差異欄 */
+.st-diff-up { color: #2E7D32; font-weight: 800; font-size: 1.05rem; }
+.st-diff-dn { color: #C62828; font-weight: 800; font-size: 1.05rem; }
+/* 行內編輯控件 */
+.st-edit-input { width: 68px; padding: 2px 5px; border: 2px solid var(--amber); border-radius: 6px; font-size: .9rem; text-align: right; outline: none; }
+.st-edit-btn { border: none; background: none; font-size: .95rem; cursor: pointer; padding: 1px 3px; line-height: 1.3; color: var(--brown2); }
+.st-edit-btn:hover { color: var(--amber); }
+/* ── 產品名稱自動補全 ── */
+.ac-wrap { position: relative; }
+.ac-list {
+position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 400;
+background: #fff; border: 1.5px solid var(--amber); border-radius: 0 0 12px 12px;
+max-height: 230px; overflow-y: auto;
+box-shadow: 0 6px 16px rgba(109,76,65,.15); display: none;
+}
+.ac-item {
+padding: 9px 14px; cursor: pointer;
+border-bottom: 1px solid var(--yellow2); transition: background .1s;
+}
+.ac-item:last-child { border-bottom: none; border-radius: 0 0 10px 10px; }
+.ac-item:hover, .ac-item.ac-active { background: var(--yellow2); }
+.ac-name { font-weight: 700; color: var(--brown); font-size: .95rem; }
+.ac-meta { font-size: .78rem; color: var(--brown2); margin-top: 2px; }
+/* ── 盤點歷史面板 ── */
+.sth-table { width:100%; border-collapse:collapse; }
+.sth-table th { background:var(--yellow2); padding:10px 14px; font-size:.85rem; color:var(--brown); }
+.sth-table th:first-child  { text-align:left; border-radius:12px 0 0 0; }
+.sth-table th:last-child   { text-align:right; border-radius:0 12px 0 0; }
+.sth-table td { padding:11px 14px; border-bottom:1px solid #F5E9C9; font-size:.95rem; }
+.sth-table td:first-child  { text-align:left; color:var(--brown2); }
+.sth-table td:last-child   { text-align:right; font-weight:800; color:var(--amber); }
+.sth-table td.sth-zero     { color:#90A4AE; font-weight:400; }
+.sth-table tbody tr:last-child td:first-child { border-radius:0 0 0 12px; }
+.sth-table tbody tr:last-child td:last-child  { border-radius:0 0 12px 0; }
+.sth-table tbody tr:nth-child(even) { background:#FFFDE7; }
+.sth-person { font-size:.82rem; color:var(--brown2); margin-left:6px; }
+</style>
 </head>
 <body>
-  <main class="app">
-    <section class="input-panel" aria-label="input">
-      <div class="panel-head">
-        <h1>出貨單輸入</h1>
-      </div>
-      <div class="mode-tabs">
-        <button class="mode-tab active" type="button" data-view-button="entry">資料輸入</button>
-        <button class="mode-tab" type="button" data-view-button="saved">選取單號列印</button>
-      </div>
-
-      <div class="view" id="entryView">
-      <p class="hint">黃色欄位為必填；品項只要開始填某一列，該列黃色欄位都要填完整。</p>
-      <div class="error-box" id="errorBox" role="alert"></div>
-
-      <div class="form-grid">
-        <label class="wide"><span class="req">公司名稱</span>
-          <input data-field="company" data-required="true" list="companyOptions">
-        </label>
-        <label><span class="req">填單日期</span>
-          <input type="date" data-field="fillDate" data-required="true">
-        </label>
-        <label><span class="req">出貨日期</span>
-          <input type="date" data-field="shipDate" data-required="true">
-        </label>
-        <label><span class="req">客戶</span>
-          <input data-field="customer" data-required="true">
-        </label>
-        <label><span class="req">業務</span>
-          <input data-field="sales" data-required="true" list="salesOptions">
-        </label>
-        <label><span>出貨(PO)編號</span>
-          <input data-field="poNo">
-        </label>
-        <label><span>發貨人</span>
-          <input data-field="shipper">
-        </label>
-        <label class="wide"><span class="req">備註</span>
-          <textarea data-field="note" data-required="true"></textarea>
-        </label>
-        <div class="wide">
-          <span class="hint" style="display:block;margin-bottom:4px;">列印左側標記</span>
-          <div class="check-group" id="docFlagInputs">
-            <label><input type="checkbox" data-doc-flag value="報價單">報價單</label>
-            <label><input type="checkbox" data-doc-flag value="發票">發票</label>
-            <label><input type="checkbox" data-doc-flag value="倉庫配送">倉庫配送</label>
-            <label><input type="checkbox" data-doc-flag value="郵局配送">郵局配送</label>
-            <label><input type="checkbox" data-doc-flag value="收現金">收現金</label>
-            <label><input type="checkbox" data-doc-flag value="四聯單">四聯單</label>
-            <label><input type="checkbox" data-doc-flag value="自取">自取</label>
-            <label><input type="checkbox" data-doc-flag value="合格">合格</label>
-          </div>
-        </div>
-      </div>
-
-      <div class="items">
-        <div class="item-header">
-          <div>#</div>
-          <div>批號</div>
-          <div>產品名稱</div>
-          <div>數量</div>
-          <div>單位</div>
-          <div>單價</div>
-          <div>金額</div>
-        </div>
-        <div id="inputItems"></div>
-      </div>
-      <div class="actions" style="margin-top: 14px;">
-        <button type="button" id="saveBtn">儲存</button>
-        <button class="primary" type="button" id="printBtn">列印</button>
-        <button type="button" id="clearBtn">清空</button>
-      </div>
-      </div>
-
-      <div class="view" id="savedView" hidden>
-        <p class="hint">勾選要列印的單據，再按列印選取單據。</p>
-        <div class="list-toolbar">
-          <div class="toolbar-left">
-            <label>顯示
-              <select id="pageSizeSelect">
-                <option value="10">10</option>
-                <option value="25" selected>25</option>
-                <option value="50">50</option>
-              </select>
-              項結果
-            </label>
-            <label>狀態
-              <select id="printStatusFilter">
-                <option value="unprinted" selected>未列印</option>
-                <option value="printed">已確認列印</option>
-                <option value="all">全部</option>
-              </select>
-            </label>
-          </div>
-          <div class="toolbar-right">
-            <label>搜尋
-              <input id="orderSearchInput" type="search">
-            </label>
-          </div>
-        </div>
-        <table class="order-list">
-          <thead>
-            <tr>
-              <th><input id="selectAllOrders" type="checkbox"></th>
-              <th>#</th>
-              <th>日期</th>
-              <th>單號</th>
-              <th>客戶</th>
-              <th>業務</th>
-              <th>金額</th>
-              <th>狀態</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="savedOrderTable"></tbody>
-        </table>
-        <div class="list-footer">
-          <span id="savedOrderSummary">顯示 0 項結果</span>
-          <span id="savedOrderStatusText">未列印單據</span>
-        </div>
-        <div class="actions" style="margin-top: 14px;">
-          <label style="display:flex;align-items:center;gap:8px;">
-            <span>列印模板</span>
-            <select id="printTemplateSelect">
-              <option value="normal" selected>四聯單</option>
-              <option value="product">三聯單</option>
-            </select>
-          </label>
-          <button class="primary" type="button" id="savedPrintBtn">列印選取單據</button>
-          <button type="button" id="confirmPrintedBtn">確認已列印</button>
-          <button type="button" id="refreshOrdersBtn">刷新單號</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="preview-wrap" id="previewWrap" aria-label="preview" hidden>
-      <div class="page">
-        <div class="print-header">
-          <div class="company-title" data-out="company"></div>
-          <div class="doc-title" data-doc-title>出貨單</div>
-          <div class="company-info">地址: 高雄市前鎮區新衙路363號
-電話:07-8415137
-傳真:07-8416426</div>
-        </div>
-        <div class="order-area">
-          <div class="left-flags" id="leftFlags"></div>
-          <div class="form-table">
-            <div class="meta-grid">
-              <div>填單日期： <span data-out="fillDate"></span></div>
-              <div></div>
-              <div></div>
-              <div>發貨人： <span data-out="shipper"></span></div>
-              <div></div>
-            </div>
-            <div class="customer-grid">
-              <div class="label">客戶：</div>
-              <div data-out="customer"></div>
-              <div>出貨日期</div>
-              <div data-out="shipDate"></div>
-              <div>出貨(PO)編號</div>
-              <div data-out="poNo"></div>
-            </div>
-            <table class="print-table" aria-label="order">
-              <colgroup>
-                <col class="no"><col class="batch"><col class="name"><col class="qty">
-                <col class="unit"><col class="price"><col class="amount">
-              </colgroup>
-              <tr class="head-row">
-                <th class="outer-left">項次</th>
-                <th>批號</th>
-                <th>產品名稱,規格/等級</th>
-                <th>數量</th>
-                <th>單位</th>
-                <th data-head-price>單價</th>
-                <th class="outer-right" data-head-amount>金額</th>
-              </tr>
-              <tbody id="printItems"></tbody>
-              <tr class="footer normal-only">
-                <td class="outer-left center" colspan="2">業務</td>
-                <td class="yellow" data-out="sales"></td>
-                <td colspan="2"></td>
-                <td class="center">合計</td>
-                <td class="outer-right right" data-out="total">0</td>
-              </tr>
-              <tr class="footer normal-only">
-                <td class="outer-left center" colspan="2">備註</td>
-                <td colspan="5" class="yellow outer-right fit-text" data-out="note"></td>
-              </tr>
-              <tr class="footer product-only">
-                <td class="outer-left center" colspan="2">合計</td>
-                <td></td>
-                <td class="center" data-out="totalQty"></td>
-                <td class="center" data-out="summaryUnit"></td>
-                <td class="outer-right" colspan="2"></td>
-              </tr>
-            </table>
-            <table class="inspection-table" aria-label="inspection">
-              <tr>
-                <td colspan="6">車輛檢查</td>
-              </tr>
-              <tr>
-                <td>車號</td>
-                <td>黑貓高雄所</td>
-                <td>車箱溫度</td>
-                <td>-20度C</td>
-                <td>出貨時間</td>
-                <td data-out="shipDate"></td>
-              </tr>
-              <tr>
-                <td>堆疊穩固</td>
-                <td><span data-auto-pass="qualified"></span>合格 □不合格</td>
-                <td>車箱清潔度</td>
-                <td><span data-auto-pass="qualified"></span>合格 □不合格</td>
-                <td>是否滿車</td>
-                <td><span data-auto-pass="yes"></span>是 □否</td>
-              </tr>
-              <tr>
-                <td colspan="2">車周無無破損或其他影響產品之狀況<br><br><span data-auto-pass="qualified"></span>合格 □不合格</td>
-                <td>檢查者：</td>
-                <td colspan="2" class="left" data-out="sales"></td>
-                <td class="inspection-note">備註：<br>*收到商品如有問題，請在三天內反應。<br>*冰鮮、冷凍商品請盡速驗收。</td>
-              </tr>
-            </table>
-          </div>
-          <div class="side-copy" aria-label="copies">
-            <div class="copy-line">第一聯：存根</div>
-            <div class="copy-line">第二聯：會計</div>
-            <div class="copy-line" data-copy-third>第三聯：倉庫</div>
-            <div class="copy-line product-hide-copy">第四聯：客戶</div>
-          </div>
-        </div>
-        <div class="signature-line">
-          <div></div>
-          <div class="signature-note-row">
-            <div>(本紀錄不得塗改)</div>
-            <div></div>
-            <div>表單編號:FS-1-F-03-04 ; 版本:1</div>
-          </div>
-          <div></div>
-          <div class="signature-inner">
-            <div>廠長：</div>
-            <div>倉管：</div>
-            <div>簽收：</div>
-          </div>
-          <div></div>
-        </div>
-      </div>
-    </section>
-    <section class="batch-print-wrap" id="batchPrintWrap" aria-label="batch preview" hidden></section>
-  </main>
-
-  <div class="modal-backdrop" id="printConfirmModal" hidden>
-    <div class="modal">
-      <div class="modal-mark">?</div>
-      <h2>確認批次列印</h2>
-      <p id="printConfirmText"></p>
-      <div class="modal-actions">
-        <button class="success" type="button" id="confirmBatchPrintBtn">確定列印</button>
-        <button class="danger" type="button" id="cancelBatchPrintBtn">取消</button>
-      </div>
-    </div>
-  </div>
-
-  <datalist id="companyOptions"></datalist>
-  <datalist id="salesOptions"></datalist>
-  <datalist id="productOptions"></datalist>
-  <datalist id="unitOptions"></datalist>
-
-  <script>
-    const storageKey = "dayu-order-input-v6";
-    const fields = ["company", "fillDate", "shipDate", "customer", "shipper", "poNo", "sales", "note"];
-    const itemProps = ["batch", "name", "qty", "unit", "price"];
-    const lookupApiUrl = window.location.href.split("?")[0];
-    const supabaseUrl = "https://yeposcucdppwkjmmoidi.supabase.co";
-    const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI";
-    const useSupabase = Boolean(supabaseUrl && supabaseAnonKey);
-    const defaultLookups = {
-      company: ["\u5927\u6f01\u6c34\u7522\u6709\u9650\u516c\u53f8"],
-      sales: ["\u5442\u5bb6\u59a4"],
-      product: ["\u5e72\u8c9d2L", "\u548c\u725bA5", "\u9b77\u9b5a\u4e00\u591c\u5e72 300g/"],
-      unit: ["\u76d2", "KG", "\u5c3e"]
-    };
-    const saved = {};
-    const inputItems = document.getElementById("inputItems");
-    const printItems = document.getElementById("printItems");
-    const errorBox = document.getElementById("errorBox");
-    const savedOrderTable = document.getElementById("savedOrderTable");
-    const savedOrderSummary = document.getElementById("savedOrderSummary");
-    const orderSearchInput = document.getElementById("orderSearchInput");
-    const pageSizeSelect = document.getElementById("pageSizeSelect");
-    const printStatusFilter = document.getElementById("printStatusFilter");
-    const printTemplateSelect = document.getElementById("printTemplateSelect");
-    const selectAllOrders = document.getElementById("selectAllOrders");
-    const printConfirmModal = document.getElementById("printConfirmModal");
-    const printConfirmText = document.getElementById("printConfirmText");
-    const savedOrderStatusText = document.getElementById("savedOrderStatusText");
-    const entryView = document.getElementById("entryView");
-    const savedView = document.getElementById("savedView");
-    const previewWrap = document.getElementById("previewWrap");
-    const batchPrintWrap = document.getElementById("batchPrintWrap");
-    const leftFlags = document.getElementById("leftFlags");
-    let currentOrderId = generateOrderId();
-    let savedOrders = [];
-    const selectedOrderIds = new Set();
-    const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
-
-    function setBusy(button, busy, text) {
-      if (!button) return;
-      if (busy) {
-        button.dataset.originalText = button.textContent;
-        button.textContent = text;
-        button.disabled = true;
-      } else {
-        button.textContent = button.dataset.originalText || button.textContent;
-        button.disabled = false;
-      }
-    }
-
-    async function supabaseFetch(path, options = {}) {
-      const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
-        ...options,
-        headers: {
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${supabaseAnonKey}`,
-          "Content-Type": "application/json",
-          ...(options.headers || {})
-        }
-      });
-      if (!response.ok) throw new Error(await response.text());
-      if (response.status === 204) return null;
-      const text = await response.text();
-      return text ? JSON.parse(text) : null;
-    }
-
-    function isoDate(value) {
-      return value || null;
-    }
-
-    async function supabaseLoadLookups() {
-      const rows = await supabaseFetch("lookup_values?select=kind,value&enabled=eq.true&order=kind.asc,value.asc");
-      return {
-        company: rows.filter((row) => row.kind === "company").map((row) => row.value),
-        sales: rows.filter((row) => row.kind === "sales").map((row) => row.value),
-        product: rows.filter((row) => row.kind === "product").map((row) => row.value),
-        unit: rows.filter((row) => row.kind === "unit").map((row) => row.value)
-      };
-    }
-
-    async function supabaseSaveLookupValues(values) {
-      const rows = Object.entries(values).flatMap(([kind, list]) =>
-        list.map((value) => ({ kind, value }))
-      );
-      if (rows.length === 0) return;
-      await supabaseFetch("lookup_values?on_conflict=kind,value", {
-        method: "POST",
-        headers: { Prefer: "resolution=ignore-duplicates" },
-        body: JSON.stringify(rows)
-      });
-    }
-
-    async function supabaseSaveOrder(order) {
-      const main = {
-        id: order.id,
-        updated_at: new Date().toISOString(),
-        company: order.fields.company || null,
-        fill_date: isoDate(order.fields.fillDate),
-        ship_date: isoDate(order.fields.shipDate),
-        customer: order.fields.customer || null,
-        shipper: order.fields.shipper || null,
-        po_no: order.fields.poNo || null,
-        sales: order.fields.sales || null,
-        note: order.fields.note || null,
-        doc_flags: order.docFlags || [],
-        total: parseAmount(order.total)
-      };
-      await supabaseFetch("orders?on_conflict=id", {
-        method: "POST",
-        headers: { Prefer: "resolution=merge-duplicates" },
-        body: JSON.stringify(main)
-      });
-      await supabaseFetch(`order_items?order_id=eq.${encodeURIComponent(order.id)}`, { method: "DELETE" });
-      if (order.items.length > 0) {
-        const rows = order.items.map((item) => ({
-          order_id: order.id,
-          line_no: item.index,
-          batch: item.batch || null,
-          name: item.name || null,
-          qty: item.qty === "" ? null : parseAmount(item.qty),
-          unit: item.unit || null,
-          price: item.price === "" ? null : parseAmount(item.price),
-          amount: parseAmount(item.amount)
-        }));
-        await supabaseFetch("order_items", {
-          method: "POST",
-          body: JSON.stringify(rows)
-        });
-      }
-    }
-
-    async function supabaseLoadOrders(status = "unprinted") {
-      const statusQuery = status === "all" ? "" : `&printed=eq.${status === "printed" ? "true" : "false"}`;
-      const rows = await supabaseFetch(`orders?select=id,ship_date,customer,sales,total,printed&order=updated_at.desc${statusQuery}`);
-      return rows.map((row) => ({
-        id: row.id,
-        date: row.ship_date || "",
-        customer: row.customer || "",
-        sales: row.sales || "",
-        total: amountText(row.total),
-        printed: Boolean(row.printed)
-      }));
-    }
-
-    async function supabaseLoadOrder(orderId) {
-      const orders = await supabaseFetch(`orders?select=*&id=eq.${encodeURIComponent(orderId)}&limit=1`);
-      const order = orders[0];
-      if (!order) return null;
-      const items = await supabaseFetch(`order_items?select=*&order_id=eq.${encodeURIComponent(orderId)}&order=line_no.asc`);
-      return {
-        id: order.id,
-        fields: {
-          company: order.company || "",
-          fillDate: order.fill_date || "",
-          shipDate: order.ship_date || "",
-          customer: order.customer || "",
-          shipper: order.shipper || "",
-          poNo: order.po_no || "",
-          sales: order.sales || "",
-          note: order.note || ""
-        },
-        docFlags: Array.isArray(order.doc_flags) ? order.doc_flags : [],
-        items: items.map((item) => ({
-          index: item.line_no,
-          batch: item.batch || "",
-          name: item.name || "",
-          qty: item.qty ?? "",
-          unit: item.unit || "",
-          price: item.price ?? "",
-          amount: item.amount ?? ""
-        }))
-      };
-    }
-
-    async function supabaseMarkPrinted(ids) {
-      if (ids.length === 0) return;
-      await supabaseFetch(`orders?id=in.(${ids.map(encodeURIComponent).join(",")})`, {
-        method: "PATCH",
-        body: JSON.stringify({ printed: true, printed_at: new Date().toISOString() })
-      });
-    }
-
-    async function supabaseDeleteOrder(orderId) {
-      await supabaseFetch(`orders?id=eq.${encodeURIComponent(orderId)}`, { method: "DELETE" });
-    }
-
-    function generateOrderId() {
-      const now = new Date();
-      const pad = (value) => String(value).padStart(2, "0");
-      const stamp = [
-        now.getFullYear(),
-        pad(now.getMonth() + 1),
-        pad(now.getDate()),
-        pad(now.getHours()),
-        pad(now.getMinutes()),
-        pad(now.getSeconds())
-      ].join("");
-      return `P${stamp}${Math.floor(Math.random() * 900 + 100)}`;
-    }
-
-    function todayISO() {
-      const now = new Date();
-      const offset = now.getTimezoneOffset() * 60000;
-      return new Date(now - offset).toISOString().slice(0, 10);
-    }
-
-    function formatDate(value, kind) {
-      if (!value) return "";
-      const date = new Date(`${value}T00:00:00`);
-      if (Number.isNaN(date.getTime())) return value;
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      return kind === "short" ? `${month}\u6708${day}\u65e5` : `${date.getFullYear()}\u5e74${month}\u6708${day}\u65e5`;
-    }
-
-    function amountText(value) {
-      const number = Number(value);
-      return Number.isFinite(number) && number !== 0 ? money.format(Math.round(number)) : "";
-    }
-
-    function parseAmount(value) {
-      const cleaned = String(value || "").replace(/,/g, "").trim();
-      const number = Number(cleaned);
-      return Number.isFinite(number) ? number : 0;
-    }
-
-    function switchView(viewName) {
-      const isSaved = viewName === "saved";
-      entryView.hidden = isSaved;
-      savedView.hidden = !isSaved;
-      previewWrap.hidden = true;
-      document.querySelectorAll("[data-view-button]").forEach((button) => {
-        button.classList.toggle("active", button.dataset.viewButton === viewName);
-      });
-      if (isSaved) loadSavedOrders();
-    }
-
-    function uniqueValues(values) {
-      return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
-    }
-
-    function setDatalist(id, values) {
-      const list = document.getElementById(id);
-      list.innerHTML = "";
-      uniqueValues(values).forEach((value) => {
-        const option = document.createElement("option");
-        option.value = value;
-        list.appendChild(option);
-      });
-    }
-
-    async function loadLookupOptions() {
-      const lookups = {
-        company: [...defaultLookups.company],
-        sales: [...defaultLookups.sales],
-        product: [...defaultLookups.product],
-        unit: [...defaultLookups.unit]
-      };
-
-      if (lookupApiUrl) {
-        try {
-          const data = useSupabase ? await supabaseLoadLookups() : await (await fetch(`${lookupApiUrl}?action=lookups`)).json();
-          lookups.company.push(...(data.company || []));
-          lookups.sales.push(...(data.sales || []));
-          lookups.product.push(...(data.product || []));
-          lookups.unit.push(...(data.unit || []));
-        } catch (error) {
-          console.warn("Lookup API could not be loaded.", error);
-        }
-      }
-
-      setDatalist("companyOptions", lookups.company);
-      setDatalist("salesOptions", lookups.sales);
-      setDatalist("productOptions", lookups.product);
-      setDatalist("unitOptions", lookups.unit);
-    }
-
-    function collectLookupValues() {
-      const values = {
-        company: [document.querySelector('[data-field="company"]').value],
-        sales: [document.querySelector('[data-field="sales"]').value],
-        product: [],
-        unit: []
-      };
-
-      for (let i = 0; i < 10; i += 1) {
-        if (!itemRowHasAnyValue(i)) continue;
-        values.product.push(document.querySelector(`[data-item="${i}"][data-prop="name"]`).value);
-        values.unit.push(document.querySelector(`[data-item="${i}"][data-prop="unit"]`).value);
-      }
-
-      return {
-        company: uniqueValues(values.company),
-        sales: uniqueValues(values.sales),
-        product: uniqueValues(values.product),
-        unit: uniqueValues(values.unit)
-      };
-    }
-
-    async function saveLookupValues() {
-      if (!lookupApiUrl && !useSupabase) return;
-      try {
-        if (useSupabase) {
-          await supabaseSaveLookupValues(collectLookupValues());
-          return;
-        }
-        await fetch(lookupApiUrl, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(collectLookupValues())
-        });
-      } catch (error) {
-        console.warn("Lookup API could not be saved.", error);
-      }
-    }
-
-    function collectOrder() {
-      const order = {
-        id: currentOrderId,
-        fields: {},
-        docFlags: selectedDocFlags(),
-        items: [],
-        total: document.querySelector('[data-out="total"]').textContent
-      };
-
-      fields.forEach((field) => {
-        const input = document.querySelector(`[data-field="${field}"]`);
-        order.fields[field] = input ? input.value : "";
-      });
-
-      for (let i = 0; i < 10; i += 1) {
-        const item = { index: i + 1 };
-        itemProps.forEach((prop) => {
-          item[prop] = document.querySelector(`[data-item="${i}"][data-prop="${prop}"]`).value;
-        });
-        item.amount = document.querySelector(`[data-print-item="${i}"][data-prop="amount"]`).textContent;
-        if (itemProps.some((prop) => String(item[prop] || "").trim() !== "")) {
-          order.items.push(item);
-        }
-      }
-
-      return order;
-    }
-
-    function selectedDocFlags() {
-      return [...document.querySelectorAll("[data-doc-flag]:checked")].map((input) => input.value);
-    }
-
-    function setDocFlags(values) {
-      const selected = new Set(values || []);
-      document.querySelectorAll("[data-doc-flag]").forEach((input) => {
-        input.checked = selected.has(input.value);
-      });
-    }
-
-    function autoInspectionMark(type) {
-      const passed = selectedDocFlags().includes("\u5408\u683c");
-      return passed ? "\u2611" : "\u25a1";
-    }
-
-    async function saveOrder(showMessage = true) {
-      render();
-      if (!validateBeforePrint()) return false;
-      saveLookupValues();
-
-      if (useSupabase) {
-        try {
-          await supabaseSaveOrder(collectOrder());
-        } catch (error) {
-          console.warn("Order could not be saved to Supabase.", error);
-        }
-      } else if (lookupApiUrl) {
-        try {
-          await fetch(lookupApiUrl, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ type: "order", order: collectOrder() })
-          });
-        } catch (error) {
-          console.warn("Order could not be saved.", error);
-        }
-      }
-
-      await loadSavedOrders();
-      if (showMessage) alert("\u5df2\u5132\u5b58\u55ae\u64da\uff0c\u55ae\u865f\uff1a" + currentOrderId);
-      return true;
-    }
-
-    async function loadSavedOrders() {
-      if (!lookupApiUrl && !useSupabase) return;
-      try {
-        const status = printStatusFilter.value || "unprinted";
-        savedOrders = useSupabase ? await supabaseLoadOrders(status) : (await (await fetch(`${lookupApiUrl}?action=orders`)).json()).orders || [];
-        if (!useSupabase && status === "printed") savedOrders = [];
-        const available = new Set(savedOrders.map((order) => String(order.id)));
-        [...selectedOrderIds].forEach((id) => {
-          if (!available.has(id)) selectedOrderIds.delete(id);
-        });
-        renderSavedOrderTable();
-      } catch (error) {
-        console.warn("Saved orders could not be loaded.", error);
-      }
-    }
-
-    function formatOrderDate(value) {
-      if (!value) return "";
-      const date = new Date(value);
-      if (!Number.isNaN(date.getTime())) return formatDate(date.toISOString().slice(0, 10), "long");
-      return value;
-    }
-
-    function filteredOrders() {
-      const term = orderSearchInput.value.trim().toLowerCase();
-      const rows = term
-        ? savedOrders.filter((order) => [order.id, order.date, order.customer, order.sales]
-          .some((value) => String(value || "").toLowerCase().includes(term)))
-        : savedOrders;
-      return rows.slice(0, Number(pageSizeSelect.value || 25));
-    }
-
-    function renderSavedOrderTable() {
-      const rows = filteredOrders();
-      savedOrderTable.innerHTML = "";
-      rows.forEach((order, index) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><input type="checkbox" data-order-id="${order.id}"></td>
-          <td>${index + 1}</td>
-          <td>${formatOrderDate(order.date)}</td>
-          <td>${order.id || ""}</td>
-          <td class="left">${order.customer || ""}</td>
-          <td>${order.sales || ""}</td>
-          <td>${order.total || ""}</td>
-          <td>${order.printed ? "\u5df2\u78ba\u8a8d" : "\u672a\u5217\u5370"}</td>
-          <td>
-            <div class="order-actions">
-              <button class="mini-btn" type="button" data-action="edit" data-order-id="${order.id}">\u7de8\u8f2f</button>
-              <button class="mini-btn" type="button" data-action="copy" data-order-id="${order.id}">\u8907\u88fd</button>
-              <button class="mini-btn danger" type="button" data-action="delete" data-order-id="${order.id}">\u522a\u9664</button>
-            </div>
-          </td>
-        `;
-        const checkbox = tr.querySelector("input");
-        checkbox.checked = selectedOrderIds.has(String(order.id));
-        checkbox.addEventListener("change", () => {
-          if (checkbox.checked) selectedOrderIds.add(String(order.id));
-          else selectedOrderIds.delete(String(order.id));
-          updateSelectAllState();
-          previewSelectedOrder();
-        });
-        tr.addEventListener("dblclick", () => loadOrder(order.id));
-        tr.querySelector('[data-action="edit"]').addEventListener("click", async () => {
-          await loadOrder(order.id);
-          switchView("entry");
-          document.querySelector('[data-field="customer"]').focus();
-        });
-        tr.querySelector('[data-action="copy"]').addEventListener("click", () => copySavedOrder(order.id));
-        tr.querySelector('[data-action="delete"]').addEventListener("click", () => deleteSavedOrder(order.id));
-        savedOrderTable.appendChild(tr);
-      });
-      savedOrderSummary.textContent = `\u986f\u793a ${rows.length} \u9805\u7d50\u679c\uff0c\u5171 ${savedOrders.length} \u9805`;
-      const statusTextMap = {
-        unprinted: "\u26410\u5217\u5370\u55ae\u64da",
-        printed: "\u5df2\u78ba\u8a8d\u5217\u5370\u55ae\u64da",
-        all: "\u5168\u90e8\u55ae\u64da"
-      };
-      savedOrderStatusText.textContent = statusTextMap[printStatusFilter.value] || statusTextMap.unprinted;
-      updateSelectAllState();
-    }
-
-    function updateSelectAllState() {
-      const boxes = [...savedOrderTable.querySelectorAll("input[type='checkbox']")];
-      selectAllOrders.checked = boxes.length > 0 && boxes.every((box) => box.checked);
-      selectAllOrders.indeterminate = boxes.some((box) => box.checked) && !selectAllOrders.checked;
-    }
-
-    function selectedOrderIdList() {
-      return [...selectedOrderIds];
-    }
-
-    async function previewSelectedOrder() {
-      const ids = selectedOrderIdList();
-      if (ids.length === 0) {
-        previewWrap.hidden = true;
-        batchPrintWrap.hidden = true;
-        batchPrintWrap.innerHTML = "";
-        return;
-      }
-      if (ids.length === 1) {
-        batchPrintWrap.hidden = true;
-        batchPrintWrap.innerHTML = "";
-        await loadOrder(ids[0]);
-        return;
-      }
-      await buildBatchPreview(ids);
-    }
-
-    async function fetchOrderData(orderId) {
-      if ((!lookupApiUrl && !useSupabase) || !orderId) return null;
-      const data = useSupabase
-        ? { order: await supabaseLoadOrder(orderId) }
-        : await (await fetch(`${lookupApiUrl}?action=order&id=${encodeURIComponent(orderId)}`)).json();
-      return data.order || null;
-    }
-
-    function applyOrderToForm(order) {
-      currentOrderId = order.id;
-      fields.forEach((field) => {
-        const input = document.querySelector(`[data-field="${field}"]`);
-        if (input) input.value = order.fields[field] || "";
-      });
-      setDocFlags(order.docFlags || []);
-      document.querySelectorAll("[data-item]").forEach((input) => { input.value = ""; });
-      (order.items || []).forEach((item, index) => {
-        itemProps.forEach((prop) => {
-          const input = document.querySelector(`[data-item="${index}"][data-prop="${prop}"]`);
-          if (input) input.value = item[prop] || "";
-        });
-      });
-      render();
-    }
-
-    async function loadOrder(orderId) {
-      try {
-        const order = await fetchOrderData(orderId);
-        if (!order) return;
-        applyOrderToForm(order);
-        batchPrintWrap.hidden = true;
-        batchPrintWrap.innerHTML = "";
-        previewWrap.hidden = false;
-      } catch (error) {
-        console.warn("Order could not be loaded.", error);
-      }
-    }
-
-    async function buildBatchPreview(ids) {
-      batchPrintWrap.innerHTML = "";
-      for (const id of ids) {
-        const order = await fetchOrderData(id);
-        if (!order) continue;
-        applyOrderToForm(order);
-        const page = previewWrap.querySelector(".page").cloneNode(true);
-        page.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
-        batchPrintWrap.appendChild(page);
-      }
-      previewWrap.hidden = true;
-      batchPrintWrap.hidden = batchPrintWrap.children.length === 0;
-    }
-
-    async function copySavedOrder(orderId) {
-      try {
-        const order = await fetchOrderData(orderId);
-        if (!order) return;
-        applyOrderToForm(order);
-        currentOrderId = generateOrderId();
-        selectedOrderIds.clear();
-        batchPrintWrap.hidden = true;
-        batchPrintWrap.innerHTML = "";
-        previewWrap.hidden = false;
-        switchView("entry");
-        document.querySelector('[data-field="customer"]').focus();
-        alert("\u5df2\u8907\u88fd\u55ae\u64da\uff0c\u5132\u5b58\u5f8c\u6703\u7522\u751f\u65b0\u55ae\u865f\u3002");
-      } catch (error) {
-        console.warn("Order could not be copied.", error);
-        alert("\u8907\u88fd\u5931\u6557\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002");
-      }
-    }
-
-    async function deleteSavedOrder(orderId) {
-      if (!orderId) return;
-      if (!confirm(`\u78ba\u5b9a\u8981\u522a\u9664\u55ae\u865f ${orderId} \uff1f\u522a\u9664\u5f8c\u7121\u6cd5\u5fa9\u539f\u3002`)) return;
-      try {
-        if (useSupabase) {
-          await supabaseDeleteOrder(orderId);
-        } else {
-          alert("\u522a\u9664\u529f\u80fd\u76ee\u524d\u50c5\u652f\u63f4 Supabase \u7248\u672c\u3002");
-          return;
-        }
-        selectedOrderIds.delete(String(orderId));
-        if (currentOrderId === orderId) clearAll();
-        await loadSavedOrders();
-        await previewSelectedOrder();
-      } catch (error) {
-        console.warn("Order could not be deleted.", error);
-        alert("\u522a\u9664\u5931\u6557\uff0c\u8acb\u78ba\u8a8d Supabase orders \u6709 delete policy\u3002");
-      }
-    }
-
-    async function confirmPrinted() {
-      const ids = selectedOrderIdList();
-      if (ids.length === 0) {
-        alert("\u8acb\u5148\u9078\u64c7\u55ae\u865f");
-        return;
-      }
-      if (!confirm(`\u78ba\u5b9a\u8981\u5c07 ${ids.length} \u5f35\u55ae\u64da\u6a19\u8a18\u70ba\u5df2\u5217\u5370\uff1f\u6a19\u8a18\u5f8c\u5c07\u4e0d\u6703\u51fa\u73fe\u5728\u672a\u5217\u5370\u6e05\u55ae\u3002`)) return;
-
-      try {
-        if (useSupabase) {
-          await supabaseMarkPrinted(ids);
-        } else {
-          await fetch(lookupApiUrl, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ type: "markPrinted", ids })
-          });
-        }
-      } catch (error) {
-        console.warn("Order could not be marked printed.", error);
-      }
-
-      selectedOrderIds.clear();
-      await loadSavedOrders();
-      alert("\u5df2\u78ba\u8a8d\u5217\u5370");
-    }
-
-    function openPrintConfirm() {
-      const ids = selectedOrderIdList();
-      if (ids.length === 0) {
-        alert("\u8acb\u5148\u9078\u64c7\u55ae\u865f");
-        return;
-      }
-      printConfirmText.textContent = `\u60a8\u5df2\u9078\u64c7 ${ids.length} \u7b46\u8a02\u8cfc\u6191\u55ae\uff0c\u78ba\u5b9a\u8981\u9032\u884c\u5217\u5370\u55ce\uff1f`;
-      printConfirmModal.hidden = false;
-    }
-
-    function closePrintConfirm() {
-      printConfirmModal.hidden = true;
-    }
-
-    function focusNextField(current) {
-      const fields = [...document.querySelectorAll('#entryView input, #entryView select, #entryView textarea')]
-        .filter((field) => !field.disabled && field.offsetParent !== null);
-      const index = fields.indexOf(current);
-      const next = fields[index + 1];
-      if (next) {
-        next.focus();
-        if (typeof next.select === "function") next.select();
-      }
-    }
-
-    function enableEnterNavigation() {
-      document.querySelectorAll('#entryView input, #entryView select').forEach((field) => {
-        field.addEventListener("keydown", (event) => {
-          if (event.key !== "Enter") return;
-          event.preventDefault();
-          focusNextField(field);
-        });
-      });
-    }
-
-    async function printSelectedOrders() {
-      const ids = selectedOrderIdList();
-      if (ids.length === 0) return;
-      closePrintConfirm();
-      if (ids.length === 1) {
-        await loadOrder(ids[0]);
-        document.body.classList.remove("batch-printing");
-      } else {
-        await buildBatchPreview(ids);
-        document.body.classList.add("batch-printing");
-      }
-      window.print();
-      setTimeout(() => {
-        document.body.classList.remove("batch-printing");
-      }, 500);
-    }
-
-    function buildItemRows() {
-      for (let i = 0; i < 10; i += 1) {
-        const row = document.createElement("div");
-        row.className = "item-row";
-        row.innerHTML = `
-          <div class="index">${i + 1}</div>
-          <input data-item="${i}" data-prop="batch">
-          <input data-item="${i}" data-prop="name" list="productOptions">
-          <input data-item="${i}" data-prop="qty" inputmode="decimal">
-          <input data-item="${i}" data-prop="unit" list="unitOptions">
-          <input data-item="${i}" data-prop="price" inputmode="decimal">
-          <div class="item-amount" data-input-amount="${i}"></div>
-        `;
-        inputItems.appendChild(row);
-
-        const printRow = document.createElement("tr");
-        printRow.className = `item-print-row${i === 4 ? " product-fifth-row" : ""}${i >= 5 ? " product-extra-row" : ""}`;
-        printRow.innerHTML = `
-          <td class="outer-left center">${i + 1}</td>
-          <td class="yellow center" data-print-item="${i}" data-prop="batch"></td>
-          <td class="yellow fit-text" data-print-item="${i}" data-prop="name"></td>
-          <td class="yellow center" data-print-item="${i}" data-prop="qty"></td>
-          <td class="yellow center" data-print-item="${i}" data-prop="unit"></td>
-          <td class="yellow right" data-print-item="${i}" data-prop="price"></td>
-          <td class="yellow outer-right right" data-print-item="${i}" data-prop="amount"></td>
-        `;
-        printItems.appendChild(printRow);
-      }
-    }
-
-    function loadSaved() {
-      localStorage.removeItem(storageKey);
-      document.querySelector('[data-field="fillDate"]').value = todayISO();
-    }
-
-    function persist() {
-      // Intentionally do not persist entry form values locally.
-    }
-
-    function fitTextToCell(cell, maxPt = 13, minPt = 7) {
-      if (!cell || !cell.textContent.trim() || cell.offsetWidth === 0) return;
-      cell.style.fontSize = `${maxPt}pt`;
-      cell.style.lineHeight = "1.08";
-
-      for (let size = maxPt; size >= minPt; size -= 0.5) {
-        cell.style.fontSize = `${size}pt`;
-        const fitsWidth = cell.scrollWidth <= cell.clientWidth + 1;
-        const fitsHeight = cell.scrollHeight <= cell.clientHeight + 1;
-        if (fitsWidth && fitsHeight) return;
-      }
-    }
-
-    function fitPrintText() {
-      document.querySelectorAll('[data-print-item][data-prop="name"]').forEach((cell) => {
-        fitTextToCell(cell, 13, 7);
-      });
-      fitTextToCell(document.querySelector('[data-out="note"]'), 13, 7);
-    }
-
-    function selectedPrintTemplate() {
-      return printTemplateSelect ? printTemplateSelect.value : "normal";
-    }
-
-    function applyPrintTemplate(page = previewWrap.querySelector(".page")) {
-      if (!page) return;
-      const isProduct = selectedPrintTemplate() === "product";
-      page.classList.toggle("template-product", isProduct);
-      const title = page.querySelector("[data-doc-title]");
-      if (title) title.textContent = isProduct ? "\u7522\u54c1\u51fa\u8ca8\u55ae" : "\u51fa\u8ca8\u55ae";
-      const priceHead = page.querySelector("[data-head-price]");
-      const amountHead = page.querySelector("[data-head-amount]");
-      const thirdCopy = page.querySelector("[data-copy-third]");
-      if (priceHead) priceHead.textContent = isProduct ? "\u5099\u8a3b" : "\u55ae\u50f9";
-      if (amountHead) {
-        amountHead.textContent = isProduct ? "" : "\u91d1\u984d";
-        amountHead.classList.toggle("product-hidden", isProduct);
-      }
-      if (thirdCopy) thirdCopy.textContent = isProduct ? "\u7b2c\u4e09\u806f\uff1a\u6536\u8ca8\u5ba2\u6236" : "\u7b2c\u4e09\u806f\uff1a\u5009\u5eab";
-      page.querySelectorAll('[data-print-item][data-prop="amount"]').forEach((cell) => {
-        cell.classList.toggle("product-hidden", isProduct);
-      });
-    }
-
-    function render() {
-      applyPrintTemplate();
-      const isProductTemplate = selectedPrintTemplate() === "product";
-      fields.forEach((field) => {
-        const input = document.querySelector(`[data-field="${field}"]`);
-        const outputs = document.querySelectorAll(`[data-out="${field}"]`);
-        if (!input || outputs.length === 0) return;
-        outputs.forEach((output) => {
-          if (field === "fillDate") output.textContent = formatDate(input.value, "long");
-          else if (field === "shipDate") output.textContent = formatDate(input.value, "short");
-          else output.textContent = input.value;
-        });
-      });
-
-      let total = 0;
-      let totalQty = 0;
-      let summaryUnit = "";
-      for (let i = 0; i < 10; i += 1) {
-        const qty = document.querySelector(`[data-item="${i}"][data-prop="qty"]`).value;
-        const price = document.querySelector(`[data-item="${i}"][data-prop="price"]`).value;
-        const amount = Math.round(parseAmount(qty) * parseAmount(price));
-        total += amount;
-        totalQty += parseAmount(qty);
-        if (!summaryUnit) summaryUnit = document.querySelector(`[data-item="${i}"][data-prop="unit"]`).value;
-        document.querySelector(`[data-input-amount="${i}"]`).textContent = amountText(amount);
-        itemProps.forEach((prop) => {
-          const input = document.querySelector(`[data-item="${i}"][data-prop="${prop}"]`);
-          const output = document.querySelector(`[data-print-item="${i}"][data-prop="${prop}"]`);
-          if (!output) return;
-          if (isProductTemplate && prop === "price") {
-            output.textContent = i === 0 ? document.querySelector('[data-field="note"]').value : "";
-            output.classList.remove("right");
-          } else {
-            output.textContent = prop === "price" ? amountText(input.value) : input.value;
-            if (prop === "price") output.classList.add("right");
-          }
-        });
-        document.querySelector(`[data-print-item="${i}"][data-prop="amount"]`).textContent = amountText(amount);
-      }
-
-      document.querySelector('[data-out="total"]').textContent = amountText(total) || "0";
-      const totalQtyOut = document.querySelector('[data-out="totalQty"]');
-      const summaryUnitOut = document.querySelector('[data-out="summaryUnit"]');
-      if (totalQtyOut) totalQtyOut.textContent = isProductTemplate ? "" : (totalQty ? amountText(totalQty) : "");
-      if (summaryUnitOut) summaryUnitOut.textContent = isProductTemplate ? "" : summaryUnit;
-      const visibleFlags = isProductTemplate ? [] : selectedDocFlags();
-      leftFlags.innerHTML = visibleFlags.map((flag) => `<div class="left-flag">${flag}</div>`).join("");
-      document.querySelectorAll("[data-auto-pass]").forEach((mark) => {
-        mark.textContent = autoInspectionMark(mark.dataset.autoPass);
-      });
-      fitPrintText();
-      persist();
-    }
-
-    function itemRowHasAnyValue(index) {
-      return itemProps.some((prop) => {
-        const input = document.querySelector(`[data-item="${index}"][data-prop="${prop}"]`);
-        return input.value.trim() !== "";
-      });
-    }
-
-    function validateBeforePrint() {
-      const missing = [];
-      document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
-
-      document.querySelectorAll("[data-field][data-required='true']").forEach((input) => {
-        if (input.value.trim() === "") {
-          input.classList.add("invalid");
-          missing.push(input);
-        }
-      });
-
-      if (missing.length > 0) {
-        errorBox.textContent = "\u8acb\u5148\u586b\u5b8c\u9ec3\u8272\u5fc5\u586b\u6b04\u4f4d\u3002";
-        errorBox.classList.add("show");
-        missing[0].focus();
-        missing[0].scrollIntoView({ behavior: "smooth", block: "center" });
-        return false;
-      }
-
-      errorBox.classList.remove("show");
-      errorBox.textContent = "";
-      return true;
-    }
-
-    function clearAll() {
-      localStorage.removeItem(storageKey);
-      currentOrderId = generateOrderId();
-      document.querySelectorAll("input:not([type='checkbox']), textarea").forEach((input) => { input.value = ""; });
-      document.querySelectorAll("[data-doc-flag]").forEach((input) => { input.checked = false; });
-      document.querySelector('[data-field="fillDate"]').value = todayISO();
-      document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
-      errorBox.classList.remove("show");
-      errorBox.textContent = "";
-      previewWrap.hidden = true;
-      batchPrintWrap.hidden = true;
-      batchPrintWrap.innerHTML = "";
-      render();
-    }
-
-    buildItemRows();
-    loadLookupOptions();
-    loadSaved();
-    enableEnterNavigation();
-    document.querySelectorAll("input, textarea").forEach((input) => {
-      input.addEventListener("input", () => {
-        input.classList.remove("invalid");
-        render();
-      });
-    });
-    document.querySelectorAll("[data-doc-flag]").forEach((input) => {
-      input.addEventListener("change", render);
-    });
-    document.getElementById("printBtn").addEventListener("click", async () => {
-      render();
-      if (validateBeforePrint()) {
-        await saveOrder(false);
-        window.print();
-      }
-    });
-    document.getElementById("saveBtn").addEventListener("click", async (event) => {
-      setBusy(event.currentTarget, true, "\u5132\u5b58\u4e2d...");
-      await saveOrder();
-      setBusy(event.currentTarget, false);
-    });
-    document.getElementById("clearBtn").addEventListener("click", clearAll);
-    document.getElementById("savedPrintBtn").addEventListener("click", openPrintConfirm);
-    document.getElementById("confirmPrintedBtn").addEventListener("click", confirmPrinted);
-    document.getElementById("refreshOrdersBtn").addEventListener("click", async (event) => {
-      setBusy(event.currentTarget, true, "\u5237\u65b0\u4e2d...");
-      await loadSavedOrders();
-      setBusy(event.currentTarget, false);
-    });
-    document.getElementById("confirmBatchPrintBtn").addEventListener("click", printSelectedOrders);
-    document.getElementById("cancelBatchPrintBtn").addEventListener("click", closePrintConfirm);
-    orderSearchInput.addEventListener("input", renderSavedOrderTable);
-    pageSizeSelect.addEventListener("change", renderSavedOrderTable);
-    printTemplateSelect.addEventListener("change", async () => {
-      await previewSelectedOrder();
-      render();
-    });
-    printStatusFilter.addEventListener("change", async () => {
-      selectedOrderIds.clear();
-      previewWrap.hidden = true;
-      batchPrintWrap.hidden = true;
-      batchPrintWrap.innerHTML = "";
-      await loadSavedOrders();
-    });
-    selectAllOrders.addEventListener("change", () => {
-      filteredOrders().forEach((order) => {
-        if (selectAllOrders.checked) selectedOrderIds.add(String(order.id));
-        else selectedOrderIds.delete(String(order.id));
-      });
-      renderSavedOrderTable();
-      previewSelectedOrder();
-    });
-    document.querySelectorAll("[data-view-button]").forEach((button) => {
-      button.addEventListener("click", () => switchView(button.dataset.viewButton));
-    });
-    render();
-  </script>
+
+<!-- ═══ 底部導航 ═══ -->
+<nav class="bottom-nav">
+<a id="nav-inventory" onclick="navigate('inventory')"><i class="bi bi-boxes"></i>庫存</a>
+<a id="nav-form"      onclick="navigate('form')"><i class="bi bi-plus-circle-fill"></i>新增</a>
+<a id="nav-list"      onclick="navigate('list')"><i class="bi bi-journal-text"></i>紀錄</a>
+<a id="nav-stocktake" onclick="navigate('stocktake')"><i class="bi bi-clipboard-check"></i>盤點</a>
+</nav>
+
+<!-- ═══ 庫存頁 ═══ -->
+<div class="page" id="page-inventory">
+<div class="topbar">
+<div class="d-flex align-items-center gap-2"><span style="font-size:1.5rem">🐶</span><h6>庫存結餘</h6></div>
+<button class="btn-icon" onclick="loadInventory()"><i class="bi bi-arrow-clockwise"></i></button>
+</div>
+<div class="container-fluid px-3 pt-3">
+<div class="row g-2 mb-3">
+<div class="col-3"><div class="stat-card"><div class="num text-primary" id="inv-stat-items">-</div><div class="lbl">品項數</div></div></div>
+<div class="col-3"><div class="stat-card"><div class="num" style="color:#2E7D32" id="inv-stat-ok">-</div><div class="lbl">有庫存</div></div></div>
+<div class="col-3"><div class="stat-card"><div class="num" style="color:#E53935" id="inv-stat-low">-</div><div class="lbl">低庫存</div></div></div>
+<div class="col-3"><div class="stat-card"><div class="num" style="color:#7B1FA2" id="inv-stat-ab">-</div><div class="lbl">異常</div></div></div>
+</div>
+<div class="search-bar">
+<input type="search" class="form-control" id="inv-search" placeholder="🔍 搜尋產品名稱、備註關鍵字…" oninput="filterInventory()">
+</div>
+<div id="inv-list"><div class="text-center py-5" style="color:var(--brown2)">🐾 載入中…</div></div>
+</div>
+</div>
+
+<!-- ═══ 新增頁 ═══ -->
+<div class="page" id="page-form" style="display:none">
+<div class="topbar">
+<div class="d-flex align-items-center gap-2"><span style="font-size:1.5rem">🐶</span><h6>新增入出庫紀錄</h6></div>
+</div>
+<div class="container-fluid px-3 pt-3" style="max-width:600px">
+<div id="f-msg" class="alert" style="display:none"></div>
+<form onsubmit="submitForm(event)">
+<div class="form-block">
+<h6>📋 基本資訊</h6>
+<div class="mb-3">
+<label class="form-label">日期</label>
+<input type="date" class="form-control" id="f-date" required>
+</div>
+<div class="mb-3">
+<label class="form-label">承辦人員</label>
+<input type="text" class="form-control" id="f-staff" placeholder="請輸入姓名" required>
+</div>
+<div>
+<label class="form-label">屬性</label>
+<select class="form-select" id="f-type" onchange="onTypeChange()" required>
+<option value="">請選擇</option>
+<option value="入庫">📦 入庫</option>
+<option value="出庫">🚚 出庫</option>
+<option value="借出">🤝 借出</option>
+</select>
+</div>
+</div>
+<div class="form-block">
+<h6>🏷️ 產品資訊</h6>
+<div class="mb-3" id="f-vendor-row">
+<label class="form-label">供應商</label>
+<div class="ac-wrap">
+<input type="text" class="form-control" id="f-vendor" placeholder="輸入關鍵字搜尋供應商…" autocomplete="off"
+oninput="acVendorSearch()"
+onkeydown="acVendorKeyNav(event)"
+onblur="setTimeout(()=>acVendorHide(),180)">
+<div class="ac-list" id="ac-vendor-list"></div>
+</div>
+</div>
+<!-- 產品名稱（帶自動建議） -->
+<div class="mb-3">
+<label class="form-label">產品名稱 <span class="text-danger">*</span></label>
+<div class="ac-wrap">
+<input type="text" class="form-control" id="f-product"
+placeholder="輸入關鍵字快速搜尋…" autocomplete="off" required
+oninput="acSearch()"
+onkeydown="acKeyNav(event)"
+onblur="setTimeout(()=>acHide(),180)">
+<div class="ac-list" id="ac-list"></div>
+</div>
+</div>
+<div class="mb-3">
+<label class="form-label">規格</label>
+<input type="text" class="form-control" id="f-spec" placeholder="例：50cm×500m">
+</div>
+<div>
+<label class="form-label">產品類別</label>
+<select class="form-select" id="f-category" onchange="toggleCatOther('f-cat-other',this)">
+<option value="">請選擇</option>
+<option value="內包材">內包材</option>
+<option value="外包材">外包材</option>
+<option value="耗材">耗材</option>
+<option value="其他">其他</option>
+</select>
+<input type="text" class="form-control mt-2" id="f-cat-other" placeholder="請輸入類別" style="display:none">
+</div>
+</div>
+<div class="form-block">
+<h6>🔢 數量資訊</h6>
+<div class="row g-2">
+<div class="col-8">
+<label class="form-label" id="f-qty-label">數量</label>
+<input type="number" class="form-control" id="f-qty" min="0" step="0.01" placeholder="0" required>
+</div>
+<div class="col-4">
+<label class="form-label">單位</label>
+<input type="text" class="form-control" id="f-unit" placeholder="單位" list="unit-list" autocomplete="off">
+<datalist id="unit-list">
+<option value="箱"><option value="只"><option value="組">
+<option value="公斤"><option value="片"><option value="條">
+<option value="捲"><option value="包"><option value="個">
+<option value="袋"><option value="瓶"><option value="張">
+</datalist>
+</div>
+</div>
+<div class="mt-2">
+<label class="form-label" id="f-location-label">存放位置</label>
+<input type="text" class="form-control" id="f-location" placeholder="請輸入存放位置">
+</div>
+<div class="mt-2" id="f-cost-row">
+<label class="form-label">成本 (NT$)</label>
+<input type="number" class="form-control" id="f-cost" min="0" placeholder="0">
+</div>
+</div>
+<div class="form-block">
+<h6>📝 備註</h6>
+<textarea class="form-control" id="f-notes" rows="2" placeholder="備註（選填）"></textarea>
+</div>
+<button type="submit" class="btn-submit mb-3" id="f-submit-btn">💾 儲存</button>
+</form>
+</div>
+</div>
+
+<!-- ═══ 紀錄頁 ═══ -->
+<div class="page" id="page-list" style="display:none">
+<div class="topbar">
+<div class="d-flex align-items-center gap-2"><span style="font-size:1.5rem">🐶</span><h6>出入庫紀錄</h6></div>
+<button class="btn-icon" onclick="loadRecords()"><i class="bi bi-arrow-clockwise"></i></button>
+</div>
+<div class="container-fluid px-3 pt-3">
+<div class="row g-2 mb-3">
+<div class="col-4"><div class="stat-card"><div class="num text-primary" id="list-total">-</div><div class="lbl">總筆數</div></div></div>
+<div class="col-4"><div class="stat-card"><div class="num" style="color:#2E7D32" id="list-in">-</div><div class="lbl">入庫量</div></div></div>
+<div class="col-4"><div class="stat-card"><div class="num" style="color:#E65100" id="list-out">-</div><div class="lbl">出庫量</div></div></div>
+</div>
+<div class="search-bar">
+<div class="row g-2">
+<div class="col-8"><input type="search" class="form-control" id="list-search" placeholder="🔍 搜尋產品、承辦人…" oninput="exactFilter=null; filterRecords()"></div>
+<div class="col-4">
+<select class="form-select" id="list-filter" onchange="filterRecords()">
+<option value="">全部</option>
+<option value="入庫">入庫</option>
+<option value="出庫">出庫</option>
+<option value="借出">借出</option>
+</select>
+</div>
+</div>
+</div>
+<div id="exact-filter-bar" style="display:none;margin-bottom:.5rem">
+<div class="ef-chip">
+<i class="bi bi-funnel-fill"></i>
+<span id="ef-label"></span>
+<button onclick="clearExactFilter()" title="清除篩選">✕</button>
+</div>
+</div>
+<div class="sort-bar">
+<span class="sort-lbl">排序：</span>
+<button class="sort-btn active" id="sort-date"   onclick="setSort('date')"  >🕐 時間</button>
+<button class="sort-btn"        id="sort-name"   onclick="setSort('name')"  >🏷️ 品名</button>
+<button class="sort-btn"        id="sort-type"   onclick="setSort('type')"  >📦 類型</button>
+</div>
+<div id="rec-list"><div class="text-center py-5" style="color:var(--brown2)">🐾 載入中…</div></div>
+</div>
+</div>
+
+<!-- ═══ 盤點頁 ═══ -->
+<div class="page" id="page-stocktake" style="display:none">
+<div class="topbar">
+<div class="d-flex align-items-center gap-2"><span style="font-size:1.5rem">🐶</span><h6>最新盤點紀錄</h6></div>
+<button class="btn-icon" onclick="loadStocktake()"><i class="bi bi-arrow-clockwise"></i></button>
+</div>
+<div class="container-fluid px-3 pt-3" style="max-width:600px">
+<div id="st-info"></div>
+<div id="st-products"><div class="text-center py-5" style="color:var(--brown2)">🐾 載入中…</div></div>
+</div>
+</div>
+
+<!-- ═══ 盤點歷史覆蓋層 ═══ -->
+<div id="page-sth" style="display:none;position:fixed;inset:0;overflow-y:auto;background:var(--cream);z-index:200;padding-bottom:40px">
+<div class="topbar" style="position:sticky;top:0;z-index:10">
+<div class="d-flex align-items-center gap-2">
+<button class="btn-icon" onclick="closeSth()"><i class="bi bi-arrow-left"></i></button>
+<h6 id="sth-title">📋 盤點歷史</h6>
+</div>
+</div>
+<div class="container-fluid px-3 pt-3" style="max-width:600px">
+<div id="sth-body"></div>
+</div>
+</div>
+
+<!-- ═══ 編輯覆蓋層（全螢幕）═══ -->
+<div id="page-edit" style="display:none;position:fixed;inset:0;overflow-y:auto;background:var(--cream);z-index:200;padding-bottom:40px">
+<div class="topbar" style="position:sticky;top:0;z-index:10">
+<div class="d-flex align-items-center gap-2">
+<button class="btn-icon" onclick="closeEdit()"><i class="bi bi-arrow-left"></i></button>
+<h6>✏️ 編輯紀錄</h6>
+</div>
+<div style="width:36px"></div>
+</div>
+<div class="container-fluid px-3 pt-3" style="max-width:600px">
+<input type="hidden" id="e-row">
+<input type="hidden" id="e-ts">
+<div class="form-block">
+<h6>📋 基本資訊</h6>
+<div class="mb-3">
+<label class="form-label">日期</label>
+<input type="date" class="form-control" id="e-date">
+</div>
+<div class="mb-3">
+<label class="form-label">承辦人員</label>
+<input type="text" class="form-control" id="e-staff">
+</div>
+<div>
+<label class="form-label">屬性</label>
+<select class="form-select" id="e-type" onchange="onEditTypeChange()">
+<option value="入庫">入庫</option>
+<option value="出庫">出庫</option>
+<option value="借出">借出</option>
+</select>
+</div>
+</div>
+<div class="form-block">
+<h6>🏷️ 產品資訊</h6>
+<div class="mb-3" id="e-vendor-row">
+<label class="form-label">供應商</label>
+<input type="text" class="form-control" id="e-vendor">
+</div>
+<div class="mb-3">
+<label class="form-label">產品類別</label>
+<select class="form-select" id="e-category" onchange="toggleCatOther('e-cat-other',this)">
+<option value="">請選擇</option>
+<option value="內包材">內包材</option>
+<option value="外包材">外包材</option>
+<option value="耗材">耗材</option>
+<option value="其他">其他</option>
+</select>
+<input type="text" class="form-control mt-2" id="e-cat-other" placeholder="請輸入類別" style="display:none">
+</div>
+<div class="mb-3">
+<label class="form-label">產品名稱</label>
+<input type="text" class="form-control" id="e-product">
+</div>
+<div>
+<label class="form-label">規格</label>
+<input type="text" class="form-control" id="e-spec">
+</div>
+</div>
+<div class="form-block">
+<h6>🔢 數量資訊</h6>
+<div class="row g-2">
+<div class="col-8">
+<label class="form-label" id="e-qty-label">數量</label>
+<input type="number" class="form-control" id="e-qty" min="0" step="0.01">
+</div>
+<div class="col-4">
+<label class="form-label">單位</label>
+<select class="form-select" id="e-unit">
+<option value="">單位</option>
+<option value="箱">箱</option>
+<option value="只">只</option>
+<option value="組">組</option>
+<option value="公斤">公斤</option>
+</select>
+</div>
+</div>
+<div class="mt-2">
+<label class="form-label" id="e-location-label">存放位置</label>
+<input type="text" class="form-control" id="e-location">
+</div>
+<div class="mt-2" id="e-cost-row">
+<label class="form-label">成本 (NT$)</label>
+<input type="number" class="form-control" id="e-cost" min="0">
+</div>
+</div>
+<div class="form-block">
+<h6>📝 備註</h6>
+<textarea class="form-control" id="e-notes" rows="2"></textarea>
+</div>
+<div id="e-msg" class="alert" style="display:none"></div>
+<button class="btn-submit mb-3" id="e-save-btn" onclick="saveEdit()">💾 儲存變更</button>
+<button class="btn-delete mb-3" id="e-del-btn" onclick="deleteRecord()">🗑️ 刪除此筆紀錄</button>
+</div>
+</div>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnuNsZxMRs9S4aWW7AARlBGob2BQ7u7JMUzV_jZRDeRRk02qvp2KitVstrF_9NmQO6/exec';
+const STOCKTAKE_SKIP = ['時間戳記','盤點人'];
+
+let allRows = [];
+let allInventory = [];
+let currentEditRow = null;
+let stHistory = []; // 所有盤點紀錄（newest first）
+
+/* ═══════════════ 路由 ═══════════════ */
+function navigate(page) {
+document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+document.getElementById('page-' + page).style.display = 'block';
+document.querySelectorAll('.bottom-nav a').forEach(a => a.classList.remove('active'));
+document.getElementById('nav-' + page)?.classList.add('active');
+window.scrollTo(0, 0);
+if (page === 'inventory') loadInventory();
+if (page === 'list')      loadRecords();
+if (page === 'stocktake') loadStocktake();
+if (page === 'form' && !allRows.length) ensureRowsForAC();
+}
+
+// 背景靜默載入紀錄，供表單自動補全使用
+async function ensureRowsForAC() {
+try {
+allRows = await (await fetch(SCRIPT_URL)).json();
+} catch { /* 失敗不影響表單正常使用 */ }
+}
+
+/* ═══════════════ 庫存頁 ═══════════════ */
+async function loadInventory() {
+document.getElementById('inv-list').innerHTML = '<div class="text-center py-5" style="color:#8D6E63">🐾 載入中…</div>';
+try {
+const rows = await (await fetch(SCRIPT_URL)).json();
+allInventory = calcInventory(rows);
+renderInventory(allInventory);
+} catch(err) {
+document.getElementById('inv-list').innerHTML = `<div class="text-center py-4 text-danger">❌ 載入失敗：${err.message}</div>`;
+}
+}
+
+function calcInventory(rows) {
+const map = {};
+rows.forEach(r => {
+const key = (r['產品名稱']||'') + '|||' + (r['規格']||'');
+if (!map[key]) map[key] = { name:r['產品名稱']||'', spec:r['規格']||'', unit:r['單位']||'', inQty:0, outQty:0, notes:new Set() };
+map[key].inQty  += Number(r['入庫數量'])||0;
+map[key].outQty += Number(r['出庫數量'])||0;
+if (r['單位']) map[key].unit = r['單位'];
+if (r['備註']) map[key].notes.add(String(r['備註']).trim());
+});
+return Object.values(map)
+.map(p => ({ ...p, balance: p.inQty - p.outQty, notes:[...p.notes].join(' ') }))
+.sort((a,b) => b.balance - a.balance);
+}
+
+function renderInventory(list) {
+const el = document.getElementById('inv-list');
+if (!list.length) { el.innerHTML = '<div class="text-center py-4" style="color:#8D6E63">沒有資料</div>'; return; }
+
+const ok       = list.filter(p => p.balance > 0);
+const zero     = list.filter(p => p.balance === 0);
+const abnormal = list.filter(p => p.balance < 0);
+const low      = ok.filter(p => p.balance < 100);
+
+document.getElementById('inv-stat-items').textContent = list.length;
+document.getElementById('inv-stat-ok').textContent    = ok.length;
+document.getElementById('inv-stat-low').textContent   = low.length;
+document.getElementById('inv-stat-ab').textContent    = abnormal.length;
+
+const card = p => {
+const cls    = p.balance < 0 ? 'abnormal' : p.balance === 0 ? 'zero' : p.balance < 100 ? 'low' : '';
+const qtyCls = p.balance < 0 ? 'qty-abnormal' : p.balance === 0 ? 'qty-zero' : p.balance < 100 ? 'qty-low' : 'qty-ok';
+const badge  = p.balance < 0 ? '<span class="tag-abnormal ms-1">⚠️ 異常</span>' : '';
+const _sn = p.name.replace(/'/g, "\\'");
+const _ss = p.spec.replace(/'/g, "\\'");
+return `<div class="inv-card ${cls}" onclick="goToRecords('${_sn}','${_ss}')">
+     <div class="info">
+       <div class="pname">${p.name}${badge}</div>
+       ${p.spec ? `<div class="spec">${p.spec}</div>` : ''}
+       <div class="numbers">
+         <span class="itag itag-in">入 ${p.inQty.toLocaleString()}</span>
+         <span class="itag itag-out">出 ${p.outQty.toLocaleString()}</span>
+       </div>
+       ${p.notes ? `<div class="inv-notes">${p.notes}</div>` : ''}
+     </div>
+     <div class="balance">
+       <div class="qty ${qtyCls}">${p.balance.toLocaleString()}</div>
+       <div class="unit">${p.unit||'—'}</div>
+     </div>
+   </div>`;
+};
+
+let html = '';
+if (abnormal.length) { html += `<div class="section-title">🚨 庫存異常（${abnormal.length} 項）</div>` + abnormal.map(card).join(''); }
+if (ok.length)       { html += `<div class="section-title">📦 有庫存（${ok.length} 項）</div>`     + ok.map(card).join(''); }
+if (zero.length)     { html += `<div class="section-title">⚪ 已用完（${zero.length} 項）</div>`   + zero.map(card).join(''); }
+el.innerHTML = html;
+}
+
+function filterInventory() {
+const kw = document.getElementById('inv-search').value.toLowerCase();
+renderInventory(!kw ? allInventory : allInventory.filter(p =>
+p.name.toLowerCase().includes(kw) || p.spec.toLowerCase().includes(kw) || p.notes.toLowerCase().includes(kw)));
+}
+
+/* ─ 庫存卡片點擊 → 跳紀錄頁並精準篩選（品名＋規格）─ */
+let exactFilter = null; // { name, spec }
+
+function goToRecords(name, spec) {
+exactFilter = { name, spec };
+document.getElementById('list-search').value = '';
+document.getElementById('list-filter').value = '';
+navigate('list');
+}
+
+function clearExactFilter() {
+exactFilter = null;
+document.getElementById('exact-filter-bar').style.display = 'none';
+filterRecords();
+}
+
+/* ═══════════════ 產品名稱自動補全 ═══════════════ */
+let acIndex = -1; // 鍵盤選項游標
+
+function acBuildList(kw) {
+const kwL = kw.toLowerCase();
+const seen = new Set();
+// 優先級：名稱開頭 > 名稱含字 > 規格含字 > 備註含字
+const buckets = [[], [], [], []];
+allRows.forEach(r => {
+const name  = String(r['產品名稱'] || '').trim();
+const spec  = String(r['規格']     || '').trim();
+const cat   = String(r['產品類別'] || '').trim();
+const unit  = String(r['單位']     || '').trim();
+const notes = String(r['備註']     || '').trim();
+if (!name) return;
+const key  = name + '|||' + spec;
+if (seen.has(key)) return;
+const nameL  = name.toLowerCase();
+const specL  = spec.toLowerCase();
+const notesL = notes.toLowerCase();
+let bucket = -1;
+if      (nameL.startsWith(kwL))  bucket = 0;
+else if (nameL.includes(kwL))    bucket = 1;
+else if (specL.includes(kwL))    bucket = 2;
+else if (notesL.includes(kwL))   bucket = 3;
+if (bucket < 0) return;
+seen.add(key);
+// 備註命中時，在 meta 裡顯示匹配的備註片段
+let matchNote = '';
+if (bucket === 3) {
+const idx = notesL.indexOf(kwL);
+const start = Math.max(0, idx - 8);
+const end   = Math.min(notes.length, idx + kwL.length + 12);
+matchNote = (start > 0 ? '…' : '') + notes.slice(start, end) + (end < notes.length ? '…' : '');
+}
+buckets[bucket].push({ name, spec, cat, unit, matchNote });
+});
+return [...buckets[0], ...buckets[1], ...buckets[2], ...buckets[3]].slice(0, 12);
+}
+
+function acSearch() {
+acIndex = -1;
+const kw   = document.getElementById('f-product').value.trim();
+const list = document.getElementById('ac-list');
+if (!kw || kw.length < 1) { list.style.display = 'none'; return; }
+
+const matches = acBuildList(kw);
+if (!matches.length) { list.style.display = 'none'; return; }
+
+list.innerHTML = matches.map((m, i) => {
+const meta  = [m.spec, m.cat, m.unit].filter(Boolean).join(' · ');
+const extra = m.matchNote ? `<span style="color:#8D6E63">📝 ${m.matchNote}</span>` : '';
+return `<div class="ac-item" data-idx="${i}"
+       onmousedown="acSelect(${i})"
+       onmouseover="acHighlight(${i})">
+     <div class="ac-name">${m.name}</div>
+     ${(meta || extra) ? `<div class="ac-meta">${[meta, extra].filter(Boolean).join('　')}</div>` : ''}
+   </div>`;
+}).join('');
+list._matches = matches;
+list.style.display = 'block';
+}
+
+function acHighlight(idx) {
+acIndex = idx;
+document.querySelectorAll('#ac-list .ac-item').forEach((el, i) =>
+el.classList.toggle('ac-active', i === idx));
+}
+
+function acKeyNav(e) {
+const list = document.getElementById('ac-list');
+if (list.style.display === 'none') return;
+const items = list.querySelectorAll('.ac-item');
+if (e.key === 'ArrowDown') {
+e.preventDefault();
+acIndex = Math.min(acIndex + 1, items.length - 1);
+acHighlight(acIndex);
+} else if (e.key === 'ArrowUp') {
+e.preventDefault();
+acIndex = Math.max(acIndex - 1, 0);
+acHighlight(acIndex);
+} else if (e.key === 'Enter' && acIndex >= 0) {
+e.preventDefault();
+acSelect(acIndex);
+} else if (e.key === 'Escape') {
+acHide();
+}
+}
+
+function acSelect(idx) {
+const list = document.getElementById('ac-list');
+const m    = (list._matches || [])[idx];
+if (!m) return;
+
+document.getElementById('f-product').value = m.name;
+document.getElementById('f-spec').value    = m.spec;
+
+// 類別
+const catSel  = document.getElementById('f-category');
+const builtIn = ['內包材','外包材','耗材','其他'];
+if (builtIn.includes(m.cat)) {
+catSel.value = m.cat;
+document.getElementById('f-cat-other').style.display = 'none';
+} else if (m.cat) {
+catSel.value = '其他';
+document.getElementById('f-cat-other').style.display = '';
+document.getElementById('f-cat-other').value = m.cat;
+}
+
+// 單位（直接填入文字輸入框）
+document.getElementById('f-unit').value = m.unit;
+
+acHide();
+// 移至數量欄，方便下一步
+document.getElementById('f-qty').focus();
+}
+
+function acHide() {
+document.getElementById('ac-list').style.display = 'none';
+}
+
+/* ═══════════════ 供應商自動補全 ═══════════════ */
+let acVendorIndex = -1;
+
+function acVendorSearch() {
+acVendorIndex = -1;
+const kw   = document.getElementById('f-vendor').value.trim().toLowerCase();
+const list = document.getElementById('ac-vendor-list');
+
+// 從 allRows 收集不重複的供應商（依首次出現順序）
+const seen = new Set();
+const all  = [];
+allRows.forEach(r => {
+const v = String(r['供應商名稱'] || '').trim();
+if (v && !seen.has(v)) { seen.add(v); all.push(v); }
+});
+
+const matches = kw
+? all.filter(v => v.toLowerCase().includes(kw)).slice(0, 10)
+    : all.slice(0, 10); // 空字串時顯示前 10 筆
+    : all.slice(0, 10);
+
+if (!matches.length) { list.style.display = 'none'; return; }
+
+  list._vendorMatches = matches; // 存起來讓 index 選取用
+list.innerHTML = matches.map((v, i) =>
+    `<div class="ac-item" data-idx="${i}"
+        onmousedown="acVendorSelect(${JSON.stringify(v)})"
+    `<div class="ac-item"
+        onmousedown="acVendorSelect(${i})"
+       onmouseover="acVendorHighlight(${i})">
+     <div class="ac-name">${v}</div>
+   </div>`
+).join('');
+list.style.display = 'block';
+}
+
+function acVendorHighlight(idx) {
+acVendorIndex = idx;
+document.querySelectorAll('#ac-vendor-list .ac-item').forEach((el, i) =>
+el.classList.toggle('ac-active', i === idx));
+}
+
+function acVendorKeyNav(e) {
+  const list  = document.getElementById('ac-vendor-list');
+  const list = document.getElementById('ac-vendor-list');
+if (list.style.display === 'none') {
+if (e.key === 'ArrowDown') { acVendorSearch(); return; }
+return;
+}
+const items = list.querySelectorAll('.ac-item');
+if (e.key === 'ArrowDown') {
+e.preventDefault();
+acVendorIndex = Math.min(acVendorIndex + 1, items.length - 1);
+acVendorHighlight(acVendorIndex);
+} else if (e.key === 'ArrowUp') {
+e.preventDefault();
+acVendorIndex = Math.max(acVendorIndex - 1, 0);
+acVendorHighlight(acVendorIndex);
+} else if (e.key === 'Enter' && acVendorIndex >= 0) {
+e.preventDefault();
+    items[acVendorIndex].dispatchEvent(new MouseEvent('mousedown'));
+    acVendorSelect(acVendorIndex);
+} else if (e.key === 'Escape') {
+acVendorHide();
+}
+}
+
+function acVendorSelect(vendor) {
+function acVendorSelect(idx) {
+  const list   = document.getElementById('ac-vendor-list');
+  const vendor = (list._vendorMatches || [])[idx];
+  if (!vendor) return;
+document.getElementById('f-vendor').value = vendor;
+acVendorHide();
+  // 選完供應商後游標跳到產品名稱
+document.getElementById('f-product').focus();
+}
+
+function acVendorHide() {
+document.getElementById('ac-vendor-list').style.display = 'none';
+}
+
+/* ═══════════════ 新增表單 ═══════════════ */
+function onTypeChange() {
+const type = document.getElementById('f-type').value;
+document.getElementById('f-qty-label').textContent      = { '入庫':'入庫數量','出庫':'出庫數量','借出':'借出數量' }[type] || '數量';
+document.getElementById('f-location-label').textContent = { '入庫':'存放位置','出庫':'領取單位','借出':'領取單位' }[type] || '存放位置/領取單位';
+document.getElementById('f-location').placeholder = type === '入庫' ? '請輸入存放位置（例：包材室）' : '請輸入領取單位';
+document.getElementById('f-vendor-row').style.display = (type === '入庫' || type === '') ? '' : 'none';
+document.getElementById('f-cost-row').style.display   = type === '入庫' ? '' : 'none';
+}
+
+function toggleCatOther(otherId, sel) {
+document.getElementById(otherId).style.display = sel.value === '其他' ? '' : 'none';
+}
+
+function getCatValue(selId, otherId) {
+const v = document.getElementById(selId).value;
+if (v === '其他') {
+const t = document.getElementById(otherId).value.trim();
+return t ? `其他：${t}` : '其他';
+}
+return v;
+}
+
+async function submitForm(e) {
+e.preventDefault();
+const btn  = document.getElementById('f-submit-btn');
+const type = document.getElementById('f-type').value;
+const data = {
+date:     document.getElementById('f-date').value,
+staff:    document.getElementById('f-staff').value,
+type,
+vendor:   document.getElementById('f-vendor').value,
+category: getCatValue('f-category','f-cat-other'),
+product:  document.getElementById('f-product').value,
+spec:     document.getElementById('f-spec').value,
+inQty:    type === '入庫' ? document.getElementById('f-qty').value : 0,
+outQty:   (type === '出庫'||type === '借出') ? document.getElementById('f-qty').value : 0,
+unit:     document.getElementById('f-unit').value,
+location: document.getElementById('f-location').value,
+cost:     document.getElementById('f-cost').value,
+notes:    document.getElementById('f-notes').value,
+};
+btn.disabled = true; btn.textContent = '儲存中…';
+try {
+await gasPost(data);
+showMsg('f-msg', '✅ 已成功儲存！', 'success');
+e.target.reset();
+document.getElementById('f-date').value  = new Date().toISOString().slice(0,10);
+document.getElementById('f-staff').value = '黃儀婷'; // 恢復預設承辦人
+document.getElementById('f-cat-other').style.display = 'none';
+onTypeChange();
+} catch {
+showMsg('f-msg', '❌ 儲存失敗，請重試', 'danger');
+} finally {
+btn.disabled = false; btn.textContent = '💾 儲存';
+}
+}
+
+/* ═══════════════ 紀錄頁 ═══════════════ */
+async function loadRecords() {
+document.getElementById('rec-list').innerHTML = '<div class="text-center py-5" style="color:#8D6E63">🐾 載入中…</div>';
+try {
+allRows = await (await fetch(SCRIPT_URL)).json();
+filterRecords(); // 保留搜尋狀態（含從庫存頁跳轉時帶入的關鍵字）
+} catch(err) {
+document.getElementById('rec-list').innerHTML = `<div class="text-center py-4 text-danger">❌ 載入失敗：${err.message}</div>`;
+}
+}
+
+function renderCards(rows) {
+const el = document.getElementById('rec-list');
+if (!rows.length) { el.innerHTML = '<div class="text-center py-4" style="color:#8D6E63">沒有資料</div>'; return; }
+el.innerHTML = rows.map((r) => {
+const realIdx = allRows.indexOf(r); // 取 allRows 真實 index，避免篩選後錯位
+const type = r['屬性'], isIn = type === '入庫';
+const cls  = isIn ? 'in' : type === '借出' ? 'borrow' : 'out';
+const qty  = isIn ? r['入庫數量'] : r['出庫數量'];
+const bc   = isIn ? 'badge-in' : type === '借出' ? 'badge-borrow' : 'badge-out';
+const qc   = isIn ? 'qty-in'   : type === '借出' ? 'qty-borrow'   : 'qty-out';
+return `<div class="rec-card ${cls}" onclick="openEdit(${realIdx})">
+     <div class="rec-top">
+       <div>
+         <div class="rec-name">${r['產品名稱']}</div>
+         ${r['規格'] ? `<div class="rec-spec">${r['規格']}</div>` : ''}
+       </div>
+       <div class="text-end">
+         <div class="rec-qty ${qc}">${Number(qty||0).toLocaleString()}</div>
+         <div style="font-size:.7rem;color:var(--brown2);font-weight:700">${r['單位']||''}</div>
+       </div>
+     </div>
+     <div class="rec-meta">
+       <span class="rec-tag ${bc}">${type}</span>
+       <span class="rec-tag">${fmtDate(r['日期'])}</span>
+       ${r['承辦人員'] ? `<span class="rec-tag">${r['承辦人員']}</span>` : ''}
+       <span style="margin-left:auto;font-size:.75rem;color:var(--brown2)"><i class="bi bi-pencil"></i> 點擊編輯</span>
+     </div>
+     ${r['備註'] ? `<div class="rec-notes">${r['備註']}</div>` : ''}
+   </div>`;
+}).join('');
+}
+
+function renderStats(rows) {
+document.getElementById('list-total').textContent = rows.length;
+document.getElementById('list-in').textContent    = rows.reduce((s,r)=>s+(Number(r['入庫數量'])||0),0).toLocaleString();
+document.getElementById('list-out').textContent   = rows.reduce((s,r)=>s+(Number(r['出庫數量'])||0),0).toLocaleString();
+}
+
+function filterRecords() {
+const kw   = document.getElementById('list-search').value.toLowerCase();
+const type = document.getElementById('list-filter').value;
+
+// 精準篩選模式（從庫存卡片點擊進來）
+const efBar = document.getElementById('exact-filter-bar');
+if (exactFilter) {
+const label = exactFilter.spec
+? `${exactFilter.name}　${exactFilter.spec}`
+: exactFilter.name;
+efBar.style.display = '';
+document.getElementById('ef-label').textContent = label;
+} else {
+efBar.style.display = 'none';
+}
+
+const f = allRows.filter(r => {
+if (exactFilter) {
+const nameOk = (r['產品名稱'] || '') === exactFilter.name;
+const specOk = exactFilter.spec
+? (r['規格'] || '') === exactFilter.spec
+: true;
+const mt = !type || r['屬性'] === type;
+return nameOk && specOk && mt;
+}
+const mk = !kw   || Object.values(r).some(v=>String(v).toLowerCase().includes(kw));
+const mt = !type || r['屬性'] === type;
+return mk && mt;
+});
+const sorted = applySortToRows(f);
+renderCards(sorted); renderStats(sorted);
+}
+
+/* ═══════════════ 排序 ═══════════════ */
+let sortKey = 'date';   // 'date' | 'name' | 'type'
+let sortAsc = false;    // 最新在前（時間預設 desc）
+
+function setSort(key) {
+if (sortKey === key) {
+sortAsc = !sortAsc;
+} else {
+sortKey = key;
+sortAsc = key !== 'date'; // 時間預設新→舊；品名/類型預設 A→Z
+}
+// 更新按鈕樣式
+['date','name','type'].forEach(k => {
+const btn = document.getElementById('sort-' + k);
+if (!btn) return;
+btn.classList.toggle('active', k === sortKey);
+const arrow = btn.querySelector('.arrow');
+if (k === sortKey) {
+if (!arrow) btn.innerHTML += '<i class="arrow">' + (sortAsc ? ' ↑' : ' ↓') + '</i>';
+else arrow.textContent = sortAsc ? ' ↑' : ' ↓';
+} else {
+if (arrow) arrow.remove();
+}
+});
+filterRecords();
+}
+
+function applySortToRows(rows) {
+const TYPE_ORDER = { '入庫': 0, '出庫': 1, '借出': 2 };
+return [...rows].sort((a, b) => {
+let va, vb;
+if (sortKey === 'date') {
+va = new Date(a['日期'] || 0).getTime();
+vb = new Date(b['日期'] || 0).getTime();
+} else if (sortKey === 'name') {
+va = (a['產品名稱'] || '').toLowerCase();
+vb = (b['產品名稱'] || '').toLowerCase();
+} else { // type
+va = TYPE_ORDER[a['屬性']] ?? 9;
+vb = TYPE_ORDER[b['屬性']] ?? 9;
+}
+if (va < vb) return sortAsc ? -1 : 1;
+if (va > vb) return sortAsc ? 1 : -1;
+return 0;
+});
+}
+
+/* ═══════════════ 編輯覆蓋層 ═══════════════ */
+function openEdit(index) {
+const r = allRows[index];
+currentEditRow = r._row;
+document.getElementById('e-row').value = r._row || '';
+document.getElementById('e-ts').value  = r['時間戳記'] || '';
+document.getElementById('e-date').value     = toInputDate(r['日期']);
+document.getElementById('e-staff').value    = r['承辦人員'] || '';
+document.getElementById('e-type').value     = r['屬性'] || '入庫';
+document.getElementById('e-vendor').value   = r['供應商'] || r['供應商名稱'] || '';
+document.getElementById('e-product').value  = r['產品名稱'] || '';
+document.getElementById('e-spec').value     = r['規格'] || '';
+document.getElementById('e-unit').value     = r['單位'] || '';
+document.getElementById('e-location').value = r['存放位置'] || r['存放位置/領取單位'] || '';
+document.getElementById('e-cost').value     = r['成本'] || '';
+document.getElementById('e-notes').value    = r['備註'] || '';
+setEditCat(r['產品類別'] || '');
+const isIn = r['屬性'] === '入庫';
+document.getElementById('e-qty').value = isIn ? (r['入庫數量']||0) : (r['出庫數量']||0);
+document.getElementById('e-msg').style.display = 'none';
+onEditTypeChange();
+const overlay = document.getElementById('page-edit');
+overlay.style.display = 'block';
+overlay.scrollTop = 0;
+}
+
+function closeEdit() {
+document.getElementById('page-edit').style.display = 'none';
+}
+
+function setEditCat(value) {
+const sel   = document.getElementById('e-category');
+const other = document.getElementById('e-cat-other');
+other.style.display = 'none'; other.value = '';
+if (!value) { sel.value = ''; return; }
+if (['內包材','外包材','耗材'].includes(value)) {
+sel.value = value;
+} else if (value.startsWith('其他')) {
+sel.value = '其他';
+other.style.display = '';
+other.value = value.replace(/^其他：?/,'');
+} else { sel.value = ''; }
+}
+
+function onEditTypeChange() {
+const type = document.getElementById('e-type').value;
+document.getElementById('e-qty-label').textContent      = { '入庫':'入庫數量','出庫':'出庫數量','借出':'借出數量' }[type] || '數量';
+document.getElementById('e-location-label').textContent = { '入庫':'存放位置','出庫':'領取單位','借出':'領取單位' }[type] || '存放位置/領取單位';
+document.getElementById('e-location').placeholder = type === '入庫' ? '請輸入存放位置' : '請輸入領取單位';
+document.getElementById('e-vendor-row').style.display = type === '入庫' ? '' : 'none';
+document.getElementById('e-cost-row').style.display   = type === '入庫' ? '' : 'none';
+}
+
+
+/* POST 到 GAS：no-cors 避免 CORS redirect 掛住；10 秒 timeout 保底 */
+function gasPost(payload) {
+const req = fetch(SCRIPT_URL, {
+method: 'POST',
+body:   JSON.stringify(payload),
+mode:   'no-cors',            // GAS 回 redirect，no-cors 不等 body 直接完成
+});
+const timeout = new Promise((_, rej) =>
+setTimeout(() => rej(new Error('timeout')), 10000));
+return Promise.race([req, timeout]);
+}
+
+async function saveEdit() {
+const btn  = document.getElementById('e-save-btn');
+const type = document.getElementById('e-type').value;
+const data = {
+action: 'update',
+row:    Number(document.getElementById('e-row').value),
+timestamp: document.getElementById('e-ts').value,
+date:   document.getElementById('e-date').value,
+staff:  document.getElementById('e-staff').value,
+type,
+vendor:   document.getElementById('e-vendor').value,
+category: getCatValue('e-category','e-cat-other'),
+product:  document.getElementById('e-product').value,
+spec:     document.getElementById('e-spec').value,
+inQty:    type === '入庫' ? document.getElementById('e-qty').value : 0,
+outQty:   (type === '出庫'||type === '借出') ? document.getElementById('e-qty').value : 0,
+unit:     document.getElementById('e-unit').value,
+location: document.getElementById('e-location').value,
+cost:     document.getElementById('e-cost').value,
+notes:    document.getElementById('e-notes').value,
+};
+btn.disabled = true; btn.textContent = '儲存中…';
+try {
+await gasPost(data);
+showMsg('e-msg', '✅ 已更新！', 'success');
+setTimeout(() => { closeEdit(); loadRecords(); }, 800);
+} catch {
+showMsg('e-msg', '❌ 更新失敗，請重試', 'danger');
+} finally {
+btn.disabled = false; btn.textContent = '💾 儲存變更';
+}
+}
+
+async function deleteRecord() {
+const row  = Number(document.getElementById('e-row').value);
+const name = document.getElementById('e-product').value || '此筆';
+if (!confirm(`確定要刪除「${name}」這筆紀錄嗎？\n刪除後無法復原。`)) return;
+
+const saveBtn = document.getElementById('e-save-btn');
+const delBtn  = document.getElementById('e-del-btn');
+saveBtn.disabled = true; delBtn.disabled = true; delBtn.textContent = '刪除中…';
+
+try {
+await gasPost({ action: 'delete', row });
+showMsg('e-msg', '🗑️ 已刪除！', 'success');
+setTimeout(() => { closeEdit(); loadRecords(); }, 800);
+} catch {
+showMsg('e-msg', '❌ 刪除失敗，請重試', 'danger');
+} finally {
+saveBtn.disabled = false; delBtn.disabled = false; delBtn.textContent = '🗑️ 刪除此筆紀錄';
+}
+}
+
+/* ═══════════════ 盤點頁 ═══════════════ */
+const PERSON_KEYS = ['盤點人', '盤點人員', '姓名', '填寫人'];
+
+function stDetectPerson(data) {
+// 層1：GAS 標準化後直接命中
+for (const k of PERSON_KEYS) { if (data[k]) return { person: data[k], personKey: k }; }
+// 層2：值為非空非數字字串
+const f2 = Object.entries(data).find(([k, v]) =>
+k && k.trim() && !STOCKTAKE_SKIP.includes(k) && !PERSON_KEYS.includes(k) && v && isNaN(Number(v)));
+if (f2) return { person: f2[1], personKey: f2[0] };
+// 層3：B 欄格式 → 鍵為姓名、值為空
+const f3 = Object.entries(data).find(([k, v]) =>
+k && k.trim() && !STOCKTAKE_SKIP.includes(k) && !PERSON_KEYS.includes(k)
+&& (v === '' || v === null) && isNaN(Number(k)));
+if (f3) return { person: f3[0], personKey: f3[0] };
+return { person: '—', personKey: null };
+}
+
+function stFilterProducts(data, personKey, person) {
+return Object.entries(data).filter(([k, v]) => {
+if (!k || !k.trim()) return false;
+if (k === '_stRow') return false;                           // 內部列號，非品項
+if (STOCKTAKE_SKIP.includes(k)) return false;               // 已知 meta 欄
+if (PERSON_KEYS.includes(k)) return false;                  // 標準盤點人鍵名
+if (personKey && k === personKey) return false;             // 偵測到的 personKey
+if (person && person !== '—' && k === person) return false; // 人名本身作為欄位名稱
+if (v !== '' && v !== null && isNaN(Number(v))) return false;
+return true;
+});
+}
+
+function stFmtTs(raw) {
+if (!raw) return '—';
+const ts = new Date(raw);
+return (!isNaN(ts))
+? ts.toLocaleString('zh-TW',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+: raw;
+}
+
+async function loadStocktake() {
+document.getElementById('st-products').innerHTML = '<div class="text-center py-5" style="color:#8D6E63">🐾 載入中…</div>';
+document.getElementById('st-info').innerHTML = '';
+try {
+const all = await (await fetch(SCRIPT_URL + '?action=stocktake-history')).json();
+
+// 若 GAS 尚未重新部署，會回傳出入庫紀錄（含 _row 欄位）而非盤點資料
+if (!Array.isArray(all) || (all.length && '_row' in all[0])) {
+document.getElementById('st-products').innerHTML =
+`<div class="text-center py-4" style="color:#E53935">
+          ⚠️ Apps Script 尚未更新。<br>
+          <small>請將 apps-script.gs 貼回 GAS 並<strong>重新部署新版本</strong>後重新整理。</small>
+        </div>`;
+return;
+}
+
+stHistory = all;
+if (!stHistory.length) {
+document.getElementById('st-products').innerHTML = '<div class="text-center py-4" style="color:#8D6E63">尚無盤點紀錄</div>';
+return;
+}
+const data = stHistory[0]; // 最新一筆
+const { person, personKey } = stDetectPerson(data);
+
+document.getElementById('st-info').innerHTML = `
+     <div class="st-person-banner">
+       <div class="icon">👤</div>
+       <div>
+         <div class="sub">盤點人</div>
+         <div class="name">${person}</div>
+       </div>
+     </div>
+     <div class="st-time-bar">
+       <i class="bi bi-clock"></i> ${stFmtTs(data['時間戳記'])}
+     </div>`;
+
+const prevData = stHistory[1] || null; // 上一期
+const stRow    = data._stRow || 0;
+const products = stFilterProducts(data, personKey, person);
+let rows = '';
+products.forEach(([name, raw]) => {
+const currQ   = raw === '' ? null : Number(raw);
+const currNil = currQ === null || isNaN(currQ);
+
+const prevRaw = prevData ? prevData[name] : undefined;
+const prevQ   = (prevRaw === '' || prevRaw === null || prevRaw === undefined) ? null : Number(prevRaw);
+const prevNil = prevQ === null || isNaN(prevQ);
+
+const diff    = (!currNil && !prevNil) ? (currQ - prevQ) : null;
+const diffStr = diff === null ? '—' : (diff > 0 ? '+' : '') + diff.toLocaleString();
+const diffCls = diff === null ? 'st-qty-zero' : diff > 0 ? 'st-diff-up' : diff < 0 ? 'st-diff-dn' : 'st-qty-zero';
+const currCls = currNil ? 'st-qty-zero' : currQ === 0 ? 'st-qty-zero' : currQ < 20 ? 'st-qty-low' : 'st-qty-ok';
+
+const _sn   = name.replace(/'/g, "\\'");
+const _dn   = name.replace(/"/g, '&quot;');
+rows += `<tr onclick="openSth('${_sn}')">
+       <td>${name}<span class="st-go">›</span></td>
+       <td class="st-prev">${prevNil ? '—' : prevQ.toLocaleString()}</td>
+       <td class="${currCls}"
+           data-val="${currNil ? '' : currQ}"
+           data-name="${_dn}"
+           data-strow="${stRow}"
+           onclick="event.stopPropagation(); startEditSt(this)">
+         <span class="st-curr-val">${currNil ? '—' : currQ.toLocaleString()}</span><i class="bi bi-pencil-fill st-edit-icon"></i>
+       </td>
+       <td class="${diffCls}">${diffStr}</td>
+     </tr>`;
+});
+document.getElementById('st-products').innerHTML = `
+     <div class="section-title">📦 最新盤點數量</div>
+     <div class="st-wrap">
+       <table class="st-table">
+         <thead><tr><th>品項</th><th>上期</th><th>本期 ✏️</th><th>差異</th></tr></thead>
+         <tbody>${rows}</tbody>
+       </table>
+     </div>`;
+} catch(err) {
+document.getElementById('st-products').innerHTML = `<div class="text-center py-4 text-danger">❌ 載入失敗：${err.message}</div>`;
+}
+}
+
+/* ── 本期數量行內編輯 ── */
+function startEditSt(td) {
+if (td.querySelector('input')) return; // 已在編輯中
+const curVal = td.dataset.val;
+const name   = td.dataset.name;
+const stRow  = td.dataset.strow;
+const _sn    = name.replace(/'/g, "\\'");
+td.innerHTML = `
+   <div class="d-flex align-items-center justify-content-end gap-1" onclick="event.stopPropagation()">
+     <input type="number" class="st-edit-input" value="${curVal}" min="0" onkeydown="if(event.key==='Enter') saveStocktake(this.nextElementSibling,'${_sn}',${stRow}); if(event.key==='Escape') loadStocktake();">
+     <button class="st-edit-btn" title="儲存" onclick="saveStocktake(this,'${_sn}',${stRow})">✓</button>
+     <button class="st-edit-btn" title="取消" onclick="loadStocktake()">✕</button>
+   </div>`;
+const inp = td.querySelector('input');
+inp.focus();
+inp.select();
+}
+
+async function saveStocktake(btn, name, stRow) {
+const td    = btn.closest('td');
+const input = td.querySelector('input');
+const val   = input.value.trim();
+if (val === '' || isNaN(Number(val)) || Number(val) < 0) {
+input.style.borderColor = '#E53935';
+return;
+}
+btn.textContent = '⏳';
+btn.disabled = true;
+try {
+await gasPost({ action: 'stocktake-update', row: Number(stRow), product: name, value: Number(val) });
+await loadStocktake();
+} catch(e) {
+btn.textContent = '✓';
+btn.disabled = false;
+alert('儲存失敗：' + e.message);
+}
+}
+
+/* ── 盤點歷史面板 ── */
+function openSth(name) {
+if (!stHistory.length) return;
+document.getElementById('sth-title').textContent = `📋 ${name}　盤點歷史`;
+
+// 從每次盤點中取出該品項數量
+const rows = stHistory.map(snap => {
+const rawTs = snap['時間戳記'] || '';
+const { person } = stDetectPerson(snap);
+const raw = snap[name];
+const q   = (raw === '' || raw === null || raw === undefined) ? null : Number(raw);
+const nil = q === null || isNaN(q);
+const cls = nil ? 'sth-zero' : '';
+return `<tr>
+     <td>${stFmtTs(rawTs)}<span class="sth-person">${person}</span></td>
+     <td class="${cls}">${nil ? '—' : q.toLocaleString()}</td>
+   </tr>`;
+}).join('');
+
+document.getElementById('sth-body').innerHTML = `
+   <div class="st-wrap mt-2">
+     <table class="sth-table">
+       <thead><tr><th>盤點時間</th><th>數量</th></tr></thead>
+       <tbody>${rows}</tbody>
+     </table>
+   </div>`;
+
+const panel = document.getElementById('page-sth');
+panel.style.display = 'block';
+panel.scrollTop = 0;
+}
+
+function closeSth() {
+document.getElementById('page-sth').style.display = 'none';
+}
+
+/* ═══════════════ 工具 ═══════════════ */
+function showMsg(id, text, type) {
+const m = document.getElementById(id);
+m.className = `alert alert-${type} mt-2`;
+m.textContent = text;
+m.style.display = 'block';
+if (type === 'success') setTimeout(() => m.style.display = 'none', 3000);
+}
+
+function fmtDate(v) {
+if (!v) return '';
+const d = new Date(v);
+return isNaN(d) ? v : d.toLocaleDateString('zh-TW');
+}
+
+function toInputDate(v) {
+if (!v) return '';
+const d = new Date(v);
+return isNaN(d) ? '' : d.toISOString().slice(0,10);
+}
+
+/* ═══════════════ 初始化 ═══════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+document.getElementById('f-date').value  = new Date().toISOString().slice(0,10);
+document.getElementById('f-staff').value = '黃儀婷'; // 預設承辦人
+navigate('inventory');
+});
+</script>
 </body>
 </html>
