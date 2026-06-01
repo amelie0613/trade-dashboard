@@ -2072,16 +2072,19 @@
       }
     });
     document.getElementById("saveBtn").addEventListener("click", async (event) => {
-      setBusy(event.currentTarget, true, "\u5132\u5b58\u4e2d...");
+      const button = event.currentTarget;
+      let savedOk = false;
+      setBusy(button, true, "\u5132\u5b58\u4e2d...");
       try {
-        await withTimeout(saveOrder(), requestTimeoutMs + 2000, "\u5132\u5b58\u903e\u6642");
+        savedOk = await withTimeout(saveOrder(false), requestTimeoutMs + 2000, "\u5132\u5b58\u903e\u6642");
       } catch (error) {
         console.warn("Save action timed out or failed.", error);
         errorBox.textContent = "\u5132\u5b58\u5931\u6557\uff0c\u8acb\u6aa2\u67e5\u7db2\u8def\u5f8c\u91cd\u8a66\u3002";
         errorBox.classList.add("show");
       } finally {
-        setBusy(event.currentTarget, false);
+        setBusy(button, false);
       }
+      if (savedOk) alert("\u5df2\u5132\u5b58\u55ae\u64da\uff0c\u55ae\u865f\uff1a" + currentOrderId);
     });
     document.getElementById("clearBtn").addEventListener("click", clearAll);
     document.getElementById("savedPrintBtn").addEventListener("click", openPrintConfirm);
