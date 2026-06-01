@@ -1216,6 +1216,14 @@
       }
     }
 
+    function withTimeout(promise, timeoutMs, message) {
+      let timeoutId;
+      const timeout = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      });
+      return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+    }
+
     async function supabaseFetch(path, options = {}) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
@@ -1572,7 +1580,7 @@
         return false;
       }
 
-      await loadSavedOrders();
+      loadSavedOrders();
       if (showMessage) alert("\u5df2\u5132\u5b58\u55ae\u64da\uff0c\u55ae\u865f\uff1a" + currentOrderId);
       return true;
     }
@@ -1732,6 +1740,9 @@
         applyOrderToForm(order);
         const page = previewWrap.querySelector(".page").cloneNode(true);
         page.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+        page.querySelectorAll("[data-out]").forEach((node) => node.removeAttribute("data-out"));
+        page.querySelectorAll("[data-print-item]").forEach((node) => node.removeAttribute("data-print-item"));
+        page.querySelectorAll("[data-auto-pass]").forEach((node) => node.removeAttribute("data-auto-pass"));
         batchPrintWrap.appendChild(page);
       }
       previewWrap.hidden = true;
@@ -2063,7 +2074,11 @@
     document.getElementById("saveBtn").addEventListener("click", async (event) => {
       setBusy(event.currentTarget, true, "\u5132\u5b58\u4e2d...");
       try {
-        await saveOrder();
+        await withTimeout(saveOrder(), requestTimeoutMs + 2000, "\u5132\u5b58\u903e\u6642");
+      } catch (error) {
+        console.warn("Save action timed out or failed.", error);
+        errorBox.textContent = "\u5132\u5b58\u5931\u6557\uff0c\u8acb\u6aa2\u67e5\u7db2\u8def\u5f8c\u91cd\u8a66\u3002";
+        errorBox.classList.add("show");
       } finally {
         setBusy(event.currentTarget, false);
       }
