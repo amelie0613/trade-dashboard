@@ -938,6 +938,11 @@
           <textarea data-field="note"></textarea>
         </label>
         <div class="wide">
+          <div class="check-group">
+            <label><input type="checkbox" data-tax-extra> 稅外加</label>
+          </div>
+        </div>
+        <div class="wide">
           <span class="hint" style="display:block;margin-bottom:4px;">列印左側標記</span>
           <div class="check-group" id="docFlagInputs">
             <label><input type="checkbox" data-doc-flag value="報價單">報價單</label>
@@ -1174,6 +1179,8 @@
     const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI";
     const useSupabase = Boolean(supabaseUrl && supabaseAnonKey);
     const requestTimeoutMs = 10000;
+    const taxExtraFlag = "__tax_extra__";
+    const taxExtraRate = 1.05;
     const defaultLookups = {
       company: ["\u5927\u6f01\u6c34\u7522\u6709\u9650\u516c\u53f8"],
       sales: ["\u5442\u5bb6\u59a4"],
@@ -1199,6 +1206,7 @@
     const previewWrap = document.getElementById("previewWrap");
     const batchPrintWrap = document.getElementById("batchPrintWrap");
     const leftFlags = document.getElementById("leftFlags");
+    const taxExtraInput = document.querySelector("[data-tax-extra]");
     let currentOrderId = generateOrderId();
     let savedOrders = [];
     const selectedOrderIds = new Set();
@@ -1288,7 +1296,7 @@
         po_no: order.fields.poNo || null,
         sales: order.fields.sales || null,
         note: order.fields.note || null,
-        doc_flags: order.docFlags || [],
+        doc_flags: order.taxExtra ? [...(order.docFlags || []), taxExtraFlag] : (order.docFlags || []),
         total: parseAmount(order.total)
       };
       await supabaseFetch("orders?on_conflict=id", {
@@ -1333,6 +1341,7 @@
       const order = orders[0];
       if (!order) return null;
       const items = await supabaseFetch(`order_items?select=*&order_id=eq.${encodeURIComponent(orderId)}&order=line_no.asc`);
+      const docFlags = Array.isArray(order.doc_flags) ? order.doc_flags : [];
       return {
         id: order.id,
         fields: {
@@ -1345,7 +1354,8 @@
           sales: order.sales || "",
           note: order.note || ""
         },
-        docFlags: Array.isArray(order.doc_flags) ? order.doc_flags : [],
+        docFlags: docFlags.filter((flag) => flag !== taxExtraFlag),
+        taxExtra: docFlags.includes(taxExtraFlag),
         items: items.map((item) => ({
           index: item.line_no,
           batch: item.batch || "",
@@ -1506,6 +1516,7 @@
         id: currentOrderId,
         fields: {},
         docFlags: selectedDocFlags(),
+        taxExtra: taxExtraInput ? taxExtraInput.checked : false,
         items: [],
         total: document.querySelector('[data-out="total"]').textContent
       };
@@ -1709,6 +1720,7 @@
         if (input) input.value = order.fields[field] || "";
       });
       setDocFlags(order.docFlags || []);
+      if (taxExtraInput) taxExtraInput.checked = Boolean(order.taxExtra);
       document.querySelectorAll("[data-item]").forEach((input) => { input.value = ""; });
       (order.items || []).forEach((item, index) => {
         itemProps.forEach((prop) => {
@@ -1991,7 +2003,8 @@
         document.querySelector(`[data-print-item="${i}"][data-prop="amount"]`).textContent = amountText(amount);
       }
 
-      document.querySelector('[data-out="total"]').textContent = amountText(total) || "0";
+      const displayTotal = taxExtraInput && taxExtraInput.checked ? Math.round(total * taxExtraRate) : total;
+      document.querySelector('[data-out="total"]').textContent = amountText(displayTotal) || "0";
       const totalQtyOut = document.querySelector('[data-out="totalQty"]');
       const summaryUnitOut = document.querySelector('[data-out="summaryUnit"]');
       if (totalQtyOut) totalQtyOut.textContent = isProductTemplate ? "" : (totalQty ? amountText(totalQty) : "");
@@ -2041,6 +2054,7 @@
       currentOrderId = generateOrderId();
       document.querySelectorAll("input:not([type='checkbox']), textarea").forEach((input) => { input.value = ""; });
       document.querySelectorAll("[data-doc-flag]").forEach((input) => { input.checked = false; });
+      if (taxExtraInput) taxExtraInput.checked = false;
       document.querySelector('[data-field="fillDate"]').value = todayISO();
       document.querySelectorAll(".invalid").forEach((input) => input.classList.remove("invalid"));
       errorBox.classList.remove("show");
@@ -2064,6 +2078,7 @@
     document.querySelectorAll("[data-doc-flag]").forEach((input) => {
       input.addEventListener("change", render);
     });
+    if (taxExtraInput) taxExtraInput.addEventListener("change", render);
     document.getElementById("printBtn").addEventListener("click", async () => {
       render();
       if (validateBeforePrint()) {
