@@ -1831,17 +1831,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                         <div id="rental_result_label" style="font-size:0.7rem; color:#6aa85a; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
                       </div>
                       <div id="rental_result_status" style="font-size:0.8rem; color:#6aa85a;"></div>
-                      <!-- ── 3️⃣ 在途銷貨台帳（新流程：從台帳拋出報表後上傳比對） ── -->
-                      <div class="section-title" style="margin-top:1rem;">🚢 3️⃣ 在途銷貨台帳報表（選用）</div>
-                      <p style="font-size:0.75rem; color:#5b7fa8; margin-bottom:0.6rem;">先至「在途銷貨台帳」匯出 Excel，再上傳此處自動帶入單價</p>
-                      <div style="border:2px dashed #6878C0; border-radius:10px; padding:0.6rem; background:white; margin-bottom:0.5rem;"
-                          ondragover="dragOver(event,this)" ondragleave="dragLeave(this)" ondrop="dropFile(event,'transit_match_file',this)">
-                        <input type="file" id="transit_match_file" accept=".xlsx"
-                          onchange="(function(el){if(!el.files[0])return;ledgerFiles['transit_match_file']=el.files[0];const lbl=document.getElementById('transit_match_label');if(lbl){lbl.textContent='✅ '+el.files[0].name;lbl.style.color='#4a6a9a';}})(this)"
-                          style="width:100%; font-size:0.75rem; border:none; background:transparent;" />
-                        <div id="transit_match_label" style="font-size:0.7rem; color:#6878C0; text-align:center; margin-top:0.2rem;">或拖拉至此</div>
-                      </div>
-                      <div id="transit_match_status" style="font-size:0.8rem; color:#6878C0;"></div>
                     </div>
                     <div>
                       <!-- 欄位對應固定值（hidden，供 JS 讀取） -->
@@ -1851,20 +1840,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                       <input type="hidden" id="pcol_qty"   value="數量" />
                       <div style="display:flex; gap:0.7rem;">
                         <button onclick="calcProfit()" class="btn-primary" style="flex:1;">🔍 試算租金費用</button>
-                      </div>
-                      <!-- 新流程：從台帳自動匹配按鈕 -->
-                      <div style="margin-top:0.5rem; padding:0.8rem; background:#f0f4ff; border:1.5px solid #c0caee; border-radius:10px;">
-                        <div style="font-size:0.78rem; font-weight:800; color:#4050a0; margin-bottom:0.4rem;">🚀 新流程：台帳匹配</div>
-                        <p style="font-size:0.72rem; color:#6878C0; margin-bottom:0.5rem; line-height:1.5;">
-                          ① 先點「試算租金費用」<br>
-                          ② 上傳左方的在途銷貨台帳報表<br>
-                          ③ 點下方按鈕自動匹配單價
-                        </p>
-                        <button id="profit_transit_match_btn" onclick="matchProfitFromTransitSheet()"
-                          style="width:100%;padding:0.45rem 0.8rem;background:linear-gradient(135deg,#6878C0,#4050a0);color:#fff;border:none;border-radius:8px;font-size:0.85rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(104,120,192,.35);">
-                          📊 從台帳自動匹配
-                        </button>
-                        <div id="transit_match_result" style="margin-top:0.4rem; font-size:0.78rem;"></div>
                       </div>
                       <div style="margin-top:0.6rem; padding-top:0.6rem; border-top:1px dashed var(--border); display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap;">
                         <button id="btn_full_analysis" onclick="_runFullAnalysis()"
@@ -2048,6 +2023,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <button onclick="loadTransitLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
                 <button onclick="importTransitFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入（銷貨＋再途銷貨）</button>
                 <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
+                <button onclick="pushTransitToProfit()" style="padding:0.5rem 1.2rem;background:linear-gradient(135deg,#6878C0,#7c3aed);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="將已確認核銷的台帳單價推送到利潤分析報表">🔀 推送到利潤分析</button>
                 <button onclick="runSalesReconciliation()" style="padding:0.5rem 1.2rem;background:#7c3aed;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="扣除加工原料＋在途銷貨後，與利潤分析比對數量金額">📊 銷貨核對</button>
                 <button onclick="resetTransitOffset()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷核銷</button>
                 <button onclick="document.getElementById('transitHistoryFileInput').click()" style="padding:0.5rem 1.2rem;background:#764ba2;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📂 匯入歷史 Excel</button>
@@ -3852,12 +3828,44 @@ function processFile_diff(slot, file){
 
 function diffKey(r){ return `${String(r['產品名稱']||'').trim()}__${String(r['批號']||'').trim()}__${String(r['倉庫']||r['倉庫名稱']||'').trim()}`; }
 
+function buildDiffMap(rows){
+  const map = {};
+  rows.forEach(r => {
+    const key = diffKey(r);
+    const qtyNames = [
+      '\u672c\u671f\u7d50\u5b58',
+      '\u671f\u672b\u5eab\u5b58\u6578\u91cf',
+      '\u5eab\u5b58\u6578\u91cf',
+      '\u7d50\u5b58\u6578\u91cf',
+      '\u6578\u91cf',
+      'F'
+    ];
+    const qtyCol = Object.keys(r).find(col => qtyNames.includes(col))
+      || Object.keys(r).find(col => /qty|quantity|stock/i.test(col));
+    const qty = qtyCol ? (parseFloat(r[qtyCol]) || 0) : 0;
+
+    if(!map[key]){
+      map[key] = { ...r, _diffQty: qty, _mergeCount: 1 };
+      return;
+    }
+
+    map[key]._diffQty = (parseFloat(map[key]._diffQty) || 0) + qty;
+    map[key]._mergeCount = (map[key]._mergeCount || 1) + 1;
+
+    Object.keys(r).forEach(col => {
+      if((map[key][col] === '' || map[key][col] == null) && r[col] !== '' && r[col] != null){
+        map[key][col] = r[col];
+      }
+    });
+  });
+  return map;
+}
+
 function runDiff(){
   if(!diffDataA || !diffDataB){ showToast('❌ 請先上傳本期與上期兩份資料'); return; }
 
-  const mapA = {}, mapB = {};
-  diffDataA.forEach(r => { mapA[diffKey(r)] = r; });
-  diffDataB.forEach(r => { mapB[diffKey(r)] = r; });
+  const mapA = buildDiffMap(diffDataA);
+  const mapB = buildDiffMap(diffDataB);
 
   const allKeys = new Set([...Object.keys(mapA), ...Object.keys(mapB)]);
   diffResults = [];
@@ -3867,8 +3875,8 @@ function runDiff(){
     const b = mapB[k];   // 上期期末
     const base = a || b;
     // 讀取「庫存數量」（F 欄位）作為各期的數量快照
-    const qtyA = a ? (parseFloat(a['庫存數量'])||0) : 0;
-    const qtyB = b ? (parseFloat(b['庫存數量'])||0) : 0;
+    const qtyA = a ? (parseFloat(a._diffQty ?? a['庫存數量'])||0) : 0;
+    const qtyB = b ? (parseFloat(b._diffQty ?? b['庫存數量'])||0) : 0;
     const diff = qtyA - qtyB;
     let changeType = 'same';
     if(!b && a)       changeType = 'new';
@@ -5426,10 +5434,6 @@ function dropFile(e, fileId, el) {
         if (fileId === 'profit_file' && window.profitFileChanged) profitFileChanged(input);
         if (fileId === 'rental_result_file' && window.rentalResultFileChanged) rentalResultFileChanged(input);
         if (fileId === 'processing_form_file' && window.processingFormFileChanged) processingFormFileChanged(input);
-        if (fileId === 'transit_match_file') {
-            const lbl = document.getElementById('transit_match_label');
-            if (lbl) { lbl.textContent = '✅ ' + file.name; lbl.style.color = '#4a6a9a'; }
-        }
     }
 }
 
@@ -9878,35 +9882,231 @@ window.cleanupTransitDuplicates = cleanupTransitDuplicates;
 async function manualTransitOffset(id) {
     const row = (_transitRecords || []).find(r => String(r.id) === String(id));
     if (!row) { alert('找不到這筆在途資料，請先重新讀取台帳'); return; }
-    const name = `${row.product_name || ''} / ${row.batch_no || ''}`;
-    if (!confirm(`確定要手動核銷這筆在途資料？\n${name}\n剩餘數量會歸零，狀態改為已核銷。`)) return;
-    const originalQty = parseFloat(row.original_qty) || 0;
-    const resp = await fetch(
-        `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${id}`,
-        {
-            method: 'PATCH',
-            headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
-            body: JSON.stringify({
-                offset_qty: originalQty,
-                remaining_qty: 0,
-                status: '已核銷',
-                last_offset_date: new Date().toISOString().slice(0,10),
-            })
-        }
-    );
-    if (!resp.ok) {
-        alert(`手動核銷失敗：${await resp.text()}`);
-        return;
-    }
-    // 歸檔到 Sheets 並從 Supabase 移除
-    try {
-        await _archiveCompletedTransitRecords([String(id)]);
-    } catch(e) {
-        alert(`手動核銷成功，但歸檔失敗（記錄保留在 Supabase）：\n${e.message}`);
-    }
-    await loadTransitLedger();
+    _showTransitOffsetPanel(row);
 }
 window.manualTransitOffset = manualTransitOffset;
+
+// ── 確認核銷面板（數量＋單價）────────────────────────────────────────
+function _showTransitOffsetPanel(row) {
+    const previewEl = document.getElementById('transit_preview');
+    if (!previewEl) return;
+
+    const remainingQty = parseFloat(row.remaining_qty) || 0;
+    const currentPrice = parseFloat(row.unit_price) || 0;
+    const safeId = String(row.id);
+
+    previewEl.style.display = '';
+    previewEl.innerHTML = `
+      <div style="max-width:640px;">
+        <div style="font-weight:800;color:#6878C0;font-size:0.95rem;margin-bottom:0.8rem;">✅ 確認核銷</div>
+        <div style="background:#f4f8ff;border:1px solid #c7d9f0;border-radius:8px;padding:0.75rem 1rem;margin-bottom:0.8rem;font-size:0.85rem;">
+          <span style="font-weight:700;color:#1a2540;">${row.product_name}</span>
+          <span style="font-family:monospace;color:#6878C0;font-size:0.75rem;margin-left:0.6rem;">${row.batch_no}</span>
+          <div style="color:#64748b;font-size:0.78rem;margin-top:0.3rem;">
+            原始數量：<b>${Number(row.original_qty||0).toLocaleString()}</b> ／
+            已核銷：<b>${Number(row.offset_qty||0).toLocaleString()}</b> ／
+            剩餘：<b style="color:#ef4444;">${Number(remainingQty).toLocaleString()}</b>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.8rem;margin-bottom:0.8rem;">
+          <div>
+            <label style="font-size:0.78rem;font-weight:700;color:#64748b;display:block;margin-bottom:0.3rem;">本次核銷數量</label>
+            <input type="number" id="_tco_qty"
+              value="${remainingQty}" min="0" max="${remainingQty}" step="any"
+              style="width:100%;padding:0.4rem 0.6rem;border:1.5px solid #a5b4fc;border-radius:6px;font-size:0.9rem;font-weight:700;color:#6878C0;box-sizing:border-box;" />
+          </div>
+          <div>
+            <label style="font-size:0.78rem;font-weight:700;color:#64748b;display:block;margin-bottom:0.3rem;">
+              租金單價 <span style="color:#94a3b8;font-weight:400;">（確認後自動推送至利潤分析）</span>
+            </label>
+            <input type="number" id="_tco_price"
+              value="${currentPrice}" min="0" step="any"
+              style="width:100%;padding:0.4rem 0.6rem;border:1.5px solid #f2a7c3;border-radius:6px;font-size:0.9rem;font-weight:700;color:#c0507a;box-sizing:border-box;" />
+          </div>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+          <button onclick="_applyTransitOffsetPanel('${safeId}')"
+            style="padding:0.45rem 1.5rem;background:#22c55e;color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;font-size:0.88rem;box-shadow:0 2px 6px rgba(34,197,94,.3);">
+            ✅ 確認核銷
+          </button>
+          <button onclick="document.getElementById('transit_preview').style.display='none';"
+            style="padding:0.45rem 0.9rem;border:1.5px solid #94a3b8;border-radius:8px;background:#fff;color:#64748b;font-size:0.85rem;cursor:pointer;font-weight:600;">
+            取消
+          </button>
+        </div>
+        <div id="_tco_status" style="font-size:0.82rem;color:#64748b;margin-top:0.6rem;min-height:1.3rem;"></div>
+      </div>`;
+
+    previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+window._showTransitOffsetPanel = _showTransitOffsetPanel;
+
+async function _applyTransitOffsetPanel(id) {
+    const statusEl  = document.getElementById('_tco_status');
+    const qtyInput  = document.getElementById('_tco_qty');
+    const priceInput = document.getElementById('_tco_price');
+    if (!qtyInput || !priceInput) return;
+
+    const consumeQty = parseFloat(qtyInput.value) || 0;
+    const unitPrice  = parseFloat(priceInput.value) || 0;
+
+    if (consumeQty <= 0) { if (statusEl) statusEl.textContent = '❌ 核銷數量必須大於 0'; return; }
+
+    const row = (_transitRecords || []).find(r => String(r.id) === String(id));
+    if (!row) { if (statusEl) statusEl.textContent = '❌ 找不到記錄，請重新讀取台帳'; return; }
+
+    const originalQty   = parseFloat(row.original_qty) || 0;
+    const currentOffset = parseFloat(row.offset_qty)   || 0;
+    const newOffset     = currentOffset + consumeQty;
+    const newRemaining  = Math.max(0, originalQty - newOffset);
+    const newStatus     = _transitStatus(originalQty, newOffset);
+    const finalPrice    = unitPrice > 0 ? unitPrice : (parseFloat(row.unit_price) || 0);
+    const newTotalCost  = finalPrice > 0 ? Math.round(finalPrice * originalQty) : (parseFloat(row.total_cost) || 0);
+    const today         = new Date().toISOString().slice(0, 10);
+
+    if (statusEl) statusEl.textContent = '⏳ 儲存中…';
+
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?id=eq.${id}`,
+            {
+                method: 'PATCH',
+                headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                body: JSON.stringify({
+                    offset_qty:       newOffset,
+                    remaining_qty:    newRemaining,
+                    status:           newStatus,
+                    unit_price:       finalPrice,
+                    total_cost:       newTotalCost,
+                    last_offset_date: today,
+                })
+            }
+        );
+        if (!resp.ok) throw new Error(await resp.text());
+
+        // 更新本地快取
+        Object.assign(row, {
+            offset_qty: newOffset, remaining_qty: newRemaining, status: newStatus,
+            unit_price: finalPrice, total_cost: newTotalCost, last_offset_date: today,
+        });
+
+        // 本期核銷量記憶
+        if (!window._periodOffsetMap) window._periodOffsetMap = {};
+        window._periodOffsetMap[String(id)] = (window._periodOffsetMap[String(id)] || 0) + consumeQty;
+
+        // 寫核銷 log
+        try {
+            const _n = new Date(), _p = n => String(n).padStart(2, '0');
+            const tag = `${_n.getFullYear()}-${_p(_n.getMonth()+1)}-${_p(_n.getDate())} ${_p(_n.getHours())}:${_p(_n.getMinutes())}:${_p(_n.getSeconds())}`;
+            window._currentPeriodTag = tag;
+            await fetch(`${SUPABASE_URL}/rest/v1/transit_reconciliation_log`, {
+                method: 'POST',
+                headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                body: JSON.stringify([{ period_tag: tag, ledger_id: String(id), offset_delta: consumeQty }]),
+            });
+        } catch (_) {}
+
+        // ── 自動推送到利潤分析 ─────────────────────────────────────
+        // 重要：必須在歸檔（刪 Supabase）之前完成 merge，
+        //       若利潤分析未載入則不歸檔，讓記錄保留在 Supabase，
+        //       使用者稍後可按「🔀 推送到利潤分析」補同步。
+        let mergeMsg = '';
+        let mergeSuccess = false;
+        if (profitCalcData && profitCalcData.length) {
+            const changes = [{
+                id, product_name: row.product_name, batch_no: row.batch_no,
+                original_qty: originalQty, old_offset: currentOffset,
+                old_remaining: parseFloat(row.remaining_qty) || 0,
+                old_status: row.status,
+                consume_qty: consumeQty, new_offset: newOffset,
+                new_remaining: newRemaining, new_status: newStatus,
+                profit_projects: [],
+                unit_price: finalPrice,
+            }];
+            const mergeResult = _mergeReconciliationToProfit(changes);
+            if (mergeResult) {
+                mergeSuccess = true;
+                mergeMsg = `　✅ 已推送到利潤分析（${mergeResult.confirmed} 筆）`;
+            }
+        } else {
+            // 利潤未載入 → 不歸檔，記錄保留在 Supabase 供日後批量推送
+            mergeMsg = `　⚠️ 利潤分析未載入，記錄保留在 Supabase 未歸檔，請載入利潤分析後按「🔀 推送到利潤分析」完成同步`;
+        }
+
+        if (statusEl) statusEl.innerHTML =
+            `<span style="color:#22c55e;font-weight:700;">✅ 已核銷 ${Number(consumeQty).toLocaleString()} ／ 狀態：${newStatus}${mergeMsg}</span>`;
+
+        // 歸檔已核銷記錄 ─ 只有 merge 成功後才歸檔
+        // 若利潤未載入（mergeSuccess=false），保留在 Supabase，讓「🔀 推送」日後可找到
+        if (newStatus === '已核銷' && mergeSuccess) {
+            try {
+                await _archiveCompletedTransitRecords([String(id)]);
+                delete window._periodOffsetMap[String(id)];
+            } catch (_) {}
+        }
+
+        // 延遲關閉面板＋重整表格
+        setTimeout(async () => {
+            const previewEl = document.getElementById('transit_preview');
+            if (previewEl) previewEl.style.display = 'none';
+            await loadTransitLedger();
+        }, 2200);
+
+    } catch (e) {
+        if (statusEl) statusEl.textContent = `❌ 失敗：${e.message}`;
+    }
+}
+window._applyTransitOffsetPanel = _applyTransitOffsetPanel;
+
+// ── 批量推送已核銷台帳單價到利潤分析 ──────────────────────────────────
+async function pushTransitToProfit() {
+    const statusEl = document.getElementById('transit_status');
+    if (!profitCalcData || !profitCalcData.length) {
+        statusEl.textContent = '⚠️ 請先在「💹 利潤分析」頁載入利潤明細表，再執行推送';
+        return;
+    }
+    statusEl.textContent = '⏳ 讀取已確認台帳記錄中…';
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?status=in.(已核銷,部分核銷)&unit_price=gt.0&select=*&order=outbound_date.asc`,
+            { headers: getSBHeaders() }
+        );
+        if (!resp.ok) throw new Error(await resp.text());
+        const confirmed = await resp.json();
+
+        if (!confirmed.length) {
+            statusEl.textContent = '⚠️ 目前沒有單價 > 0 的已核銷或部分核銷記錄';
+            return;
+        }
+
+        const changes = confirmed.map(r => ({
+            id:           r.id,
+            product_name: r.product_name,
+            batch_no:     r.batch_no,
+            original_qty: parseFloat(r.original_qty)  || 0,
+            old_offset:   parseFloat(r.offset_qty)    || 0,
+            old_remaining:parseFloat(r.remaining_qty) || 0,
+            old_status:   r.status,
+            consume_qty:  parseFloat(r.offset_qty)    || 0,
+            new_offset:   parseFloat(r.offset_qty)    || 0,
+            new_remaining:parseFloat(r.remaining_qty) || 0,
+            new_status:   r.status,
+            profit_projects: [],
+            unit_price:   parseFloat(r.unit_price)    || 0,
+        }));
+
+        const mergeResult = _mergeReconciliationToProfit(changes);
+        if (mergeResult) {
+            statusEl.textContent =
+                `✅ 已推送到利潤分析：確認 ${mergeResult.confirmed} 筆單價，排除 ${mergeResult.excluded} 筆（共 ${confirmed.length} 筆台帳）`;
+        } else {
+            statusEl.textContent = '❌ 推送失敗，請確認利潤分析頁已載入';
+        }
+    } catch (e) {
+        statusEl.textContent = `❌ 推送失敗：${e.message}`;
+    }
+}
+window.pushTransitToProfit = pushTransitToProfit;
 
 async function deleteTransitRow(id) {
     const row = (_transitRecords || []).find(r => String(r.id) === String(id));
@@ -10091,7 +10291,6 @@ function _renderTransitPreviewTable() {
         </div>
         <div style="display:flex;gap:0.5rem;align-items:center;">
           <span style="font-size:0.72rem;color:#f7a35c;">✏️ 可直接修改數量 或 ✖ 移除不想核銷的行</span>
-          <button onclick="_exportTransitPreviewForProfit()" style="padding:0.45rem 1.1rem;background:linear-gradient(135deg,#6878C0,#4050a0);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;box-shadow:0 2px 6px rgba(104,120,192,.3);" title="匯出此預覽明細，用於利潤分析自動匹配單價">📤 匯出利潤分析明細</button>
           <button onclick="_commitTransitChanges()" style="padding:0.45rem 1.2rem;background:#22c55e;color:#fff;border:none;border-radius:8px;font-weight:800;cursor:pointer;font-size:0.88rem;box-shadow:0 2px 6px rgba(34,197,94,.3);">✅ 確認寫入 Supabase</button>
           <button onclick="_cancelTransitPreview()" style="padding:0.45rem 1rem;background:#ef4444;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">✖ 取消</button>
         </div>
@@ -10112,8 +10311,7 @@ function _renderTransitPreviewTable() {
             <th style="${th}color:#7c3aed;">比對到的利潤專案</th>
           </tr></thead>
           <tbody>
-            ${sorted.map((c) => {
-              const idx = changes.indexOf(c);
+            ${sorted.map((c, idx) => {
               const newOff = c.old_offset + c.consume_qty;
               const newRem = Math.max(0, c.original_qty - newOff);
               const newSt  = _transitStatus(c.original_qty, newOff);
@@ -10456,101 +10654,6 @@ function _cancelTransitPreview() {
     if (statusEl) statusEl.textContent = '已取消，Supabase 資料未變動';
 }
 window._cancelTransitPreview = _cancelTransitPreview;
-
-// ── 核銷預覽：匯出利潤分析明細（確認前先拋報表，供利潤分析自動匹配單價）────
-function _exportTransitPreviewForProfit() {
-    const changes = window._transitPendingChanges || [];
-    if (!changes.length) { alert('目前沒有待核銷的預覽資料'); return; }
-
-    // 取得預覽表中用戶可能已修改的「本次核銷量」（UI 欄位優先）
-    const rows = [];
-    changes.forEach((c, idx) => {
-        // 讀取使用者在預覽表中修改過的數量（如有）—— ID 為 preview_qty_{行索引}
-        const inputEl = document.getElementById(`preview_qty_${idx}`);
-        const consumeQty = inputEl ? (parseFloat(inputEl.value) || c.consume_qty) : c.consume_qty;
-
-        // 整批的剩餘數量（只計算一次）
-        const newRemaining = Math.max(0, c.original_qty - (c.old_offset + consumeQty));
-
-        // ── 一致性修正：確保 profit_projects 的 qty 加總 = consumeQty ─────
-        // 若 FIFO 計算的 take 值有誤（加總 ≠ consumeQty），按比例修正，避免重複或缺漏
-        let projs = (c.profit_projects || []).slice();
-        const projQtySum = projs.reduce((s, p) => s + (parseFloat(p.qty) || 0), 0);
-        let needFix = false;
-        let fixNote = '';
-
-        if (projs.length > 0 && Math.abs(projQtySum - consumeQty) > 0.01) {
-            needFix = true;
-            if (projQtySum > consumeQty) {
-                // B類：比對超量，按比例縮減
-                const scale = consumeQty / projQtySum;
-                projs = projs.map(p => ({ ...p, qty: parseFloat(((parseFloat(p.qty)||0) * scale).toFixed(4)) }));
-                fixNote = `⚠️ FIFO超量修正（原始加總${projQtySum.toFixed(2)}→按比例縮減至${consumeQty}）`;
-            } else {
-                // A類：比對不足，加一個「未匹配餘量」補足
-                const remainder = consumeQty - projQtySum;
-                projs = [...projs, { proj:'', projName:'（未匹配餘量）', date:'', qty: parseFloat(remainder.toFixed(4)) }];
-                fixNote = `⚠️ 利潤表中找不到足夠銷售量，餘量${remainder.toFixed(2)}待人工確認`;
-            }
-        }
-
-        if (projs.length > 0) {
-            projs.forEach(p => {
-                const projQty = parseFloat(p.qty) || 0;
-                rows.push({
-                    '產品名稱':     c.product_name,
-                    '批號':         c.batch_no,
-                    '出庫日期':     c.outbound_date,
-                    '原始數量':     c.original_qty,
-                    '本批核銷總量': consumeQty,          // 整個在途記錄的核銷量（參考用）
-                    '本次分攤數量': projQty,             // ★ 此專案實際分配量（用於利潤匹配）
-                    '剩餘數量':     newRemaining,
-                    '單價':         c.unit_price || '',
-                    '分攤成本':     c.unit_price ? Math.round(c.unit_price * projQty) : '',  // ★ 此專案費用
-                    '批次總成本':   c.unit_price ? Math.round(c.unit_price * consumeQty) : '', // 整批成本（參考）
-                    '狀態':         c.new_status || '',
-                    '利潤專案':     p.projName || p.proj || '',
-                    '銷貨日期':     p.date || '',
-                    '備註':         needFix ? fixNote : '',
-                });
-            });
-        } else {
-            // 沒有利潤專案明細，輸出單行
-            rows.push({
-                '產品名稱':     c.product_name,
-                '批號':         c.batch_no,
-                '出庫日期':     c.outbound_date,
-                '原始數量':     c.original_qty,
-                '本批核銷總量': consumeQty,
-                '本次分攤數量': consumeQty,
-                '剩餘數量':     newRemaining,
-                '單價':         c.unit_price || '',
-                '分攤成本':     c.unit_price ? Math.round(c.unit_price * consumeQty) : '',
-                '批次總成本':   c.unit_price ? Math.round(c.unit_price * consumeQty) : '',
-                '狀態':         c.new_status || '',
-                '利潤專案':     '',
-                '銷貨日期':     '',
-                '備註':         '',
-            });
-        }
-    });
-
-    if (!rows.length) { alert('沒有可匯出的資料'); return; }
-
-    const ws = window.XLSX.utils.json_to_sheet(rows);
-    // 加粗標題列
-    const range = window.XLSX.utils.decode_range(ws['!ref']);
-    for (let C = range.s.c; C <= range.e.c; C++) {
-        const cellAddr = window.XLSX.utils.encode_cell({ r: 0, c: C });
-        if (ws[cellAddr]) ws[cellAddr].s = { font: { bold: true } };
-    }
-
-    const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, '在途核銷明細');
-    const date = new Date().toISOString().slice(0,10);
-    window.XLSX.writeFile(wb, `在途核銷明細_${date}.xlsx`);
-}
-window._exportTransitPreviewForProfit = _exportTransitPreviewForProfit;
 
 // ── 銷貨核對：出庫記錄（排除加工原料＋在途銷貨）vs 利潤分析表 ──────
 async function runSalesReconciliation() {
@@ -12203,182 +12306,6 @@ async function refreshProfitFromTransit() {
 }
 window.refreshProfitFromTransit = refreshProfitFromTransit;
 
-// 🚢 從上傳的在途銷貨台帳 Excel 自動匹配到利潤分析
-async function matchProfitFromTransitSheet() {
-    if (!profitCalcData || profitCalcData.length === 0) {
-        alert('請先試算利潤分析後再上傳在途銷貨台帳'); return;
-    }
-
-    const input = document.getElementById('transit_match_file');
-    const file = ledgerFiles['transit_match_file'] || (input && input.files[0]);
-    if (!file) { alert('請先選擇或拖拉在途銷貨台帳 Excel'); return; }
-
-    const btn = document.getElementById('profit_transit_match_btn');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ 匹配中…'; }
-
-    // 清除前一次的匹配異常標記與排序
-    if (typeof _profitChecked !== 'undefined') _profitChecked.clear();
-    if (typeof _profitSort !== 'undefined') _profitSort = { key: '', asc: true };
-    if (typeof _profitColFilters !== 'undefined') Object.keys(_profitColFilters).forEach(k => delete _profitColFilters[k]);
-
-    try {
-        // 讀取上傳的在途銷貨台帳 Excel
-        const transitData = await readExcelSheet(file, null);
-        if (!transitData || transitData.length === 0) {
-            alert('在途銷貨台帳為空'); return;
-        }
-
-        // 建立匹配表：產品名稱|批號 -> [{ unit_price, total_cost, notes, remaining_qty, status, origQty }]
-        const transitMap = {};
-        const matchLog = [];
-
-        transitData.forEach(r => {
-            const name = String(r['產品名稱'] || '').trim();
-            const batch = String(r['批號'] || '').trim();
-            // 兼容新格式（本次分攤數量）和舊格式（原始數量）
-            const allocQty = parseFloat(String(r['本次分攤數量'] || r['原始數量'] || '').replace(/,/g,'')) || 0;
-            const unitPrice = parseFloat(String(r['單價'] || '').replace(/,/g,'')) || 0;
-            // 兼容新格式（分攤成本）和舊格式（總成本）
-            const cost = parseFloat(String(r['分攤成本'] || r['總成本'] || '').replace(/,/g,'')) || 0;
-            const remainingQty = parseFloat(String(r['剩餘數量'] || '').replace(/,/g,'')) || 0;
-            const status = String(r['狀態'] || '').trim();
-            const notes = String(r['備註'] || r['利潤專案'] || '').trim();
-
-            if (name && batch) {
-                const key = `${name}|${batch}`;
-                if (!transitMap[key]) {
-                    transitMap[key] = [];
-                }
-                transitMap[key].push({
-                    unitPrice, cost, remainingQty, status, notes, allocQty
-                });
-            }
-        });
-
-        // 匹配邏輯：產品名稱 + 批號 + 數量
-        const nameCol  = (document.getElementById('pcol_name')?.value  || '產品名稱').trim();
-        const batchCol = (document.getElementById('pcol_batch')?.value || '批號').trim();
-        const qtyCol   = (document.getElementById('pcol_qty')?.value   || '數量').trim();
-
-        let matched = 0, unmatched = 0, rentTotal = 0;
-        const unmatchedRows = [];
-
-        profitCalcData = profitCalcData.map((r, idx) => {
-            const name  = String(r[nameCol] || '').trim();
-            const batch = String(r[batchCol] || '').trim();
-            const qty   = parseFloat(String(r[qtyCol] || '').replace(/,/g,'')) || 0;
-            const key   = `${name}|${batch}`;
-
-            let rentPrice = '';
-            let rentCost = '';
-            let rentSource = '';
-            let rentNotes = '';
-            let isUnmatched = false;
-
-            if (transitMap[key]) {
-                // 找到相符的批號，進行數量驗證
-                const matches = transitMap[key];
-                let bestMatch = null;
-
-                // 優先找數量完全相符的記錄（用 allocQty 匹配利潤表的銷售量）
-                for (let m of matches) {
-                    if (Math.abs(m.allocQty - qty) < 0.01) {
-                        bestMatch = m;
-                        break;
-                    }
-                }
-
-                // 如果沒有完全相符，取單價最高的（通常最近一批）
-                if (!bestMatch) {
-                    bestMatch = matches.reduce((a, b) => (b.unitPrice > a.unitPrice ? b : a), matches[0]);
-                }
-
-                if (bestMatch.unitPrice) {
-                    rentPrice = bestMatch.unitPrice;
-                    rentCost = Math.round(rentPrice * qty);
-                    rentTotal += rentCost;
-                    rentSource = '台帳核銷';
-                    rentNotes = bestMatch.notes || `剩餘數量：${bestMatch.remainingQty}`;
-                    matched++;
-                } else {
-                    isUnmatched = true;
-                    unmatched++;
-                    const reason = '台帳無單價（人工確認）';
-                    unmatchedRows.push({ idx, name, batch, qty, reason });
-                    rentNotes = reason;
-                }
-            } else {
-                isUnmatched = true;
-                unmatched++;
-                const reason = `台帳查無批號「${batch}」（人工確認）`;
-                unmatchedRows.push({ idx, name, batch, qty, reason });
-                rentNotes = reason;
-            }
-
-            return {
-                ...r,
-                租金單價: rentPrice,
-                租金費用: rentCost,
-                租金來源: rentSource,
-                來源備註: rentNotes,
-                _匹配異常: isUnmatched ? rentNotes : ''
-            };
-        });
-
-        // 更新合計卡片
-        const psM = document.getElementById('ps_matched');
-        const psU = document.getElementById('ps_unmatched');
-        const psR = document.getElementById('ps_rent_total');
-        const psTotal = document.getElementById('ps_total');
-        if (psTotal) psTotal.textContent = profitCalcData.length;
-        if (psM) psM.textContent = matched;
-        if (psU) {
-            psU.textContent = unmatched;
-            // 有異常時把「未比對到」卡片改為紅色警示
-            const card = psU.closest('div');
-            if (card) {
-                card.style.background = unmatched > 0 ? '#ffecec' : '#f0f8ff';
-                card.style.borderColor = unmatched > 0 ? '#e53935' : '#7ec8e3';
-                psU.style.color = unmatched > 0 ? '#d32f2f' : '#2a6a82';
-                const label = card.querySelector('div:first-child');
-                if (label) label.style.color = unmatched > 0 ? '#b71c1c' : '#2a6a82';
-            }
-        }
-        if (psR) psR.textContent = '$' + Math.round(rentTotal).toLocaleString();
-
-        // 顯示利潤表（如果之前隱藏）
-        const sumEl = document.getElementById('profit_summary');
-        if (sumEl) sumEl.style.display = 'flex';
-        const filterBar = document.getElementById('profit_filter_bar');
-        if (filterBar) filterBar.style.display = 'flex';
-
-        renderProfitTable();
-
-        // 同時更新 profit_calc_status 和 transit_match_result
-        const statusEl = document.getElementById('profit_calc_status');
-        const matchResultEl = document.getElementById('transit_match_result');
-        if (unmatched === 0) {
-            const msg = `<span style="color:#4a9a37;font-weight:700;">✅ 台帳匹配完成：${matched} 筆全部匹配</span>`;
-            if (statusEl) statusEl.innerHTML = msg;
-            if (matchResultEl) matchResultEl.innerHTML = msg;
-        } else {
-            const msg = `<span style="color:#d32f2f;font-weight:700;">⚠️ 匹配完成：${matched} 筆成功，<strong>${unmatched} 筆異常</strong>（表格紅字顯示，請人工確認）</span>`;
-            if (statusEl) statusEl.innerHTML = msg;
-            if (matchResultEl) matchResultEl.innerHTML = msg;
-            // 自動切到「只顯示未比對」讓用戶立刻看到異常列
-            const chk = document.getElementById('profit_show_unmatched');
-            if (chk) { chk.checked = true; renderProfitTable(); }
-        }
-
-    } catch(e) {
-        alert('匹配失敗：' + e.message);
-        console.error(e);
-    } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '📊 從台帳自動匹配'; }
-    }
-}
-window.matchProfitFromTransitSheet = matchProfitFromTransitSheet;
-
 function renderProfitTable() {
     const keyword     = (document.getElementById('profit_filter')?.value || '').toLowerCase().trim();
     const showUnmatched = document.getElementById('profit_show_unmatched')?.checked || false;
@@ -12491,61 +12418,25 @@ function renderProfitTable() {
 
     filteredWithIdx.forEach(({ r }, ri) => {
         const hasRent  = r.租金費用 !== '';
-        const hasException = r._匹配異常 && r._匹配異常 !== ''; // 檢查是否有匹配異常
-
-        let rowBg = hasRent ? (ri%2===0?'#fff':'#fafbfc') : (ri%2===0?'#fafafa':'#f5f5f5');
-        let dimColor = hasRent ? '' : 'color:#bbb;';
-
-        // 如果有異常，顯示為紅色警告背景
-        if (hasException) {
-            rowBg = ri%2===0 ? '#ffe6e6' : '#ffcccc';
-            dimColor = 'color:#d32f2f;font-weight:700;';
-        }
-
+        const rowBg    = hasRent ? (ri%2===0?'#fff':'#fafbfc') : (ri%2===0?'#fafafa':'#f5f5f5');
+        const dimColor = hasRent ? '' : 'color:#bbb;';
         html += `<tr style="background:${rowBg};">`;
         allCols.forEach(col => {
             const val = r[col] !== undefined && r[col] !== '' ? r[col] : '';
-
             if (col === '租金單價') {
                 const display = val !== '' ? parseFloat(val).toFixed(5) : '-';
-                let textColor = '#ccc';
-                if (hasException) {
-                    textColor = '#d32f2f'; // 異常：紅色
-                } else if (hasRent) {
-                    textColor = '#8a5aa0'; // 正常：紫色
-                }
-                html += `<td style="${tdBase}text-align:right;color:${textColor};font-weight:${hasException || hasRent?'700':'400'};">${display}</td>`;
+                html += `<td style="${tdBase}text-align:right;color:${hasRent?'#8a5aa0':'#ccc'};font-weight:${hasRent?'700':'400'};">${display}</td>`;
             } else if (col === '租金費用') {
                 const display = val !== '' ? Number(val).toLocaleString() : '-';
-                let textColor = '#ccc';
-                if (hasException) {
-                    textColor = '#d32f2f'; // 異常：紅色
-                } else if (hasRent) {
-                    textColor = '#c0507a'; // 正常：暗紅
-                }
-                html += `<td style="${tdBase}text-align:right;color:${textColor};font-weight:${hasException || hasRent?'800':'400'};">${display}</td>`;
+                html += `<td style="${tdBase}text-align:right;color:${hasRent?'#c0507a':'#ccc'};font-weight:${hasRent?'800':'400'};">${display}</td>`;
             } else if (col === '租金來源') {
-                if (hasException) {
-                    const badge = `<span style="background:#ffebee;color:#d32f2f;border:1.5px solid #d32f2f;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;">❌ 異常</span>`;
-                    html += `<td style="${tdBase}text-align:center;">${badge}</td>`;
-                } else {
-                    const sc = val === '加工成品' ? '#f7a35c' : val === '租金結果' ? '#8dcc7a' : val === '在途台帳' ? '#7ec8e3' : val === '台帳核銷' ? '#6878C0' : '';
-                    const badge = val && sc
-                        ? `<span style="background:${sc}20;color:${sc};border:1px solid ${sc};border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;">${val}</span>`
-                        : `<span style="color:#ccc;font-size:10px;">-</span>`;
-                    html += `<td style="${tdBase}text-align:center;">${badge}</td>`;
-                }
+                const sc = val === '加工成品' ? '#f7a35c' : val === '租金結果' ? '#8dcc7a' : val === '在途台帳' ? '#7ec8e3' : val === '台帳核銷' ? '#6878C0' : '';
+                const badge = val && sc
+                    ? `<span style="background:${sc}20;color:${sc};border:1px solid ${sc};border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700;">${val}</span>`
+                    : `<span style="color:#ccc;font-size:10px;">-</span>`;
+                html += `<td style="${tdBase}text-align:center;">${badge}</td>`;
             } else if (col === '來源備註') {
-                let displayText = val || '';
-                let textColor = '#64748b';
-
-                // 如果有異常，顯示異常原因
-                if (hasException) {
-                    displayText = r._匹配異常 || '未匹配';
-                    textColor = '#d32f2f';
-                }
-
-                html += `<td style="${tdBase}color:${textColor};font-size:0.78rem;font-weight:${hasException?'700':'400'};">${displayText}</td>`;
+                html += `<td style="${tdBase}color:#64748b;font-size:0.78rem;">${val || ''}</td>`;
             } else if (isNumericCol(col)) {
                 const n = parseFloat(String(val).replace(/,/g,''));
                 const display = !isNaN(n) ? n.toLocaleString() : (val || '');
