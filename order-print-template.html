@@ -906,6 +906,7 @@
       <div class="mode-tabs">
         <button class="mode-tab active" type="button" data-view-button="entry">資料輸入</button>
         <button class="mode-tab" type="button" data-view-button="saved">選取單號列印</button>
+        <button class="mode-tab" type="button" data-view-button="favorite">常用單據</button>
       </div>
 
       <div class="view" id="entryView">
@@ -1006,6 +1007,7 @@
           <thead>
             <tr>
               <th><input id="selectAllOrders" type="checkbox"></th>
+              <th>★</th>
               <th>#</th>
               <th>日期</th>
               <th>單號</th>
@@ -1209,6 +1211,7 @@
     const taxExtraInput = document.querySelector("[data-tax-extra]");
     let currentOrderId = generateOrderId();
     let savedOrders = [];
+    let currentListView = "saved";
     const selectedOrderIds = new Set();
     const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
 
@@ -1323,16 +1326,18 @@
       }
     }
 
-    async function supabaseLoadOrders(status = "unprinted") {
+    async function supabaseLoadOrders(status = "unprinted", favoriteOnly = false) {
       const statusQuery = status === "all" ? "" : `&printed=eq.${status === "printed" ? "true" : "false"}`;
-      const rows = await supabaseFetch(`orders?select=id,ship_date,customer,sales,total,printed&order=updated_at.desc${statusQuery}`);
+      const favoriteQuery = favoriteOnly ? "&favorite=eq.true" : "";
+      const rows = await supabaseFetch(`orders?select=id,ship_date,customer,sales,total,printed,favorite&order=updated_at.desc${statusQuery}${favoriteQuery}`);
       return rows.map((row) => ({
         id: row.id,
         date: row.ship_date || "",
         customer: row.customer || "",
         sales: row.sales || "",
         total: amountText(row.total),
-        printed: Boolean(row.printed)
+        printed: Boolean(row.printed),
+        favorite: Boolean(row.favorite)
       }));
     }
 
@@ -1373,6 +1378,13 @@
       await supabaseFetch(`orders?id=in.(${ids.map(encodeURIComponent).join(",")})`, {
         method: "PATCH",
         body: JSON.stringify({ printed: true, printed_at: new Date().toISOString() })
+      });
+    }
+
+    async function supabaseSetFavorite(orderId, favorite) {
+      await supabaseFetch(`orders?id=eq.${encodeURIComponent(orderId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ favorite })
       });
     }
 
@@ -1421,14 +1433,15 @@
     }
 
     function switchView(viewName) {
-      const isSaved = viewName === "saved";
-      entryView.hidden = isSaved;
-      savedView.hidden = !isSaved;
+      const isListView = viewName === "saved" || viewName === "favorite";
+      currentListView = isListView ? viewName : "saved";
+      entryView.hidden = isListView;
+      savedView.hidden = !isListView;
       previewWrap.hidden = true;
       document.querySelectorAll("[data-view-button]").forEach((button) => {
         button.classList.toggle("active", button.dataset.viewButton === viewName);
       });
-      if (isSaved) loadSavedOrders();
+      if (isListView) loadSavedOrders();
     }
 
     function uniqueValues(values) {
@@ -1599,8 +1612,10 @@
     async function loadSavedOrders() {
       if (!lookupApiUrl && !useSupabase) return;
       try {
-        const status = printStatusFilter.value || "unprinted";
-        savedOrders = useSupabase ? await supabaseLoadOrders(status) : (await (await fetch(`${lookupApiUrl}?action=orders`)).json()).orders || [];
+        const favoriteOnly = currentListView === "favorite";
+        const status = favoriteOnly ? "all" : (printStatusFilter.value || "unprinted");
+        savedOrders = useSupabase ? await supabaseLoadOrders(status, favoriteOnly) : (await (await fetch(`${lookupApiUrl}?action=orders`)).json()).orders || [];
+        if (!useSupabase && favoriteOnly) savedOrders = [];
         if (!useSupabase && status === "printed") savedOrders = [];
         const available = new Set(savedOrders.map((order) => String(order.id)));
         [...selectedOrderIds].forEach((id) => {
@@ -1635,6 +1650,7 @@
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td><input type="checkbox" data-order-id="${order.id}"></td>
+          <td><button class="mini-btn" type="button" data-action="favorite" data-order-id="${order.id}" aria-label="常用單據">${order.favorite ? "★" : "☆"}</button></td>
           <td>${index + 1}</td>
           <td>${formatOrderDate(order.date)}</td>
           <td>${order.id || ""}</td>
@@ -1658,6 +1674,7 @@
           updateSelectAllState();
           previewSelectedOrder();
         });
+        tr.querySelector('[data-action="favorite"]').addEventListener("click", () => toggleFavoriteOrder(order.id, !order.favorite));
         tr.addEventListener("dblclick", () => loadOrder(order.id));
         tr.querySelector('[data-action="edit"]').addEventListener("click", async () => {
           await loadOrder(order.id);
@@ -1674,7 +1691,7 @@
         printed: "\u5df2\u78ba\u8a8d\u5217\u5370\u55ae\u64da",
         all: "\u5168\u90e8\u55ae\u64da"
       };
-      savedOrderStatusText.textContent = statusTextMap[printStatusFilter.value] || statusTextMap.unprinted;
+      savedOrderStatusText.textContent = currentListView === "favorite" ? "常用單據" : (statusTextMap[printStatusFilter.value] || statusTextMap.unprinted);
       updateSelectAllState();
     }
 
@@ -1800,14 +1817,24 @@
       }
     }
 
-    async function confirmPrinted() {
-      const ids = selectedOrderIdList();
-      if (ids.length === 0) {
-        alert("\u8acb\u5148\u9078\u64c7\u55ae\u865f");
-        return;
+    async function toggleFavoriteOrder(orderId, favorite) {
+      if (!orderId) return;
+      try {
+        if (useSupabase) {
+          await supabaseSetFavorite(orderId, favorite);
+        } else {
+          alert("常用單據功能目前僅支援 Supabase 版本。");
+          return;
+        }
+        await loadSavedOrders();
+      } catch (error) {
+        console.warn("Order favorite could not be updated.", error);
+        alert("常用單據更新失敗，請確認 Supabase orders 有 favorite 欄位。");
       }
-      if (!confirm(`\u78ba\u5b9a\u8981\u5c07 ${ids.length} \u5f35\u55ae\u64da\u6a19\u8a18\u70ba\u5df2\u5217\u5370\uff1f\u6a19\u8a18\u5f8c\u5c07\u4e0d\u6703\u51fa\u73fe\u5728\u672a\u5217\u5370\u6e05\u55ae\u3002`)) return;
+    }
 
+    async function markOrdersPrinted(ids, showAlert = false) {
+      if (ids.length === 0) return;
       try {
         if (useSupabase) {
           await supabaseMarkPrinted(ids);
@@ -1821,11 +1848,21 @@
         }
       } catch (error) {
         console.warn("Order could not be marked printed.", error);
+        return;
       }
-
       selectedOrderIds.clear();
       await loadSavedOrders();
-      alert("\u5df2\u78ba\u8a8d\u5217\u5370");
+      if (showAlert) alert("\u5df2\u78ba\u8a8d\u5217\u5370");
+    }
+
+    async function confirmPrinted() {
+      const ids = selectedOrderIdList();
+      if (ids.length === 0) {
+        alert("\u8acb\u5148\u9078\u64c7\u55ae\u865f");
+        return;
+      }
+      if (!confirm(`\u78ba\u5b9a\u8981\u5c07 ${ids.length} \u5f35\u55ae\u64da\u6a19\u8a18\u70ba\u5df2\u5217\u5370\uff1f\u6a19\u8a18\u5f8c\u5c07\u4e0d\u6703\u51fa\u73fe\u5728\u672a\u5217\u5370\u6e05\u55ae\u3002`)) return;
+      await markOrdersPrinted(ids, true);
     }
 
     function openPrintConfirm() {
@@ -1875,8 +1912,9 @@
         document.body.classList.add("batch-printing");
       }
       window.print();
-      setTimeout(() => {
+      setTimeout(async () => {
         document.body.classList.remove("batch-printing");
+        await markOrdersPrinted(ids, false);
       }, 500);
     }
 
@@ -2084,6 +2122,9 @@
       if (validateBeforePrint()) {
         await saveOrder(false);
         window.print();
+        setTimeout(async () => {
+          await markOrdersPrinted([currentOrderId], false);
+        }, 500);
       }
     });
     document.getElementById("saveBtn").addEventListener("click", async (event) => {
