@@ -3908,20 +3908,51 @@ function removeTransferDiffRows(rows){
     groups[key].push(r);
   });
 
-  const transferKeys = new Set();
   const EPS = 0.0001;
-  Object.entries(groups).forEach(([key, group]) => {
+  const result = [];
+
+  Object.values(groups).forEach(group => {
     const totalDiff = group.reduce((sum, r) => sum + (parseFloat(r._diff) || 0), 0);
     const hasIncrease = group.some(r => (parseFloat(r._diff) || 0) > EPS);
     const hasDecrease = group.some(r => (parseFloat(r._diff) || 0) < -EPS);
     const warehouses = new Set(group.map(r => String(r['倉庫'] || '').trim()).filter(Boolean));
 
-    if(Math.abs(totalDiff) <= EPS && hasIncrease && hasDecrease && warehouses.size > 1){
-      transferKeys.add(key);
+    if(!hasIncrease || !hasDecrease || warehouses.size <= 1){
+      result.push(...group);
+      return;
     }
+
+    if(Math.abs(totalDiff) <= EPS){
+      return;
+    }
+
+    const keepPositive = totalDiff > 0;
+    let remaining = Math.abs(totalDiff);
+    const candidates = group
+      .filter(r => keepPositive ? (parseFloat(r._diff) || 0) > EPS : (parseFloat(r._diff) || 0) < -EPS)
+      .sort((a, b) => Math.abs(parseFloat(b._diff) || 0) - Math.abs(parseFloat(a._diff) || 0));
+
+    candidates.forEach(r => {
+      if(remaining <= EPS) return;
+      const rowDiff = Math.abs(parseFloat(r._diff) || 0);
+      const keptQty = Math.min(rowDiff, remaining);
+      const keptDiff = keepPositive ? keptQty : -keptQty;
+      const adjusted = { ...r };
+
+      adjusted._diff = keptDiff;
+      adjusted._qtyA = keepPositive ? keptQty : 0;
+      adjusted._qtyB = keepPositive ? 0 : keptQty;
+      adjusted._changeType = keepPositive ? 'new' : 'gone';
+      adjusted._costA = adjusted._unitPrice !== null ? adjusted._qtyA * adjusted._unitPrice : null;
+      adjusted._costB = adjusted._unitPrice !== null ? adjusted._qtyB * adjusted._unitPrice : null;
+      adjusted._costDiff = (adjusted._costA !== null && adjusted._costB !== null) ? adjusted._costA - adjusted._costB : null;
+
+      result.push(adjusted);
+      remaining -= keptQty;
+    });
   });
 
-  return rows.filter(r => !transferKeys.has(diffTransferKey(r)));
+  return result;
 }
 
 function runDiff(){
