@@ -1329,7 +1329,14 @@
     async function supabaseLoadOrders(status = "unprinted", favoriteOnly = false) {
       const statusQuery = status === "all" ? "" : `&printed=eq.${status === "printed" ? "true" : "false"}`;
       const favoriteQuery = favoriteOnly ? "&favorite=eq.true" : "";
-      const rows = await supabaseFetch(`orders?select=id,ship_date,customer,sales,total,printed,favorite&order=updated_at.desc${statusQuery}${favoriteQuery}`);
+      let rows;
+      try {
+        rows = await supabaseFetch(`orders?select=id,ship_date,customer,sales,total,printed,favorite&order=updated_at.desc${statusQuery}${favoriteQuery}`);
+      } catch (error) {
+        console.warn("Favorite column could not be loaded. Falling back to basic order list.", error);
+        if (favoriteOnly) return [];
+        rows = await supabaseFetch(`orders?select=id,ship_date,customer,sales,total,printed&order=updated_at.desc${statusQuery}`);
+      }
       return rows.map((row) => ({
         id: row.id,
         date: row.ship_date || "",
