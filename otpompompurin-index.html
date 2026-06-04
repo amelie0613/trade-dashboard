@@ -27,20 +27,23 @@
 }
 * {
   box-sizing:border-box;
-  font-family:'Microsoft JhengHei','Noto Sans TC','PingFang TC',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-family:'M PLUS Rounded 1c','Microsoft JhengHei','Noto Sans TC','PingFang TC',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
   letter-spacing:0;
   text-rendering:geometricPrecision;
   -webkit-font-smoothing:antialiased;
+  font-synthesis-weight:auto;
 }
 html { background:var(--cream); }
 body {
   min-height:100vh;
   background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='92' height='92' viewBox='0 0 92 92'%3E%3Cg fill='none' stroke='%237a4a25' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' opacity='.16'%3E%3Cellipse cx='35' cy='46' rx='17' ry='14' fill='%23ffe16a'/%3E%3Cellipse cx='21' cy='45' rx='7' ry='12' fill='%23ffe16a'/%3E%3Cellipse cx='49' cy='45' rx='7' ry='12' fill='%23ffe16a'/%3E%3Cpath d='M27 38h16' stroke='%233f2b21' stroke-width='7'/%3E%3Cpath d='M27 34h16' stroke='%233f2b21' stroke-width='5'/%3E%3Ccircle cx='30' cy='47' r='1.7' fill='%237a4a25' stroke='none'/%3E%3Ccircle cx='40' cy='47' r='1.7' fill='%237a4a25' stroke='none'/%3E%3Cpath d='M33 52q2 2 4 0'/%3E%3C/g%3E%3C/svg%3E") 4px 8px/92px 92px repeat,
     radial-gradient(circle at 18px 18px, rgba(122,74,37,.08) 0 2px, transparent 2.5px) 0 0/42px 42px,
     linear-gradient(180deg, #fff8d7 0%, var(--cream) 42%, #fffefa 100%);
   padding-bottom:82px;
   color:var(--cocoa);
   font-size:16px;
+  font-weight:700;
   line-height:1.45;
 }
 .topbar {
@@ -68,7 +71,7 @@ body {
   opacity:.16;
   pointer-events:none;
 }
-.topbar h6 { margin:0; color:var(--cocoa); font-weight:800; font-size:1.05rem; line-height:1.2; }
+.topbar h6 { margin:0; color:var(--cocoa); font-weight:800; font-size:1.12rem; line-height:1.2; }
 .btn-icon {
   width:40px;
   height:38px;
@@ -102,7 +105,7 @@ body {
   padding:10px 0 8px;
   color:#8b6a55;
   text-decoration:none;
-  font-size:.68rem;
+  font-size:.7rem;
   font-weight:800;
   gap:3px;
   cursor:pointer;
@@ -110,6 +113,8 @@ body {
 .bottom-nav a i { font-size:1.25rem; line-height:1; }
 .bottom-nav a.active { color:var(--orange); background:linear-gradient(180deg, rgba(255,225,106,.2), transparent); }
 .stat-card {
+  position:relative;
+  overflow:hidden;
   background:var(--milk);
   border:2px solid rgba(241,212,129,.95);
   border-radius:8px;
@@ -118,9 +123,34 @@ body {
   box-shadow:0 4px 0 rgba(122,74,37,.1);
   min-height:78px;
 }
-.stat-card .num { font-size:1.35rem; font-weight:800; line-height:1.1; color:var(--cocoa); }
-.stat-card .lbl { font-size:.72rem; color:#7d604e; font-weight:800; margin-top:4px; line-height:1.15; }
+.stat-card::after {
+  content:"";
+  position:absolute;
+  right:7px;
+  top:6px;
+  width:24px;
+  height:18px;
+  border:2px solid rgba(122,74,37,.22);
+  border-radius:50% 50% 45% 45%;
+  background:rgba(255,225,106,.45);
+  box-shadow:-12px 4px 0 -5px rgba(255,225,106,.55), 12px 4px 0 -5px rgba(255,225,106,.55);
+  pointer-events:none;
+}
+.stat-card::before {
+  content:"";
+  position:absolute;
+  right:15px;
+  top:8px;
+  width:8px;
+  height:3px;
+  border-radius:3px;
+  background:rgba(63,43,33,.35);
+  pointer-events:none;
+}
+.stat-card .num { font-size:1.42rem; font-weight:800; line-height:1.1; color:var(--cocoa); }
+.stat-card .lbl { font-size:.74rem; color:#7d604e; font-weight:800; margin-top:4px; line-height:1.15; }
 .search-bar, .form-block, .st-wrap {
+  position:relative;
   background:rgba(255,254,249,.98);
   border:2px solid rgba(241,212,129,.8);
   border-radius:8px;
@@ -129,22 +159,35 @@ body {
   box-shadow:0 4px 0 rgba(122,74,37,.08);
 }
 .form-block { padding:1.05rem; border-top:6px solid var(--pudding); }
+.form-block::after, .st-wrap::after {
+  content:"";
+  position:absolute;
+  right:10px;
+  top:8px;
+  width:30px;
+  height:20px;
+  border-radius:50% 50% 45% 45%;
+  border:2px solid rgba(122,74,37,.16);
+  background:rgba(255,225,106,.22);
+  opacity:.75;
+  pointer-events:none;
+}
 .form-block h6, .section-title {
-  font-size:.78rem;
+  font-size:.82rem;
   font-weight:800;
   color:var(--caramel);
   text-transform:uppercase;
   margin-bottom:.85rem;
 }
-.form-label { font-weight:800; font-size:.9rem; color:var(--cocoa); }
+.form-label { font-weight:800; font-size:.94rem; color:var(--cocoa); }
 .form-control, .form-select {
-  font-size:.96rem;
+  font-size:1rem;
   border-radius:8px;
   border:2px solid var(--line);
   min-height:44px;
   color:var(--cocoa);
   background-color:#fff;
-  font-weight:600;
+  font-weight:800;
 }
 .form-control::placeholder { color:#a8907e; opacity:1; }
 .form-control:focus, .form-select:focus { border-color:var(--orange); box-shadow:0 0 0 .18rem rgba(244,161,38,.2); }
@@ -165,11 +208,11 @@ body {
 .inv-card.zero { border-left-color:#B0BEC5; opacity:.76; }
 .inv-card.abnormal { border-left-color:var(--purple); background:#fff7ff; }
 .info { flex:1; min-width:0; }
-.pname, .rec-name { font-weight:800; font-size:1rem; color:var(--cocoa); overflow:hidden; text-overflow:ellipsis; }
+.pname, .rec-name { font-weight:800; font-size:1.04rem; color:var(--cocoa); overflow:hidden; text-overflow:ellipsis; }
 .pname { white-space:nowrap; }
-.spec, .rec-spec { font-size:.78rem; color:#806452; margin-top:2px; font-weight:700; }
+.spec, .rec-spec { font-size:.8rem; color:#806452; margin-top:2px; font-weight:800; }
 .numbers { display:flex; gap:.6rem; margin-top:.4rem; flex-wrap:wrap; }
-.itag, .rec-tag { font-size:.72rem; font-weight:800; border-radius:8px; padding:.2em .6em; }
+.itag, .rec-tag { font-size:.75rem; font-weight:800; border-radius:8px; padding:.22em .64em; }
 .itag-in, .badge-in { background:#eaf8ef; color:var(--green); }
 .itag-out, .badge-out { background:#fff0e8; color:#bf4c17; }
 .badge-borrow { background:#eaf4ff; color:var(--blue); }
@@ -194,10 +237,10 @@ body {
 .ef-chip { display:inline-flex; align-items:center; gap:.4rem; background:#fff4dc; border:2px solid var(--orange); border-radius:20px; padding:.35em .8em; font-size:.78rem; font-weight:800; color:#bf6f0d; }
 .ef-chip button { background:none; border:none; color:#806452; padding:0; line-height:1; }
 .sort-bar { display:flex; align-items:center; gap:.45rem; margin-bottom:.6rem; flex-wrap:wrap; }
-.sort-lbl { font-size:.72rem; font-weight:800; color:#806452; }
-.sort-btn { font-size:.74rem; font-weight:800; border:2px solid var(--line); background:#fff; color:#806452; border-radius:20px; padding:.3em .8em; cursor:pointer; }
+.sort-lbl { font-size:.76rem; font-weight:800; color:#806452; }
+.sort-btn { font-size:.78rem; font-weight:800; border:2px solid var(--line); background:#fff; color:#806452; border-radius:20px; padding:.32em .86em; cursor:pointer; }
 .sort-btn.active { background:var(--hat); border-color:var(--hat); color:#fff; }
-.btn-submit, .btn-delete { border-radius:8px; min-height:50px; font-size:1rem; font-weight:800; width:100%; }
+.btn-submit, .btn-delete { border-radius:8px; min-height:50px; font-size:1.05rem; font-weight:800; width:100%; }
 .btn-submit { background:var(--orange); border:2px solid #d98717; color:#fff; box-shadow:0 4px 0 rgba(122,74,37,.18); }
 .btn-submit:disabled { background:#9b8170; border-color:#9b8170; }
 .btn-delete { background:#fff; border:2px solid var(--red); color:var(--red); }
@@ -213,15 +256,19 @@ body {
 .st-person-banner .sub, .st-time-bar { font-size:.76rem; color:#806452; font-weight:800; }
 .st-time-bar { background:#fff; border:2px solid rgba(241,212,129,.8); border-radius:8px; padding:.55rem .9rem; margin-bottom:.85rem; display:flex; align-items:center; gap:.4rem; box-shadow:0 3px 0 rgba(122,74,37,.08); }
 .st-table, .sth-table { width:100%; border-collapse:collapse; }
-.st-table th, .sth-table th { background:var(--custard); padding:.6rem .75rem; font-size:.76rem; font-weight:800; color:var(--caramel); text-align:right; }
+.st-table th, .sth-table th { background:var(--custard); padding:.6rem .75rem; font-size:.8rem; font-weight:800; color:var(--caramel); text-align:right; }
 .st-table th:first-child, .sth-table th:first-child { text-align:left; }
-.st-table td, .sth-table td { padding:.7rem .75rem; font-size:.94rem; color:var(--cocoa); border-top:1px solid var(--line); text-align:right; font-weight:700; }
+.st-table td, .sth-table td { padding:.7rem .75rem; font-size:.98rem; color:var(--cocoa); border-top:1px solid var(--line); text-align:right; font-weight:800; }
 .st-table td:first-child, .sth-table td:first-child { text-align:left; }
 .st-prev, .sth-zero { color:#90A4AE!important; font-weight:400!important; }
 .st-diff-up { color:var(--green); font-weight:800; }
 .st-diff-dn { color:#C62828; font-weight:800; }
 .st-edit-input { width:72px; padding:2px 5px; border:2px solid var(--orange); border-radius:6px; font-size:.9rem; text-align:right; outline:none; }
 .st-edit-btn { border:none; background:none; font-size:.95rem; cursor:pointer; padding:1px 3px; color:#806452; }
+.load-state { color:#806452; font-weight:800; }
+.load-state .spinner-border { width:1.15rem; height:1.15rem; border-width:.18em; color:var(--orange); }
+.load-state .hint { display:block; margin-top:.4rem; color:#a28269; font-size:.82rem; font-weight:700; }
+.retry-btn { margin-top:.7rem; border:2px solid var(--orange); background:#fff; color:#bf6f0d; border-radius:8px; padding:.42rem .9rem; font-weight:800; }
 @media (min-width:700px) { .container-fluid { max-width:760px; } }
 </style>
 </head>
@@ -359,6 +406,12 @@ let sortKey = 'date';
 let sortAsc = false;
 let acIndex = -1;
 let acVendorIndex = -1;
+let inventoryLoadSeq = 0;
+let recordsLoadSeq = 0;
+let stocktakeLoadSeq = 0;
+const LOAD_TIMEOUT_MS = 12000;
+const SLOW_LOADING_MS = 3500;
+const loadingTimers = {};
 
 function text(v) {
   return String(v ?? '');
@@ -372,12 +425,47 @@ function jsStr(v) {
   return JSON.stringify(text(v));
 }
 
-async function fetchJson(url = SCRIPT_URL) {
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (!Array.isArray(data)) throw new Error('回傳資料不是陣列，請檢查 Apps Script 部署');
-  return data;
+function loadingHtml(message = '載入中...', hint = '') {
+  return `<div class="load-state text-center py-5"><div class="spinner-border" role="status" aria-hidden="true"></div><div class="mt-2">${esc(message)}</div>${hint ? `<span class="hint">${esc(hint)}</span>` : ''}</div>`;
+}
+
+function errorHtml(message, retryFn) {
+  return `<div class="text-center py-4 text-danger" style="font-weight:800">載入失敗：${esc(message)}<br><button type="button" class="retry-btn" onclick="${retryFn}()"><i class="bi bi-arrow-clockwise"></i> 重試</button></div>`;
+}
+
+function showLoading(targetId, message = '載入中...') {
+  clearTimeout(loadingTimers[targetId]);
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  el.innerHTML = loadingHtml(message);
+  loadingTimers[targetId] = setTimeout(() => {
+    const current = document.getElementById(targetId);
+    if (current) current.innerHTML = loadingHtml('資料來源較慢，仍在嘗試連線...', '如果太久沒有回應，會自動顯示重試按鈕');
+  }, SLOW_LOADING_MS);
+}
+
+function clearLoading(targetId) {
+  clearTimeout(loadingTimers[targetId]);
+  delete loadingTimers[targetId];
+}
+
+async function fetchJson(url = SCRIPT_URL, { timeoutMs = LOAD_TIMEOUT_MS } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const bustUrl = url + (url.includes('?') ? '&' : '?') + '_=' + Date.now();
+  try {
+    const res = await fetch(bustUrl, { cache: 'no-store', signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('回傳資料不是陣列，請檢查 Apps Script 部署');
+    return data;
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('連線逾時，請確認網路或 Apps Script 是否正常');
+    if (err instanceof TypeError) throw new Error('無法連線到資料來源，請確認 Apps Script 網址與權限');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function navigate(page) {
@@ -398,14 +486,19 @@ async function ensureRowsForAC() {
 }
 
 async function loadInventory() {
-  document.getElementById('inv-list').innerHTML = '<div class="text-center py-5" style="color:#8D6E63">載入中...</div>';
+  const seq = ++inventoryLoadSeq;
+  showLoading('inv-list');
   try {
     const rows = await fetchJson();
+    if (seq !== inventoryLoadSeq) return;
     allRows = rows;
     allInventory = calcInventory(rows);
     renderInventory(allInventory);
   } catch (err) {
-    document.getElementById('inv-list').innerHTML = `<div class="text-center py-4 text-danger">載入失敗：${esc(err.message)}</div>`;
+    if (seq !== inventoryLoadSeq) return;
+    document.getElementById('inv-list').innerHTML = errorHtml(err.message, 'loadInventory');
+  } finally {
+    if (seq === inventoryLoadSeq) clearLoading('inv-list');
   }
 }
 
@@ -685,12 +778,17 @@ async function submitForm(e) {
 }
 
 async function loadRecords() {
-  document.getElementById('rec-list').innerHTML = '<div class="text-center py-5" style="color:#8D6E63">載入中...</div>';
+  const seq = ++recordsLoadSeq;
+  showLoading('rec-list');
   try {
     allRows = await fetchJson();
+    if (seq !== recordsLoadSeq) return;
     filterRecords();
   } catch (err) {
-    document.getElementById('rec-list').innerHTML = `<div class="text-center py-4 text-danger">載入失敗：${esc(err.message)}</div>`;
+    if (seq !== recordsLoadSeq) return;
+    document.getElementById('rec-list').innerHTML = errorHtml(err.message, 'loadRecords');
+  } finally {
+    if (seq === recordsLoadSeq) clearLoading('rec-list');
   }
 }
 
@@ -897,10 +995,12 @@ function stFmtTs(raw) {
 }
 
 async function loadStocktake() {
-  document.getElementById('st-products').innerHTML = '<div class="text-center py-5" style="color:#8D6E63">載入中...</div>';
+  const seq = ++stocktakeLoadSeq;
+  showLoading('st-products');
   document.getElementById('st-info').innerHTML = '';
   try {
     const all = await fetchJson(SCRIPT_URL + '?action=stocktake-history');
+    if (seq !== stocktakeLoadSeq) return;
     if (all.length && '_row' in all[0]) {
       document.getElementById('st-products').innerHTML = '<div class="text-center py-4 text-danger">Apps Script 尚未回傳盤點資料，請確認 GAS 已重新部署。</div>';
       return;
@@ -930,7 +1030,10 @@ async function loadStocktake() {
     }).join('');
     document.getElementById('st-products').innerHTML = `<div class="section-title">最新盤點數量</div><div class="st-wrap"><table class="st-table"><thead><tr><th>品項</th><th>上期</th><th>本期</th><th>差異</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   } catch (err) {
-    document.getElementById('st-products').innerHTML = `<div class="text-center py-4 text-danger">載入失敗：${esc(err.message)}</div>`;
+    if (seq !== stocktakeLoadSeq) return;
+    document.getElementById('st-products').innerHTML = errorHtml(err.message, 'loadStocktake');
+  } finally {
+    if (seq === stocktakeLoadSeq) clearLoading('st-products');
   }
 }
 
