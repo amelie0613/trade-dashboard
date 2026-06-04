@@ -82,7 +82,7 @@
 
     .mode-tabs {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
       margin: 0 0 12px;
     }
@@ -187,10 +187,19 @@
     .list-footer {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       gap: 10px;
       margin-top: 10px;
       color: var(--muted);
       font-size: 14px;
+    }
+
+    .pager {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .modal-backdrop {
@@ -1023,6 +1032,11 @@
         <div class="list-footer">
           <span id="savedOrderSummary">顯示 0 項結果</span>
           <span id="savedOrderStatusText">未列印單據</span>
+          <div class="pager">
+            <button type="button" id="prevPageBtn">上一頁</button>
+            <span id="savedOrderPageText">第 1 / 1 頁</span>
+            <button type="button" id="nextPageBtn">下一頁</button>
+          </div>
         </div>
         <div class="actions" style="margin-top: 14px;">
           <label style="display:flex;align-items:center;gap:8px;">
@@ -1200,6 +1214,9 @@
     const printStatusFilter = document.getElementById("printStatusFilter");
     const printTemplateSelect = document.getElementById("printTemplateSelect");
     const selectAllOrders = document.getElementById("selectAllOrders");
+    const prevPageBtn = document.getElementById("prevPageBtn");
+    const nextPageBtn = document.getElementById("nextPageBtn");
+    const savedOrderPageText = document.getElementById("savedOrderPageText");
     const printConfirmModal = document.getElementById("printConfirmModal");
     const printConfirmText = document.getElementById("printConfirmText");
     const savedOrderStatusText = document.getElementById("savedOrderStatusText");
@@ -1212,6 +1229,7 @@
     let currentOrderId = generateOrderId();
     let savedOrders = [];
     let currentListView = "saved";
+    let currentSavedPage = 1;
     const selectedOrderIds = new Set();
     const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
 
@@ -1643,22 +1661,35 @@
 
     function filteredOrders() {
       const term = orderSearchInput.value.trim().toLowerCase();
-      const rows = term
+      return term
         ? savedOrders.filter((order) => [order.id, order.date, order.customer, order.sales]
           .some((value) => String(value || "").toLowerCase().includes(term)))
         : savedOrders;
-      return rows.slice(0, Number(pageSizeSelect.value || 25));
+    }
+
+    function pagedOrders() {
+      const rows = filteredOrders();
+      const pageSize = Number(pageSizeSelect.value || 25);
+      const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+      currentSavedPage = Math.min(Math.max(currentSavedPage, 1), totalPages);
+      const start = (currentSavedPage - 1) * pageSize;
+      return {
+        rows: rows.slice(start, start + pageSize),
+        totalRows: rows.length,
+        totalPages,
+        start
+      };
     }
 
     function renderSavedOrderTable() {
-      const rows = filteredOrders();
+      const { rows, totalRows, totalPages, start } = pagedOrders();
       savedOrderTable.innerHTML = "";
       rows.forEach((order, index) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td><input type="checkbox" data-order-id="${order.id}"></td>
           <td><button class="mini-btn" type="button" data-action="favorite" data-order-id="${order.id}" aria-label="常用單據">${order.favorite ? "★" : "☆"}</button></td>
-          <td>${index + 1}</td>
+          <td>${start + index + 1}</td>
           <td>${formatOrderDate(order.date)}</td>
           <td>${order.id || ""}</td>
           <td class="left">${order.customer || ""}</td>
@@ -1692,7 +1723,10 @@
         tr.querySelector('[data-action="delete"]').addEventListener("click", () => deleteSavedOrder(order.id));
         savedOrderTable.appendChild(tr);
       });
-      savedOrderSummary.textContent = `\u986f\u793a ${rows.length} \u9805\u7d50\u679c\uff0c\u5171 ${savedOrders.length} \u9805`;
+      savedOrderSummary.textContent = `\u986f\u793a ${totalRows === 0 ? 0 : start + 1} \u81f3 ${start + rows.length} \u9805\u7d50\u679c\uff0c\u5171 ${totalRows} \u9805`;
+      savedOrderPageText.textContent = `\u7b2c ${currentSavedPage} / ${totalPages} \u9801`;
+      prevPageBtn.disabled = currentSavedPage <= 1;
+      nextPageBtn.disabled = currentSavedPage >= totalPages;
       const statusTextMap = {
         unprinted: "\u26410\u5217\u5370\u55ae\u64da",
         printed: "\u5df2\u78ba\u8a8d\u5217\u5370\u55ae\u64da",
@@ -2162,21 +2196,38 @@
     });
     document.getElementById("confirmBatchPrintBtn").addEventListener("click", printSelectedOrders);
     document.getElementById("cancelBatchPrintBtn").addEventListener("click", closePrintConfirm);
-    orderSearchInput.addEventListener("input", renderSavedOrderTable);
-    pageSizeSelect.addEventListener("change", renderSavedOrderTable);
+    orderSearchInput.addEventListener("input", () => {
+      currentSavedPage = 1;
+      renderSavedOrderTable();
+    });
+    pageSizeSelect.addEventListener("change", () => {
+      currentSavedPage = 1;
+      renderSavedOrderTable();
+    });
+    prevPageBtn.addEventListener("click", () => {
+      currentSavedPage -= 1;
+      renderSavedOrderTable();
+      previewSelectedOrder();
+    });
+    nextPageBtn.addEventListener("click", () => {
+      currentSavedPage += 1;
+      renderSavedOrderTable();
+      previewSelectedOrder();
+    });
     printTemplateSelect.addEventListener("change", async () => {
       await previewSelectedOrder();
       render();
     });
     printStatusFilter.addEventListener("change", async () => {
       selectedOrderIds.clear();
+      currentSavedPage = 1;
       previewWrap.hidden = true;
       batchPrintWrap.hidden = true;
       batchPrintWrap.innerHTML = "";
       await loadSavedOrders();
     });
     selectAllOrders.addEventListener("change", () => {
-      filteredOrders().forEach((order) => {
+      pagedOrders().rows.forEach((order) => {
         if (selectAllOrders.checked) selectedOrderIds.add(String(order.id));
         else selectedOrderIds.delete(String(order.id));
       });
@@ -2184,7 +2235,10 @@
       previewSelectedOrder();
     });
     document.querySelectorAll("[data-view-button]").forEach((button) => {
-      button.addEventListener("click", () => switchView(button.dataset.viewButton));
+      button.addEventListener("click", () => {
+        currentSavedPage = 1;
+        switchView(button.dataset.viewButton);
+      });
     });
     render();
   </script>
