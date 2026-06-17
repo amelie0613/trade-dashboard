@@ -5929,7 +5929,7 @@ window.doUploadLedger = async function() {
     statusEl.innerHTML = '<span style="color:#2a6a82;">⏳ 讀取中...</span>';
 
     try {
-        const raw = await readExcel(file, false);
+        const raw = await readLedgerExcel(file);
         const rows = raw.map(r => ({
             產品類別: String(r['產品類別']||''),
             產品代碼: String(r['產品代碼']||'').padStart(4,'0'),
@@ -7209,6 +7209,47 @@ function readExcel(file, isIOTable = false) {
                     const json = window.XLSX.utils.sheet_to_json(ws);
                     resolve(json);
                 }
+            } catch (err) {
+                reject(err);
+            }
+        };
+        reader.onerror = () => reject(new Error('檔案讀取失敗'));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+function readLedgerExcel(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const wb = window.XLSX.read(e.target.result, { type: 'array' });
+                const required = ['產品名稱', '批號'];
+                const balanceCandidates = ['本期結存', '總檔結存'];
+                const rentCandidates = ['月租金結餘', '月租金(結餘)', '總檔租金結餘'];
+
+                for (const sheetName of wb.SheetNames) {
+                    const ws = wb.Sheets[sheetName];
+                    const json = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
+                    if (!json.length) continue;
+
+                    const headers = Object.keys(json[0] || {});
+                    const hasRequired = required.every(col => headers.includes(col));
+                    const hasBalance = balanceCandidates.some(col => headers.includes(col));
+                    const hasRent = rentCandidates.some(col => headers.includes(col));
+                    const detailRows = json.filter(r =>
+                        String(r['產品名稱'] || '').trim() &&
+                        String(r['批號'] || '').trim()
+                    );
+
+                    if (hasRequired && hasBalance && hasRent && detailRows.length > 0) {
+                        console.log(`✅ 總帳匯入使用工作表：${sheetName}（${detailRows.length} 筆明細）`);
+                        resolve(json);
+                        return;
+                    }
+                }
+
+                reject(new Error('找不到總帳明細工作表，需包含「產品名稱、批號、本期結存/總檔結存、月租金結餘/總檔租金結餘」欄位'));
             } catch (err) {
                 reject(err);
             }
@@ -13741,6 +13782,7 @@ async function _pgCalcFile(file) {
     }
 
     // 4. 查詢 Supabase（每個唯一母件只查一次）
+    // 優先查原始出庫記錄；若換月後 outbound_records 已清空，改從加工原料台帳取單價。
     status.textContent = `查詢租金資料中（${motherMap.size} 種母件）…`;
     let totalOk = 0, totalMiss = 0;
 
@@ -13758,7 +13800,22 @@ async function _pgCalcFile(file) {
         m.found = true;
         totalOk++;
       } else {
-        totalMiss++;
+        const ledgerUrl = `${SUPABASE_URL}/rest/v1/processing_materials_ledger`
+          + `?product_name=eq.${encodeURIComponent(m.motherName)}`
+          + `&batch_no=eq.${encodeURIComponent(m.motherBatch)}`
+          + `&unit_price=gt.0`
+          + `&remaining_qty=gt.0`
+          + `&select=unit_price,remaining_qty`
+          + `&order=outbound_date.asc,id.asc&limit=1`;
+        const ledgerResp = await fetch(ledgerUrl, { headers: getSBHeaders() });
+        const ledgerData = await ledgerResp.json();
+        if (ledgerData.length > 0 && ledgerData[0].unit_price != null) {
+          m.allocated_price = ledgerData[0].unit_price;
+          m.found = true;
+          totalOk++;
+        } else {
+          totalMiss++;
+        }
       }
     }
 
