@@ -12211,10 +12211,11 @@ async function calcProfit() {
                     };
                     reader.readAsArrayBuffer(procFile);
                 });
-                // Col index（0-based）：母件名稱=3, 母件批號=4, 母件數量=5, 子件名稱=8, 子件批號=9, 子件數量=10
-                // 先按「單據+子件批號」去重，確保同一單據同一子件只計算一次子件數量
-                const childSummary = {}; // 子件批號 -> { totalCost, totalQty, counted: Set<單據+母件批號> }
+                // Col index（0-based）：單據編號=0, 母件名稱=3, 母件批號=4, 母件數量=5, 子件名稱=8, 子件批號=9, 子件數量=10
+                // 同母件批號可能出現在不同加工單，成本去重 key 需包含單據與數量。
+                const childSummary = {}; // 子件批號 -> { totalCost, totalQty, counted: Set<加工單明細> }
                 procRaw.slice(1).forEach(row => {
+                    const orderNo     = String(row[0]||'').trim();
                     const motherName  = String(row[3]||'').trim();
                     const motherBatch = String(row[4]||'').trim();
                     const motherQty   = parseFloat(String(row[5]||'').replace(/,/g,'')) || 0;
@@ -12226,7 +12227,7 @@ async function calcProfit() {
 
                     // 母件租金成本：每一行都累加（不同母件批號各自計算）
                     const motherPrice = rentalPriceMap[`${motherName}|${motherBatch}`] || 0;
-                    const costKey = `${motherName}|${motherBatch}`;
+                    const costKey = `${orderNo}|${motherName}|${motherBatch}|${motherQty}|${childBatch}|${childQty}`;
                     if (!childSummary[childBatch].counted.has(costKey)) {
                         childSummary[childBatch].totalCost += motherPrice * motherQty;
                         childSummary[childBatch].counted.add(costKey);
@@ -13740,6 +13741,7 @@ async function _pgCalcFile(file) {
     const orderLines = [];
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
+      const orderNo     = String(r[0]  || '').trim();
       const motherName  = String(r[3]  || '').trim();
       const motherBatch = String(r[4]  || '').trim();
       const motherQty   = parseFloat(String(r[5]  || '0').replace(/,/g, '')) || 0;
@@ -13747,7 +13749,7 @@ async function _pgCalcFile(file) {
       const childBatch  = String(r[9]  || '').trim();
       const childQty    = parseFloat(String(r[10] || '0').replace(/,/g, '')) || 0;
       if (motherName && motherBatch && childBatch) {
-        orderLines.push({ motherName, motherBatch, motherQty, childName, childBatch, childQty });
+        orderLines.push({ orderNo, motherName, motherBatch, motherQty, childName, childBatch, childQty });
       }
     }
 
@@ -13757,12 +13759,13 @@ async function _pgCalcFile(file) {
     }
 
     // 3. 收集唯一母件（去重），建立 母件→子件 對應關係
-    // 同一母件批號可能對應多個子件（需按比例分攤）
-    const motherMap = new Map(); // key: "名稱|批號"
+    // 同一母件批號可能出現在不同加工單，必須用單據編號分開計算。
+    const motherMap = new Map(); // key: "單據|名稱|批號|母件數量"
     for (const line of orderLines) {
-      const key = `${line.motherName}|${line.motherBatch}`;
+      const key = `${line.orderNo}|${line.motherName}|${line.motherBatch}|${line.motherQty}`;
       if (!motherMap.has(key)) {
         motherMap.set(key, {
+          orderNo:     line.orderNo,
           motherName:  line.motherName,
           motherBatch: line.motherBatch,
           motherQty:   line.motherQty,
