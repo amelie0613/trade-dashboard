@@ -3972,9 +3972,9 @@ function runDiff(){
   });
 
   // 篩選器
-  const transferRemovedCount = diffResults.length;
-  diffResults = removeTransferDiffRows(diffResults);
-  window._lastTransferRemovedCount = transferRemovedCount - diffResults.length;
+  // Keep transfer rows in diffResults so current/previous cost totals reconcile
+  // with the full inventory reports. Hiding them here makes exported totals short.
+  window._lastTransferRemovedCount = 0;
 
   const whs = [...new Set(diffResults.map(r=>r.倉庫).filter(Boolean))].sort();
   const cats = [...new Set(diffResults.map(r=>r.產品類別).filter(Boolean))].sort();
