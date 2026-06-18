@@ -11679,11 +11679,9 @@ async function supabaseBackupPrices() {
 async function supabaseLoadPrices() {
     try {
         sbPriceStatus('⏳ 載入中…');
-        const resp = await fetch(`${SUPABASE_URL}/rest/v1/prices_table?select=*&order=product_name.asc`, {
-            headers: SB_HEADERS,
-        });
-        if (!resp.ok) throw new Error(await resp.text());
-        const rows = await resp.json();
+        const rows = await supabaseFetchAllRows(
+            `${SUPABASE_URL}/rest/v1/prices_table?select=*&order=product_name.asc`
+        );
 
         let count = 0;
         rows.forEach(r => {
@@ -11775,11 +11773,9 @@ async function supabaseBackupWeightTable() {
 async function supabaseLoadWeightTable() {
     try {
         sbWeightStatus('⏳ 載入中…');
-        const resp = await fetch(`${SUPABASE_URL}/rest/v1/weight_table?select=*&order=product_name.asc`, {
-            headers: SB_HEADERS,
-        });
-        if (!resp.ok) throw new Error(await resp.text());
-        const rows = await resp.json();
+        const rows = await supabaseFetchAllRows(
+            `${SUPABASE_URL}/rest/v1/weight_table?select=*&order=product_name.asc`
+        );
 
         // 還原成與 cachedWeightData 相同的格式：用目前設定的欄位名
         // 確保 calculateRental 中 w[col_product3] / w[col_weight] 能正常取值
@@ -11815,6 +11811,21 @@ function sbPriceStatus(msg, color = 'var(--muted)') {
         const el = document.getElementById(id);
         if (el) { el.textContent = msg; el.style.color = color; }
     });
+}
+
+async function supabaseFetchAllRows(url, headers = SB_HEADERS, pageSize = 1000) {
+    const allRows = [];
+    for (let from = 0; ; from += pageSize) {
+        const to = from + pageSize - 1;
+        const resp = await fetch(url, {
+            headers: { ...headers, Range: `${from}-${to}` },
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const rows = await resp.json();
+        allRows.push(...rows);
+        if (rows.length < pageSize) break;
+    }
+    return allRows;
 }
 
 // ── 單價管理頁面：渲染表格 ─────────────────────────────────────
