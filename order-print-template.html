@@ -693,6 +693,24 @@
       display: none;
     }
 
+    .template-product .company-title,
+    .template-product .doc-title,
+    .template-product .company-info,
+    .template-product .meta-grid,
+    .template-product .print-table td,
+    .template-product .print-table th,
+    .template-product .top-row td,
+    .template-product .head-row th,
+    .template-product .item-print-row td,
+    .template-product .footer td,
+    .template-product .inspection-table,
+    .template-product .inspection-table .inspection-note,
+    .template-product .side-copy,
+    .template-product .signature-line,
+    .template-product .signature-note-row {
+      font-size: 13pt;
+    }
+
     .inspection-table {
       display: none;
       width: 100%;
@@ -2012,10 +2030,11 @@
     }
 
     function fitPrintText() {
+      const maxPt = selectedPrintTemplate() === "product" ? 13 : 15;
       document.querySelectorAll('[data-print-item][data-prop="name"]').forEach((cell) => {
-        fitTextToCell(cell, 15, 7);
+        fitTextToCell(cell, maxPt, 7);
       });
-      fitTextToCell(document.querySelector('[data-out="note"]'), 15, 7);
+      fitTextToCell(document.querySelector('[data-out="note"]'), maxPt, 7);
     }
 
     function selectedPrintTemplate() {
