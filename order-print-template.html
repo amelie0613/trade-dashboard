@@ -723,6 +723,19 @@
 
     .template-product .inspection-table {
       display: table;
+      line-height: 1;
+    }
+
+    .template-product .inspection-table td,
+    .template-product .inspection-table th {
+      height: 5mm;
+      padding: 0.15mm 0.45mm;
+      line-height: 1;
+      overflow: hidden;
+    }
+
+    .template-product .inspection-table tr:last-child td {
+      height: 10mm;
     }
 
     .inspection-table td,
@@ -738,9 +751,9 @@
 
     .inspection-table .inspection-note {
       font-size: 10pt;
-      line-height: 1.2;
+      line-height: 1.05;
       text-align: left !important;
-      padding-left: 1.2mm !important;
+      padding-left: 0.8mm !important;
     }
 
     .side-copy {
@@ -800,6 +813,11 @@
 
     .page.template-product .signature-line {
       grid-template-rows: auto auto;
+      padding-top: 0.4mm;
+    }
+
+    .page.template-product .signature-note-row {
+      padding-bottom: 0;
     }
 
     .page.template-product .signature-inner {
