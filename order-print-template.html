@@ -2035,6 +2035,9 @@
         fitTextToCell(cell, maxPt, 7);
       });
       fitTextToCell(document.querySelector('[data-out="note"]'), maxPt, 7);
+      if (selectedPrintTemplate() === "product") {
+        fitTextToCell(document.querySelector(".inspection-note"), 13, 7);
+      }
     }
 
     function selectedPrintTemplate() {
