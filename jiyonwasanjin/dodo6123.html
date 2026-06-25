@@ -4972,7 +4972,10 @@ async function writeToSheets(){
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(payload),
       });
-      const result = await resp.text();
+      let result = await resp.text();
+      if (/unknown GET action/i.test(result)) {
+        result = 'Apps Script 版本過舊或網址指到舊部署，請按「複製 Apps Script 程式碼」貼上後重新部署 Web App';
+      }
       if(result.includes('success')){ totalRows += dataRows.length; }
       else { errors.push(`「${sheetName}」回應異常：` + result.slice(0,60)); }
     } catch(err){
@@ -5151,7 +5154,11 @@ async function uploadRawData(){
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload),
     });
-    return resp.text();
+    const text = await resp.text();
+    if (/unknown GET action/i.test(text)) {
+      return 'Apps Script 版本過舊或網址指到舊部署，請按「複製 Apps Script 程式碼」貼上後重新部署 Web App';
+    }
+    return text;
   };
 
   const errors = [];
@@ -5222,103 +5229,116 @@ async function uploadRawData(){
   }
 }
 
-const APPS_SCRIPT_CODE = [
-  'function doGet(e) {',
-  '  if (e.parameter && e.parameter.action === "read") { return readSheetData(e); }',
-  '  return handleRequest(e);',
-  '}',
-  'function doPost(e) { return handleRequest(e); }',
-  '',
-  '// --- READ: return sheet data ---',
-  'function readSheetData(e) {',
-  '  try {',
-  '    var sheetId   = (e.parameter && e.parameter.sheetId)   || "";',
-  '    var sheetName = (e.parameter && e.parameter.sheetName) || "全部庫存";',
-  '    var ss = sheetId ? SpreadsheetApp.openById(sheetId) : SpreadsheetApp.getActiveSpreadsheet();',
-  '    var sheet = ss.getSheetByName(sheetName);',
-  '    if (!sheet) {',
-  '      return ContentService.createTextOutput(JSON.stringify({error:"找不到工作表: " + sheetName}))',
-  '        .setMimeType(ContentService.MimeType.JSON);',
-  '    }',
-  '    var data = sheet.getDataRange().getValues();',
-  '    if (data.length < 2) {',
-  '      return ContentService.createTextOutput(JSON.stringify({success:true, rows:[]}))',
-  '        .setMimeType(ContentService.MimeType.JSON);',
-  '    }',
-  '    var headers = data[0].map(String);',
-  '    var rows = [];',
-  '    for (var i = 1; i < data.length; i++) {',
-  '      var row = data[i];',
-  '      var empty = row.every(function(c){ return c === "" || c === null || c === undefined; });',
-  '      if (empty) continue;',
-  '      var obj = {};',
-  '      headers.forEach(function(h, j){ obj[h] = row[j] === null ? "" : String(row[j]); });',
-  '      rows.push(obj);',
-  '    }',
-  '    return ContentService.createTextOutput(JSON.stringify({success:true, rows:rows}))',
-  '      .setMimeType(ContentService.MimeType.JSON);',
-  '  } catch(err) {',
-  '    return ContentService.createTextOutput(JSON.stringify({error: err.message}))',
-  '      .setMimeType(ContentService.MimeType.JSON);',
-  '  }',
-  '}',
-  '',
-  '// --- WRITE ---',
-  'function handleRequest(e) {',
-  '  try {',
-  '    var raw = "";',
-  '    // Priority 1: raw JSON body (Content-Type: text/plain)',
-  '    if (e.postData && e.postData.contents) {',
-  '      var body = e.postData.contents.trim();',
-  '      if (body.charAt(0) === "{") {',
-  '        raw = body;',
-  '      } else {',
-  '        // URL-encoded fallback: payload=... or data=...',
-  '        var match = body.match(/(?:payload|data)=(.+)/);',
-  '        if (match) raw = decodeURIComponent(match[1].replace(/\\+/g, " "));',
-  '      }',
-  '    }',
-  '    // Priority 2: query / form parameter',
-  '    if (!raw && e.parameter) {',
-  '      raw = e.parameter.payload || e.parameter.data || "";',
-  '    }',
-  '    if (!raw) return ContentService.createTextOutput("error: no data");',
-  '    var data = JSON.parse(raw);',
-  '    var ss = data.sheetId ? SpreadsheetApp.openById(data.sheetId) : SpreadsheetApp.getActiveSpreadsheet();',
-  '    var sheetName = data.sheetName || "庫存分析結果";',
-  '    var sheet = ss.getSheetByName(sheetName);',
-  '    if (!sheet) sheet = ss.insertSheet(sheetName);',
-  '    sheet.clearContents();',
-  '    var allRows = [data.headers].concat(data.rows);',
-  '    if (allRows.length > 0) {',
-  '      sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);',
-  '    }',
-  '    var headerColor = data.headerColor || "#6878C0";',
-  '    var headerRange = sheet.getRange(1, 1, 1, data.headers.length);',
-  '    headerRange.setBackground(headerColor);',
-  '    headerRange.setFontColor("#FFFFFF");',
-  '    headerRange.setFontWeight("bold");',
-  '    sheet.setFrozenRows(1);',
-  '    sheet.autoResizeColumns(1, data.headers.length);',
-  '    if (data.sendEmail && data.emailTo) {',
-  '      var emails = data.emailTo.split(",").map(function(addr){ return addr.trim(); });',
-  '      var subject = data.emailSubject || "庫存健康報告";',
-  '      var sheetList = data.selectedSheets && data.selectedSheets.length > 0',
-  '        ? data.selectedSheets.join("、")  ',
-  '        : "全部庫存、過期品、長期在庫、即將到期";',
-  '      var body = "庫存分析已完成，請至 Google Sheets 查看。\\n\\n"',
-  '               + "已寫入分頁：" + sheetList + "\\n"',
-  '               + "寫入時間：" + new Date().toLocaleString() + "\\n";',
-  '      emails.forEach(function(addr){',
-  '        if (addr) GmailApp.sendEmail(addr, subject, body);',
-  '      });',
-  '    }',
-  '    return ContentService.createTextOutput("success").setMimeType(ContentService.MimeType.TEXT);',
-  '  } catch(err) {',
-  '    return ContentService.createTextOutput("error: " + err.message);',
-  '  }',
-  '}'
-].join('\n')
+const APPS_SCRIPT_CODE = `function doGet(e) {
+  var action = (e.parameter && e.parameter.action) || "";
+  if (action === "read") return readSheetData(e);
+  if (e.parameter && (e.parameter.payload || e.parameter.data)) return handleRequest(e);
+  return json({ success: true, message: "Apps Script is ready" });
+}
+
+function doPost(e) {
+  return handleRequest(e);
+}
+
+function readSheetData(e) {
+  try {
+    var sheetId = (e.parameter && e.parameter.sheetId) || "";
+    var sheetName = (e.parameter && e.parameter.sheetName) || "全部庫存";
+    var ss = sheetId ? SpreadsheetApp.openById(sheetId) : SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return json({ error: "找不到工作表: " + sheetName });
+
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 2) return json({ success: true, rows: [] });
+
+    var headers = data[0].map(String);
+    var rows = [];
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var empty = row.every(function(c) { return c === "" || c === null || c === undefined; });
+      if (empty) continue;
+      var obj = {};
+      headers.forEach(function(h, j) { obj[h] = row[j] === null || row[j] === undefined ? "" : String(row[j]); });
+      rows.push(obj);
+    }
+    return json({ success: true, rows: rows });
+  } catch (err) {
+    return json({ error: err.message });
+  }
+}
+
+function handleRequest(e) {
+  try {
+    var raw = "";
+    if (e.postData && e.postData.contents) {
+      var body = e.postData.contents.trim();
+      if (body.charAt(0) === "{") {
+        raw = body;
+      } else {
+        var match = body.match(/(?:payload|data)=(.+)/);
+        if (match) raw = decodeURIComponent(match[1].replace(/\\+/g, " "));
+      }
+    }
+    if (!raw && e.parameter) raw = e.parameter.payload || e.parameter.data || "";
+    if (!raw) return text("error: no data");
+
+    var data = JSON.parse(raw);
+    var ss = data.sheetId ? SpreadsheetApp.openById(data.sheetId) : SpreadsheetApp.getActiveSpreadsheet();
+    var sheetName = data.sheetName || "庫存分析結果";
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) sheet = ss.insertSheet(sheetName);
+
+    var headers = data.headers || [];
+    var rows = data.rows || [];
+    var mode = data.mode || "replace";
+    var allRows = [headers].concat(rows);
+
+    if (mode === "append" && sheet.getLastRow() > 0) {
+      if (rows.length) sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, headers.length).setValues(rows);
+    } else {
+      sheet.clearContents();
+      if (allRows.length > 0 && headers.length > 0) {
+        sheet.getRange(1, 1, allRows.length, headers.length).setValues(allRows);
+      }
+    }
+
+    if (headers.length > 0) {
+      var headerColor = data.headerColor || "#6878C0";
+      var headerRange = sheet.getRange(1, 1, 1, headers.length);
+      headerRange.setBackground(headerColor);
+      headerRange.setFontColor("#FFFFFF");
+      headerRange.setFontWeight("bold");
+      sheet.setFrozenRows(1);
+      sheet.autoResizeColumns(1, headers.length);
+    }
+
+    if (data.sendEmail && data.emailTo) {
+      var emails = data.emailTo.split(",").map(function(addr) { return addr.trim(); });
+      var subject = data.emailSubject || "庫存健康報告";
+      var sheetList = data.selectedSheets && data.selectedSheets.length > 0
+        ? data.selectedSheets.join("、")
+        : "全部庫存、過期品、長期在庫、即將到期";
+      var body = "庫存分析已完成，請至 Google Sheets 查看。\\n\\n"
+               + "已寫入分頁：" + sheetList + "\\n"
+               + "寫入時間：" + new Date().toLocaleString() + "\\n";
+      emails.forEach(function(addr) {
+        if (addr) GmailApp.sendEmail(addr, subject, body);
+      });
+    }
+
+    return json({ success: true, message: "success" });
+  } catch (err) {
+    return json({ success: false, error: err.message });
+  }
+}
+
+function json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function text(value) {
+  return ContentService.createTextOutput(value).setMimeType(ContentService.MimeType.TEXT);
+}`;
 
 // ─── LOAD FROM GOOGLE SHEETS ────────────────────────────────────
 function parseCSV(text){
