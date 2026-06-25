@@ -7356,7 +7356,7 @@ function _scoreProcessingHeaders(headers) {
         .reduce((score, key) => score + (roles[key] >= 0 ? 1 : 0), 0);
     if (score < 4) {
         const names = _allProcessingCols(headers, [/品名|產品名稱|名稱/]).length;
-        const batches = _allProcessingCols(headers, [/批號|批次|lot|batch/]).length;
+        const batches = _allProcessingCols(headers, [/^(?!.*有效)(?!.*效期).*(批號|批次|lot|batch)$/]).length;
         const qtys = _allProcessingCols(headers, [/數量|分攤量|產出量|入庫量|qty/]).length;
         score = Math.max(score, Math.min(names, 2) + Math.min(batches, 2) + Math.min(qtys, 2));
     }
@@ -7365,16 +7365,16 @@ function _scoreProcessingHeaders(headers) {
 
 function _detectProcessingColumnsFromHeaders(headers, withFallback = true) {
     const namePatterns = [/品名|產品名稱|名稱/];
-    const batchPatterns = [/批號|批次|lot|batch/];
+    const batchPatterns = [/^(?!.*有效)(?!.*效期).*(批號|批次|lot|batch)$/];
     const qtyPatterns = [/數量|分攤量|產出量|入庫量|qty/];
 
     const cols = {
         orderNo: _findProcessingCol(headers, [/單據.*編號|單據.*單號|加工單|單號|order/]),
         motherName: _findProcessingCol(headers, [/母件.*品名|母件.*產品|母件.*名稱|原料.*品名|原料.*產品|原料.*名稱/]),
-        motherBatch: _findProcessingCol(headers, [/母件.*批號|母件.*批次|原料.*批號|原料.*批次/]),
+        motherBatch: _findProcessingCol(headers, [/^(?!.*有效)(?!.*效期).*(母件|原料).*(批號|批次|lot|batch)$/]),
         motherQty: _findProcessingCol(headers, [/母件.*數量|母件.*分攤量|原料.*數量|原料.*分攤量/]),
         childName: _findProcessingCol(headers, [/子件.*品名|子件.*產品|子件.*名稱|成品.*品名|成品.*產品|成品.*名稱/]),
-        childBatch: _findProcessingCol(headers, [/子件.*批號|子件.*批次|成品.*批號|成品.*批次/]),
+        childBatch: _findProcessingCol(headers, [/^(?!.*有效)(?!.*效期).*(子件|成品).*(批號|批次|lot|batch)$/]),
         childQty: _findProcessingCol(headers, [/子件.*數量|子件.*產出|成品.*數量|成品.*產出|成品.*入庫/]),
     };
 
