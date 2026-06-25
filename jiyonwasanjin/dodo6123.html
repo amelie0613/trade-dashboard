@@ -2702,20 +2702,53 @@ async function saveToSupabase(dataDate){
 
 // 【新】自動寫入 Google Sheets
 async function saveToGoogleSheets(excelSheets){
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzcHHwc6iAxtDrq2f3ahNDzN2RPm_mtCD1bCLgVXFlGJIoxcqdb3sQSAXV_foUssiTZ/exec';
+  const APPS_SCRIPT_URL = (
+    document.getElementById('sheetsUrl')?.value ||
+    localStorage.getItem('sheetsScriptUrl') ||
+    DEFAULT_SHEETS_SCRIPT_URL ||
+    ''
+  ).trim();
 
   try{
-    const payload = { excelSheets };
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    });
-    const result = await response.json();
-    if(result.success){
-      console.log('✅ Google Sheets 更新成功:', result.message);
-    } else {
-      console.error('❌ Sheets 更新失敗:', result.error);
+    if (!APPS_SCRIPT_URL) {
+      console.warn('⚠️ Google Sheets 自動同步略過：Apps Script 網址未設定');
+      return;
     }
+
+    let written = 0;
+    for (const [sheetName, aoa] of Object.entries(excelSheets || {})) {
+      if (!Array.isArray(aoa) || aoa.length === 0) continue;
+      const headers = (aoa[0] || []).map(v => String(v ?? '').trim());
+      if (!headers.some(Boolean)) continue;
+      const rows = aoa.slice(1)
+        .filter(row => (row || []).some(c => String(c ?? '').trim()))
+        .map(row => headers.map((_, i) => row?.[i] ?? ''));
+      const payload = {
+        sheetName,
+        sheetId: document.getElementById('sheetId')?.value?.trim() || '',
+        headers,
+        rows,
+        headerColor: '#6878C0'
+      };
+
+      const response = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload)
+      });
+      const text = await response.text();
+      let result = null;
+      try {
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}');
+        result = jsonStart >= 0 ? JSON.parse(text.slice(jsonStart, jsonEnd + 1)) : null;
+      } catch (_) {}
+
+      const ok = response.ok && (text.includes('success') || result?.success);
+      if (!ok) throw new Error(text.slice(0, 160) || `HTTP ${response.status}`);
+      written++;
+    }
+    console.log(`✅ Google Sheets 自動同步完成：${written} 個工作表`);
   }catch(err){
     console.error('❌ 無法連接 Google Sheets:', err);
   }
