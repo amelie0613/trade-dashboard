@@ -7298,6 +7298,176 @@ function readExcelSheet(file, sheetName) {
     });
 }
 
+function _normProcessingHeader(value) {
+    return String(value ?? '')
+        .replace(/[\s　\r\n\t]/g, '')
+        .replace(/[()（）【】\[\]：:]/g, '')
+        .toLowerCase();
+}
+
+function _processingNumber(value) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    const cleaned = String(value ?? '')
+        .replace(/,/g, '')
+        .replace(/[^\d.\-]/g, '');
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function _findProcessingCol(headers, patterns, start = 0, end = headers.length) {
+    const normalized = headers.map(_normProcessingHeader);
+    for (let i = Math.max(0, start); i < Math.min(end, normalized.length); i++) {
+        if (patterns.some(p => p.test(normalized[i]))) return i;
+    }
+    return -1;
+}
+
+function _allProcessingCols(headers, patterns) {
+    const normalized = headers.map(_normProcessingHeader);
+    const indexes = [];
+    normalized.forEach((h, i) => {
+        if (patterns.some(p => p.test(h))) indexes.push(i);
+    });
+    return indexes;
+}
+
+function _buildProcessingHeaders(rawRows, rowIndex, useNextRow) {
+    const row1 = rawRows[rowIndex] || [];
+    const row2 = useNextRow ? (rawRows[rowIndex + 1] || []) : [];
+    const maxLen = Math.max(row1.length, row2.length);
+    const headers = [];
+    let group = '';
+
+    for (let i = 0; i < maxLen; i++) {
+        const top = String(row1[i] ?? '').trim();
+        const sub = String(row2[i] ?? '').trim();
+        const topNorm = _normProcessingHeader(top);
+        if (top && /(母件|子件|成品|原料)/.test(topNorm)) group = top;
+        headers[i] = useNextRow
+            ? [group, top && top !== group ? top : '', sub].filter(Boolean).join('')
+            : top;
+    }
+    return headers;
+}
+
+function _scoreProcessingHeaders(headers) {
+    const roles = _detectProcessingColumnsFromHeaders(headers, false);
+    let score = ['motherName','motherBatch','motherQty','childName','childBatch','childQty']
+        .reduce((score, key) => score + (roles[key] >= 0 ? 1 : 0), 0);
+    if (score < 4) {
+        const names = _allProcessingCols(headers, [/品名|產品名稱|名稱/]).length;
+        const batches = _allProcessingCols(headers, [/批號|批次|lot|batch/]).length;
+        const qtys = _allProcessingCols(headers, [/數量|分攤量|產出量|入庫量|qty/]).length;
+        score = Math.max(score, Math.min(names, 2) + Math.min(batches, 2) + Math.min(qtys, 2));
+    }
+    return score;
+}
+
+function _detectProcessingColumnsFromHeaders(headers, withFallback = true) {
+    const namePatterns = [/品名|產品名稱|名稱/];
+    const batchPatterns = [/批號|批次|lot|batch/];
+    const qtyPatterns = [/數量|分攤量|產出量|入庫量|qty/];
+
+    const cols = {
+        orderNo: _findProcessingCol(headers, [/單據.*編號|單據.*單號|加工單|單號|order/]),
+        motherName: _findProcessingCol(headers, [/母件.*品名|母件.*產品|母件.*名稱|原料.*品名|原料.*產品|原料.*名稱/]),
+        motherBatch: _findProcessingCol(headers, [/母件.*批號|母件.*批次|原料.*批號|原料.*批次/]),
+        motherQty: _findProcessingCol(headers, [/母件.*數量|母件.*分攤量|原料.*數量|原料.*分攤量/]),
+        childName: _findProcessingCol(headers, [/子件.*品名|子件.*產品|子件.*名稱|成品.*品名|成品.*產品|成品.*名稱/]),
+        childBatch: _findProcessingCol(headers, [/子件.*批號|子件.*批次|成品.*批號|成品.*批次/]),
+        childQty: _findProcessingCol(headers, [/子件.*數量|子件.*產出|成品.*數量|成品.*產出|成品.*入庫/]),
+    };
+
+    if (!withFallback) return cols;
+
+    const nameCols = _allProcessingCols(headers, namePatterns);
+    const batchCols = _allProcessingCols(headers, batchPatterns);
+    const qtyCols = _allProcessingCols(headers, qtyPatterns);
+    if (cols.motherName < 0 && nameCols.length) cols.motherName = nameCols[0];
+    if (cols.childName < 0 && nameCols.length > 1) cols.childName = nameCols[nameCols.length - 1];
+    if (cols.motherBatch < 0 && batchCols.length) cols.motherBatch = batchCols[0];
+    if (cols.childBatch < 0 && batchCols.length > 1) cols.childBatch = batchCols[batchCols.length - 1];
+    if (cols.motherQty < 0 && qtyCols.length) cols.motherQty = qtyCols[0];
+    if (cols.childQty < 0 && qtyCols.length > 1) cols.childQty = qtyCols[qtyCols.length - 1];
+
+    if (cols.orderNo < 0) cols.orderNo = 0;
+    if (cols.motherName < 0) cols.motherName = 3;
+    if (cols.motherBatch < 0) cols.motherBatch = 4;
+    if (cols.motherQty < 0) cols.motherQty = 5;
+    if (cols.childName < 0) cols.childName = 8;
+    if (cols.childBatch < 0) cols.childBatch = 9;
+    if (cols.childQty < 0) cols.childQty = 10;
+    return cols;
+}
+
+function _detectProcessingLayout(rawRows) {
+    let best = null;
+    const maxHeaderRows = Math.min(10, rawRows.length);
+
+    for (let i = 0; i < maxHeaderRows; i++) {
+        for (const useNextRow of [false, true]) {
+            if (useNextRow && i + 1 >= rawRows.length) continue;
+            const headers = _buildProcessingHeaders(rawRows, i, useNextRow);
+            const score = _scoreProcessingHeaders(headers);
+            if (!best || score > best.score) {
+                best = { score, headers, startRow: i + (useNextRow ? 2 : 1) };
+            }
+        }
+    }
+
+    if (!best || best.score < 4) {
+        return {
+            startRow: 1,
+            cols: _detectProcessingColumnsFromHeaders([], true),
+            score: best ? best.score : 0
+        };
+    }
+
+    return {
+        startRow: best.startRow,
+        cols: _detectProcessingColumnsFromHeaders(best.headers, true),
+        score: best.score
+    };
+}
+
+function parseProcessingOrderRows(rawRows) {
+    const layout = _detectProcessingLayout(rawRows);
+    const c = layout.cols;
+    const orderLines = [];
+
+    for (let i = layout.startRow; i < rawRows.length; i++) {
+        const r = rawRows[i] || [];
+        let orderNo     = String(r[c.orderNo]     ?? '').trim();
+        let motherName  = String(r[c.motherName]  ?? '').trim();
+        let motherBatch = String(r[c.motherBatch] ?? '').trim();
+        let motherQty   = _processingNumber(r[c.motherQty]);
+        let childName   = String(r[c.childName]   ?? '').trim();
+        let childBatch  = String(r[c.childBatch]  ?? '').trim();
+        let childQty    = _processingNumber(r[c.childQty]);
+
+        // 相容舊式固定欄位右移一格的加工單。
+        if (!childName && childBatch && childQty === 0 && r[c.childQty + 1] !== undefined) {
+            childName = childBatch;
+            childBatch = String(r[c.childQty] ?? '').trim();
+            childQty = _processingNumber(r[c.childQty + 1]);
+        }
+        if (motherQty === 0 && c.motherQty === 5 && _processingNumber(r[6]) > 0) {
+            motherQty = _processingNumber(r[6]);
+        }
+
+        const looksLikeHeader = /母件|子件|成品|品名|產品|批號|數量/.test(
+            [motherName, motherBatch, childName, childBatch].map(_normProcessingHeader).join('|')
+        );
+        if (looksLikeHeader) continue;
+
+        if (motherName && motherBatch && childBatch) {
+            orderLines.push({ orderNo, motherName, motherBatch, motherQty, childName, childBatch, childQty });
+        }
+    }
+
+    return { orderLines, layout };
+}
+
 // 日期輸入同步和格式轉換
 function syncDateInputs(dateId, textId) {
     const dateInput = document.getElementById(dateId);
@@ -12242,18 +12412,11 @@ async function calcProfit() {
                     };
                     reader.readAsArrayBuffer(procFile);
                 });
-                // Col index（0-based）：單據編號=0, 母件名稱=3, 母件批號=4, 母件數量=5, 子件名稱=8, 子件批號=9, 子件數量=10
-                // 同母件批號可能出現在不同加工單，成本去重 key 需包含單據與數量。
+                // 優先依表頭辨識加工單欄位；相容舊版固定欄位 D/E/F/I/J/K。
                 const childSummary = {}; // 子件批號 -> { totalCost, totalQty, counted: Set<加工單明細> }
-                procRaw.slice(1).forEach(row => {
-                    const orderNo     = String(row[0]||'').trim();
-                    const motherName  = String(row[3]||'').trim();
-                    const motherBatch = String(row[4]||'').trim();
-                    const motherQty   = parseFloat(String(row[5]||'').replace(/,/g,'')) || 0;
-                    const childBatch  = String(row[9]||'').trim();
-                    const childQty    = parseFloat(String(row[10]||'').replace(/,/g,'')) || 0;
-                    if (!motherBatch || !childBatch) return;
-
+                const { orderLines: procLines } = parseProcessingOrderRows(procRaw);
+                procLines.forEach(line => {
+                    const { orderNo, motherName, motherBatch, motherQty, childBatch, childQty } = line;
                     if (!childSummary[childBatch]) childSummary[childBatch] = { totalCost: 0, totalQty: 0, counted: new Set() };
 
                     // 母件租金成本：每一行都累加（不同母件批號各自計算）
@@ -13766,26 +13929,11 @@ async function _pgCalcFile(file) {
     if (!ws) { status.textContent = '⚠️ 找不到有效資料的工作表'; return; }
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-    // 2. 解析加工單（跳過 row 0 表頭）
-    // D(3)=母件名稱  E(4)=母件批號  F(5)=母件數量
-    // I(8)=子件名稱  J(9)=子件批號  K(10)=子件數量
-    const orderLines = [];
-    for (let i = 1; i < rows.length; i++) {
-      const r = rows[i];
-      const orderNo     = String(r[0]  || '').trim();
-      const motherName  = String(r[3]  || '').trim();
-      const motherBatch = String(r[4]  || '').trim();
-      const motherQty   = parseFloat(String(r[5]  || '0').replace(/,/g, '')) || 0;
-      const childName   = String(r[8]  || '').trim();
-      const childBatch  = String(r[9]  || '').trim();
-      const childQty    = parseFloat(String(r[10] || '0').replace(/,/g, '')) || 0;
-      if (motherName && motherBatch && childBatch) {
-        orderLines.push({ orderNo, motherName, motherBatch, motherQty, childName, childBatch, childQty });
-      }
-    }
+    // 2. 解析加工單：優先依表頭辨識欄位，找不到才退回舊版 D/E/F/I/J/K。
+    const { orderLines, layout } = parseProcessingOrderRows(rows);
 
     if (!orderLines.length) {
-      status.textContent = '⚠️ 無有效資料（請確認 D/E/F/I/J/K 欄位）';
+      status.textContent = '⚠️ 無有效資料（請確認加工單有母件/子件/成品名稱、批號、數量欄位）';
       return;
     }
 
@@ -13912,8 +14060,8 @@ async function _pgCalcFile(file) {
 
     _pgRenderResult();
     status.textContent = totalMiss > 0
-      ? `⚠️ 完成，${totalMiss} 種母件未找到租金記錄`
-      : '✅ 計算完成';
+      ? `⚠️ 完成，${totalMiss} 種母件未找到租金記錄（已讀取 ${orderLines.length} 筆，欄位辨識 ${layout.score}/6）`
+      : `✅ 計算完成（已讀取 ${orderLines.length} 筆，欄位辨識 ${layout.score}/6）`;
 
   } catch(e) {
     status.textContent = `❌ 處理失敗：${e.message}`;
