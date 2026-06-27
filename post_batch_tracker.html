@@ -5,123 +5,150 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>郵局包裹批次查詢工具</title>
   <style>
-    :root{--bg:#f6f7fb;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--main:#0f766e;--main2:#115e59;--bad:#b91c1c;--warn:#a16207;}
-    *{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif;background:var(--bg);color:var(--text)}
-    header{background:linear-gradient(135deg,var(--main),#14b8a6);color:white;padding:28px 20px;text-align:center}
-    header h1{margin:0 0 8px;font-size:28px} header p{margin:0;opacity:.92}
-    main{max-width:1120px;margin:22px auto;padding:0 16px 36px}
-    .grid{display:grid;grid-template-columns:1fr;gap:16px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
-    label{display:block;font-weight:700;margin-bottom:8px} textarea{width:100%;height:220px;resize:vertical;border:1px solid #d1d5db;border-radius:12px;padding:12px;font-size:15px;line-height:1.55;background:#fff;color:var(--text)}
-    .hint{font-size:13px;color:var(--muted);margin-top:8px}.controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center}
-    button,.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-size:14px}
-    button.primary{background:var(--main);color:white} button.primary:hover{background:var(--main2)} button.gray{background:#e5e7eb;color:#111827} button.danger{background:#fee2e2;color:var(--bad)}
-    .btn{background:#ecfeff;color:#155e75;border:1px solid #a5f3fc}.btn.official{background:#f0fdf4;color:#166534;border-color:#bbf7d0}.btn.disabled{background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb;pointer-events:none}
-    .stats{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin-top:14px}.stat{background:#f9fafb;border:1px solid var(--line);border-radius:12px;padding:12px}.stat b{display:block;font-size:22px}.stat span{color:var(--muted);font-size:13px}
-    .toolbar{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin:8px 0 14px}.search{min-width:220px;flex:1;border:1px solid #d1d5db;border-radius:10px;padding:10px;font-size:14px}
-    table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden} th,td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:middle;font-size:14px} th{background:#f9fafb;color:#374151;position:sticky;top:0;z-index:1} tr:hover td{background:#fafafa}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.tag{display:inline-block;border-radius:999px;padding:4px 8px;font-size:12px;font-weight:700}.ok{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:var(--warn)}.bad{background:#fee2e2;color:var(--bad)}
-    .table-wrap{max-height:540px;overflow:auto;border:1px solid var(--line);border-radius:12px}.small{font-size:12px;color:var(--muted)}
-    footer{color:var(--muted);font-size:12px;text-align:center;margin-top:16px;line-height:1.6}@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}th:nth-child(1),td:nth-child(1){display:none}.controls button,.controls a{width:100%}}
+    :root{--main:#009688;--main2:#12c8b5;--bg:#f4f6fb;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--danger:#ef4444;--ok:#16a34a;--warn:#f59e0b}
+    *{box-sizing:border-box}body{margin:0;font-family:"Microsoft JhengHei",system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--text)}
+    header{background:linear-gradient(120deg,var(--main),var(--main2));color:#fff;padding:26px 16px;text-align:center}header h1{margin:0 0 8px;font-size:28px}header p{margin:0;opacity:.9}
+    main{max-width:1080px;margin:24px auto;padding:0 16px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(15,23,42,.06);padding:18px;margin-bottom:18px}
+    label{display:block;font-weight:700;margin-bottom:8px}textarea{width:100%;min-height:210px;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:12px;font-family:Consolas,monospace;font-size:15px;line-height:1.55;outline:none}textarea:focus,input:focus{border-color:var(--main);box-shadow:0 0 0 3px rgba(0,150,136,.12)}
+    .hint{font-size:13px;color:var(--muted);margin:8px 0 12px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.btn{border:0;border-radius:9px;padding:10px 14px;font-weight:700;cursor:pointer;background:#e5e7eb;color:#111827}.btn.primary{background:var(--main);color:#fff}.btn.danger{background:#fee2e2;color:#b91c1c}.btn.green{background:#dcfce7;color:#166534}.btn:hover{filter:brightness(.97)}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}.stat{border:1px solid var(--line);border-radius:12px;padding:14px;background:#f9fafb}.stat b{font-size:22px}.stat span{display:block;font-size:12px;color:var(--muted);margin-top:4px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}input{flex:1;min-width:230px;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+    table{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}th,td{border-bottom:1px solid var(--line);padding:10px;text-align:left;font-size:14px}th{background:#f9fafb}tr:last-child td{border-bottom:0}.mono{font-family:Consolas,monospace}.tag{display:inline-block;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:700}.tag.local{background:#e0f2fe;color:#0369a1}.tag.intl{background:#f3e8ff;color:#7e22ce}.tag.bad{background:#fee2e2;color:#b91c1c}.small{font-size:12px;color:var(--muted)}
+    a.query{display:inline-block;text-decoration:none;background:#dcfce7;color:#166534;border-radius:8px;padding:6px 10px;font-weight:700}footer{text-align:center;color:var(--muted);font-size:12px;padding:10px 16px 30px}.empty{color:var(--muted);padding:18px;text-align:center}
+    @media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}header h1{font-size:23px}}
   </style>
 </head>
 <body>
 <header>
   <h1>郵局包裹批次查詢工具</h1>
-  <p>一次貼上 200 筆以上單號，自動去重、分類、產生官方查詢入口</p>
+  <p>可一次貼上 200 筆以上，支援空白分段、Tab、換行與 Excel 複製資料</p>
 </header>
 <main>
   <section class="card">
     <label for="raw">貼上郵件／包裹單號</label>
-    <textarea id="raw" placeholder="每行一筆，或直接從 Excel 貼上。範例：&#10;00012345678901&#10;EE123456789TW&#10;RR123456789TW"></textarea>
-    <div class="hint">可混合空白、Tab、逗號、換行。工具會自動抓出疑似郵局單號；200、500 筆都可以，真正累的是你貼資料，不是網頁。</div>
-    <div class="controls">
-      <button class="primary" id="parseBtn">整理資料</button>
-      <button class="gray" id="copyBtn">複製整理後單號</button>
-      <button class="gray" id="csvBtn">下載 CSV</button>
-      <button class="danger" id="clearBtn">清空</button>
-      <a class="btn official" target="_blank" rel="noopener" href="https://postserv.post.gov.tw/pstmail/main_mail.html?targetTxn=EB500100">開啟郵局國內查詢</a>
-      <a class="btn official" target="_blank" rel="noopener" href="https://postserv.post.gov.tw/pstmail/main_mail.html?targetTxn=EB500201">開啟郵局國際查詢</a>
+    <textarea id="raw" placeholder="範例：&#10;701998 802038 78 24100 3&#10;701999 802038 78 81300 1&#10;EE123456789TW"></textarea>
+    <div class="hint">這版已修正：像「701998 802038 78 24100 3」這種中間有空白的 20 碼單號，會自動合併成「70199880203878241003」。貼上後會自動整理，也可以按「整理資料」。</div>
+    <div class="row">
+      <button class="btn primary" id="parseBtn">整理資料</button>
+      <button class="btn" id="copyBtn">複製整理後單號</button>
+      <button class="btn" id="csvBtn">下載 CSV</button>
+      <button class="btn danger" id="clearBtn">清空</button>
+      <button class="btn green" id="openLocalBtn">開啟郵局國內查詢</button>
+      <button class="btn green" id="openIntlBtn">開啟郵局國際查詢</button>
     </div>
     <div class="stats">
       <div class="stat"><b id="total">0</b><span>整理後筆數</span></div>
-      <div class="stat"><b id="domestic">0</b><span>國內格式</span></div>
+      <div class="stat"><b id="local">0</b><span>國內格式</span></div>
       <div class="stat"><b id="intl">0</b><span>國際格式</span></div>
-      <div class="stat"><b id="dups">0</b><span>重複移除</span></div>
+      <div class="stat"><b id="dup">0</b><span>重複移除</span></div>
     </div>
   </section>
-
-  <section class="card" style="margin-top:16px">
+  <section class="card">
     <div class="toolbar">
-      <input class="search" id="filter" placeholder="搜尋單號..." />
-      <div class="small">提示：純 HTML 受瀏覽器安全限制，不能直接批次抓郵局狀態；按「官方查詢」會開啟郵局頁面。</div>
+      <input id="filter" placeholder="搜尋單號..." />
+      <span class="small">純 HTML 受瀏覽器安全限制，不能直接批次抓回郵局狀態；按「官方查詢」會開啟查詢頁。</span>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>#</th><th>單號</th><th>判斷類型</th><th>狀態</th><th>操作</th></tr></thead>
-        <tbody id="tbody"><tr><td colspan="5" class="small">尚未整理資料</td></tr></tbody>
-      </table>
-    </div>
+    <div id="tableBox"><div class="empty">尚未整理資料</div></div>
   </section>
-  <footer>
-    本頁是單一 HTML 檔案，可直接放在公司內網、GitHub Pages、NAS 或一般網站空間。<br>
-    若要「自動抓回每筆最新狀態並顯示在表格」，需要後端代理或正式物流 API，單靠 HTML 會被 CORS 擋住。
-  </footer>
 </main>
+<footer>單一 HTML 檔，可放 GitHub Pages、NAS、內網或直接雙擊使用。</footer>
 <script>
-const OFFICIAL_DOMESTIC = 'https://postserv.post.gov.tw/pstmail/main_mail.html?targetTxn=EB500100';
-const OFFICIAL_INTL = 'https://postserv.post.gov.tw/pstmail/main_mail.html?targetTxn=EB500201';
+const raw = document.getElementById('raw');
+const filter = document.getElementById('filter');
 let rows = [];
-function normalizeToken(s){return String(s||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');}
-function detectType(no){
-  if (/^[A-Z]{2}\d{9}[A-Z]{2}$/.test(no)) return {type:'國際郵件', cls:'ok', url:OFFICIAL_INTL};
-  if (/^\d{14}$/.test(no) || /^\d{20}$/.test(no)) return {type:'國內郵件', cls:'ok', url:OFFICIAL_DOMESTIC};
-  if (/^\d{10,22}$/.test(no)) return {type:'疑似國內', cls:'warn', url:OFFICIAL_DOMESTIC};
-  return {type:'格式待確認', cls:'bad', url:OFFICIAL_DOMESTIC};
+
+function typeOfNo(no){
+  if (/^\d{14}$/.test(no) || /^\d{20}$/.test(no)) return '國內';
+  if (/^[A-Z]{2}\d{9}[A-Z]{2}$/.test(no)) return '國際';
+  return '未知';
 }
-function parse(){
-  const raw = document.getElementById('raw').value;
-  const tokens = raw.split(/[\s,;，；、]+/).map(normalizeToken).filter(Boolean);
-  const seen = new Set(); let duplicates = 0;
-  rows = [];
-  tokens.forEach(t=>{
-    const isPossible = /^[A-Z]{2}\d{9}[A-Z]{2}$/.test(t) || /^\d{10,22}$/.test(t);
-    if(!isPossible) return;
-    if(seen.has(t)){ duplicates++; return; }
-    seen.add(t); const meta = detectType(t); rows.push({no:t,...meta});
+function localUrl(no){
+  return 'https://postserv.post.gov.tw/pstmail/main_mail.html';
+}
+function intlUrl(no){
+  return 'https://postserv.post.gov.tw/pstmail/main_mail.html';
+}
+function parseInput(){
+  const text = raw.value.toUpperCase();
+  const found = [];
+
+  // 逐行處理：支援 Excel 貼上後每列有多段數字，中間空白仍視為同一筆。
+  text.split(/\r?\n/).forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    // 國際單號通常是 EE123456789TW，先抓出來。
+    const intlMatches = trimmed.match(/[A-Z]{2}\s*\d{3}\s*\d{3}\s*\d{3}\s*[A-Z]{2}/g) || [];
+    intlMatches.forEach(m => found.push(m.replace(/\s+/g, '')));
+
+    // 把每一行的非數字拿掉；若剛好是 14 或 20 碼，就當成國內單號。
+    const digits = trimmed.replace(/\D/g, '');
+    if (/^\d{14}$/.test(digits) || /^\d{20}$/.test(digits)) {
+      found.push(digits);
+      return;
+    }
+
+    // 同一行可能有多筆連續完整單號，另外補抓。
+    const continuous = trimmed.match(/\d{20}|\d{14}/g) || [];
+    continuous.forEach(m => found.push(m));
   });
-  localStorage.setItem('postBatchRaw', raw);
-  render();
-  document.getElementById('dups').textContent = duplicates;
+
+  // 全文補抓：避免逗號、Tab、大量貼上時漏掉。
+  const globalIntl = text.match(/[A-Z]{2}\s*\d{3}\s*\d{3}\s*\d{3}\s*[A-Z]{2}/g) || [];
+  globalIntl.forEach(m => found.push(m.replace(/\s+/g, '')));
+  const globalContinuous = text.match(/\d{20}|\d{14}/g) || [];
+  globalContinuous.forEach(m => found.push(m));
+
+  const seen = new Set();
+  const unique = [];
+  found.forEach(no => {
+    if (!seen.has(no)) { seen.add(no); unique.push(no); }
+  });
+
+  rows = unique.map((no, idx) => ({idx: idx + 1, no, type: typeOfNo(no)}));
+  const duplicates = Math.max(0, found.length - unique.length);
+  render(duplicates);
 }
-function render(){
-  const q = normalizeToken(document.getElementById('filter').value);
-  const show = q ? rows.filter(r=>r.no.includes(q)) : rows;
-  const tb = document.getElementById('tbody');
+function render(duplicates=0){
+  const q = filter.value.trim().toUpperCase();
+  const list = rows.filter(r => !q || r.no.includes(q));
   document.getElementById('total').textContent = rows.length;
-  document.getElementById('domestic').textContent = rows.filter(r=>r.type.includes('國內')).length;
-  document.getElementById('intl').textContent = rows.filter(r=>r.type.includes('國際')).length;
-  if(!show.length){ tb.innerHTML = '<tr><td colspan="5" class="small">沒有資料</td></tr>'; return; }
-  tb.innerHTML = show.map((r,i)=>`<tr>
-    <td>${i+1}</td>
-    <td class="mono">${r.no}</td>
-    <td><span class="tag ${r.cls}">${r.type}</span></td>
-    <td class="small">請至官方頁面貼上查詢</td>
-    <td><a class="btn official" target="_blank" rel="noopener" href="${r.url}">官方查詢</a> <button class="gray" onclick="copyOne('${r.no}')">複製</button></td>
-  </tr>`).join('');
+  document.getElementById('local').textContent = rows.filter(r=>r.type==='國內').length;
+  document.getElementById('intl').textContent = rows.filter(r=>r.type==='國際').length;
+  document.getElementById('dup').textContent = duplicates;
+  if (!list.length){ document.getElementById('tableBox').innerHTML = '<div class="empty">沒有資料</div>'; return; }
+  const html = [`<table><thead><tr><th>#</th><th>單號</th><th>判斷類型</th><th>狀態</th><th>操作</th></tr></thead><tbody>`];
+  list.forEach(r => {
+    const tagClass = r.type==='國內'?'local':(r.type==='國際'?'intl':'bad');
+    const url = r.type==='國際'?intlUrl(r.no):localUrl(r.no);
+    html.push(`<tr><td>${r.idx}</td><td class="mono">${r.no}</td><td><span class="tag ${tagClass}">${r.type}</span></td><td class="small">需至官方頁面查詢</td><td><a class="query" href="${url}" target="_blank" rel="noopener">官方查詢</a></td></tr>`);
+  });
+  html.push('</tbody></table>');
+  document.getElementById('tableBox').innerHTML = html.join('');
 }
-async function copyOne(no){ await navigator.clipboard.writeText(no); alert('已複製：'+no); }
-async function copyAll(){ await navigator.clipboard.writeText(rows.map(r=>r.no).join('\n')); alert('已複製 '+rows.length+' 筆'); }
-function downloadCSV(){
-  const csv = '\uFEFF序號,單號,類型,官方查詢網址\n' + rows.map((r,i)=>`${i+1},${r.no},${r.type},${r.url}`).join('\n');
-  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob); a.download='post_tracking_list.csv'; a.click(); URL.revokeObjectURL(a.href);
+function copyNos(){
+  const text = rows.map(r=>r.no).join('\n');
+  navigator.clipboard.writeText(text).then(()=>alert('已複製 ' + rows.length + ' 筆單號'));
 }
-document.getElementById('parseBtn').addEventListener('click',parse);
-document.getElementById('copyBtn').addEventListener('click',copyAll);
-document.getElementById('csvBtn').addEventListener('click',downloadCSV);
-document.getElementById('clearBtn').addEventListener('click',()=>{document.getElementById('raw').value='';rows=[];localStorage.removeItem('postBatchRaw');render();document.getElementById('dups').textContent='0';});
-document.getElementById('filter').addEventListener('input',render);
-document.getElementById('raw').value = localStorage.getItem('postBatchRaw') || '';
-if(document.getElementById('raw').value) parse();
+function downloadCsv(){
+  const header = '序號,單號,類型\n';
+  const body = rows.map(r => `${r.idx},${r.no},${r.type}`).join('\n');
+  const blob = new Blob(['\ufeff' + header + body], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'post_tracking_numbers.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+let timer;
+raw.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(parseInput, 250); });
+filter.addEventListener('input', () => render());
+document.getElementById('parseBtn').addEventListener('click', parseInput);
+document.getElementById('copyBtn').addEventListener('click', copyNos);
+document.getElementById('csvBtn').addEventListener('click', downloadCsv);
+document.getElementById('clearBtn').addEventListener('click', () => { raw.value=''; rows=[]; filter.value=''; render(); });
+document.getElementById('openLocalBtn').addEventListener('click', () => window.open('https://postserv.post.gov.tw/pstmail/main_mail.html','_blank'));
+document.getElementById('openIntlBtn').addEventListener('click', () => window.open('https://postserv.post.gov.tw/pstmail/main_mail.html','_blank'));
 </script>
 </body>
 </html>
