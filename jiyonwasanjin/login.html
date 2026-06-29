@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>系統登入</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Noto Sans TC', sans-serif;
+  background: linear-gradient(135deg, #4a5a9f 0%, #6878C0 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  padding: 44px 40px;
+  width: 100%;
+  max-width: 400px;
+}
+.logo { text-align: center; margin-bottom: 32px; }
+.logo-icon { font-size: 52px; display: block; }
+.logo-title { font-size: 20px; font-weight: 700; color: #1a2040; margin-top: 10px; }
+.logo-sub { font-size: 13px; color: #888; margin-top: 4px; }
+label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 6px; }
+input[type=email], input[type=password] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #e0e4f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  margin-bottom: 18px;
+}
+input:focus {
+  border-color: #6878C0;
+  box-shadow: 0 0 0 3px rgba(104,120,192,.15);
+}
+button {
+  width: 100%;
+  padding: 13px;
+  background: #6878C0;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .2s, transform .1s;
+}
+button:hover:not(:disabled) { background: #4a5a9f; }
+button:active:not(:disabled) { transform: scale(.98); }
+button:disabled { background: #b0b8d8; cursor: not-allowed; }
+.error {
+  color: #ef4444;
+  font-size: 13px;
+  margin-top: 14px;
+  text-align: center;
+  min-height: 20px;
+  background: #fff0f0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: none;
+}
+.error.show { display: block; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <span class="logo-icon">📊</span>
+    <div class="logo-title">庫存管理系統</div>
+    <div class="logo-sub">請輸入存取密碼</div>
+  </div>
+
+  <label for="password">密碼</label>
+  <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"
+    onkeydown="if(event.key==='Enter') doLogin()">
+
+  <button id="loginBtn" onclick="doLogin()">進入系統</button>
+  <div class="error" id="errMsg"></div>
+</div>
+
+<script>
+const _SB_URL  = 'https://yeposcucdppwkjmmoidi.supabase.co';
+const _SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
+const _sbLogin = supabase.createClient(_SB_URL, _SB_ANON);
+
+// 已登入則直接跳轉
+(async () => {
+  const { data: { session } } = await _sbLogin.auth.getSession();
+  if (session) {
+    const redirect = localStorage.getItem('sb_redirect') || 'dodo6123.html';
+    localStorage.removeItem('sb_redirect');
+    location.replace(redirect);
+  }
+})();
+
+// 10 組閱覽者帳號，每組可設不同密碼
+const VIEWER_ACCOUNTS = [
+  'viewer1@inventory.local',
+  'viewer2@inventory.local',
+  'viewer3@inventory.local',
+  'viewer4@inventory.local',
+  'viewer5@inventory.local',
+  'viewer6@inventory.local',
+  'viewer7@inventory.local',
+  'viewer8@inventory.local',
+  'viewer9@inventory.local',
+  'viewer10@inventory.local',
+  'viewer11@inventory.local',
+];
+
+async function doLogin() {
+  const password = document.getElementById('password').value;
+  const btn      = document.getElementById('loginBtn');
+  const errEl    = document.getElementById('errMsg');
+
+  errEl.classList.remove('show');
+  if (!password) {
+    errEl.textContent = '請輸入密碼';
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = '驗證中…';
+
+  // 逐一嘗試，找到符合密碼的帳號即登入
+  for (const email of VIEWER_ACCOUNTS) {
+    const { data, error } = await _sbLogin.auth.signInWithPassword({ email, password });
+    if (!error) {
+      const redirect = localStorage.getItem('sb_redirect') || 'dodo6123.html';
+      localStorage.removeItem('sb_redirect');
+      location.replace(redirect);
+      return;
+    }
+  }
+
+  // 全部嘗試後仍失敗
+  errEl.textContent = '密碼錯誤，請重新輸入';
+  errEl.classList.add('show');
+  btn.disabled    = false;
+  btn.textContent = '進入系統';
+}
+</script>
+</body>
+</html>
