@@ -99,7 +99,7 @@ const _sbLogin = supabase.createClient(_SB_URL, _SB_ANON);
 (async () => {
   const { data: { session } } = await _sbLogin.auth.getSession();
   if (session) {
-    const redirect = localStorage.getItem('sb_redirect') || 'dashboard.html';
+    const redirect = localStorage.getItem('sb_redirect') || 'dodo6123.html';
     localStorage.removeItem('sb_redirect');
     location.replace(redirect);
   }
@@ -139,7 +139,7 @@ async function doLogin() {
   for (const email of VIEWER_ACCOUNTS) {
     const { data, error } = await _sbLogin.auth.signInWithPassword({ email, password });
     if (!error) {
-      const redirect = localStorage.getItem('sb_redirect') || 'dashboard.html';
+      const redirect = localStorage.getItem('sb_redirect') || 'dodo6123.html';
       localStorage.removeItem('sb_redirect');
       location.replace(redirect);
       return;
