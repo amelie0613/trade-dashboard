@@ -8810,12 +8810,13 @@ async function saveOutboundNow() {
 }
 
 // 根據出庫類型 + 備註自動判斷分倉類型
-// 規則：備註含「加工」或拆解出庫 → 加工原料；調撥（不含加工）→ 再途銷貨；其餘 → 銷貨
+// 規則：備註含「加工」或拆解出庫 → 加工原料；調撥（不含加工）→ 再途銷貨；銷售 → 銷貨；其餘 → 其他出庫
 function _autoWarehouseType(outType, noteText) {
     const note = (noteText || '').toString().trim();
     if (note.includes('加工') || outType === '拆解') return '加工原料';
     if (outType === '調撥') return '再途銷貨';
-    return '銷貨';
+    if (outType === '銷售') return '銷貨';
+    return '其他出庫';
 }
 
 async function syncOutboundToSupabase(records, label) {
@@ -8987,6 +8988,33 @@ function _transitStatus(orig, offset) {
     if (offset <= 0)              return '未核銷';
     if (offset >= orig)           return '已核銷';
     return '部分核銷';
+}
+
+function _isProfitSalesOutbound(r = {}) {
+    const warehouseType = String(r.warehouse_type || r.分倉類型 || '').trim();
+    const source        = String(r.source || '').trim();
+    const outboundType  = String(r.outbound_type || r.出庫類型 || '').trim();
+    return warehouseType === '銷貨' ||
+           source === '銷貨出庫' ||
+           outboundType.includes('銷貨') ||
+           outboundType.includes('銷售');
+}
+
+function _isOtherOutbound(r = {}) {
+    const warehouseType = String(r.warehouse_type || r.分倉類型 || '').trim();
+    const source        = String(r.source || '').trim();
+    const outboundType  = String(r.outbound_type || r.出庫類型 || '').trim();
+    return warehouseType === '其他出庫' ||
+           source === '其他出庫' ||
+           outboundType === '其他';
+}
+
+function _isProjectMatchedOutbound(r = {}) {
+    const warehouseType = String(r.warehouse_type || r.分倉類型 || '').trim();
+    const source        = String(r.source || '').trim();
+    return _isProfitSalesOutbound(r) ||
+           warehouseType === '再途銷貨' ||
+           source === '在途出庫';
 }
 
 function _matLineKey(r) {
@@ -9297,15 +9325,17 @@ async function importTransitFromOutbound() {
     const statusEl = document.getElementById('transit_status');
     statusEl.textContent = '讀取出庫記錄中…';
     try {
-        // 1. 取出庫記錄（銷貨 + 再途銷貨 兩種類型都匯入台帳）
-        const [resp1, resp2] = await Promise.all([
+        // 1. 取出庫記錄（銷貨 + 再途銷貨 + 其他出庫 都匯入台帳）
+        const [resp1, resp2, resp3] = await Promise.all([
             fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.銷貨&select=*`, { headers: getSBHeaders() }),
             fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.再途銷貨&select=*`, { headers: getSBHeaders() }),
+            fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.其他出庫&select=*`, { headers: getSBHeaders() }),
         ]);
         if (!resp1.ok) throw new Error(await resp1.text());
         if (!resp2.ok) throw new Error(await resp2.text());
-        const rows = [...(await resp1.json()), ...(await resp2.json())];
-        if (!rows.length) { statusEl.textContent = '出庫記錄中找不到銷貨或再途銷貨類型的記錄'; return; }
+        if (!resp3.ok) throw new Error(await resp3.text());
+        const rows = [...(await resp1.json()), ...(await resp2.json()), ...(await resp3.json())];
+        if (!rows.length) { statusEl.textContent = '出庫記錄中找不到銷貨、再途銷貨或其他出庫類型的記錄'; return; }
 
         // ── 轉入台帳前：確認所有記錄都有分攤單價 ─────────────────────
         const missingPrice = rows.filter(r => !r.allocated_price || r.allocated_price <= 0);
@@ -9318,9 +9348,9 @@ async function importTransitFromOutbound() {
             return;
         }
 
-        // 2. 取台帳現有記錄（銷貨出庫 + 在途出庫 兩種 source 都要保留）
+        // 2. 取台帳現有記錄（銷貨出庫 + 在途出庫 + 其他出庫 都要保留）
         const ledResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=in.(在途出庫,銷貨出庫)&select=id,product_name,batch_no,outbound_date,period,source,offset_qty,status`,
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=in.(在途出庫,銷貨出庫,其他出庫)&select=id,product_name,batch_no,outbound_date,period,source,offset_qty,status`,
             { headers: getSBHeaders() }
         );
         if (!ledResp.ok) throw new Error(await ledResp.text());
@@ -9332,11 +9362,12 @@ async function importTransitFromOutbound() {
         ]));
 
         // 3. 依資料庫唯一鍵彙總出庫明細
-        //    銷貨 → source='銷貨出庫'（優先核銷）
-        //    再途銷貨 → source='在途出庫'（次要核銷）
+        //    銷貨 → source='銷貨出庫'（帶利潤專案）
+        //    其他出庫 → source='其他出庫'（扣台帳、不帶利潤專案）
+        //    再途銷貨 → source='在途出庫'
         const aggMap = new Map();
         rows.forEach(r => {
-            const src = (r.warehouse_type === '銷貨') ? '銷貨出庫' : '在途出庫';
+            const src = (r.warehouse_type === '銷貨') ? '銷貨出庫' : (r.warehouse_type === '其他出庫' ? '其他出庫' : '在途出庫');
             const key = `${r.product_name}|${r.batch_no}|${r.outbound_date || ''}|${r.period || ''}|${src}`;
             if (!aggMap.has(key)) {
                 aggMap.set(key, {
@@ -9373,7 +9404,7 @@ async function importTransitFromOutbound() {
                     remaining_qty: a.original_qty,
                     unit_price:    unitPrice,
                     total_cost:    totalCost,
-                    source:        a.source,   // '銷貨出庫' 或 '在途出庫'
+                    source:        a.source,   // '銷貨出庫'、'在途出庫' 或 '其他出庫'
                     status:        '未核銷',
                     period:        a.period,
                     month_label:   a.month_label,
@@ -9396,6 +9427,7 @@ async function importTransitFromOutbound() {
 
         const salesCnt   = [...aggMap.values()].filter(a => a.source === '銷貨出庫').length;
         const transitCnt = [...aggMap.values()].filter(a => a.source === '在途出庫').length;
+        const otherCnt   = [...aggMap.values()].filter(a => a.source === '其他出庫').length;
         statusEl.textContent = `新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆…`;
 
         // 5. 批量插入新批號
@@ -9417,7 +9449,7 @@ async function importTransitFromOutbound() {
             });
         }));
 
-        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（銷貨出庫 ${salesCnt} 組 / 在途出庫 ${transitCnt} 組）`;
+        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（銷貨出庫 ${salesCnt} 組 / 在途出庫 ${transitCnt} 組 / 其他出庫 ${otherCnt} 組）`;
         await loadTransitLedger();
     } catch(e) {
         statusEl.textContent = `❌ 匯入失敗：${e.message}`;
@@ -9630,15 +9662,15 @@ async function doImportTransitExcel(parsed) {
 }
 window.doImportTransitExcel = doImportTransitExcel;
 
-// ── 同步：出庫記錄 → 在途銷貨台帳（銷貨 + 再途銷貨 兩種類型）────────
+// ── 同步：出庫記錄 → 在途銷貨台帳（銷貨 + 再途銷貨 + 其他出庫）────────
 async function syncToTransitLedger(records) {
-    const transits = (records || []).filter(r => r.分倉類型 === '再途銷貨' || r.分倉類型 === '銷貨');
+    const transits = (records || []).filter(r => r.分倉類型 === '再途銷貨' || r.分倉類型 === '銷貨' || r.分倉類型 === '其他出庫');
     if (!transits.length) return;
 
-    // 依分倉類型決定 source：銷貨→'銷貨出庫'，再途銷貨→'在途出庫'
+    // 依分倉類型決定 source：銷貨→'銷貨出庫'，再途銷貨→'在途出庫'，其他→'其他出庫'
     const aggMap = new Map();
     transits.forEach(r => {
-        const src = r.分倉類型 === '銷貨' ? '銷貨出庫' : '在途出庫';
+        const src = r.分倉類型 === '銷貨' ? '銷貨出庫' : (r.分倉類型 === '其他出庫' ? '其他出庫' : '在途出庫');
         const key = `${r.產品名稱}|${r.批號}|${r.出庫日期 || ''}|${r.period || ''}|${src}`;
         if (!aggMap.has(key)) {
             aggMap.set(key, {
@@ -10219,7 +10251,7 @@ function _renderTransitTable() {
 
     if (!data.length) { el.innerHTML = focusBanner + '<p style="text-align:center;color:#999;padding:2rem;">查無記錄</p>'; return; }
     const stCol = { '未核銷':'#ef4444', '部分核銷':'#f7a35c', '已核銷':'#22c55e' };
-    const srcCol = { '銷貨出庫':'#22c55e', '在途出庫':'#7ec8e3', '加工子件':'#c9a8e0', '歷史匯入':'#f7a35c' };
+    const srcCol = { '銷貨出庫':'#22c55e', '在途出庫':'#7ec8e3', '其他出庫':'#94a3b8', '加工子件':'#c9a8e0', '歷史匯入':'#f7a35c' };
     const th = `padding:6px 10px;font-size:11px;font-weight:700;background:#6878C0;color:#fff;border:1px solid #4a5a9f;white-space:nowrap;`;
     const thSort = (key, label, align='left') => `<th onclick="_transitSortBy('${key}')" style="${th}text-align:${align};cursor:pointer;user-select:none;">${label}${_sortArrow(_transitSort, key)}</th>`;
     const td = `padding:5px 10px;font-size:11px;border:1px solid #c8d8ea;white-space:nowrap;`;
@@ -10769,14 +10801,15 @@ async function autoMatchTransitSales() {
     if (!resp.ok) throw new Error(await resp.text());
     const pendingRaw = await resp.json();
 
-    // ── 核銷優先順序：銷貨出庫 → 在途出庫（再途銷貨）→ 其他
-    //    同類型內依出庫日期 FIFO 排列
-    const srcOrder = s => s === '銷貨出庫' ? 0 : s === '在途出庫' ? 1 : 2;
-    const pending = [...pendingRaw].sort((a, b) => {
-        const so = srcOrder(a.source) - srcOrder(b.source);
-        if (so !== 0) return so;
-        return (a.outbound_date || '').localeCompare(b.outbound_date || '');
-    });
+    // ── 銷貨/在途出庫消耗利潤專案；其他出庫只扣台帳、不分配專案
+    const pending = pendingRaw
+        .filter(r => _isProjectMatchedOutbound(r) || _isOtherOutbound(r))
+        .sort((a, b) => {
+            const pri = r => _isProjectMatchedOutbound(r) ? 0 : 1;
+            const po = pri(a) - pri(b);
+            if (po !== 0) return po;
+            return (a.outbound_date || '').localeCompare(b.outbound_date || '');
+        });
 
     const today = new Date().toISOString().slice(0,10);
 
@@ -10785,34 +10818,44 @@ async function autoMatchTransitSales() {
 
     for (const rec of pending) {
         const key   = `${rec.product_name}|${rec.batch_no}`;
-        const queue = profitQueueMap[key];
-        if (!queue) continue;
-
-        // 目前佇列剩餘總量
-        const totalLeft = queue.reduce((s, t) => s + t.remaining, 0);
-        if (totalLeft <= 0) continue;
+        const isProjectOutbound = _isProjectMatchedOutbound(rec);
 
         const originalQty      = parseFloat(rec.original_qty) || 0;
         const currentOffset    = parseFloat(rec.offset_qty)   || 0;
         const currentRemaining = Math.max(0, originalQty - currentOffset);
-        const consumeQty       = Math.min(totalLeft, currentRemaining);
-        if (consumeQty <= 0) continue;
+        let consumeQty = 0;
+        let consumedProjects = [];
 
-        // FIFO：逐筆從佇列前端扣減，記錄實際消耗的利潤交易
-        const consumedProjects = [];
-        let leftToConsume = consumeQty;
-        for (const t of queue) {
-            if (leftToConsume <= 0.0001) break;
-            if (t.remaining <= 0) continue;
-            const take = Math.min(leftToConsume, t.remaining);
-            consumedProjects.push({
-                proj:     t.proj,
-                projName: t.projName,
-                date:     t.date,
-                qty:      take,   // 實際消耗量（非原始 qty）
-            });
-            t.remaining   -= take;
-            leftToConsume -= take;
+        if (isProjectOutbound) {
+            const queue = profitQueueMap[key];
+            if (!queue) continue;
+
+            // 目前佇列剩餘總量
+            const totalLeft = queue.reduce((s, t) => s + t.remaining, 0);
+            if (totalLeft <= 0) continue;
+
+            consumeQty = Math.min(totalLeft, currentRemaining);
+            if (consumeQty <= 0) continue;
+
+            // FIFO：逐筆從佇列前端扣減，記錄實際消耗的利潤交易
+            let leftToConsume = consumeQty;
+            for (const t of queue) {
+                if (leftToConsume <= 0.0001) break;
+                if (t.remaining <= 0) continue;
+                const take = Math.min(leftToConsume, t.remaining);
+                consumedProjects.push({
+                    proj:     t.proj,
+                    projName: t.projName,
+                    date:     t.date,
+                    qty:      take,   // 實際消耗量（非原始 qty）
+                });
+                t.remaining   -= take;
+                leftToConsume -= take;
+            }
+        } else {
+            // 其他出庫：實際扣台帳，但不消耗利潤專案
+            consumeQty = currentRemaining;
+            if (consumeQty <= 0) continue;
         }
 
         const newOffset    = currentOffset + consumeQty;
@@ -10832,7 +10875,8 @@ async function autoMatchTransitSales() {
             new_offset:     newOffset,
             new_remaining:  newRemaining,
             new_status:     newStatus,
-            profit_projects: consumedProjects,  // 只含實際消耗的利潤交易
+            profit_projects: consumedProjects,  // 銷貨/在途才會有專案；其他出庫保持空陣列
+            apply_to_profit: isProjectOutbound,
             unit_price:     rec.unit_price || 0, // 供合併報表用
         });
     }
@@ -11178,6 +11222,7 @@ function _mergeReconciliationToProfit(changes) {
     const excludedKeySet    = new Set(); // `product_name|batch_no`（手動改成 0 / 不核銷）
 
     changes.forEach(c => {
+        if (c.apply_to_profit === false) return;
         const key = `${c.product_name}|${c.batch_no}`;
         if (c.new_status === '已核銷' || c.new_status === '部分核銷') {
             confirmedPriceMap.set(key, c.unit_price);
@@ -11308,10 +11353,9 @@ async function runSalesReconciliation() {
         }));
     }
 
-    // 排除加工原料、在途銷貨
-    const excludedTypes = new Set(['加工原料', '再途銷貨']);
-    const salesRows    = outboundRows.filter(r => !excludedTypes.has(r.warehouse_type));
-    const excludedRows = outboundRows.filter(r =>  excludedTypes.has(r.warehouse_type));
+    // 只把真正銷貨列納入出庫量；其他出庫、加工原料、再途銷貨都只做差異提示
+    const salesRows    = outboundRows.filter(r => _isProfitSalesOutbound(r));
+    const excludedRows = outboundRows.filter(r => !_isProfitSalesOutbound(r));
 
     const outSummary = {}; // key → { totalQty, totalAmt, rows:[{date,qty,warehouse_type,notes}] }
     salesRows.forEach(r => {
@@ -15156,11 +15200,23 @@ class RentalAnalysisPipeline {
         this._progress = 20;
         this._render();
         let updated = 0;
+        const patches = [];
         records.forEach(r => {
           const newType = typeof _autoWarehouseType === 'function'
             ? _autoWarehouseType(r.出庫類型, r.備註) : r.分倉類型;
-          if (newType !== r.分倉類型) { r.分倉類型 = newType; updated++; }
+          if (newType !== r.分倉類型) {
+            r.分倉類型 = newType;
+            updated++;
+            if (r._id) {
+              patches.push(fetch(`${SUPABASE_URL}/rest/v1/outbound_records?id=eq.${r._id}`, {
+                method: 'PATCH',
+                headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                body: JSON.stringify({ warehouse_type: newType }),
+              }));
+            }
+          }
         });
+        if (patches.length) await Promise.all(patches);
         this._log('✅', `Stage 1 出庫分類完成（${records.length} 筆，更新 ${updated} 筆）`, '#22c55e');
         summary.items.push({ icon: '✅', label: 'Stage 1 出庫分類', msg: `${records.length} 筆，更新 ${updated}`, color: '#22c55e' });
       } else {
