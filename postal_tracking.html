@@ -815,24 +815,35 @@
         }
 
         async function fetchPostalData(trackingNumber) {
-            // TODO: 替換為實際的郵局 API 或 Apps Script Web App 端點
-            // 示例：
-            // const response = await fetch(
-            //   `https://script.google.com/macros/d/YOUR_DEPLOYMENT_ID/usercache/v1?trackingNumber=${trackingNumber}`
-            // );
-            // return await response.json();
-
-            // 示例回應（供測試用）
-            const mockData = {
-                number: trackingNumber,
-                status: ['已送達', '配送中', '待處理'][Math.floor(Math.random() * 3)],
-                location: ['台北郵局', '新店分局', '萬華分局'][Math.floor(Math.random() * 3)],
-                lastUpdate: new Date().toLocaleString('zh-TW')
-            };
-
-            return new Promise(resolve => {
-                setTimeout(() => resolve(mockData), 500);
-            });
+            // 使用 Apps Script Web App 端點
+            const deploymentUrl = 'https://script.google.com/macros/s/AKfycbweyhWv1o9l2DBp0wDbsSuR9HCyAGL61sggPpZhXvUH6FnS1_jurFG-iItpImwvCG5N/exec';
+            
+            try {
+                const response = await fetch(
+                    deploymentUrl + '?trackingNumber=' + encodeURIComponent(trackingNumber),
+                    {
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'no-cache'
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data;
+                
+            } catch (error) {
+                console.error('查詢失敗:', error);
+                return {
+                    number: trackingNumber,
+                    status: '查詢失敗',
+                    location: error.message,
+                    lastUpdate: new Date().toLocaleString('zh-TW')
+                };
+            }
         }
 
         // ============================================
