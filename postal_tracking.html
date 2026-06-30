@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📬 郵局物流查詢系統</title>
+    <title>📬 郵局物流查詢系統 - 本地版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
     <style>
         * {
@@ -50,7 +50,6 @@
             padding: 30px;
         }
 
-        /* 輸入區域 */
         .input-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -104,28 +103,16 @@
             border-color: #764ba2;
         }
 
-        .upload-area.dragover {
-            background: #e6ebff;
-            border-color: #764ba2;
-            transform: scale(1.02);
-        }
-
         .upload-area p {
             color: #667eea;
             font-weight: 500;
             margin-bottom: 8px;
         }
 
-        .upload-area small {
-            color: #999;
-            display: block;
-        }
-
         #fileInput {
             display: none;
         }
 
-        /* 按鈕區域 */
         .button-group {
             display: flex;
             gap: 12px;
@@ -157,11 +144,6 @@
             box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
         }
 
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
         .btn-secondary {
             background: #f8f9fa;
             color: #333;
@@ -173,15 +155,6 @@
             border-color: #667eea;
         }
 
-        .btn-danger {
-            background: #ff6b6b;
-            color: white;
-        }
-
-        .btn-danger:hover:not(:disabled) {
-            background: #ff5252;
-        }
-
         .btn-success {
             background: #51cf66;
             color: white;
@@ -191,58 +164,6 @@
             background: #40c057;
         }
 
-        /* 進度條 */
-        .progress-section {
-            display: none;
-            margin-bottom: 30px;
-        }
-
-        .progress-section.active {
-            display: block;
-        }
-
-        .progress-info {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            width: 0%;
-            transition: width 0.3s;
-        }
-
-        .status-message {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 13px;
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-
-        .status-message.error {
-            background: #ffebee;
-            color: #c62828;
-        }
-
-        .status-message.success {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-
-        /* 統計資訊 */
         .stats {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -271,13 +192,53 @@
             text-transform: uppercase;
         }
 
-        /* 結果表格 */
         .results-section {
             display: none;
         }
 
         .results-section.active {
             display: block;
+        }
+
+        .filter-section {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid #e9ecef;
+            background: white;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
         }
 
         .table-container {
@@ -321,81 +282,63 @@
             white-space: nowrap;
         }
 
-        .status-badge.delivered {
-            background: #c8e6c9;
-            color: #2e7d32;
-        }
-
-        .status-badge.in-transit {
-            background: #fff9c4;
-            color: #f57f17;
-        }
-
         .status-badge.pending {
-            background: #f3e5f5;
-            color: #6a1b9a;
+            background: #fff3cd;
+            color: #856404;
         }
 
-        .status-badge.failed {
-            background: #ffcdd2;
-            color: #c62828;
+        .status-badge.processing {
+            background: #cfe2ff;
+            color: #084298;
         }
 
-        .status-badge.cached {
-            font-size: 10px;
-            opacity: 0.7;
+        .status-badge.delivered {
+            background: #d1e7dd;
+            color: #0f5132;
         }
 
-        /* 篩選 */
-        .filter-section {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        .filter-btn {
-            padding: 8px 16px;
-            border: 2px solid #e9ecef;
-            background: white;
-            border-radius: 20px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .filter-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        .search-box {
-            flex: 1;
-            min-width: 200px;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 10px 14px;
-            border: 2px solid #e9ecef;
+        .input-form {
+            background: #e3f2fd;
+            padding: 20px;
             border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+        }
+
+        .input-form h4 {
+            color: #1976d2;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .form-group {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .form-group input {
+            padding: 10px;
+            border: 2px solid #cfe2ff;
+            border-radius: 6px;
             font-size: 13px;
         }
 
-        .search-box input:focus {
+        .form-group input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #2196f3;
         }
 
-        /* 快取指示 */
-        .cache-indicator {
-            font-size: 10px;
+        .footer {
+            text-align: center;
+            padding: 20px;
             color: #999;
-            margin-left: 4px;
+            font-size: 12px;
+            border-top: 1px solid #e9ecef;
+            margin-top: 30px;
         }
 
-        /* 響應式 */
         @media (max-width: 768px) {
             .input-section {
                 grid-template-columns: 1fr;
@@ -413,41 +356,20 @@
                 width: 100%;
                 justify-content: center;
             }
-
-            .header h1 {
-                font-size: 24px;
-            }
-
-            .content {
-                padding: 20px;
-            }
         }
 
         .hidden {
             display: none !important;
         }
 
-        .loading {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border: 2px solid #667eea;
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .footer {
-            text-align: center;
-            padding: 20px;
-            color: #999;
-            font-size: 12px;
-            border-top: 1px solid #e9ecef;
-            margin-top: 30px;
+        .info-box {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #00acc1;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #00695c;
         }
     </style>
 </head>
@@ -455,15 +377,19 @@
     <div class="container">
         <div class="header">
             <h1>📬 郵局物流查詢系統</h1>
-            <p>支援批量查詢、本地快取、智慧去重</p>
+            <p>本地版 - 完全離線運作 ✨</p>
         </div>
 
         <div class="content">
+            <div class="info-box">
+                💡 <strong>使用方式：</strong>先在郵局官方網站查詢結果，複製貼入下方或上傳 CSV/Excel 檔案，系統自動幫你整理、快取、導出
+            </div>
+
             <!-- 輸入區域 -->
             <div class="input-section">
                 <div class="input-box">
                     <h3>✏️ 直接輸入</h3>
-                    <textarea id="manualInput" placeholder="貼上寄件號碼（每行或逗號分隔）&#10;例如：&#10;1234567890123&#10;1234567890124&#10;1234567890125"></textarea>
+                    <textarea id="manualInput" placeholder="貼上寄件號碼（每行一個）&#10;例如：&#10;1234567890123&#10;1234567890124&#10;1234567890125"></textarea>
                 </div>
 
                 <div class="input-box">
@@ -476,40 +402,38 @@
                 </div>
             </div>
 
+            <!-- 手動輸入結果區域 -->
+            <div class="input-form">
+                <h4>🔍 輸入查詢結果</h4>
+                <p style="margin-bottom: 15px; color: #1976d2; font-size: 12px;">在郵局官網查詢後，在此輸入寄件號碼及狀態</p>
+                <div class="form-group">
+                    <input type="text" id="trackingNumber" placeholder="寄件號碼 (13碼)">
+                    <input type="text" id="trackingStatus" placeholder="狀態" style="flex: 0 0 200px;">
+                </div>
+                <div class="form-group">
+                    <input type="text" id="trackingLocation" placeholder="位置 / 分局">
+                    <button class="btn-primary" onclick="addManualResult()" style="flex: 0 0 auto;">➕ 新增</button>
+                </div>
+            </div>
+
             <!-- 操作按鈕 -->
             <div class="button-group">
-                <button class="btn-primary" id="queryBtn">
-                    <span>🚀</span>
-                    <span>開始查詢</span>
-                </button>
-                <button class="btn-secondary" id="clearBtn">
+                <button class="btn-secondary" onclick="clearInput()">
                     <span>🗑️</span>
                     <span>清空輸入</span>
                 </button>
-                <button class="btn-secondary" id="clearCacheBtn">
+                <button class="btn-secondary" onclick="clearCache()">
                     <span>🔄</span>
                     <span>清除快取</span>
                 </button>
-                <button class="btn-success hidden" id="exportBtn">
+                <button class="btn-success hidden" id="exportBtn" onclick="exportToExcel()">
                     <span>💾</span>
                     <span>導出 Excel</span>
                 </button>
-                <button class="btn-success hidden" id="copyBtn">
+                <button class="btn-success hidden" id="copyBtn" onclick="copyResults()">
                     <span>📋</span>
                     <span>複製結果</span>
                 </button>
-            </div>
-
-            <!-- 進度條 -->
-            <div class="progress-section" id="progressSection">
-                <div class="progress-info">
-                    <span id="progressText">準備中...</span>
-                    <span id="progressPercent">0%</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill"></div>
-                </div>
-                <div class="status-message" id="statusMessage"></div>
             </div>
 
             <!-- 統計資訊 -->
@@ -519,28 +443,27 @@
                     <div class="stat-label">總筆數</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="successCount">0</div>
-                    <div class="stat-label">已查詢</div>
+                    <div class="stat-number" id="deliveredCount">0</div>
+                    <div class="stat-label">已送達</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="cacheCount">0</div>
-                    <div class="stat-label">快取命中</div>
+                    <div class="stat-number" id="processingCount">0</div>
+                    <div class="stat-label">配送中</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number" id="failureCount">0</div>
-                    <div class="stat-label">失敗</div>
+                    <div class="stat-number" id="pendingCount">0</div>
+                    <div class="stat-label">待處理</div>
                 </div>
             </div>
 
             <!-- 篩選與搜尋 -->
             <div class="filter-section hidden" id="filterSection">
-                <button class="filter-btn active" data-filter="all">全部</button>
-                <button class="filter-btn" data-filter="delivered">已送達</button>
-                <button class="filter-btn" data-filter="in-transit">配送中</button>
-                <button class="filter-btn" data-filter="pending">待處理</button>
-                <button class="filter-btn" data-filter="failed">失敗</button>
+                <button class="filter-btn active" data-filter="all" onclick="filterByStatus('all')">全部</button>
+                <button class="filter-btn" data-filter="delivered" onclick="filterByStatus('delivered')">✅ 已送達</button>
+                <button class="filter-btn" data-filter="processing" onclick="filterByStatus('processing')">📦 配送中</button>
+                <button class="filter-btn" data-filter="pending" onclick="filterByStatus('pending')">⏳ 待處理</button>
                 <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="搜尋寄件號碼或位置...">
+                    <input type="text" id="searchInput" placeholder="搜尋寄件號碼或位置..." oninput="filterResults()">
                 </div>
             </div>
 
@@ -554,7 +477,7 @@
                                 <th style="width: 20%">狀態</th>
                                 <th style="width: 25%">位置</th>
                                 <th style="width: 25%">最後更新</th>
-                                <th style="width: 15%">備註</th>
+                                <th style="width: 15%">操作</th>
                             </tr>
                         </thead>
                         <tbody id="resultsBody">
@@ -564,30 +487,45 @@
             </div>
 
             <div class="footer">
-                💡 本系統使用本地快取，同一號碼 6 小時內只查詢一次 | 資料完全在本地，不上傳伺服器
+                ✅ 完全本地運作 | 📊 自動快取 | 🔒 資料隱私 | 📱 支援所有設備
             </div>
         </div>
     </div>
 
     <script>
         // ============================================
-        // 1. 初始化與事件綁定
+        // 狀態管理
         // ============================================
 
         const state = {
             results: [],
-            originalResults: [],
             currentFilter: 'all',
-            isQuerying: false,
-            stats: {
-                total: 0,
-                success: 0,
-                cached: 0,
-                failure: 0
-            }
+            searchTerm: ''
         };
 
-        // 上傳檔案拖曳
+        const STORAGE_KEY = 'postal_tracking_data';
+
+        // ============================================
+        // 1. 初始化
+        // ============================================
+
+        window.addEventListener('load', () => {
+            loadFromStorage();
+            setupUploadArea();
+            if (state.results.length > 0) {
+                renderResults();
+                updateStats();
+                document.getElementById('resultsSection').classList.add('active');
+                document.getElementById('filterSection').classList.remove('hidden');
+                document.getElementById('exportBtn').classList.remove('hidden');
+                document.getElementById('copyBtn').classList.remove('hidden');
+            }
+        });
+
+        // ============================================
+        // 2. 文件上傳
+        // ============================================
+
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
 
@@ -612,32 +550,6 @@
             handleFileUpload(e.target.files[0]);
         });
 
-        // 按鈕事件
-        document.getElementById('queryBtn').addEventListener('click', startQuery);
-        document.getElementById('clearBtn').addEventListener('click', clearInput);
-        document.getElementById('clearCacheBtn').addEventListener('click', clearCache);
-        document.getElementById('exportBtn').addEventListener('click', exportToExcel);
-        document.getElementById('copyBtn').addEventListener('click', copyResults);
-
-        // 篩選
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                state.currentFilter = e.target.dataset.filter;
-                filterResults();
-            });
-        });
-
-        // 搜尋
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            filterResults(e.target.value);
-        });
-
-        // ============================================
-        // 2. 檔案上傳處理
-        // ============================================
-
         function handleFileUpload(file) {
             if (!file) return;
 
@@ -647,12 +559,10 @@
                     let data;
 
                     if (file.name.endsWith('.csv')) {
-                        // CSV 處理
                         data = e.target.result.split('\n')
                             .map(row => row.split(',')[0].trim())
                             .filter(v => v);
                     } else {
-                        // Excel 處理
                         const workbook = XLSX.read(e.target.result, { type: 'array' });
                         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                         data = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
@@ -661,9 +571,9 @@
                     }
 
                     document.getElementById('manualInput').value = data.join('\n');
-                    showStatus(`✅ 已載入 ${data.length} 筆號碼`, 'success');
+                    alert(`✅ 已載入 ${data.length} 筆號碼`);
                 } catch (error) {
-                    showStatus(`❌ 檔案解析失敗: ${error.message}`, 'error');
+                    alert(`❌ 檔案解析失敗: ${error.message}`);
                 }
             };
 
@@ -671,216 +581,88 @@
         }
 
         // ============================================
-        // 3. 解析與驗證
+        // 3. 手動輸入結果
         // ============================================
 
-        function parseInput() {
-            const text = document.getElementById('manualInput').value;
-            const numbers = text
-                .split(/[\n,\s]+/)
-                .map(n => n.trim())
-                .filter(n => n && n.match(/^\d{13}$/)); // 13 位數字
+        function addManualResult() {
+            const number = document.getElementById('trackingNumber').value.trim();
+            const status = document.getElementById('trackingStatus').value.trim();
+            const location = document.getElementById('trackingLocation').value.trim();
 
-            const unique = [...new Set(numbers)];
-
-            state.stats.total = unique.length;
-
-            return unique;
-        }
-
-        // ============================================
-        // 4. 快取管理
-        // ============================================
-
-        function getCachedResult(trackingNumber) {
-            const cached = localStorage.getItem(`track_${trackingNumber}`);
-            if (!cached) return null;
-
-            const data = JSON.parse(cached);
-
-            // 檢查過期（6小時）
-            if (Date.now() - data.timestamp > 6 * 60 * 60 * 1000) {
-                localStorage.removeItem(`track_${trackingNumber}`);
-                return null;
-            }
-
-            return data;
-        }
-
-        function setCachedResult(trackingNumber, result) {
-            localStorage.setItem(
-                `track_${trackingNumber}`,
-                JSON.stringify({ ...result, timestamp: Date.now() })
-            );
-        }
-
-        function clearCache() {
-            if (confirm('確定要清除所有快取嗎？')) {
-                const keys = Object.keys(localStorage);
-                keys.forEach(key => {
-                    if (key.startsWith('track_')) {
-                        localStorage.removeItem(key);
-                    }
-                });
-                showStatus('✅ 快取已清除', 'success');
-            }
-        }
-
-        // ============================================
-        // 5. 查詢邏輯
-        // ============================================
-
-        async function startQuery() {
-            const numbers = parseInput();
-
-            if (numbers.length === 0) {
-                showStatus('❌ 請輸入有效的寄件號碼（13位數字）', 'error');
+            if (!number || !status) {
+                alert('請輸入寄件號碼和狀態');
                 return;
             }
 
-            state.isQuerying = true;
-            state.results = [];
-            state.stats = { total: numbers.length, success: 0, cached: 0, failure: 0 };
-
-            document.getElementById('progressSection').classList.add('active');
-            document.getElementById('queryBtn').disabled = true;
-
-            for (let i = 0; i < numbers.length; i++) {
-                const result = await queryNumber(numbers[i]);
-                state.results.push(result);
-                state.originalResults = [...state.results];
-
-                updateProgress(i + 1, numbers.length);
-
-                // 限流：避免過快
-                await new Promise(r => setTimeout(r, 300));
+            if (!number.match(/^\d{13}$/)) {
+                alert('寄件號碼必須是 13 位數字');
+                return;
             }
 
-            state.isQuerying = false;
-            document.getElementById('queryBtn').disabled = false;
-            document.getElementById('progressSection').classList.remove('active');
-            document.getElementById('resultsSection').classList.add('active');
-            document.getElementById('statsSection').classList.add('active');
-            document.getElementById('filterSection').classList.remove('hidden');
-            document.getElementById('exportBtn').classList.remove('hidden');
-            document.getElementById('copyBtn').classList.remove('hidden');
+            // 檢查重複
+            const exists = state.results.find(r => r.number === number);
+            if (exists) {
+                if (confirm(`寄件號碼 ${number} 已存在，要更新嗎？`)) {
+                    exists.status = status;
+                    exists.location = location;
+                    exists.lastUpdate = new Date().toLocaleString('zh-TW');
+                } else {
+                    return;
+                }
+            } else {
+                state.results.push({
+                    number,
+                    status,
+                    location,
+                    lastUpdate: new Date().toLocaleString('zh-TW')
+                });
+            }
 
+            // 清空輸入框
+            document.getElementById('trackingNumber').value = '';
+            document.getElementById('trackingStatus').value = '';
+            document.getElementById('trackingLocation').value = '';
+
+            // 保存並重新渲染
+            saveToStorage();
             renderResults();
             updateStats();
+            showResultsPanel();
 
-            showStatus(
-                `✅ 查詢完成！成功: ${state.stats.success}, 快取: ${state.stats.cached}, 失敗: ${state.stats.failure}`,
-                'success'
-            );
-        }
-
-        async function queryNumber(trackingNumber) {
-            // 檢查快取
-            const cached = getCachedResult(trackingNumber);
-            if (cached) {
-                state.stats.cached++;
-                state.stats.success++;
-                return { ...cached, cached: true };
-            }
-
-            try {
-                // 模擬郵局 API 查詢
-                // 實際使用時，需要呼叫真實 API 或 Apps Script Web App
-                const result = await fetchPostalData(trackingNumber);
-
-                if (result) {
-                    state.stats.success++;
-                    setCachedResult(trackingNumber, result);
-                    return { ...result, cached: false };
-                } else {
-                    state.stats.failure++;
-                    return {
-                        number: trackingNumber,
-                        status: '查詢失敗',
-                        location: '-',
-                        lastUpdate: new Date().toLocaleString('zh-TW'),
-                        cached: false
-                    };
-                }
-            } catch (error) {
-                state.stats.failure++;
-                return {
-                    number: trackingNumber,
-                    status: '錯誤',
-                    location: error.message,
-                    lastUpdate: new Date().toLocaleString('zh-TW'),
-                    cached: false
-                };
-            }
-        }
-
-        async function fetchPostalData(trackingNumber) {
-            // 使用 Apps Script Web App 端點
-            const deploymentUrl = 'https://script.google.com/macros/s/AKfycbweyhWv1o9l2DBp0wDbsSuR9HCyAGL61sggPpZhXvUH6FnS1_jurFG-iItpImwvCG5N/exec';
-            
-            try {
-                const response = await fetch(
-                    deploymentUrl + '?trackingNumber=' + encodeURIComponent(trackingNumber),
-                    {
-                        method: 'GET',
-                        mode: 'cors',
-                        cache: 'no-cache'
-                    }
-                );
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                
-                const data = await response.json();
-                return data;
-                
-            } catch (error) {
-                console.error('查詢失敗:', error);
-                return {
-                    number: trackingNumber,
-                    status: '查詢失敗',
-                    location: error.message,
-                    lastUpdate: new Date().toLocaleString('zh-TW')
-                };
-            }
+            alert('✅ 已新增');
         }
 
         // ============================================
-        // 6. UI 更新
+        // 4. 渲染結果
         // ============================================
-
-        function updateProgress(current, total) {
-            const percent = Math.round((current / total) * 100);
-            document.getElementById('progressFill').style.width = percent + '%';
-            document.getElementById('progressPercent').textContent = percent + '%';
-            document.getElementById('progressText').textContent = `正在查詢: ${current}/${total}`;
-        }
-
-        function updateStats() {
-            document.getElementById('totalCount').textContent = state.stats.total;
-            document.getElementById('successCount').textContent = state.stats.success;
-            document.getElementById('cacheCount').textContent = state.stats.cached;
-            document.getElementById('failureCount').textContent = state.stats.failure;
-        }
 
         function renderResults() {
             const tbody = document.getElementById('resultsBody');
             tbody.innerHTML = '';
 
-            state.results.forEach(result => {
+            const filtered = state.results.filter(r => {
+                const matchesFilter = state.currentFilter === 'all' || 
+                    getStatusType(r.status) === state.currentFilter;
+                const matchesSearch = !state.searchTerm ||
+                    r.number.includes(state.searchTerm) ||
+                    r.location.includes(state.searchTerm) ||
+                    r.status.includes(state.searchTerm);
+                return matchesFilter && matchesSearch;
+            });
+
+            filtered.forEach(result => {
                 const row = document.createElement('tr');
-                const statusClass = getStatusClass(result.status);
+                const statusType = getStatusType(result.status);
+                const statusClass = `status-badge ${statusType}`;
 
                 row.innerHTML = `
                     <td><code>${result.number}</code></td>
-                    <td>
-                        <span class="status-badge ${statusClass}">${result.status}</span>
-                    </td>
-                    <td>${result.location}</td>
+                    <td><span class="${statusClass}">${result.status}</span></td>
+                    <td>${result.location || '-'}</td>
                     <td>${result.lastUpdate}</td>
                     <td>
-                        ${result.cached ? '<span class="cache-indicator">💾 快取</span>' : ''}
+                        <button class="btn-secondary" onclick="editResult('${result.number}')" style="padding: 4px 8px; font-size: 12px;">編輯</button>
+                        <button class="btn-secondary" onclick="deleteResult('${result.number}')" style="padding: 4px 8px; font-size: 12px;">刪除</button>
                     </td>
                 `;
 
@@ -888,48 +670,95 @@
             });
         }
 
-        function filterResults(searchTerm = '') {
-            state.results = state.originalResults.filter(result => {
-                const matchesFilter = state.currentFilter === 'all' ||
-                    getStatusClass(result.status).replace('status-badge ', '') === state.currentFilter;
-
-                const matchesSearch = !searchTerm ||
-                    result.number.includes(searchTerm) ||
-                    result.location.includes(searchTerm);
-
-                return matchesFilter && matchesSearch;
-            });
-
-            renderResults();
-        }
-
-        function getStatusClass(status) {
+        function getStatusType(status) {
             if (status.includes('已送達') || status.includes('delivered')) return 'delivered';
-            if (status.includes('配送中') || status.includes('in-transit') || status.includes('in transit')) return 'in-transit';
-            if (status.includes('待處理') || status.includes('pending')) return 'pending';
-            return 'failed';
-        }
-
-        function showStatus(message, type = 'info') {
-            const msg = document.getElementById('statusMessage');
-            msg.textContent = message;
-            msg.className = `status-message ${type}`;
+            if (status.includes('配送中') || status.includes('processing') || status.includes('運送')) return 'processing';
+            return 'pending';
         }
 
         // ============================================
-        // 7. 導出功能
+        // 5. 篩選與搜尋
+        // ============================================
+
+        function filterByStatus(status) {
+            state.currentFilter = status;
+            
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            renderResults();
+        }
+
+        function filterResults() {
+            state.searchTerm = document.getElementById('searchInput').value.trim();
+            renderResults();
+        }
+
+        // ============================================
+        // 6. 編輯與刪除
+        // ============================================
+
+        function editResult(number) {
+            const result = state.results.find(r => r.number === number);
+            if (!result) return;
+
+            const newStatus = prompt('輸入新狀態:', result.status);
+            if (newStatus === null) return;
+
+            const newLocation = prompt('輸入新位置:', result.location);
+            if (newLocation === null) return;
+
+            result.status = newStatus;
+            result.location = newLocation;
+            result.lastUpdate = new Date().toLocaleString('zh-TW');
+
+            saveToStorage();
+            renderResults();
+            updateStats();
+        }
+
+        function deleteResult(number) {
+            if (!confirm(`確定要刪除寄件號碼 ${number} 嗎？`)) return;
+
+            state.results = state.results.filter(r => r.number !== number);
+            saveToStorage();
+            renderResults();
+            updateStats();
+
+            if (state.results.length === 0) {
+                document.getElementById('resultsSection').classList.remove('active');
+                document.getElementById('filterSection').classList.add('hidden');
+                document.getElementById('exportBtn').classList.add('hidden');
+                document.getElementById('copyBtn').classList.add('hidden');
+            }
+        }
+
+        // ============================================
+        // 7. 統計更新
+        // ============================================
+
+        function updateStats() {
+            const total = state.results.length;
+            const delivered = state.results.filter(r => getStatusType(r.status) === 'delivered').length;
+            const processing = state.results.filter(r => getStatusType(r.status) === 'processing').length;
+            const pending = state.results.filter(r => getStatusType(r.status) === 'pending').length;
+
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('deliveredCount').textContent = delivered;
+            document.getElementById('processingCount').textContent = processing;
+            document.getElementById('pendingCount').textContent = pending;
+        }
+
+        // ============================================
+        // 8. 導出功能
         // ============================================
 
         function exportToExcel() {
             const data = [
-                ['寄件號碼', '狀態', '位置', '最後更新', '備註'],
-                ...state.results.map(r => [
-                    r.number,
-                    r.status,
-                    r.location,
-                    r.lastUpdate,
-                    r.cached ? '快取' : ''
-                ])
+                ['寄件號碼', '狀態', '位置', '最後更新'],
+                ...state.results.map(r => [r.number, r.status, r.location, r.lastUpdate])
             ];
 
             const worksheet = XLSX.utils.aoa_to_sheet(data);
@@ -945,19 +774,61 @@
                 .join('\n');
 
             navigator.clipboard.writeText(text).then(() => {
-                showStatus('✅ 已複製到剪貼簿', 'success');
+                alert('✅ 已複製到剪貼簿');
             });
         }
+
+        // ============================================
+        // 9. 存儲管理
+        // ============================================
+
+        function saveToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.results));
+        }
+
+        function loadFromStorage() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    state.results = JSON.parse(saved);
+                } catch (e) {
+                    state.results = [];
+                }
+            }
+        }
+
+        function clearCache() {
+            if (confirm('確定要清除所有資料嗎？')) {
+                state.results = [];
+                localStorage.removeItem(STORAGE_KEY);
+                document.getElementById('resultsSection').classList.remove('active');
+                document.getElementById('filterSection').classList.add('hidden');
+                document.getElementById('exportBtn').classList.add('hidden');
+                document.getElementById('copyBtn').classList.add('hidden');
+                alert('✅ 已清除');
+            }
+        }
+
+        // ============================================
+        // 10. 輔助函數
+        // ============================================
 
         function clearInput() {
             document.getElementById('manualInput').value = '';
             document.getElementById('fileInput').value = '';
         }
 
-        // 頁面載入時恢復快取結果
-        window.addEventListener('load', () => {
-            showStatus('✅ 準備就緒，請輸入寄件號碼開始查詢', 'success');
-        });
+        function showResultsPanel() {
+            document.getElementById('resultsSection').classList.add('active');
+            document.getElementById('filterSection').classList.remove('hidden');
+            document.getElementById('exportBtn').classList.remove('hidden');
+            document.getElementById('copyBtn').classList.remove('hidden');
+        }
+
+        function setupUploadArea() {
+            const area = document.getElementById('uploadArea');
+            area.style.cursor = 'pointer';
+        }
     </script>
 </body>
 </html>
