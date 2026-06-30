@@ -12663,7 +12663,7 @@ function _profitIsSummaryRow(row, cols = {}) {
     const qty   = _profitNumber(row?.[cols.qtyCol || '數量']);
     return !code && !name && !batch && qty === 0;
 }
-function _profitKeyCandidates(parts = {}) {
+function _profitKeyCandidates(parts = {}, options = {}) {
     const project = _profitCleanValue(parts.project);
     const code    = _profitCleanValue(parts.code);
     const name    = _profitCleanValue(parts.name);
@@ -12679,7 +12679,7 @@ function _profitKeyCandidates(parts = {}) {
     add(project, name, batch);
     add(code, batch);
     add(name, batch);
-    add(batch);
+    if (options.includeBatchOnly !== false) add(batch);
     return keys;
 }
 function _profitPutMap(map, keys, value, notesMap = null, notes = '') {
@@ -12716,20 +12716,7 @@ async function calcProfit() {
         if (!profitRows || profitRows.length === 0) { statusEl.innerHTML = '<span style="color:#e8836a;">❌ 讀取失敗或空白</span>'; return; }
         profitHeaders = Object.keys(profitRows[0]);
 
-        // 第1層：建立總帳分攤單價表
-        const ledgerRows = await loadLedgerRows(true);
-        const snapshotRows = window._profitSnapshotRows || [];
-        const ledgerPriceMap = {}; // 產品名稱|批號 -> 分攤單價
-        ledgerRows.forEach(r => {
-            const name  = String(r.產品名稱||'').trim();
-            const batch = String(r.批號||'').trim();
-            _profitPutMap(ledgerPriceMap, _profitKeyCandidates({ name, batch }), r.分攤單價 || 0);
-        });
-        snapshotRows.forEach(r => {
-            const name  = String(r.產品名稱||'').trim();
-            const batch = String(r.批號||'').trim();
-            _profitPutMap(ledgerPriceMap, _profitKeyCandidates({ name, batch }), r.分攤單價 || 0);
-        });
+        // 利潤分析不再從月結算總帳補單價；正式比對只採用租金結果、加工成品、已核銷台帳。
 
         // 第2層：讀取租金計算結果，只用業務屬性明細含「銷貨」的列
         const rentalFile = ledgerFiles['rental_result_file'];
@@ -12748,7 +12735,7 @@ async function calcProfit() {
                     const isSales = bizDetail === '' || bizDetail.includes('銷貨');
                     if (name && batch && price > 0 && isSales) {
                         const code = String(r['產品'] || r['產品代碼'] || '').trim();
-                        _profitPutMap(rentalPriceMap, _profitKeyCandidates({ code, name, batch }), price, rentalNotesMap, String(r['備註']||'').trim());
+                        _profitPutMap(rentalPriceMap, _profitKeyCandidates({ code, name, batch }, { includeBatchOnly: false }), price, rentalNotesMap, String(r['備註']||'').trim());
                         usedCount++;
                     }
                 });
@@ -12773,7 +12760,7 @@ async function calcProfit() {
                 tRows.forEach(r => {
                     const name = String(r.product_name||'').trim();
                     const batch = String(r.batch_no||'').trim();
-                    const keys = _profitKeyCandidates({ name, batch });
+                    const keys = _profitKeyCandidates({ name, batch }, { includeBatchOnly: false });
                     if (keys.length && !_profitLookup(transitPriceMap, keys)) {
                         _profitPutMap(transitPriceMap, keys, r.unit_price, transitNotesMap, String(r.notes||'').trim());
                     }
@@ -12843,7 +12830,7 @@ async function calcProfit() {
         _savedRentalNotesMap      = rentalNotesMap;
         _savedProcessingPriceMap  = processingUnitPriceMap;
 
-        // 第4層：試算利潤表，帶入租金單價（優先順序：加工成品 > 租金結果 > 總帳）
+        // 第4層：試算利潤表，帶入租金單價（優先順序：加工成品 > 租金結果 > 已核銷台帳）
         let matched = 0, unmatched = 0, rentTotal = 0;
         profitCalcData = profitRows.map(r => {
             const project = String(r['專案'] || '').trim();
@@ -12851,7 +12838,7 @@ async function calcProfit() {
             const name  = String(r[nameCol]||'').trim();
             const batch = String(r['小批號'] || r[batchCol] || '').trim();
             const qty   = parseFloat(String(r[qtyCol]||'').replace(/,/g,'')) || 0;
-            const keys  = _profitKeyCandidates({ project, code, name, batch });
+            const keys  = _profitKeyCandidates({ project, code, name, batch }, { includeBatchOnly: false });
             const key   = keys[0] || `${name}|${batch}`;
             
             let rentPrice = '', rentCost = '', rentSource = '';
@@ -12874,11 +12861,7 @@ async function calcProfit() {
                 rentSource = '在途台帳';
                 rentNotes  = _profitLookup(transitNotesMap, keys) || '';
             }
-            // 最後才用月結算總帳
-            else if (_profitLookup(ledgerPriceMap, keys) !== '') {
-                rentPrice  = _profitLookup(ledgerPriceMap, keys);
-                rentSource = '月結算總帳';
-            }
+            // 不再使用月結算總帳 fallback，避免台帳未核銷或不同產品同批號被誤算。
             
             if (rentPrice !== '') {
                 rentCost  = Math.round(rentPrice * qty);
@@ -12936,7 +12919,7 @@ async function refreshProfitFromTransit() {
             const keys = _profitKeyCandidates({
                 name: r.product_name,
                 batch: r.batch_no
-            });
+            }, { includeBatchOnly: false });
             if (keys.length && !_profitLookup(newTransitPriceMap, keys)) {
                 _profitPutMap(newTransitPriceMap, keys, r.unit_price, newTransitNotesMap, String(r.notes||'').trim());
             }
@@ -12953,7 +12936,7 @@ async function refreshProfitFromTransit() {
             const code  = String(r[codeCol] || '').trim();
             const name  = String(r[nameCol] || '').trim();
             const batch = String(r['小批號'] || r[batchCol] || '').trim();
-            const keys = _profitKeyCandidates({ project, code, name, batch });
+            const keys = _profitKeyCandidates({ project, code, name, batch }, { includeBatchOnly: false });
             const qty = parseFloat(String(r[qtyCol] || '').replace(/,/g,'')) || 0;
 
             let rentPrice = r.租金單價;
