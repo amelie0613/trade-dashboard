@@ -1,106 +1,68 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <base target="_top">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>郵件查詢系統</title>
   <style>
-    :root { color-scheme: light; --bg:#f6f7f9; --panel:#fff; --line:#d8dde6; --text:#1d2733; --muted:#667085; --primary:#1f6feb; --primary-dark:#1857b8; --ok-bg:#e7f6ed; --ok-text:#17653a; --warn-bg:#fff4df; --warn-text:#8a5600; --bad-bg:#fdecec; --bad-text:#9f1c1c; }
-    * { box-sizing: border-box; }
-    body { margin:0; background:var(--bg); color:var(--text); font-family:Arial,"Microsoft JhengHei",sans-serif; font-size:15px; line-height:1.5; }
-    header { background:#fff; border-bottom:1px solid var(--line); padding:18px 24px; }
-    h1 { margin:0; font-size:22px; font-weight:700; }
-    main { max-width:1120px; margin:0 auto; padding:24px; }
-    .toolbar { display:grid; grid-template-columns:1fr auto; gap:16px; align-items:end; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px; }
-    label { display:block; margin-bottom:8px; color:var(--muted); font-size:13px; font-weight:700; }
-    textarea { width:100%; min-height:116px; resize:vertical; border:1px solid var(--line); border-radius:6px; padding:12px; color:var(--text); font:inherit; outline:none; }
-    textarea:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(31,111,235,.12); }
-    .actions { display:flex; flex-direction:column; gap:12px; min-width:180px; }
-    .checks { display:grid; gap:8px; color:var(--muted); font-size:14px; }
-    .checks label { display:flex; gap:8px; align-items:center; margin:0; color:var(--muted); font-weight:400; }
-    button { border:0; border-radius:6px; padding:11px 16px; background:var(--primary); color:#fff; cursor:pointer; font:inherit; font-weight:700; }
-    button:hover { background:var(--primary-dark); }
-    button:disabled { cursor:wait; opacity:.65; }
-    .status { min-height:24px; margin:14px 2px; color:var(--muted); }
-    table { width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
-    th, td { border-bottom:1px solid var(--line); padding:10px 12px; text-align:left; vertical-align:top; }
-    th { background:#eef2f7; color:#344054; font-size:13px; white-space:nowrap; }
-    tr:last-child td { border-bottom:0; }
-    .badge { display:inline-block; border-radius:999px; padding:3px 9px; font-size:13px; font-weight:700; white-space:nowrap; }
-    .done { background:var(--ok-bg); color:var(--ok-text); }
-    .pending { background:var(--warn-bg); color:var(--warn-text); }
-    .error { background:var(--bad-bg); color:var(--bad-text); }
-    .empty { padding:30px 16px; color:var(--muted); text-align:center; }
-    @media (max-width:760px) { main { padding:14px; } .toolbar { grid-template-columns:1fr; } .actions { min-width:0; } table { display:block; overflow-x:auto; } }
+    body{margin:0;background:#f6f7f9;color:#1d2733;font-family:Arial,"Microsoft JhengHei",sans-serif;font-size:15px;line-height:1.5}header{background:#fff;border-bottom:1px solid #d8dde6;padding:18px 24px}h1{margin:0;font-size:22px}main{max-width:1120px;margin:0 auto;padding:24px}.panel{background:#fff;border:1px solid #d8dde6;border-radius:8px;padding:18px}label{display:block;margin:0 0 8px;color:#667085;font-size:13px;font-weight:700}textarea{width:100%;min-height:116px;resize:vertical;border:1px solid #d8dde6;border-radius:6px;padding:12px;font:inherit;box-sizing:border-box}.row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px}.check{font-weight:400;color:#667085}button{border:0;border-radius:6px;padding:11px 18px;background:#1f6feb;color:#fff;cursor:pointer;font:inherit;font-weight:700}button:disabled{opacity:.65;cursor:wait}.status{min-height:24px;margin:14px 2px;color:#667085}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #d8dde6}th,td{border-bottom:1px solid #d8dde6;padding:10px 12px;text-align:left;vertical-align:top}th{background:#eef2f7;font-size:13px;white-space:nowrap}.badge{display:inline-block;border-radius:999px;padding:3px 9px;font-size:13px;font-weight:700;white-space:nowrap}.done{background:#e7f6ed;color:#17653a}.pending{background:#fff4df;color:#8a5600}.error{background:#fdecec;color:#9f1c1c}.empty{padding:30px 16px;color:#667085;text-align:center}@media(max-width:760px){main{padding:14px}table{display:block;overflow-x:auto}}
   </style>
 </head>
 <body>
   <header><h1>郵件查詢系統</h1></header>
   <main>
-    <section class="toolbar">
-      <div>
-        <label for="mailNos">郵件號碼</label>
-        <textarea id="mailNos" placeholder="可輸入單筆或多筆郵件號碼，每筆可用換行、空白或逗號分隔"></textarea>
-      </div>
-      <div class="actions">
-        <div class="checks">
-          <label><input id="writeBack" type="checkbox" checked> 寫回原試算表</label>
-          <label><input id="log" type="checkbox"> 另存查詢紀錄</label>
-        </div>
+    <section class="panel">
+      <label for="mailNos">郵件號碼</label>
+      <textarea id="mailNos" placeholder="可輸入單筆或多筆郵件號碼，每筆可用換行、空白或逗號分隔"></textarea>
+      <div class="row">
+        <label class="check"><input id="writeBack" type="checkbox" checked> 寫回原試算表</label>
+        <label class="check"><input id="log" type="checkbox"> 另存查詢紀錄</label>
         <button id="searchBtn" type="button" onclick="search()">查詢</button>
       </div>
     </section>
     <div id="status" class="status"></div>
     <table>
-      <thead>
-        <tr><th>郵件號碼</th><th>是否完成</th><th>最新狀態</th><th>最新時間</th><th>處理局所</th><th>事件代碼</th><th>筆數</th><th>錯誤訊息</th></tr>
-      </thead>
+      <thead><tr><th>郵件號碼</th><th>是否完成</th><th>最新狀態</th><th>最新時間</th><th>處理局所</th><th>事件代碼</th><th>筆數</th><th>錯誤訊息</th></tr></thead>
       <tbody id="results"><tr><td class="empty" colspan="8">尚未查詢</td></tr></tbody>
     </table>
   </main>
   <script>
-    function search() {
-      const mailNos = document.getElementById('mailNos').value.trim();
-      const btn = document.getElementById('searchBtn');
-      const status = document.getElementById('status');
-      if (!mailNos) { status.textContent = '請先輸入郵件號碼。'; return; }
-      btn.disabled = true;
-      btn.textContent = '查詢中...';
-      status.textContent = '正在查詢，請稍候。';
-      google.script.run
-        .withSuccessHandler(function(results) {
-          renderResults(results || []);
-          status.textContent = '查詢完成，共 ' + (results || []).length + ' 筆。';
-          btn.disabled = false;
-          btn.textContent = '查詢';
-        })
-        .withFailureHandler(function(error) {
-          status.textContent = '查詢失敗：' + (error && error.message ? error.message : error);
-          btn.disabled = false;
-          btn.textContent = '查詢';
-        })
-        .searchManyFromWeb(mailNos, document.getElementById('writeBack').checked, document.getElementById('log').checked);
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzzOFlFDYAgTosODtZCjLy69tNOlas4qEwr6CsYhs7r4pminmd1FQ4op3gxOd0RltFR/exec';
+
+    function search(){
+      const mailNos=document.getElementById('mailNos').value.trim();
+      const btn=document.getElementById('searchBtn');
+      const status=document.getElementById('status');
+      if(!mailNos){status.textContent='請先輸入郵件號碼。';return;}
+      if(API_URL.indexOf('script.google.com/macros/s/')<0){status.textContent='請先把 HTML 裡的 API_URL 換成 Apps Script 網址。';return;}
+      btn.disabled=true;btn.textContent='查詢中...';status.textContent='正在查詢，請稍候。';
+      jsonp(API_URL,{action:'searchMany',mailNos:mailNos,writeBack:document.getElementById('writeBack').checked?'1':'0',saveLog:document.getElementById('log').checked?'1':'0'})
+        .then(function(data){if(!data.ok)throw new Error(data.error||'查詢失敗');renderResults(data.results||[]);status.textContent='查詢完成，共 '+(data.results||[]).length+' 筆。';})
+        .catch(function(err){status.textContent='查詢失敗：'+err.message;})
+        .finally(function(){btn.disabled=false;btn.textContent='查詢';});
     }
-    function renderResults(results) {
-      const tbody = document.getElementById('results');
-      if (!results.length) { tbody.innerHTML = '<tr><td class="empty" colspan="8">沒有查詢結果</td></tr>'; return; }
-      tbody.innerHTML = results.map(function(row) {
-        const badgeClass = row.error ? 'error' : row.done === '已完成' ? 'done' : 'pending';
-        return '<tr>' +
-          '<td>' + escapeHtml(row.mailNo) + '</td>' +
-          '<td><span class="badge ' + badgeClass + '">' + escapeHtml(row.error ? '有錯誤' : row.done) + '</span></td>' +
-          '<td>' + escapeHtml(row.status) + '</td>' +
-          '<td>' + escapeHtml(row.datetime) + '</td>' +
-          '<td>' + escapeHtml(row.office) + '</td>' +
-          '<td>' + escapeHtml(row.evcode) + '</td>' +
-          '<td>' + escapeHtml(row.count) + '</td>' +
-          '<td>' + escapeHtml(row.error) + '</td>' +
-        '</tr>';
+    function jsonp(url,params){
+      return new Promise(function(resolve,reject){
+        const cb='postTrackerCallback_'+Date.now()+'_'+Math.floor(Math.random()*100000);
+        const qs=new URLSearchParams(params);qs.set('callback',cb);
+        const script=document.createElement('script');
+        const timer=setTimeout(function(){cleanup();reject(new Error('連線逾時'));},30000);
+        window[cb]=function(data){cleanup();resolve(data);};
+        script.onerror=function(){cleanup();reject(new Error('無法連到 Apps Script'));};
+        script.src=url+(url.indexOf('?')>=0?'&':'?')+qs.toString();
+        document.body.appendChild(script);
+        function cleanup(){clearTimeout(timer);delete window[cb];if(script.parentNode)script.parentNode.removeChild(script);}
+      });
+    }
+    function renderResults(results){
+      const tbody=document.getElementById('results');
+      if(!results.length){tbody.innerHTML='<tr><td class="empty" colspan="8">沒有查詢結果</td></tr>';return;}
+      tbody.innerHTML=results.map(function(row){
+        const cls=row.error?'error':row.done==='已完成'?'done':'pending';
+        return '<tr><td>'+esc(row.mailNo)+'</td><td><span class="badge '+cls+'">'+esc(row.error?'有錯誤':row.done)+'</span></td><td>'+esc(row.status)+'</td><td>'+esc(row.datetime)+'</td><td>'+esc(row.office)+'</td><td>'+esc(row.evcode)+'</td><td>'+esc(row.count)+'</td><td>'+esc(row.error)+'</td></tr>';
       }).join('');
     }
-    function escapeHtml(value) {
-      return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-    }
+    function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
   </script>
 </body>
 </html>
