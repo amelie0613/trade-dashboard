@@ -486,14 +486,14 @@
 
     .company-title {
       text-align: center;
-      font-size: 20pt;
+      font-size: 18pt;
       line-height: 1.15;
     }
 
     .doc-title {
       text-align: center;
       margin-top: 3mm;
-      font-size: 18pt;
+      font-size: 16pt;
       line-height: 1;
     }
 
@@ -503,7 +503,7 @@
       right: 3mm;
       width: 68mm;
       font-family: "DFKai-SB", "BiauKai", "Microsoft JhengHei", serif;
-      font-size: 12pt;
+      font-size: 10pt;
       line-height: 1.25;
       font-weight: 700;
       text-align: left;
@@ -525,7 +525,7 @@
       width: 7mm;
       height: 100%;
       padding: 2mm 1.2mm;
-      font-size: 13pt;
+      font-size: 11pt;
       font-weight: 700;
       line-height: 1.05;
       text-align: center;
@@ -554,7 +554,7 @@
       grid-template-columns: 28mm 68mm 1fr 24mm 34mm;
       align-items: center;
       height: 6mm;
-      font-size: 14pt;
+      font-size: 12pt;
       font-weight: 900;
       white-space: nowrap;
     }
@@ -582,7 +582,7 @@
       border: 1px solid var(--line);
       padding: 0.45mm 0.9mm;
       vertical-align: middle;
-      font-size: 12.5pt;
+      font-size: 10.5pt;
       font-weight: 700;
       line-height: 1.08;
       overflow: hidden;
@@ -637,11 +637,11 @@
       height: 5.5mm;
       text-align: center;
       border-bottom: 3px double var(--line);
-      font-size: 11.5pt;
+      font-size: 9.5pt;
     }
     .item-print-row td {
       height: 8mm;
-      font-size: 15pt;
+      font-size: 13pt;
     }
     .fit-text {
       white-space: nowrap !important;
@@ -654,7 +654,7 @@
     .outer-top { border-top-width: 2px !important; }
     .footer td {
       height: 7mm;
-      font-size: 15pt;
+      font-size: 13pt;
     }
 
     .template-product .normal-only {
@@ -693,57 +693,18 @@
       display: none;
     }
 
-    .page.template-product .print-header {
-      height: 14mm;
-    }
-
-    .page.template-product .doc-title {
-      margin-top: 1.2mm;
-    }
-
-    .template-product .company-title,
-    .template-product .doc-title,
-    .template-product .company-info,
-    .template-product .meta-grid,
-    .template-product .print-table td,
-    .template-product .print-table th,
-    .template-product .top-row td,
-    .template-product .head-row th,
-    .template-product .item-print-row td,
-    .template-product .footer td,
-    .template-product .inspection-table,
-    .template-product .inspection-table .inspection-note,
-    .template-product .side-copy,
-    .template-product .signature-line,
-    .template-product .signature-note-row {
-      font-size: 13pt;
-    }
-
     .inspection-table {
       display: none;
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      font-size: 12pt;
+      font-size: 10pt;
       font-weight: 700;
       line-height: 1.1;
     }
 
     .template-product .inspection-table {
       display: table;
-      line-height: 1;
-    }
-
-    .template-product .inspection-table td,
-    .template-product .inspection-table th {
-      height: 4.6mm;
-      padding: 0.15mm 0.45mm;
-      line-height: 1;
-      overflow: hidden;
-    }
-
-    .template-product .inspection-table tr:last-child td {
-      height: 8.2mm;
     }
 
     .inspection-table td,
@@ -758,17 +719,17 @@
     .inspection-table .left { text-align: left; }
 
     .inspection-table .inspection-note {
-      font-size: 10pt;
-      line-height: 1.05;
+      font-size: 8pt;
+      line-height: 1.2;
       text-align: left !important;
-      padding-left: 0.8mm !important;
+      padding-left: 1.2mm !important;
     }
 
     .side-copy {
       display: grid;
       grid-template-rows: repeat(4, 1fr);
       border: 0;
-      font-size: 13pt;
+      font-size: 11pt;
       font-weight: 700;
       line-height: 1.05;
       text-align: center;
@@ -789,7 +750,7 @@
       display: grid;
       grid-template-columns: 7mm 1fr 7mm;
       padding: 3.2mm 0 0;
-      font-size: 12pt;
+      font-size: 10pt;
       font-weight: 700;
       line-height: 1;
     }
@@ -811,7 +772,7 @@
       grid-column: 2;
       grid-template-columns: 1fr 1fr 1fr;
       padding: 0 0 1mm 1mm;
-      font-size: 12pt;
+      font-size: 10pt;
       font-weight: 700;
     }
 
@@ -820,20 +781,7 @@
     }
 
     .page.template-product .signature-line {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 4mm;
       grid-template-rows: auto auto;
-      padding-top: 0;
-    }
-
-    .page.template-product .signature-note-row {
-      padding-bottom: 0;
-    }
-
-    .page.template-product .signature-note-row > div {
-      white-space: nowrap;
     }
 
     .page.template-product .signature-inner {
@@ -1206,7 +1154,7 @@
           <div class="signature-note-row">
             <div>(本紀錄不得塗改)</div>
             <div></div>
-            <div>表單編號:FS-1-F-03-04 ; 版本:3</div>
+            <div>表單編號:FS-1-F-03-04 ; 版本:1</div>
           </div>
           <div></div>
           <div class="signature-inner">
@@ -2050,7 +1998,7 @@
       // Intentionally do not persist entry form values locally.
     }
 
-    function fitTextToCell(cell, maxPt = 15, minPt = 7) {
+    function fitTextToCell(cell, maxPt = 13, minPt = 7) {
       if (!cell || !cell.textContent.trim() || cell.offsetWidth === 0) return;
       cell.style.fontSize = `${maxPt}pt`;
       cell.style.lineHeight = "1.08";
@@ -2064,14 +2012,10 @@
     }
 
     function fitPrintText() {
-      const maxPt = selectedPrintTemplate() === "product" ? 13 : 15;
       document.querySelectorAll('[data-print-item][data-prop="name"]').forEach((cell) => {
-        fitTextToCell(cell, maxPt, 7);
+        fitTextToCell(cell, 13, 7);
       });
-      fitTextToCell(document.querySelector('[data-out="note"]'), maxPt, 7);
-      if (selectedPrintTemplate() === "product") {
-        fitTextToCell(document.querySelector(".inspection-note"), 13, 7);
-      }
+      fitTextToCell(document.querySelector('[data-out="note"]'), 13, 7);
     }
 
     function selectedPrintTemplate() {
