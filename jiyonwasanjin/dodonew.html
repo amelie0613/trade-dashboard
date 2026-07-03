@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>庫存暨租金管理系統</title>
+<title>庫存租金 ERP 控制台</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -918,6 +918,572 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 /* email fields (hidden by default) */
 #emailFields{display:none;}
 
+/* ═══════════════════════════════════════════════════════════════
+   ERP PROFESSIONAL THEME OVERRIDES
+   A quieter, denser operating-console visual layer.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --erp-bg:#f3f5f8;
+  --erp-surface:#ffffff;
+  --erp-surface-2:#f8fafc;
+  --erp-line:#d7dde7;
+  --erp-line-soft:#e8edf3;
+  --erp-text:#172033;
+  --erp-muted:#647084;
+  --erp-sidebar:#172033;
+  --erp-sidebar-2:#202b3f;
+  --erp-accent:#2563eb;
+  --erp-accent-dark:#1d4ed8;
+  --erp-success:#15803d;
+  --erp-warning:#b45309;
+  --erp-danger:#b91c1c;
+  --erp-radius:6px;
+  --erp-shadow:0 1px 2px rgba(15,23,42,.06);
+
+  --bg:var(--erp-bg);
+  --card:var(--erp-surface);
+  --text:var(--erp-text);
+  --muted:var(--erp-muted);
+  --border:var(--erp-line);
+  --shadow:var(--erp-shadow);
+  --r:var(--erp-radius);
+  --sidebar-bg:var(--erp-sidebar);
+  --sidebar-w:248px;
+  --header-h:52px;
+  --accent:var(--erp-accent);
+  --accent-rgb:37,99,235;
+  --accent-light:#eff6ff;
+  --purple:var(--erp-accent);
+  --blue:var(--erp-accent);
+  --green:var(--erp-success);
+  --orange:#d97706;
+  --red:var(--erp-danger);
+}
+
+body{
+  font-family:'Noto Sans TC','DM Sans',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:var(--erp-bg);
+  letter-spacing:0;
+}
+
+.app-shell{
+  background:var(--erp-bg);
+}
+
+.sidebar{
+  background:linear-gradient(180deg,var(--erp-sidebar),#111827);
+  border-right:1px solid #0f172a;
+}
+.sidebar-logo{
+  height:64px;
+  padding:14px 18px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.sidebar-logo .logo-icon{
+  width:34px;
+  height:34px;
+  border-radius:6px;
+  background:#0f766e;
+  color:#fff;
+  font-size:0;
+}
+.sidebar-logo .logo-icon::after{
+  content:"ERP";
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.04em;
+}
+.sidebar-logo .logo-text{
+  font-size:13px;
+  font-weight:800;
+  color:#f8fafc;
+}
+.sidebar-logo .logo-sub{
+  font-size:10px;
+  color:#94a3b8;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.nav-list{
+  padding:8px 0;
+}
+.nav-item{
+  min-height:38px;
+  margin:2px 10px;
+  padding:9px 12px;
+  border-left:none;
+  border-radius:6px;
+  color:#b7c0cf;
+  font-size:13px;
+  font-weight:650;
+}
+.nav-item:hover{
+  background:rgba(255,255,255,.065);
+  color:#fff;
+}
+.nav-item.active{
+  background:#23324b;
+  color:#fff;
+  border-left:none;
+  box-shadow:inset 3px 0 0 var(--erp-accent);
+}
+.nav-item .nav-icon{
+  width:20px;
+  text-align:center;
+  font-size:14px;
+  opacity:.85;
+}
+.nav-badge{
+  border-radius:4px!important;
+}
+
+.main-area{
+  background:var(--erp-bg);
+}
+.app-header{
+  background:var(--erp-surface);
+  border-bottom:1px solid var(--erp-line);
+  padding:0 18px;
+  box-shadow:none;
+}
+.header-title{
+  font-size:16px;
+  font-weight:800;
+  color:var(--erp-text);
+}
+.header-right{
+  gap:8px;
+}
+.header-right button,
+.btn{
+  border-radius:6px!important;
+  box-shadow:none!important;
+  font-weight:750!important;
+}
+.header-right button{
+  min-height:32px;
+}
+.header-avatar{
+  border-radius:6px;
+  background:#0f766e;
+}
+.header-date{
+  color:var(--erp-muted);
+}
+.view-area{
+  padding:16px 18px 24px;
+}
+
+.section-card,
+.inv-card,
+.scope-table-wrap,
+.settings-section,
+.kpi-card,
+.db-kpi-card,
+.rental-content .top-panel,
+.rental-content .panel,
+.rental-content .card{
+  border:1px solid var(--erp-line);
+  border-radius:6px!important;
+  box-shadow:var(--erp-shadow)!important;
+}
+.section-card-header,
+.scope-table-header{
+  min-height:44px;
+  padding:11px 14px;
+  background:var(--erp-surface-2);
+  border-bottom:1px solid var(--erp-line);
+}
+.section-card-header h3,
+.scope-table-header h4{
+  font-size:13px;
+  color:var(--erp-text);
+}
+
+.db-kpi-grid,
+.kpi-grid{
+  gap:10px;
+  margin-bottom:14px;
+}
+.db-kpi-card,
+.kpi-card{
+  min-height:84px;
+  padding:14px 16px;
+}
+.db-kpi-card:hover{
+  transform:none;
+  box-shadow:var(--erp-shadow)!important;
+}
+.db-kpi-icon{
+  width:38px;
+  height:38px;
+  border-radius:6px;
+  font-size:17px;
+}
+.db-kpi-label,
+.kpi-card .kpi-label{
+  color:var(--erp-muted);
+  font-size:11px;
+  font-weight:750;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+}
+.db-kpi-value,
+.kpi-card .kpi-value{
+  font-size:22px;
+  color:var(--erp-text)!important;
+}
+.db-kpi-card.blue .db-kpi-icon{background:#eff6ff;color:var(--erp-accent);}
+.db-kpi-card.red .db-kpi-icon{background:#fef2f2;color:var(--erp-danger);}
+.db-kpi-card.amber .db-kpi-icon{background:#fff7ed;color:var(--erp-warning);}
+.db-kpi-card.green .db-kpi-icon{background:#ecfdf5;color:var(--erp-success);}
+
+.control-bar,
+#globalSearchBar,
+.table-toolbar{
+  background:var(--erp-surface-2)!important;
+  border-color:var(--erp-line)!important;
+}
+#globalSearchBar{
+  padding:10px 14px!important;
+}
+.search-box,
+.filter-select,
+.multi-select-btn,
+.rental-content .form-group input,
+.rental-content .config-item input,
+input[type="text"],
+input[type="number"],
+select{
+  border-radius:5px!important;
+  border-color:#cbd5e1!important;
+  background:#fff!important;
+  color:var(--erp-text)!important;
+}
+.search-box:focus-within,
+input:focus,
+select:focus{
+  border-color:var(--erp-accent)!important;
+  box-shadow:0 0 0 2px rgba(37,99,235,.12)!important;
+}
+
+.tabs,
+.rental-content .tabs{
+  background:#fff!important;
+  border-bottom:1px solid var(--erp-line)!important;
+  padding:0 12px!important;
+}
+.tab-btn,
+.rental-content .tab{
+  padding:10px 12px!important;
+  color:var(--erp-muted)!important;
+  border-bottom:2px solid transparent!important;
+  font-size:13px!important;
+  font-weight:700!important;
+}
+.tab-btn.active,
+.rental-content .tab.active{
+  color:var(--erp-accent)!important;
+  border-bottom-color:var(--erp-accent)!important;
+}
+
+table.data-tbl th,
+#resultTable th,
+#ledgerDetailTable th,
+#previewTable th,
+.price-grid-tbl th{
+  background:#eef2f7!important;
+  color:#334155!important;
+  border-color:#cbd5e1!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  text-transform:none!important;
+}
+table.data-tbl th:hover,
+#resultTable th:hover{
+  background:#e2e8f0!important;
+}
+table.data-tbl td,
+#resultTable td,
+#ledgerDetailTable td,
+#previewTable td,
+.scope-tbl td,
+.dash-table td{
+  border-color:var(--erp-line-soft)!important;
+  color:#1f2937;
+}
+table.data-tbl tbody tr:nth-child(even) td,
+.dash-table tr:nth-child(even) td{
+  background:#fbfcfe!important;
+}
+table.data-tbl tbody tr:hover td,
+.dash-table tr:hover td,
+.scope-tbl tr:hover td{
+  background:#eff6ff!important;
+}
+.tbl-scroll{
+  border-top:0;
+}
+.tbl-footer{
+  background:#fff;
+  border-top:1px solid var(--erp-line);
+}
+
+.btn-primary,
+.btn-blue{
+  background:var(--erp-accent)!important;
+  color:#fff!important;
+}
+.btn-green{
+  background:var(--erp-success)!important;
+  color:#fff!important;
+}
+.btn-red{
+  background:var(--erp-danger)!important;
+  color:#fff!important;
+}
+.btn-ghost,
+.btn-secondary,
+.rental-content .btn-secondary{
+  background:#fff!important;
+  color:var(--erp-text)!important;
+  border:1px solid var(--erp-line)!important;
+}
+.badge{
+  border-radius:4px!important;
+}
+
+.rental-subnav{
+  background:#fff!important;
+  border:1px solid var(--erp-line);
+  border-bottom:none;
+  border-radius:6px 6px 0 0!important;
+  padding:8px 10px 0!important;
+  gap:4px!important;
+}
+.rental-subnav .rsn-btn{
+  border:none!important;
+  border-radius:5px 5px 0 0!important;
+  background:transparent!important;
+  color:var(--erp-muted)!important;
+  padding:9px 12px!important;
+  margin-bottom:0!important;
+  font-size:12px!important;
+  font-weight:800!important;
+}
+.rental-subnav .rsn-btn:hover{
+  color:var(--erp-accent)!important;
+  background:#f8fafc!important;
+}
+.rental-subnav .rsn-btn.active{
+  background:#eff6ff!important;
+  color:var(--erp-accent)!important;
+  box-shadow:inset 0 -2px 0 var(--erp-accent);
+}
+.rental-content{
+  background:#fff!important;
+  border:1px solid var(--erp-line);
+  border-top:none;
+  border-radius:0 0 6px 6px!important;
+}
+.rental-safety-bar{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  background:#f8fafc;
+  border:1px solid var(--erp-line);
+  border-top:none;
+  padding:8px 12px;
+  font-size:12px;
+}
+.rental-safety-bar .safety-title{
+  font-weight:800;
+  color:#334155;
+  margin-right:2px;
+}
+.rental-safety-bar button{
+  min-height:28px;
+  padding:5px 10px;
+  border-radius:5px;
+  border:1px solid #cbd5e1;
+  background:#fff;
+  color:#334155;
+  font-size:12px;
+  font-weight:750;
+  cursor:pointer;
+  font-family:inherit;
+}
+.rental-safety-bar button.primary{
+  background:var(--erp-accent);
+  border-color:var(--erp-accent);
+  color:#fff;
+}
+.rental-safety-bar button.danger{
+  color:var(--erp-danger);
+  border-color:#fecaca;
+}
+.rental-safety-bar .safety-status{
+  color:var(--erp-muted);
+  margin-left:auto;
+  min-height:18px;
+}
+.rental-content .content{
+  padding:14px!important;
+}
+.rental-content .top-panel,
+.rental-content .panel{
+  background:#fff!important;
+}
+.rental-content .section-title{
+  color:#334155!important;
+  font-size:11px!important;
+  letter-spacing:.04em!important;
+}
+.rental-content .btn-primary{
+  background:var(--erp-accent)!important;
+  border-radius:6px!important;
+}
+.rental-content .btn-primary:hover{
+  transform:none!important;
+  box-shadow:none!important;
+}
+.rental-content .file-input-label{
+  background:#fff!important;
+  border-color:#cbd5e1!important;
+  color:#334155!important;
+  border-radius:5px!important;
+}
+
+.upload-zone,
+.diff-upload-card,
+#uploadZone,
+#pendingCard{
+  border-radius:6px!important;
+  background:#fff!important;
+}
+.diff-upload-card:hover,
+.upload-zone:hover{
+  background:#f8fafc!important;
+}
+
+#githubPanel > div,
+#readSheetsMenu > div,
+#writeSheetsMenu > div,
+#sheetsPanel > div,
+.modal-content,
+.dialog,
+.popup{
+  border:1px solid var(--erp-line)!important;
+  border-radius:6px!important;
+  box-shadow:0 18px 36px rgba(15,23,42,.18)!important;
+}
+
+#readSheetsMenu button,
+#writeSheetsMenu button,
+#githubPanel button,
+#sheetsPanel button{
+  border-radius:5px!important;
+}
+
+.diff-upload-grid{
+  gap:12px!important;
+}
+.diff-upload-card{
+  border:1px dashed #b6c2d2!important;
+  box-shadow:none!important;
+}
+.diff-card-icon{
+  width:36px!important;
+  height:36px!important;
+  border-radius:6px!important;
+  background:#eff6ff!important;
+  color:var(--erp-accent)!important;
+}
+.diff-card-status{
+  color:var(--erp-muted)!important;
+  font-weight:700!important;
+}
+
+#diffCostSummary,
+#orchestrator_status,
+#transit_preview{
+  background:#f8fafc!important;
+  border:1px solid var(--erp-line)!important;
+  border-left:3px solid var(--erp-accent)!important;
+  border-radius:6px!important;
+}
+
+#profit_summary > div{
+  background:#fff!important;
+  border:1px solid var(--erp-line)!important;
+  border-radius:6px!important;
+  box-shadow:var(--erp-shadow)!important;
+}
+
+#btn_full_analysis{
+  background:var(--erp-accent)!important;
+  border-radius:6px!important;
+  box-shadow:none!important;
+}
+
+#page_ledger [style*="border:2px dashed"],
+#page_profit [style*="border:2px dashed"]{
+  border:1px dashed #b6c2d2!important;
+  border-radius:6px!important;
+  background:#fff!important;
+}
+
+#page_transit [style*="border-radius:12px"],
+#page_price [style*="border-radius:12px"],
+#page_weight [style*="border-radius:12px"],
+#page_ledger [style*="border-radius:12px"],
+#page_profit [style*="border-radius:10px"],
+#page_calc [style*="border-radius:12px"]{
+  border-radius:6px!important;
+}
+
+#page_price,
+#page_weight,
+#page_ledger,
+#page_profit,
+#page_transit,
+#page_calc{
+  color:var(--erp-text);
+}
+
+#calc_formula_tooltip{
+  border-radius:6px!important;
+  background:#111827!important;
+  border-left-color:var(--erp-accent)!important;
+}
+.toast{
+  border-radius:6px!important;
+  background:#111827!important;
+}
+
+@media(max-width:1100px){
+  .header-right{
+    max-width:70vw;
+    overflow-x:auto;
+    padding-bottom:2px;
+  }
+}
+@media(max-width:860px){
+  .app-shell{height:auto;min-height:100vh;overflow:visible;}
+  .sidebar{width:64px;min-width:64px;}
+  .sidebar-logo{padding:12px;justify-content:center;}
+  .sidebar-logo .logo-text,
+  .sidebar-logo .logo-sub,
+  .nav-item:not(.active) .nav-badge{
+    display:none;
+  }
+  .nav-item{justify-content:center;margin:2px 8px;padding:10px 0;}
+  .nav-item .nav-icon{width:auto;}
+  .nav-item{font-size:0;}
+  .view-area{padding:12px;}
+}
+
 </style>
 </head>
 <body>
@@ -1231,29 +1797,29 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
     <div class="sidebar-logo">
       <div class="logo-icon">📦</div>
       <div>
-        <div class="logo-text">庫存暨租金管理</div>
-        <div class="logo-sub">Enterprise Dashboard</div>
+        <div class="logo-text">庫存租金 ERP</div>
+        <div class="logo-sub">Operations Console</div>
       </div>
     </div>
     <ul class="nav-list">
       <li class="nav-item active" data-view="dashboard" onclick="navSwitch('dashboard')">
-        <span class="nav-icon">📊</span> 總覽儀表板
+        <span class="nav-icon">📊</span> 營運總覽
       </li>
       <li class="nav-item" data-view="inventory" onclick="navSwitch('inventory')">
-        <span class="nav-icon">📋</span> 庫存管理
+        <span class="nav-icon">📋</span> 庫存作業
         <span class="nav-badge" id="nav-badge-expired">0</span>
       </li>
       <li class="nav-item" data-view="diff" onclick="navSwitch('diff')">
-        <span class="nav-icon">🔄</span> 差異比較
+        <span class="nav-icon">🔄</span> 庫存差異
       </li>
       <li class="nav-item" data-view="rental" onclick="navSwitch('rental')">
-        <span class="nav-icon">🧊</span> 租金計算
+        <span class="nav-icon">🧊</span> 租金與台帳
       </li>
       <li class="nav-item" data-view="price" onclick="navSwitch('price')">
-        <span class="nav-icon">💰</span> 單價管理
+        <span class="nav-icon">💰</span> 單價主檔
       </li>
       <li class="nav-item" data-view="weight" onclick="navSwitch('weight')">
-        <span class="nav-icon">⚖️</span> 重量管理
+        <span class="nav-icon">⚖️</span> 重量主檔
       </li>
       <li class="nav-item" data-view="settings" onclick="navSwitch('settings')">
         <span class="nav-icon">⚙️</span> 系統設定
@@ -1266,7 +1832,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
     <!-- TOP HEADER -->
     <header class="app-header">
-      <div class="header-title" id="headerTitle">總覽儀表板</div>
+      <div class="header-title" id="headerTitle">營運總覽</div>
       <div class="header-right">
         <button onclick="loadAll()" title="一次帶入所有資料（GitHub 單價 + Sheets 庫存 + Sheets 差異）" style="display:flex;align-items:center;gap:5px;padding:6px 14px;border:1.5px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">⬇️ 全部帶入</button>
         <button onclick="sbLoadChoose(event)" title="從 Supabase 載入單價或重量表" style="display:flex;align-items:center;gap:5px;padding:6px 12px;border:1.5px solid #3ecf8e;border-radius:8px;background:#fff;color:#3ecf8e;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">📥 從 Supabase 載入 ▾</button>
@@ -1537,7 +2103,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
         <div class="section-card">
           <div class="section-card-header">
             <span style="font-size:18px;">🔄</span>
-            <h3>差異比較</h3>
+            <h3>庫存差異</h3>
             <div style="display:flex;flex-direction:column;gap:2px;margin-left:10px;">
               <span id="diffRunHint" style="font-size:11px;color:var(--muted);font-weight:600;"></span>
               <span id="diffPriceStatusLabel" style="font-size:11px;color:var(--muted);font-weight:700;"></span>
@@ -1579,7 +2145,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
             <!-- Run buttons -->
             <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
-              <button class="btn btn-primary" id="diffBtnRun" onclick="runDiff()" disabled>▶ 執行差異比較</button>
+              <button class="btn btn-primary" id="diffBtnRun" onclick="runDiff()" disabled>▶ 執行差異比對</button>
             </div>
 
             <!-- Cost summary -->
@@ -1630,7 +2196,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
 
             <!-- Diff result table -->
             <div class="tbl-scroll" id="tbl-diff-wrap" style="max-height:520px;">
-              <div class="empty-state"><div class="icon">📊</div><p>請上傳本期期末與上期期末兩份 xlsx，再按「執行差異比較」</p></div>
+              <div class="empty-state"><div class="icon">📊</div><p>請上傳本期期末與上期期末兩份 xlsx，再按「執行差異比對」</p></div>
             </div>
 
           </div>
@@ -1643,12 +2209,19 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
       <div class="view-panel" id="view-rental">
         <!-- Rental Sub-Nav -->
         <div class="rental-subnav">
-          <button class="rsn-btn active" id="rsn-calc" onclick="switchPage('calc')">📋 租金計算</button>
-          <button class="rsn-btn" id="rsn-ledger" onclick="switchPage('ledger')">📊 月結算總帳</button>
-          <button class="rsn-btn" id="rsn-outbound" onclick="switchPage('outbound')">📋 出庫管理</button>
+          <button class="rsn-btn active" id="rsn-calc" onclick="switchPage('calc')">📋 租金核算</button>
+          <button class="rsn-btn" id="rsn-ledger" onclick="switchPage('ledger')">📊 月結總帳</button>
+          <button class="rsn-btn" id="rsn-outbound" onclick="switchPage('outbound')">📋 出庫作業</button>
           <button class="rsn-btn" id="rsn-pairing" onclick="switchPage('pairing')">📦 轉加工 / 原料台帳</button>
-          <button class="rsn-btn" id="rsn-transit" onclick="switchPage('transit')">🚢 在途銷貨台帳</button>
+          <button class="rsn-btn" id="rsn-transit" onclick="switchPage('transit')">🚢 在途 / 銷貨台帳</button>
           <button class="rsn-btn" id="rsn-profit" onclick="switchPage('profit')">💹 利潤分析</button>
+        </div>
+        <div class="rental-safety-bar">
+          <span class="safety-title">資料還原點</span>
+          <button type="button" class="primary" onclick="createManualRentalRestorePoint()">建立還原點</button>
+          <button type="button" class="danger" onclick="restoreLatestRentalPoint()">復原上一版</button>
+          <button type="button" onclick="showRentalRestorePoints()">查看清單</button>
+          <span class="safety-status" id="rental_restore_status">寫入前會自動建立還原點</span>
         </div>
         <div class="rental-content">
 
@@ -2060,9 +2633,9 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           <!-- ══ 資料管理 ══ -->
           <div class="settings-group-label">📁 資料管理</div>
 
-          <!-- 單價管理 -->
+          <!-- 單價主檔 -->
           <div class="settings-section">
-            <h3>💰 單價管理</h3>
+            <h3>💰 單價主檔</h3>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               <button class="btn btn-blue" onclick="document.getElementById('priceFileInput').click()">📥 匯入單價 xlsx</button>
               <button class="btn" style="background:#3ecf8e;color:white;" onclick="supabaseBackupPrices()">☁️ 上傳到 Supabase</button>
@@ -2075,9 +2648,9 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <span id="ghPriceStatus" style="display:none;"></span>
           </div>
 
-          <!-- 重量表管理 -->
+          <!-- 重量主檔 -->
           <div class="settings-section">
-            <h3>⚖️ 重量表管理</h3>
+            <h3>⚖️ 重量主檔</h3>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               <button class="btn btn-blue" style="font-size:12px;" onclick="document.getElementById('weightFileInput').click()">📥 匯入 xlsx</button>
               <button class="btn" style="background:#3ecf8e;color:white;font-size:12px;" onclick="supabaseBackupWeightTable()">☁️ 上傳到 Supabase</button>
@@ -2223,7 +2796,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
           <div class="settings-section">
             <h3>ℹ️ 系統資訊</h3>
             <p style="font-size:13px;color:var(--muted);line-height:1.7;">
-              庫存暨租金管理系統<br>
+              庫存租金 ERP 控制台<br>
               <span style="font-size:12px;">單一 HTML 檔案，無需安裝，資料存於本機</span>
             </p>
           </div>
@@ -2237,7 +2810,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
       <div class="view-panel" id="view-price">
         <!-- 操作列 -->
         <div style="background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <span style="font-size:15px;font-weight:800;color:var(--text);margin-right:4px;">💰 單價管理</span>
+          <span style="font-size:15px;font-weight:800;color:var(--text);margin-right:4px;">💰 單價主檔</span>
           <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
           <button class="btn btn-blue" onclick="document.getElementById('priceFileInput').click()" style="font-size:12px;">📥 匯入 xlsx</button>
           <button class="btn" style="background:#3ecf8e;color:white;font-size:12px;" onclick="supabaseBackupPrices()">☁️ 上傳到 Supabase</button>
@@ -2289,7 +2862,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
       <div class="view-panel" id="view-weight">
         <!-- 操作列 -->
         <div style="background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <span style="font-size:15px;font-weight:800;color:var(--text);margin-right:4px;">⚖️ 重量管理</span>
+          <span style="font-size:15px;font-weight:800;color:var(--text);margin-right:4px;">⚖️ 重量主檔</span>
           <div style="width:1px;height:20px;background:var(--border);margin:0 4px;"></div>
           <button class="btn btn-blue" onclick="document.getElementById('weightFileInput').click()" style="font-size:12px;">📥 匯入 xlsx</button>
           <button class="btn" style="background:#3ecf8e;color:white;font-size:12px;" onclick="supabaseBackupWeightTable()">☁️ 上傳到 Supabase</button>
@@ -2410,9 +2983,9 @@ function navSwitch(view){
   const panel = document.getElementById('view-'+view);
   if(panel) panel.classList.add('active');
   const titles = {
-    dashboard:'總覽儀表板', inventory:'庫存管理',
-    diff:'差異比較', rental:'租金計算',
-    settings:'系統設定', price:'單價管理', weight:'重量管理'
+    dashboard:'營運總覽', inventory:'庫存作業',
+    diff:'庫存差異', rental:'租金與台帳',
+    settings:'系統設定', price:'單價主檔', weight:'重量主檔'
   };
   const titleEl = document.getElementById('headerTitle');
   if(titleEl) titleEl.textContent = titles[view] || view;
@@ -5806,6 +6379,7 @@ async function syncLedgerToSupabase(rowsOverride = null) {
     } catch(e) {
         console.error('Supabase 總帳上傳失敗：', e);
         if (statusEl) statusEl.textContent = `❌ 上傳失敗：${e.message}`;
+        throw e;
     }
 }
 
@@ -12163,6 +12737,298 @@ window.SB_HEADERS = {
     'Authorization': `Bearer ${window.SUPABASE_KEY}`,
     'Content-Type':  'application/json',
 };
+
+// ── 租金 / 台帳還原點：所有高風險表寫入前自動建立快照 ───────────────
+const RENTAL_RESTORE_KEY = 'rental_restore_points_v1';
+const RENTAL_RESTORE_LIMIT = 6;
+const RENTAL_RESTORE_AUTO_GAP = 20000;
+const RENTAL_RESTORE_TABLES = [
+    { table:'ledger_table',                 label:'月結總帳',       deleteFilter:'product_name=not.is.null', required:true  },
+    { table:'outbound_records',             label:'出庫記錄',       deleteFilter:'id=not.is.null',           required:true  },
+    { table:'processing_materials_ledger',  label:'加工原料台帳',   deleteFilter:'id=not.is.null',           required:false },
+    { table:'transit_sales_ledger',         label:'在途 / 銷貨台帳', deleteFilter:'id=not.is.null',           required:false },
+    { table:'processing_pairing',           label:'加工配對',       deleteFilter:'id=not.is.null',           required:false },
+    { table:'transit_reconciliation_log',   label:'核銷紀錄',       deleteFilter:'ledger_id=not.is.null',     required:false },
+];
+
+const _rentalRestoreFetch = window.fetch.bind(window);
+let _rentalRestoreBusy = false;
+let _rentalRestoreBypass = false;
+let _rentalRestoreLastAutoAt = 0;
+
+function _rentalRestoreHeaders(extra) {
+    return typeof getSBHeaders === 'function' ? getSBHeaders(extra) : Object.assign({}, SB_HEADERS, extra || {});
+}
+
+function _rentalRestoreStatus(msg, color) {
+    const el = document.getElementById('rental_restore_status') || document.getElementById('sync_status');
+    if (el) {
+        el.textContent = msg || '';
+        if (color) el.style.color = color;
+    }
+}
+
+function _readRentalRestorePoints() {
+    try {
+        const raw = localStorage.getItem(RENTAL_RESTORE_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        return Array.isArray(list) ? list : [];
+    } catch(e) {
+        console.warn('還原點讀取失敗：', e);
+        return [];
+    }
+}
+
+function _writeRentalRestorePoints(points) {
+    const copy = points.slice(0, RENTAL_RESTORE_LIMIT);
+    while (copy.length > 0) {
+        try {
+            localStorage.setItem(RENTAL_RESTORE_KEY, JSON.stringify(copy));
+            return copy;
+        } catch(e) {
+            copy.pop();
+        }
+    }
+    throw new Error('還原點資料量過大，瀏覽器本機空間不足，無法建立安全備份');
+}
+
+function _formatRentalRestoreTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function _rentalRestoreCounts(point) {
+    const tables = point?.tables || {};
+    return RENTAL_RESTORE_TABLES
+        .map(cfg => `${cfg.label} ${Array.isArray(tables[cfg.table]) ? tables[cfg.table].length : 0}`)
+        .join(' / ');
+}
+
+async function _fetchRentalRestoreTable(cfg) {
+    const resp = await _rentalRestoreFetch(
+        `${SUPABASE_URL}/rest/v1/${cfg.table}?select=*`,
+        { headers: _rentalRestoreHeaders() }
+    );
+    if (!resp.ok) {
+        const txt = await resp.text();
+        if (cfg.required) throw new Error(`${cfg.label}備份失敗：${txt}`);
+        console.warn(`${cfg.label}備份略過：`, txt);
+        return { rows: [], error: txt };
+    }
+    return { rows: await resp.json(), error: '' };
+}
+
+async function _createRentalRestorePoint(reason, opts = {}) {
+    if (_rentalRestoreBusy && !opts.force) return null;
+    _rentalRestoreBusy = true;
+    try {
+        if (!opts.silent) _rentalRestoreStatus('建立還原點中…', '#64748b');
+        const tables = {};
+        const errors = [];
+        const skippedTables = {};
+        for (const cfg of RENTAL_RESTORE_TABLES) {
+            const result = await _fetchRentalRestoreTable(cfg);
+            if (result.error) {
+                skippedTables[cfg.table] = true;
+                errors.push(`${cfg.label}: ${result.error}`);
+            } else {
+                tables[cfg.table] = result.rows;
+            }
+        }
+        const point = {
+            id: `rp_${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            reason: reason || '手動還原點',
+            tables,
+            errors,
+            skippedTables,
+        };
+        const saved = _writeRentalRestorePoints([point, ..._readRentalRestorePoints()]);
+        const msg = `已建立還原點：${_formatRentalRestoreTime(point.createdAt)}`;
+        _rentalRestoreStatus(errors.length ? `${msg}（部分附屬表略過）` : msg, errors.length ? '#b45309' : '#15803d');
+        if (!opts.silent && typeof showToast === 'function') showToast(`✅ ${msg}`);
+        return saved[0];
+    } finally {
+        _rentalRestoreBusy = false;
+    }
+}
+
+async function _autoRentalRestorePoint(reason) {
+    if (_rentalRestoreBypass) return null;
+    const now = Date.now();
+    if (now - _rentalRestoreLastAutoAt < RENTAL_RESTORE_AUTO_GAP) return null;
+    _rentalRestoreLastAutoAt = now;
+    return _createRentalRestorePoint(reason || '寫入前自動還原點', { silent:true });
+}
+
+function _isRentalRestoreMutation(resource, init) {
+    const method = String((init && init.method) || (resource && resource.method) || 'GET').toUpperCase();
+    if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) return false;
+    const url = String(typeof resource === 'string' ? resource : (resource && resource.url) || '');
+    if (!url.includes(`${SUPABASE_URL}/rest/v1/`)) return false;
+    return RENTAL_RESTORE_TABLES.some(cfg => url.includes(`/rest/v1/${cfg.table}`));
+}
+
+function _rentalRestoreMutationReason(resource, init) {
+    const method = String((init && init.method) || (resource && resource.method) || 'GET').toUpperCase();
+    const url = String(typeof resource === 'string' ? resource : (resource && resource.url) || '');
+    const cfg = RENTAL_RESTORE_TABLES.find(item => url.includes(`/rest/v1/${item.table}`));
+    const verb = method === 'DELETE' ? '刪除前' : method === 'PATCH' ? '修改前' : '寫入前';
+    return `${cfg ? cfg.label : '租金資料'}${verb}`;
+}
+
+window.fetch = async function(resource, init) {
+    if (!_rentalRestoreBypass && _isRentalRestoreMutation(resource, init)) {
+        await _autoRentalRestorePoint(_rentalRestoreMutationReason(resource, init));
+    }
+    return _rentalRestoreFetch(resource, init);
+};
+
+async function _deleteRentalRestoreTable(cfg) {
+    const resp = await _rentalRestoreFetch(
+        `${SUPABASE_URL}/rest/v1/${cfg.table}?${cfg.deleteFilter}`,
+        { method:'DELETE', headers:{ ..._rentalRestoreHeaders(), 'Prefer':'return=minimal' } }
+    );
+    if (!resp.ok && resp.status !== 204) throw new Error(`${cfg.label}清除失敗：${await resp.text()}`);
+}
+
+async function _insertRentalRestoreRows(cfg, rows) {
+    if (!rows || rows.length === 0) return;
+    const BATCH = 300;
+    for (let i = 0; i < rows.length; i += BATCH) {
+        const chunk = rows.slice(i, i + BATCH);
+        let resp = await _rentalRestoreFetch(
+            `${SUPABASE_URL}/rest/v1/${cfg.table}`,
+            {
+                method:'POST',
+                headers:{ ..._rentalRestoreHeaders(), 'Prefer':'return=minimal' },
+                body:JSON.stringify(chunk),
+            }
+        );
+        if (!resp.ok && chunk.some(r => Object.prototype.hasOwnProperty.call(r, 'id'))) {
+            const withoutId = chunk.map(r => {
+                const copy = { ...r };
+                delete copy.id;
+                return copy;
+            });
+            resp = await _rentalRestoreFetch(
+                `${SUPABASE_URL}/rest/v1/${cfg.table}`,
+                {
+                    method:'POST',
+                    headers:{ ..._rentalRestoreHeaders(), 'Prefer':'return=minimal' },
+                    body:JSON.stringify(withoutId),
+                }
+            );
+        }
+        if (!resp.ok) throw new Error(`${cfg.label}還原失敗：${await resp.text()}`);
+    }
+}
+
+async function restoreRentalRestorePoint(id) {
+    const points = _readRentalRestorePoints();
+    const point = points.find(p => p.id === id);
+    if (!point) { alert('找不到這個還原點'); return; }
+    const title = `${_formatRentalRestoreTime(point.createdAt)}｜${point.reason || '還原點'}`;
+    if (!confirm(`確定要復原到這個版本嗎？\n\n${title}\n${_rentalRestoreCounts(point)}\n\n目前 Supabase 內的租金、加工與台帳資料會被此還原點取代。`)) return;
+
+    try {
+        _rentalRestoreStatus('復原前先備份目前狀態…', '#64748b');
+        await _createRentalRestorePoint('復原前自動還原點', { silent:true, force:true });
+
+        _rentalRestoreBypass = true;
+        _rentalRestoreStatus('復原中…', '#64748b');
+        for (const cfg of RENTAL_RESTORE_TABLES) {
+            if (point.skippedTables?.[cfg.table] || !Object.prototype.hasOwnProperty.call(point.tables || {}, cfg.table)) {
+                console.warn(`還原略過 ${cfg.label}：還原點未包含此表`);
+                continue;
+            }
+            await _deleteRentalRestoreTable(cfg);
+            await _insertRentalRestoreRows(cfg, point.tables?.[cfg.table] || []);
+        }
+        _rentalRestoreBypass = false;
+
+        _ledgerCache = null;
+        _ledgerCacheTime = 0;
+        window._outboundRecords = [];
+        _matRecords = [];
+        _transitRecords = [];
+        await refreshLedgerStatus(true);
+        if (document.getElementById('ledger_results')?.innerHTML.trim()) {
+            await Promise.resolve(viewLedger()).catch(() => {});
+        }
+        if (typeof loadOutboundPage === 'function') await Promise.resolve(loadOutboundPage()).catch(() => {});
+        if (typeof loadMaterialsLedger === 'function') await Promise.resolve(loadMaterialsLedger()).catch(() => {});
+        if (typeof loadTransitLedger === 'function') await Promise.resolve(loadTransitLedger()).catch(() => {});
+        _rentalRestoreStatus(`已復原：${title}`, '#15803d');
+        if (typeof showToast === 'function') showToast('✅ 已復原上一版資料');
+        const overlay = document.getElementById('rentalRestoreOverlay');
+        if (overlay) overlay.remove();
+    } catch(e) {
+        _rentalRestoreBypass = false;
+        _rentalRestoreStatus(`復原失敗：${e.message}`, '#b91c1c');
+        alert('復原失敗：' + e.message);
+    }
+}
+
+window.createManualRentalRestorePoint = async function() {
+    try {
+        await _createRentalRestorePoint('手動還原點', { force:true });
+    } catch(e) {
+        _rentalRestoreStatus(`建立還原點失敗：${e.message}`, '#b91c1c');
+        alert('建立還原點失敗：' + e.message);
+    }
+};
+
+window.restoreLatestRentalPoint = function() {
+    const point = _readRentalRestorePoints()[0];
+    if (!point) { alert('目前沒有可復原的還原點'); return; }
+    restoreRentalRestorePoint(point.id);
+};
+
+window.showRentalRestorePoints = function() {
+    const old = document.getElementById('rentalRestoreOverlay');
+    if (old) old.remove();
+    const points = _readRentalRestorePoints();
+    const overlay = document.createElement('div');
+    overlay.id = 'rentalRestoreOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:18px;';
+    const rows = points.length ? points.map(p => `
+        <div style="border:1px solid #d7dde7;border-radius:6px;padding:10px 12px;background:#fff;margin-bottom:8px;">
+          <div style="display:flex;gap:10px;align-items:flex-start;">
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:800;color:#172033;">${_formatRentalRestoreTime(p.createdAt)}｜${p.reason || '還原點'}</div>
+              <div style="font-size:11px;color:#647084;margin-top:4px;line-height:1.6;">${_rentalRestoreCounts(p)}</div>
+              ${p.errors && p.errors.length ? `<div style="font-size:11px;color:#b45309;margin-top:4px;">部分附屬表備份略過</div>` : ''}
+            </div>
+            <button onclick="restoreRentalRestorePoint('${p.id}')"
+              style="padding:6px 12px;border:none;border-radius:5px;background:#b91c1c;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">復原</button>
+          </div>
+        </div>`).join('') : '<div style="padding:24px;text-align:center;color:#647084;font-size:13px;">目前沒有還原點</div>';
+    overlay.innerHTML = `
+      <div style="width:min(760px,96vw);max-height:84vh;overflow:auto;background:#fff;border:1px solid #d7dde7;border-radius:6px;box-shadow:0 24px 48px rgba(15,23,42,.22);">
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #d7dde7;background:#f8fafc;">
+          <div style="font-size:15px;font-weight:900;color:#172033;">資料還原點</div>
+          <button onclick="createManualRentalRestorePoint().then(showRentalRestorePoints)"
+            style="margin-left:auto;padding:6px 12px;border:1px solid #2563eb;border-radius:5px;background:#2563eb;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">建立還原點</button>
+          <button onclick="document.getElementById('rentalRestoreOverlay').remove()"
+            style="padding:6px 10px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155;font-size:12px;font-weight:800;cursor:pointer;">關閉</button>
+        </div>
+        <div style="padding:12px 16px;">${rows}</div>
+      </div>`;
+    document.body.appendChild(overlay);
+};
+
+window.restoreRentalRestorePoint = restoreRentalRestorePoint;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const latest = _readRentalRestorePoints()[0];
+    if (latest) {
+        _rentalRestoreStatus(`最近還原點：${_formatRentalRestoreTime(latest.createdAt)}`, '#64748b');
+    }
+});
 // ── 上傳單價表 ──────────────────────────────────────────────────
 async function supabaseBackupPrices() {
     const rows = buildPricesJson();
