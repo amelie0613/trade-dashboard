@@ -1979,14 +1979,18 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             <div style="max-width:1400px; margin:0 auto;">
               <div style="margin-bottom:1.2rem;">
                 <h2 style="font-size:1.3rem; font-weight:800; color:#1a2540; margin:0;">📋 出庫記錄管理</h2>
-                <p style="font-size:0.85rem; color:#64748b; margin:0.4rem 0 0;">查看 Supabase 出庫記錄，設定分倉類型（銷貨 / 加工原料 / 在途銷貨）</p>
+                <p style="font-size:0.85rem; color:#64748b; margin:0.4rem 0 0;">出庫記錄依月份儲存，選擇月份讀取；清空只會刪除選定月份，不影響其他月份歷史</p>
               </div>
               <!-- 篩選 + 操作列 -->
               <div style="background:white; border:1.5px solid #dde6ef; border-radius:12px; padding:1rem; margin-bottom:1rem; display:flex; gap:0.8rem; align-items:center; flex-wrap:wrap;">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <label style="font-size:0.82rem; color:#64748b; font-weight:700; white-space:nowrap;">月份篩選</label>
-                  <input type="text" id="ob_month_filter" placeholder="例：4月（留空查全部）"
-                    style="padding:0.4rem 0.8rem; border:1.5px solid #dde6ef; border-radius:8px; font-size:0.82rem; width:170px;" />
+                  <label style="font-size:0.82rem; color:#64748b; font-weight:700; white-space:nowrap;">月份</label>
+                  <select id="ob_month_filter"
+                    style="padding:0.4rem 0.8rem; border:1.5px solid #dde6ef; border-radius:8px; font-size:0.82rem; width:150px; background:white; cursor:pointer;">
+                    <option value="">全部月份</option>
+                  </select>
+                  <button onclick="loadOutboundMonthOptions(true)" title="重新整理月份清單"
+                    style="padding:0.4rem 0.6rem; background:#eef2fb; color:#6878C0; border:1.5px solid #dde6ef; border-radius:8px; cursor:pointer; font-size:0.82rem;">↻</button>
                 </div>
                 <button onclick="loadOutboundPage()"
                   style="padding:0.5rem 1.2rem; background:#6878C0; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">
@@ -1996,10 +2000,14 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                   style="padding:0.5rem 1.2rem; background:#f7a35c; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">
                   🤖 一鍵自動分類
                 </button>
+                <button onclick="autoLabelOutboundMonths()" title="將未標月份的舊記錄依出庫日期自動補上月份標籤"
+                  style="padding:0.5rem 1.2rem; background:#7ec8e3; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">
+                  🏷️ 補標月份
+                </button>
                 <div id="ob_page_status" style="font-size:0.82rem; color:#64748b;"></div>
-                <button onclick="clearOutboundWithCheck()"
+                <button onclick="clearOutboundWithCheck()" title="只刪除上方選定月份的記錄；選「全部月份」才會整庫清空"
                   style="padding:0.5rem 1.2rem; background:#ef4444; color:white; border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem; margin-left:auto;">
-                  🗑️ 清空換月
+                  🗑️ 刪除選定月份
                 </button>
                 <!-- 分倉統計 chips -->
                 <div id="ob_summary" style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;"></div>
@@ -5605,6 +5613,7 @@ window.switchPage = function(page) {
         }
     });
     if (page === 'ledger') refreshLedgerStatus();
+    if (page === 'outbound' && typeof loadOutboundMonthOptions === 'function') loadOutboundMonthOptions();
     // Update rental subnav buttons
     ['calc','ledger','profit','pairing','outbound','transit'].forEach(p => {
         const rsnBtn = document.getElementById('rsn-'+p);
@@ -6825,9 +6834,12 @@ async function confirmMonthly() {
             newRows.forEach(r => { priceMap[r.產品名稱 + '|' + r.批號] = r.分攤單價 || 0; });
             window._outboundRecords.forEach(rec => {
                 const price = priceMap[rec.產品名稱 + '|' + rec.批號] || 0;
-                rec.分攤單價  = price;
-                rec.出庫金額  = Math.round(price * rec.出庫數量);
-                rec.month_label = label;
+                if (price > 0) {
+                    // 只在本月單價表查得到時回填，查不到不清成 0（可能是其他月份的記錄）
+                    rec.分攤單價  = price;
+                    rec.出庫金額  = Math.round(price * rec.出庫數量);
+                }
+                rec.month_label = rec.month_label || label; // 保留記錄原本的月份，只補空白
             });
             await syncOutboundToSupabase(window._outboundRecords, label);
             displayOutboundRecords(); // 重繪出庫記錄表（顯示填入的金額）
@@ -7611,6 +7623,9 @@ function calculateRental(rentalData, ioData, weightData, period = '', ledgerDept
         throw new Error(`期初日期（${periodStart.toISOString().slice(0,10)}）晚於期末日期（${periodEnd.toISOString().slice(0,10)}），請檢查日期設定`);
     }
 
+    // 出庫記錄自動標記月份（依期初日期），出庫管理頁可按月儲存/查詢
+    const autoMonthLabel = `${periodStart.getUTCMonth() + 1}月`;
+
     const baseRate      = parseFloat(document.getElementById('dailyRate').value)   || 0.8;
     const handlingFeeRate = parseFloat(document.getElementById('handlingFee').value) || 1.0;
 
@@ -7645,6 +7660,8 @@ function calculateRental(rentalData, ioData, weightData, period = '', ledgerDept
 
     // ── 異常警告收集（顯示於結果上方，不擋計算與匯出）──────────────────
     const warnings = {
+        qtyMismatch:   [],  // 驗算：租金表本期入庫/出庫 vs 出入庫明細計得數量不一致
+        unmatchedIO:   [],  // 驗算：出入庫明細比對不到任何租金表品項（完全未列入計算）
         outOfPeriod:   [],  // 期間外單據（已排除不計費）
         badDate:       [],  // 日期解析失敗
         duplicateKeys: [],  // 同產品+批號出現多列（可能多倉庫）→ 出入庫記錄會被各列重複計費
@@ -7653,6 +7670,7 @@ function calculateRental(rentalData, ioData, weightData, period = '', ledgerDept
         negativeBegin: [],  // 前期結存為負數
         ambiguousType: [],  // 業務屬性同時符合入庫與出庫字樣（已跳過不計費）
     };
+    const usedIoRows = new Set(); // 追蹤有被比對到的出入庫明細，供反向勾稽用
 
     // 偵測同產品+批號重複列（多倉庫或匯出重複時，出入庫比對不含倉庫會重複收費）
     const _keyCounts = {};
@@ -7684,6 +7702,7 @@ function calculateRental(rentalData, ioData, weightData, period = '', ledgerDept
             normalize(io[config.col_product2]) === productName &&
             normalize(io[config.col_batch2])   === batchNo
         );
+        ioMatch.forEach(io => usedIoRows.add(io)); // 反向勾稽：記錄有被比對到的明細
 
         // ── 1. 前期結餘租金（不收手續費）────────────────────────────────
         const balanceWeight  = beginQty * unitWeight;
@@ -7794,10 +7813,25 @@ function calculateRental(rentalData, ioData, weightData, period = '', ledgerDept
                 出庫金額: null,
                 備註: noteVal,
                 倉庫名稱: normalize(io['倉庫名稱'] || ''),
-                month_label: '',
+                month_label: autoMonthLabel,
                 period: period,
                 分倉類型: _autoWarehouseType(outType, noteVal),
             });
+        }
+
+        // ── 3.5 驗算：租金表的本期入庫/本期出庫 vs 出入庫明細實際計得數量 ──
+        const excelInbound    = parseFloat(row[config.col_inbound]) || 0;
+        const excelOutbound   = parseFloat(row['本期出庫']) || 0;
+        const countedOutbound = outboundList.reduce((s, o) => s + (o.出庫數量 || 0), 0);
+        const inDiff  = Math.round((totalInboundQty - excelInbound)  * 100) / 100;
+        const outDiff = Math.round((countedOutbound - excelOutbound) * 100) / 100;
+        const qtyMismatchIn  = Math.abs(inDiff)  > 0.01;
+        const qtyMismatchOut = Math.abs(outDiff) > 0.01;
+        if (qtyMismatchIn) {
+            warnings.qtyMismatch.push(`${productName} / ${batchNo}：本期入庫不符——租金表 ${excelInbound}、明細計得 ${totalInboundQty}（差 ${inDiff}）`);
+        }
+        if (qtyMismatchOut) {
+            warnings.qtyMismatch.push(`${productName} / ${batchNo}：本期出庫不符——租金表 ${excelOutbound}、明細計得 ${countedOutbound}（差 ${outDiff}）`);
         }
 
         // ── 4. 彙總金額 ───────────────────────────────────────────────
@@ -7856,9 +7890,26 @@ function calculateRental(rentalData, ioData, weightData, period = '', ledgerDept
             '採購部門': purchaseDept,
             '業務屬性明細': fullRemark,
             '_daysAnomaly': daysAnomaly,
+            '_qtyMismatchIn': qtyMismatchIn,
+            '_qtyMismatchOut': qtyMismatchOut,
             '_formulaKey': key,
             '_outboundList': outboundList,
         });
+    }
+
+    // ── 驗算：出入庫明細中比對不到任何租金表品項的單據（完全未列入計算）──
+    ioData.forEach(io => {
+        if (usedIoRows.has(io)) return;
+        const bizType = normalize(io[config.col_type]);
+        if (!isInbound(bizType) && !isOutbound(bizType)) return;
+        const q = parseFloat(io['數量'] || 0) || 0;
+        if (q === 0) return;
+        warnings.unmatchedIO.push(`${normalize(io[config.col_product2])} / ${normalize(io[config.col_batch2])}：${normalize(io[config.col_date])} ${bizType} ${q}（租金表無此品項＋批號，完全未列入計算）`);
+    });
+
+    // 勾稽不符時，補一行差異來源提示
+    if (warnings.qtyMismatch.length) {
+        warnings.qtyMismatch.unshift('💡 差異常見來源：期間外/日期解析失敗/入出庫字樣同時符合而被排除的單據、負數沖銷單以絕對值計入、同批號多列分倉——請對照下方各警告區塊逐筆核對');
     }
 
     result._formulaDetails = formulaDetails;
@@ -8045,6 +8096,8 @@ function displayResults(data) {
     // ── 資料異常警告區塊（來自 calculateRental 的偵測，不擋匯出）────────
     const _w = data._warnings || {};
     const _warnDefs = [
+        ['qtyMismatch',   '🔢 數量勾稽不符（租金表 vs 出入庫明細計得）',      '#ef4444'],
+        ['unmatchedIO',   '🔍 明細比對不到租金表品項（完全未計費）',          '#ef4444'],
         ['outOfPeriod',   '⛔ 期間外單據（已排除不計費）',                   '#ef4444'],
         ['badDate',       '📅 日期無法解析',                                 '#ef4444'],
         ['duplicateKeys', '📑 同產品+批號多列（出入庫重複計費風險）',        '#e8836a'],
@@ -8180,8 +8233,10 @@ function displayResults(data) {
         const abn_neg    = !isNaN(currClose) && currClose < 0;         // 本期結存<0
         const abn_weight = !isNaN(netWeight) && netWeight === 0;       // 淨重=0
         const abn_days   = daysAnomaly;                                 // 天數異常
+        const abn_qtyIn  = row._qtyMismatchIn  || false;                // 本期入庫勾稽不符
+        const abn_qtyOut = row._qtyMismatchOut || false;                // 本期出庫勾稽不符
 
-        const hasAbnormal = abn_both || abn_neg || abn_weight || abn_days;
+        const hasAbnormal = abn_both || abn_neg || abn_weight || abn_days || abn_qtyIn || abn_qtyOut;
         const trColor = (abn_both || abn_days) ? ' style="color:#ef4444;"' : '';     // 整行紅：上期+入庫同時>0 或天數異常
 
         html += `<tr data-row="${rowIdx}" data-abnormal="${hasAbnormal}"${trColor} oncontextmenu="showRowDeleteMenu(event,${rowIdx});return false;">`;
@@ -8199,6 +8254,9 @@ function displayResults(data) {
             }
             // 天數異常時標記「天數」欄為紅色
             if (col === '天數' && abn_days) cellRed = true;
+            // 數量勾稽不符時標記對應欄位為紅色
+            if (col === '本期入庫' && abn_qtyIn)  cellRed = true;
+            if (col === '本期出庫' && abn_qtyOut) cellRed = true;
 
             const redStyle = cellRed ? 'color:#ef4444;' : '';
             const alignClass = `col-${RESULT_COL_ALIGN[col]||'text'}`;
@@ -8761,7 +8819,8 @@ async function _loadOutboundRecords(monthLabel, containerId) {
 
     try {
         let url = `${SUPABASE_URL}/rest/v1/outbound_records?select=*&order=outbound_date.asc,product_name.asc`;
-        if (monthLabel) url += `&month_label=eq.${encodeURIComponent(monthLabel)}`;
+        if (monthLabel === '__EMPTY__') url += '&month_label=eq.';
+        else if (monthLabel) url += `&month_label=eq.${encodeURIComponent(monthLabel)}`;
 
         const resp = await fetch(url, { headers: getSBHeaders() });
         if (!resp.ok) throw new Error(await resp.text());
@@ -8813,6 +8872,70 @@ function loadOutboundPage() {
     return _loadOutboundRecords(month, 'ob_page_results');
 }
 window.loadOutboundPage = loadOutboundPage;
+
+// 讀取資料庫現有的月份，填入出庫管理頁的月份下拉選單
+async function loadOutboundMonthOptions(notify = false) {
+    const sel = document.getElementById('ob_month_filter');
+    if (!sel) return;
+    try {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?select=month_label`, { headers: getSBHeaders() });
+        if (!resp.ok) throw new Error(await resp.text());
+        const rows = await resp.json();
+        const labels = [...new Set(rows.map(r => r.month_label || ''))];
+        const named  = labels.filter(Boolean).sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
+        const hasEmpty = labels.includes('');
+        const current = sel.value;
+        sel.innerHTML = '<option value="">全部月份</option>'
+            + named.map(l => `<option value="${escHtml(l)}">${escHtml(l)}</option>`).join('')
+            + (hasEmpty ? '<option value="__EMPTY__">(未標月份)</option>' : '');
+        if ([...sel.options].some(o => o.value === current)) sel.value = current;
+        if (notify && typeof showToast === 'function') showToast(`月份清單已更新：${named.length} 個月份${hasEmpty ? '＋未標月份記錄' : ''}`);
+    } catch(e) {
+        console.warn('讀取月份清單失敗：', e);
+    }
+}
+window.loadOutboundMonthOptions = loadOutboundMonthOptions;
+
+// 將未標月份的舊記錄依「出庫日期」自動補上月份標籤（一次性資料整理用）
+async function autoLabelOutboundMonths() {
+    const status = document.getElementById('ob_page_status');
+    if (status) status.textContent = '⏳ 補標月份中…';
+    try {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.&select=id,outbound_date`, { headers: getSBHeaders() });
+        if (!resp.ok) throw new Error(await resp.text());
+        const rows = await resp.json();
+        if (!rows.length) { if (status) status.textContent = '✅ 沒有未標月份的記錄，無需補標'; return; }
+
+        // 依出庫日期的月份分組，批次 PATCH
+        const byMonth = {};
+        rows.forEach(r => {
+            const m = String(r.outbound_date || '').match(/^(\d{4})[\/\-](\d{1,2})/);
+            if (!m) return;
+            const lbl = `${parseInt(m[2])}月`;
+            (byMonth[lbl] = byMonth[lbl] || []).push(r.id);
+        });
+        let updated = 0;
+        for (const [lbl, ids] of Object.entries(byMonth)) {
+            for (let i = 0; i < ids.length; i += 100) {
+                const chunk = ids.slice(i, i + 100);
+                const p = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?id=in.(${chunk.join(',')})`, {
+                    method: 'PATCH',
+                    headers: { ...getSBHeaders(), 'Prefer': 'return=minimal' },
+                    body: JSON.stringify({ month_label: lbl }),
+                });
+                if (!p.ok) throw new Error(await p.text());
+                updated += chunk.length;
+            }
+        }
+        const skipped = rows.length - updated;
+        if (status) status.textContent = `✅ 已補標 ${updated} 筆（${Object.keys(byMonth).join('、')}）${skipped ? `；${skipped} 筆出庫日期無法判斷月份，保留未標` : ''}`;
+        await loadOutboundMonthOptions();
+        loadOutboundPage();
+    } catch(e) {
+        if (status) status.textContent = `❌ 補標失敗：${e.message}`;
+    }
+}
+window.autoLabelOutboundMonths = autoLabelOutboundMonths;
 
 // 一鍵自動分類：根據備註規則重新計算所有記錄的分倉類型，並批次更新 Supabase
 async function autoClassifyAndSave() {
@@ -8948,7 +9071,7 @@ async function syncOutboundToSupabase(records, label) {
         allocated_price: r.分攤單價 || 0,
         outbound_amount: r.出庫金額 || 0,
         notes:           r.備註 || '',
-        month_label:     label || r.month_label || '',
+        month_label:     r.month_label || label || '',
         period:          r.period || '',
         warehouse_type:  r.分倉類型 || null,
         created_at:      new Date().toISOString(),
@@ -8956,73 +9079,42 @@ async function syncOutboundToSupabase(records, label) {
 
     const BATCH = 500;
     try {
-        // ── 覆蓋前先確認 ──────────────────────────────────────────────
-        const monthLabel = label || raw[0]?.month_label || '';
-        const periods = [...new Set(raw.map(r => r.period).filter(Boolean))];
+        // ── 覆蓋前先確認：依 (月份, 期間) 分組，只覆蓋同月同期，其他月份完全不動 ──
+        const groups = new Map(); // 'label|period' -> { label, period }
+        raw.forEach(r => {
+            const k = `${r.month_label}|${r.period}`;
+            if (!groups.has(k)) groups.set(k, { label: r.month_label, period: r.period });
+        });
 
-        if (monthLabel) {
-            if (periods.length > 0) {
-                // ── [A] 有 monthLabel + period：逐期確認並覆蓋 ───────────
-                for (const period of periods) {
-                    const chkResp = await fetch(
-                        `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}&period=eq.${encodeURIComponent(period)}&select=id`,
-                        { headers: getSBHeaders() }
+        for (const { label: gLabel, period: gPeriod } of groups.values()) {
+            const chkResp = await fetch(
+                `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(gLabel)}&period=eq.${encodeURIComponent(gPeriod)}&select=id`,
+                { headers: getSBHeaders() }
+            );
+            if (chkResp.ok) {
+                const existing = await chkResp.json();
+                if (existing.length > 0) {
+                    const ok = confirm(
+                        `⚠️ Supabase 已有「${gLabel || '(未標月)'} ${gPeriod || '(未標期)'}」出庫記錄 ${existing.length} 筆。\n\n確定要覆蓋這一組嗎？（只影響同月同期，其他月份不受影響）`
                     );
-                    if (chkResp.ok) {
-                        const existing = await chkResp.json();
-                        if (existing.length > 0) {
-                            const ok = confirm(
-                                `⚠️ Supabase 已有「${monthLabel} ${period}」出庫記錄 ${existing.length} 筆。\n\n確定要覆蓋嗎？（舊資料將被刪除後重新寫入）`
-                            );
-                            if (!ok) throw new Error('USER_CANCEL');
-                        }
-                    }
+                    if (!ok) throw new Error('USER_CANCEL');
                 }
-                for (const period of periods) {
-                    // 刪除已標記月份的舊記錄
-                    const delResp = await fetch(
-                        `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}&period=eq.${encodeURIComponent(period)}`,
-                        { method: 'DELETE', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' } }
-                    );
-                    if (!delResp.ok) console.warn(`刪除 ${monthLabel} ${period} 失敗：`, await delResp.text());
-                    else console.log(`🗑️ 已清除 ${monthLabel} ${period} 舊記錄`);
-                    // 一併清除同 period 的草稿記錄（month_label 為空字串）
-                    await fetch(
-                        `${SUPABASE_URL}/rest/v1/outbound_records?period=eq.${encodeURIComponent(period)}&month_label=eq.`,
-                        { method: 'DELETE', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' } }
-                    ).catch(e => console.warn(`清除草稿 ${period} 失敗：`, e));
-                }
-            } else {
-                // ── [B] 有 monthLabel 但無 period：整月確認並覆蓋 ─────────
-                const chkResp = await fetch(
-                    `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}&select=id`,
-                    { headers: getSBHeaders() }
-                );
-                if (chkResp.ok) {
-                    const existing = await chkResp.json();
-                    if (existing.length > 0) {
-                        const ok = confirm(
-                            `⚠️ Supabase 已有「${monthLabel}」出庫記錄 ${existing.length} 筆。\n\n確定要覆蓋嗎？`
-                        );
-                        if (!ok) throw new Error('USER_CANCEL');
-                    }
-                }
-                const delResp = await fetch(
-                    `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(monthLabel)}`,
-                    { method: 'DELETE', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' } }
-                );
-                if (!delResp.ok) console.warn('刪除舊出庫記錄失敗：', await delResp.text());
-                else console.log(`🗑️ 已清除 ${monthLabel} 舊出庫記錄`);
             }
-        } else if (periods.length > 0) {
-            // ── [C] 無 monthLabel（草稿存入）：仍以 period 去重，防止多次儲存堆積 ─
-            for (const period of periods) {
+        }
+        for (const { label: gLabel, period: gPeriod } of groups.values()) {
+            const delResp = await fetch(
+                `${SUPABASE_URL}/rest/v1/outbound_records?month_label=eq.${encodeURIComponent(gLabel)}&period=eq.${encodeURIComponent(gPeriod)}`,
+                { method: 'DELETE', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' } }
+            );
+            if (!delResp.ok) console.warn(`刪除 ${gLabel} ${gPeriod} 舊記錄失敗：`, await delResp.text());
+            else console.log(`🗑️ 已清除 ${gLabel || '(未標月)'} ${gPeriod || '(未標期)'} 舊記錄`);
+            // 相容舊資料：一併清除同期間的無月份草稿，避免歷史遺留重複
+            if (gLabel && gPeriod) {
                 await fetch(
-                    `${SUPABASE_URL}/rest/v1/outbound_records?period=eq.${encodeURIComponent(period)}&month_label=eq.`,
+                    `${SUPABASE_URL}/rest/v1/outbound_records?period=eq.${encodeURIComponent(gPeriod)}&month_label=eq.`,
                     { method: 'DELETE', headers: { ...SB_HEADERS, 'Prefer': 'return=minimal' } }
-                ).catch(e => console.warn(`草稿去重失敗 ${period}：`, e));
+                ).catch(e => console.warn(`清除草稿 ${gPeriod} 失敗：`, e));
             }
-            console.log(`🗑️ 已清除 ${periods.join('+')} 舊草稿，準備重新寫入`);
         }
 
         // 直接插入全部（舊資料已依 month_label+period 刪除，不需去重）
@@ -14108,9 +14200,15 @@ async function checkOutboundSupabase() {
     }
 }
 
-// ===== 清空出庫記錄（換月）前置檢查 =====
+// ===== 刪除出庫記錄（依選定月份）前置檢查 =====
 async function clearOutboundWithCheck() {
     const h = getSBHeaders();
+
+    // 刪除範圍：依出庫管理頁的月份選單；「全部月份」= 整庫清空
+    const _selVal    = (document.getElementById('ob_month_filter')?.value || '').trim();
+    const _scopeAll  = _selVal === '';
+    const _scopeQS   = _scopeAll ? '' : `&month_label=eq.${encodeURIComponent(_selVal === '__EMPTY__' ? '' : _selVal)}`;
+    const _scopeName = _scopeAll ? '全部月份' : (_selVal === '__EMPTY__' ? '(未標月份)' : _selVal);
 
     // --- 建立 overlay ---
     const existing = document.getElementById('clearOutboundOverlay');
@@ -14123,8 +14221,8 @@ async function clearOutboundWithCheck() {
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
           <span style="font-size:26px;">🗑️</span>
           <div>
-            <h3 style="font-size:15px;font-weight:900;color:#ef4444;margin:0;">清空出庫記錄（換月）</h3>
-            <p style="font-size:11px;color:#8090B8;margin:0;">正在檢查各項前置條件，請稍候…</p>
+            <h3 style="font-size:15px;font-weight:900;color:#ef4444;margin:0;">刪除出庫記錄（範圍：${_scopeName}）</h3>
+            <p style="font-size:11px;color:#8090B8;margin:0;">${_scopeAll ? '⚠️ 未選擇月份，將刪除所有月份的歷史記錄！' : '只刪除此月份的記錄，其他月份不受影響。'}正在檢查前置條件…</p>
           </div>
           <button onclick="document.getElementById('clearOutboundOverlay').remove()"
             style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:#8090B8;">✕</button>
@@ -14159,24 +14257,24 @@ async function clearOutboundWithCheck() {
     }
 
     try {
-        // 1. 月結完成：有無 allocated_price = 0 的記錄
-        const r1 = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?allocated_price=eq.0&select=id`, { headers: h });
+        // 1. 月結完成：有無 allocated_price = 0 的記錄（限定刪除範圍）
+        const r1 = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?allocated_price=eq.0&select=id${_scopeQS}`, { headers: h });
         const unallocated = (await r1.json()).length;
 
-        // 2. 加工原料出庫筆數 vs 原料台帳筆數
-        const r2a = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.加工原料&select=id`, { headers: h });
+        // 2. 加工原料出庫筆數 vs 原料台帳筆數（限定刪除範圍）
+        const r2a = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.加工原料&select=id${_scopeQS}`, { headers: h });
         const matOutCount = (await r2a.json()).length;
         const r2b = await fetch(`${SUPABASE_URL}/rest/v1/processing_materials_ledger?select=id`, { headers: h });
         const matLedCount = (await r2b.json()).length;
 
-        // 3. 在途銷貨出庫筆數 vs 在途台帳筆數
-        const r3a = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.再途銷貨&select=id`, { headers: h });
+        // 3. 在途銷貨出庫筆數 vs 在途台帳筆數（出庫端限定刪除範圍）
+        const r3a = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.再途銷貨&select=id${_scopeQS}`, { headers: h });
         const transitOutCount = (await r3a.json()).length;
         const r3b = await fetch(`${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=eq.在途出庫&select=id`, { headers: h });
         const transitLedCount = (await r3b.json()).length;
 
-        // 4. 出庫記錄總筆數
-        const r4 = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?select=id`, { headers: h });
+        // 4. 刪除範圍內的出庫記錄總筆數
+        const r4 = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?select=id${_scopeQS}`, { headers: h });
         const totalCount = (await r4.json()).length;
 
         // --- 判斷各項 ---
@@ -14216,8 +14314,8 @@ async function clearOutboundWithCheck() {
             ),
             row(
                 '🗑️',
-                '準備清空',
-                `Supabase outbound_records 目前共 ${totalCount} 筆，清空後無法復原`,
+                '準備刪除',
+                `範圍「${_scopeName}」共 ${totalCount} 筆，刪除後無法復原${_scopeAll ? '（⚠️ 包含所有月份的歷史記錄！建議先在月份選單選定要刪的月份）' : '；其他月份的記錄不受影響'}`,
                 null  // 橘色警示
             ),
         ];
@@ -14228,7 +14326,7 @@ async function clearOutboundWithCheck() {
             confirmBtn.disabled = false;
             confirmBtn.style.background = '#ef4444';
             confirmBtn.style.cursor = 'pointer';
-            confirmBtn.onclick = () => doDeleteAllOutbound(totalCount);
+            confirmBtn.onclick = () => doDeleteAllOutbound(totalCount, _scopeQS, _scopeName);
         } else {
             const blockItems = [];
             if (!check2ok) blockItems.push('原料台帳');
@@ -14243,7 +14341,7 @@ async function clearOutboundWithCheck() {
                 confirmBtn.style.background = '#f7a35c';
                 confirmBtn.style.cursor = 'pointer';
                 confirmBtn.textContent = '⚠️ 仍要清空';
-                confirmBtn.onclick = () => doDeleteAllOutbound(totalCount);
+                confirmBtn.onclick = () => doDeleteAllOutbound(totalCount, _scopeQS, _scopeName);
             }
         }
     } catch(e) {
@@ -14251,7 +14349,7 @@ async function clearOutboundWithCheck() {
     }
 }
 
-async function doDeleteAllOutbound(expectedCount) {
+async function doDeleteAllOutbound(expectedCount, scopeQS = '', scopeName = '全部月份') {
     const confirmBtn = document.getElementById('clearOutboundConfirmBtn');
     const bodyEl     = document.getElementById('clearCheckBody');
     confirmBtn.disabled = true;
@@ -14259,7 +14357,7 @@ async function doDeleteAllOutbound(expectedCount) {
     try {
         const h = getSBHeaders();
         const resp = await fetch(
-            `${SUPABASE_URL}/rest/v1/outbound_records?id=not.is.null`,
+            `${SUPABASE_URL}/rest/v1/outbound_records?id=not.is.null${scopeQS}`,
             { method: 'DELETE', headers: { ...h, 'Prefer': 'return=minimal' } }
         );
         if (!resp.ok) {
@@ -14270,12 +14368,13 @@ async function doDeleteAllOutbound(expectedCount) {
         window._outboundRecords = [];
         bodyEl.innerHTML = `<div style="background:#f0faf0;border:1.5px solid #22c55e;border-radius:10px;padding:16px;text-align:center;">
           <div style="font-size:22px;">✅</div>
-          <div style="font-weight:700;color:#1a6b3a;margin-top:6px;">清空完成</div>
-          <div style="font-size:12px;color:#64748b;margin-top:4px;">已刪除 outbound_records 全部 ${expectedCount} 筆記錄</div>
-          <div style="font-size:12px;color:#64748b;">可重新上傳本月資料開始計算</div>
+          <div style="font-weight:700;color:#1a6b3a;margin-top:6px;">刪除完成</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">已刪除「${scopeName}」共 ${expectedCount} 筆記錄</div>
+          <div style="font-size:12px;color:#64748b;">${scopeQS ? '其他月份的記錄仍保留在 Supabase' : '可重新上傳本月資料開始計算'}</div>
         </div>`;
         confirmBtn.textContent = '✅ 已完成';
         confirmBtn.style.background = '#22c55e';
+        if (typeof loadOutboundMonthOptions === 'function') await loadOutboundMonthOptions();
         if (typeof loadOutboundPage === 'function') loadOutboundPage();
     } catch(e) {
         bodyEl.innerHTML += `<div style="color:#ef4444;font-size:13px;margin-top:8px;">❌ 刪除失敗：${e.message}</div>`;
