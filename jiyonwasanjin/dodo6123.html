@@ -7196,7 +7196,18 @@ async function processFiles() {
         const data3 = cachedWeightData;                     // 重量表（來自 GitHub）
 
         rentalTableData = data1;
-        const result = calculateRental(data1, data2, data3, period);
+
+        // 讀取總帳的採購部門，供該期無入庫的品項沿用（讀取失敗不擋計算，只是部門留空）
+        let ledgerDeptMap = {};
+        try {
+            const ledgerRows = await loadLedgerRows();
+            (ledgerRows || []).forEach(r => {
+                const k = `${String(r.產品名稱||'').trim()}|${String(r.批號||'').trim()}`;
+                if (r.採購部門) ledgerDeptMap[k] = r.採購部門;
+            });
+        } catch(e) { console.warn('讀取總帳採購部門失敗，僅使用入庫記錄的部門：', e); }
+
+        const result = calculateRental(data1, data2, data3, period, ledgerDeptMap);
         calculatedData = result;
 
         // 收集所有出庫記錄（調撥/拆解/銷售）供出庫記錄表使用
@@ -7559,24 +7570,34 @@ function autoFillDateRange() {
     }
 }
 
-function calculateRental(rentalData, ioData, weightData, period = '') {
+function calculateRental(rentalData, ioData, weightData, period = '', ledgerDeptMap = {}) {
     const config = getConfig();
     const result = [];
 
-    // 日期解析：支援 YYYYMMDD 字串、YYYY-MM-DD、Excel 序列號
+    // 日期解析：支援 YYYYMMDD 字串、YYYY-MM-DD、YYYY/M/D、Excel 序列號、Date 物件
+    // 全部統一為 UTC 午夜基準——格式混用時（如 '2026/6/5' vs '20260605'）不會因時區差 8 小時被 ceil 多算一天
     const parseDate = (val) => {
         if (!val) return null;
-        if (val instanceof Date) return isNaN(val) ? null : val;
+        const utcMidnight = (y, m, d) => {
+            const dt = new Date(Date.UTC(y, m - 1, d));
+            return isNaN(dt) ? null : dt;
+        };
+        if (val instanceof Date) {
+            return isNaN(val) ? null : utcMidnight(val.getFullYear(), val.getMonth() + 1, val.getDate());
+        }
         if (typeof val === 'number') {
             const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-            return isNaN(d) ? null : d;
+            return isNaN(d) ? null : utcMidnight(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
         }
         const str = String(val).trim();
         if (/^\d{8}$/.test(str)) {
-            return new Date(`${str.slice(0,4)}-${str.slice(4,6)}-${str.slice(6,8)}`);
+            return utcMidnight(+str.slice(0, 4), +str.slice(4, 6), +str.slice(6, 8));
         }
+        // YYYY/M/D、YYYY-M-D、YYYY.M.D（可帶時間，只取日期部分）
+        const m = str.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+        if (m) return utcMidnight(+m[1], +m[2], +m[3]);
         const d = new Date(str.replace(/\//g, '-'));
-        return isNaN(d) ? null : d;
+        return isNaN(d) ? null : utcMidnight(d.getFullYear(), d.getMonth() + 1, d.getDate());
     };
 
     const startDateVal = getDateValue('startDate', 'startDateText');
@@ -7585,6 +7606,9 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
     const periodEnd   = parseDate(endDateVal);
     if (!periodStart || !periodEnd) {
         throw new Error('請先填入正確的期初/期末日期（可用日期選擇器或手動輸入 YYYYMMDD 格式）');
+    }
+    if (periodStart > periodEnd) {
+        throw new Error(`期初日期（${periodStart.toISOString().slice(0,10)}）晚於期末日期（${periodEnd.toISOString().slice(0,10)}），請檢查日期設定`);
     }
 
     const baseRate      = parseFloat(document.getElementById('dailyRate').value)   || 0.8;
@@ -7619,6 +7643,27 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
     const isInbound  = (t) => t && (t.includes('採購收貨') || t.includes('調撥入庫') || t.includes('拆解入庫') || t.includes('入庫'));
     const isOutbound = (t) => t && (t.includes('調撥出庫') || t.includes('銷售出貨') || t.includes('拆解出庫') || t.includes('出庫') || t.includes('出貨'));
 
+    // ── 異常警告收集（顯示於結果上方，不擋計算與匯出）──────────────────
+    const warnings = {
+        outOfPeriod:   [],  // 期間外單據（已排除不計費）
+        badDate:       [],  // 日期解析失敗
+        duplicateKeys: [],  // 同產品+批號出現多列（可能多倉庫）→ 出入庫記錄會被各列重複計費
+        missingWeight: [],  // 重量表查不到 → 該品項租金=0
+        negativeQty:   [],  // 負數量單據（沖銷/退貨？目前仍以絕對值計費）
+        negativeBegin: [],  // 前期結存為負數
+        ambiguousType: [],  // 業務屬性同時符合入庫與出庫字樣（已跳過不計費）
+    };
+
+    // 偵測同產品+批號重複列（多倉庫或匯出重複時，出入庫比對不含倉庫會重複收費）
+    const _keyCounts = {};
+    rentalData.forEach(row => {
+        const k = `${normalize(row[config.col_product1])}|${normalize(row[config.col_batch1])}`;
+        if (k !== '|') _keyCounts[k] = (_keyCounts[k] || 0) + 1;
+    });
+    Object.entries(_keyCounts).forEach(([k, n]) => {
+        if (n > 1) warnings.duplicateKeys.push(`${k.replace('|', ' / 批號 ')}：出現 ${n} 列，兩列會各自吃到同一批出入庫記錄（重複計費），請確認是否分倉`);
+    });
+
     for (const row of rentalData) {
         const productName = normalize(row[config.col_product1]);
         const batchNo     = normalize(row[config.col_batch1]);
@@ -7627,6 +7672,12 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
         // 查詢單位重量（找不到記為 0）
         const weightRow  = weightData.find(w => normalize(w[config.col_product3]) === productName);
         const unitWeight = weightRow ? parseFloat(weightRow[config.col_weight]) || 0 : 0;
+        if (unitWeight === 0 && productName && !warnings.missingWeight.includes(productName)) {
+            warnings.missingWeight.push(productName);
+        }
+        if (beginQty < 0) {
+            warnings.negativeBegin.push(`${productName} / ${batchNo}：前期結存 ${beginQty}（帳面負庫存，租金以 0 計）`);
+        }
 
         // 對應的出入庫記錄
         const ioMatch = ioData.filter(io =>
@@ -7649,10 +7700,27 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
         for (const io of ioMatch) {
             const bizType = normalize(io[config.col_type]);
             if (!isInbound(bizType)) continue;
+            if (isOutbound(bizType)) {
+                // 同時符合入庫與出庫字樣（如「出入庫調整」）→ 無法判斷方向，跳過並警告
+                warnings.ambiguousType.push(`${productName} / ${batchNo}：業務屬性「${bizType}」同時符合入庫與出庫，已跳過不計費，請人工確認`);
+                continue;
+            }
 
-            const ioQty  = Math.abs(parseFloat(io['數量'] || 0)) || 0;
+            const rawQty = parseFloat(io['數量'] || 0) || 0;
+            const ioQty  = Math.abs(rawQty);
+            if (ioQty === 0) continue;
             const ioDate = parseDate(io[config.col_date]);
-            if (!ioDate || ioQty === 0) continue;
+            if (!ioDate) {
+                warnings.badDate.push(`${productName} / ${batchNo}：入庫日期「${io[config.col_date] ?? ''}」無法解析，該筆已跳過（${bizType} ${rawQty}）`);
+                continue;
+            }
+            if (ioDate < periodStart || ioDate > periodEnd) {
+                warnings.outOfPeriod.push(`${productName} / ${batchNo}：${fmt(ioDate)} ${bizType} ${rawQty}（入庫日不在 ${fmt(periodStart)}~${fmt(periodEnd)} 內，已排除不計費）`);
+                continue;
+            }
+            if (rawQty < 0) {
+                warnings.negativeQty.push(`${productName} / ${batchNo}：${fmt(ioDate)} ${bizType} ${rawQty}（負數入庫，仍以 ${ioQty} 計費，請確認是否為沖銷/退貨單）`);
+            }
 
             const ioWeight = ioQty * unitWeight;
             const ioDays   = daysBetween(ioDate, periodEnd);
@@ -7685,9 +7753,23 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
         for (const io of ioMatch) {
             const bizType = normalize(io[config.col_type]);
             if (!isOutbound(bizType)) continue;
+            if (isInbound(bizType)) continue; // 入出庫皆符合的異常單，已在入庫段警告並跳過
 
-            const ioQty = Math.abs(parseFloat(io['數量'] || 0)) || 0;
+            const rawQty = parseFloat(io['數量'] || 0) || 0;
+            const ioQty = Math.abs(rawQty);
             if (ioQty === 0) continue;
+
+            const ioDate = parseDate(io[config.col_date]);
+            if (ioDate && (ioDate < periodStart || ioDate > periodEnd)) {
+                warnings.outOfPeriod.push(`${productName} / ${batchNo}：${fmt(ioDate)} ${bizType} ${rawQty}（出庫日不在 ${fmt(periodStart)}~${fmt(periodEnd)} 內，已排除不列入出庫記錄）`);
+                continue;
+            }
+            if (!ioDate) {
+                warnings.badDate.push(`${productName} / ${batchNo}：出庫日期「${io[config.col_date] ?? ''}」無法解析（${bizType} ${rawQty}，仍列入出庫記錄，請確認日期）`);
+            }
+            if (rawQty < 0) {
+                warnings.negativeQty.push(`${productName} / ${batchNo}：${bizType} ${rawQty}（負數出庫，仍以 ${ioQty} 列入出庫記錄，請確認是否為沖銷單）`);
+            }
 
             outboundByType[bizType] = (outboundByType[bizType] || 0) + ioQty;
 
@@ -7734,9 +7816,10 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
         if (inboundDetails.length)  remarkParts.push(`[入庫] ${inboundDetails.join(' / ')}`);
         const fullRemark = remarkParts.join(' | ');
 
-        // 採購部門（第一筆入庫紀錄的部門）
+        // 採購部門：第一筆入庫紀錄的部門；該期無入庫時沿用總帳記錄的部門
         const firstInbound = ioMatch.find(io => isInbound(normalize(io[config.col_type])));
-        const purchaseDept = firstInbound ? (firstInbound[config.col_dept] || '') : '';
+        const purchaseDept = (firstInbound && firstInbound[config.col_dept])
+            || ledgerDeptMap[`${productName}|${batchNo}`] || '';
 
         // 檢查天數異常
         const daysAnomaly = checkDaysAnomaly(fullPeriodDays);
@@ -7779,6 +7862,7 @@ function calculateRental(rentalData, ioData, weightData, period = '') {
     }
 
     result._formulaDetails = formulaDetails;
+    result._warnings = warnings;
     return result;
 }
 
@@ -7958,8 +8042,41 @@ function displayResults(data) {
     const editableCols = ['出入庫', '租金', '總計', '備註'];
     const numericCols = ['上期結存','本期入庫','本期出庫','本期結存','天數','淨重','計價重量','出入庫','租金','總計'];
 
+    // ── 資料異常警告區塊（來自 calculateRental 的偵測，不擋匯出）────────
+    const _w = data._warnings || {};
+    const _warnDefs = [
+        ['outOfPeriod',   '⛔ 期間外單據（已排除不計費）',                   '#ef4444'],
+        ['badDate',       '📅 日期無法解析',                                 '#ef4444'],
+        ['duplicateKeys', '📑 同產品+批號多列（出入庫重複計費風險）',        '#e8836a'],
+        ['missingWeight', '⚖️ 重量表查不到（該品項租金=0）',                 '#e8836a'],
+        ['negativeQty',   '➖ 負數量單據（仍以絕對值計費，請確認）',          '#b07020'],
+        ['negativeBegin', '➖ 前期結存為負數',                               '#b07020'],
+        ['ambiguousType', '❓ 業務屬性同時像入庫與出庫（已跳過不計費）',      '#b07020'],
+    ];
+    const _warnTotal = _warnDefs.reduce((s, [k]) => s + ((_w[k] || []).length), 0);
+    let warnHtml = '';
+    if (_warnTotal > 0) {
+        const sections = _warnDefs.filter(([k]) => (_w[k] || []).length).map(([k, title, color]) => {
+            const items = _w[k];
+            const shown = items.slice(0, 50);
+            return `<details style="margin:0.25rem 0;">
+                <summary style="cursor:pointer; font-weight:700; color:${color}; font-size:0.82rem;">${title}：${items.length} 筆</summary>
+                <ul style="margin:0.3rem 0 0.3rem 1.4rem; padding:0; font-size:0.78rem; color:#555; line-height:1.6;">
+                    ${shown.map(t => `<li>${escHtml(t)}</li>`).join('')}
+                    ${items.length > shown.length ? `<li style="color:#999;">…僅顯示前 ${shown.length} 筆，共 ${items.length} 筆</li>` : ''}
+                </ul>
+            </details>`;
+        }).join('');
+        warnHtml = `
+            <div style="background:#fff8f5; border:1.5px solid #f0b8a0; border-radius:10px; padding:0.6rem 0.9rem; margin-bottom:0.8rem;">
+                <div style="font-weight:800; color:#d9534f; font-size:0.88rem; margin-bottom:0.25rem;">⚠️ 資料異常警告（共 ${_warnTotal} 筆）— 不影響匯出，但請逐項確認</div>
+                ${sections}
+            </div>`;
+    }
+
     let html = `
         <div class="result-section">
+            ${warnHtml}
             <div style="margin-bottom:0.8rem;">
                 <h3 style="margin:0;">詳細計算結果 (<span id="resultCount">${data.length}</span> 項)</h3>
             </div>
