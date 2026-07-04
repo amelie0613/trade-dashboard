@@ -6083,7 +6083,7 @@ async function doInitLedger() {
 async function previewMonthly() {
     const f1 = ledgerFiles['ledger_file_first'] || document.getElementById('ledger_file_first').files[0];
     const f2 = ledgerFiles['ledger_file_second'] || document.getElementById('ledger_file_second').files[0];
-    const label = document.getElementById('ledger_month_label').value.trim() || '本月';
+    let label = document.getElementById('ledger_month_label').value.trim(); // 空白時稍後由檔案[期初]自動推導
     if (!f1 && !f2) { alert('請至少上傳一期結果'); return; }
 
     const statusEl = document.getElementById('ledger_status_monthly');
@@ -6101,9 +6101,57 @@ async function previewMonthly() {
         existingRows.forEach(r => { ledgerMap[String(r.產品名稱||'').trim() + '|' + String(r.批號||'').trim()] = r; });
 
         const makeKey = r => String(r['產品名稱']||'').trim() + '|' + String(r['批號']||'').trim();
+
+        // ── 預覽層異常警告收集 ─────────────────────────────────────────
+        const previewWarnings = {
+            fileCheck: [],   // 上/下期檔案放錯欄位或跨月混用
+            merged: [],      // 同產品+批號多列（多倉庫）已自動加總合併
+            resettle: [],    // 本月份已結算過，重複導入會重複累計
+            zeroBalRem: [],  // 結存=0 但結餘>0，導入時將連結餘一併刪除
+            orphans: [],     // 總帳有結餘但本月檔案未出現（凍結中）
+        };
+
+        // ── 檔案身分驗證：用檔內 [期初] 欄位檢查上/下期與月份 ────────────
+        const _checkFile = (rows, tag, expectStartDay) => {
+            const first = rows.find(r => r['[期初]']);
+            if (!first) return null;
+            const m = String(first['[期初]']).match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (!m) return null;
+            const day = parseInt(m[3]);
+            if (expectStartDay === 1 && day !== 1)
+                previewWarnings.fileCheck.push(`${tag}的[期初]是 ${first['[期初]']}（${day} 號起），不像上半期檔（應為 1 號起）——請確認檔案是否放錯欄位`);
+            if (expectStartDay === 16 && day !== 16)
+                previewWarnings.fileCheck.push(`${tag}的[期初]是 ${first['[期初]']}（${day} 號起），不像下半期檔（應為 16 號起）——請確認檔案是否放錯欄位`);
+            return `${parseInt(m[2])}月`;
+        };
+        const _fileMonth1 = d1.length ? _checkFile(d1, '上半期檔', 1)  : null;
+        const _fileMonth2 = d2.length ? _checkFile(d2, '下半期檔', 16) : null;
+        if (_fileMonth1 && _fileMonth2 && _fileMonth1 !== _fileMonth2)
+            previewWarnings.fileCheck.push(`上半期檔（${_fileMonth1}）與下半期檔（${_fileMonth2}）月份不同，請確認是否混用了不同月份的檔案`);
+
+        // 月份標籤：未填時自動採用檔案月份（與出庫記錄的自動標記同格式，如「5月」）
+        if (!label) {
+            label = _fileMonth1 || _fileMonth2 || '本月';
+            const _lblInput = document.getElementById('ledger_month_label');
+            if (_lblInput) _lblInput.value = label;
+        } else if ((_fileMonth1 || _fileMonth2) && label !== (_fileMonth1 || _fileMonth2)) {
+            previewWarnings.fileCheck.push(`月份標籤「${label}」與檔案月份「${_fileMonth1 || _fileMonth2}」不一致——若非跨月特殊情況，建議改成一致（出庫記錄的月份桶用的是「${_fileMonth1 || _fileMonth2}」格式）`);
+        }
+
+        // ── 建立上/下期 map：同產品+批號多列（多倉庫）自動加總合併 ────────
+        const _mergeRow = (map, r, fileTag) => {
+            const key = makeKey(r);
+            if (key === '|') return;
+            if (!map[key]) { map[key] = { ...r }; return; }
+            const t = map[key];
+            ['上期結存','本期入庫','本期出庫','本期結存','租金','出入庫','總計','計價重量'].forEach(f => {
+                t[f] = (parseFloat(t[f]) || 0) + (parseFloat(r[f]) || 0);
+            });
+            previewWarnings.merged.push(`${key.replace('|', ' / ')}（${fileTag}）：分倉多列已自動加總為一列（總帳以產品+批號為粒度）`);
+        };
         const map1 = {}, map2 = {};
-        d1.forEach(r => { map1[makeKey(r)] = r; });
-        d2.forEach(r => { map2[makeKey(r)] = r; });
+        d1.forEach(r => _mergeRow(map1, r, '上半期檔'));
+        d2.forEach(r => _mergeRow(map2, r, '下半期檔'));
         const allKeys = new Set([...Object.keys(map1), ...Object.keys(map2)]);
 
         const preview = [];
@@ -6113,7 +6161,9 @@ async function previewMonthly() {
             const 上半期租金 = (parseFloat((r1||{})['租金'])||0) + (parseFloat((r1||{})['出入庫'])||0);
             const 下半期租金 = (parseFloat((r2||{})['租金'])||0) + (parseFloat((r2||{})['出入庫'])||0);
             const prev = ledgerMap[key];
-            const 前期結餘 = prev ? (prev.月租金結餘 || prev.前期結餘 || prev.總檔租金結餘 || 0) : 0;
+            // 取值優先序：月租金結餘 → 前期結餘 → 總檔租金結餘；只在欄位「不存在」時才往後撈，真實 0 不會誤用過期欄位
+            const _prevRaw = prev ? [prev.月租金結餘, prev.前期結餘, prev.總檔租金結餘].find(v => v !== undefined && v !== null && v !== '') : 0;
+            const 前期結餘 = parseFloat(_prevRaw) || 0;
             const 租金總計 = 前期結餘 + 上半期租金 + 下半期租金;
 
             // 上期結存：有上半期就抓上半期，否則抓下半期
@@ -6144,6 +6194,30 @@ async function previewMonthly() {
         // 預覽顯示全部，導入時才移除結存=0
         const kept = preview;
         const willRemove = preview.filter(r => r.本期結存 === 0);
+
+        // ── A3 重複月結偵測：總帳月結歷史已有本月標籤 → 重複導入會重複累計 ──
+        const _settledCount = existingRows.filter(r =>
+            r.月結歷史 && Object.prototype.hasOwnProperty.call(r.月結歷史, label)
+        ).length;
+        if (_settledCount > 0) {
+            previewWarnings.resettle.push(`總帳中已有 ${_settledCount} 筆品項的月結歷史包含「${label}」——此月份先前已確認導入過。前期結餘已滾動成上次的月結餘，再次導入會把本月租金「重複累計一次」。若只是想重看數字請匯出總帳即可；確定要重新結算，請勾選下方確認框後再按導入。`);
+        }
+
+        // ── A1 出清結餘偵測：結存=0 但月租金結餘>0，導入時會連結餘一併刪除 ──
+        preview.forEach(r => {
+            if ((parseFloat(r.本期結存) || 0) === 0 && (parseFloat(r.月租金結餘) || 0) > 0) {
+                previewWarnings.zeroBalRem.push(`${r.產品名稱} / ${r.批號}：已出清但月租金結餘還有 $${Math.round(r.月租金結餘).toLocaleString()}——導入時整筆刪除、結餘一併消失。若應由出庫吸收，請在預覽將「月租金(出庫)」改為租金總計（結餘會自動歸零）`);
+            }
+        });
+
+        // ── B1 孤兒品項偵測：總帳有結餘但本月上傳檔未出現 → 本月不滾動、不累計 ──
+        existingRows.forEach(r => {
+            const k = String(r.產品名稱||'').trim() + '|' + String(r.批號||'').trim();
+            if (allKeys.has(k)) return;
+            const _balRaw = [r.月租金結餘, r.前期結餘, r.總檔租金結餘].find(v => v !== undefined && v !== null && v !== '');
+            const bal = parseFloat(_balRaw) || 0;
+            if (bal > 0) previewWarnings.orphans.push(`${r.產品名稱} / ${r.批號}：總帳結餘 $${Math.round(bal).toLocaleString()}，本月上傳檔中未出現——本月不會累計租金也不會滾動，請確認是否漏列或品名/批號不一致`);
+        });
 
         // 合計（全部資料）
         const sumKeys = ['總檔結存','上期結存','本期入庫','本期出庫','本期結存','前期結餘','上半期','下半期','租金總計','月租金出庫','月租金結餘'];
@@ -6193,15 +6267,51 @@ async function previewMonthly() {
         colKeyMap[`${label}上`] = '上半期';
         colKeyMap[`${label}下`] = '下半期';
 
+        // ── 預覽警告面板 ─────────────────────────────────────────────
+        const _pwDefs = [
+            ['resettle',   '🔁 此月份已結算過（重複導入會重複累計）', '#ef4444'],
+            ['fileCheck',  '📂 檔案身分/月份異常',                     '#ef4444'],
+            ['zeroBalRem', '💸 已出清但仍有結餘（導入時結餘將一併刪除）', '#e8836a'],
+            ['merged',     '📑 同產品+批號多列已自動加總合併',          '#b07020'],
+            ['orphans',    '🧊 總帳有結餘但本月檔案未出現（凍結中）',    '#b07020'],
+        ];
+        const _pwTotal = _pwDefs.reduce((s, [k]) => s + previewWarnings[k].length, 0);
+        let previewWarnHtml = '';
+        if (_pwTotal > 0) {
+            const secs = _pwDefs.filter(([k]) => previewWarnings[k].length).map(([k, title, color]) => {
+                const items = previewWarnings[k];
+                const shown = items.slice(0, 50);
+                return `<details ${k==='resettle'||k==='fileCheck'?'open':''} style="margin:0.25rem 0;">
+                    <summary style="cursor:pointer; font-weight:700; color:${color}; font-size:0.82rem;">${title}：${items.length} 筆</summary>
+                    <ul style="margin:0.3rem 0 0.3rem 1.4rem; padding:0; font-size:0.78rem; color:#555; line-height:1.6;">
+                        ${shown.map(t => `<li>${escHtml(t)}</li>`).join('')}
+                        ${items.length > shown.length ? `<li style="color:#999;">…僅顯示前 ${shown.length} 筆，共 ${items.length} 筆</li>` : ''}
+                    </ul>
+                </details>`;
+            }).join('');
+            const resettleAck = previewWarnings.resettle.length ? `
+                <label style="display:flex; align-items:center; gap:0.4rem; margin-top:0.5rem; padding:0.5rem 0.7rem; background:#fff0f0; border:1.5px solid #ef4444; border-radius:8px; cursor:pointer; font-size:0.82rem; font-weight:700; color:#c0392b;">
+                    <input type="checkbox" id="resettle_ack" style="cursor:pointer; width:16px; height:16px;" />
+                    我知道「${escHtml(label)}」已結算過，仍要重複導入（本月租金會再累計一次）
+                </label>` : '';
+            previewWarnHtml = `
+                <div style="background:#fff8f5; border:1.5px solid #f0b8a0; border-radius:10px; padding:0.6rem 0.9rem; margin-bottom:1rem;">
+                    <div style="font-weight:800; color:#d9534f; font-size:0.88rem; margin-bottom:0.25rem;">⚠️ 月結預覽警告（共 ${_pwTotal} 筆）— 請逐項確認後再導入</div>
+                    ${secs}${resettleAck}
+                </div>`;
+        }
+
         let html = `<div class="result-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                <h3 style="margin:0;">📅 ${label} 月結算預覽（共 ${kept.length} 筆，其中 ${willRemove.length} 筆結餘=0將於導入後移除）</h3>
+                <h3 style="margin:0;">📅 ${label} 月結算預覽（共 ${kept.length} 筆，其中 ${willRemove.length} 筆本期結存=0 將於導入後移除）</h3>
                 <div style="display:flex; gap:0.5rem;">
                     <button onclick="exportPreview()" style="background:#8dcc7a; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">📥 匯出 Excel</button>
                     <button onclick="exportPreviewPDF()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.2rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">🖨️ 匯出 PDF</button>
                     <button onclick="confirmMonthly()" style="background:#e8836a; color:white; border:none; border-radius:10px; padding:0.6rem 1.5rem; font-weight:800; cursor:pointer; font-family:'Nunito',sans-serif;">✅ 確認導入總帳</button>
                 </div>
             </div>
+
+            ${previewWarnHtml}
 
             <!-- 合計卡片 + 重新計算按鈕 -->
             <div style="display:flex; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem;">
@@ -6263,7 +6373,7 @@ async function previewMonthly() {
             </div>
 
             <div style="background:#f0faf0; border:1.5px solid #8dcc7a; border-radius:10px; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.82rem; color:#2d7a2d; font-weight:600;">
-                💡 確認無誤後點「確認導入」，系統會更新總帳並移除本期結存=0且月租金結餘=0的品項
+                💡 確認無誤後點「確認導入」，系統會更新總帳並移除<b>本期結存=0</b>的品項；若該品項月租金結餘&gt;0，導入前會列出清單請你確認（結餘會隨刪除消失，可先把「月租金(出庫)」改為租金總計讓出庫吸收）
             </div>
             <div class="overflow-auto"><table id="previewTable" style="font-size:0.78rem;border-collapse:collapse;width:100%;">
                 <thead>
@@ -6304,11 +6414,14 @@ async function previewMonthly() {
         html += `</tr></thead><tbody id="previewBody">`;
 
         kept.forEach((r, rowIdx) => {
-            const willDel = r.本期結存 === 0 && r.月租金結餘 === 0;
-            const rowStyle = willDel ? 'color:#bbb;' : '';
-            const tag = willDel
-                ? '<span style="background:#fef2f2; color:#e8836a; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">導入後移除</span>'
-                : (r._isNew ? '<span style="background:#fff8e8; color:#b07020; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">新增</span>' : '');
+            const willDel = r.本期結存 === 0; // 與 confirmMonthly 的刪除條件一致
+            const _delWithRem = willDel && (parseFloat(r.月租金結餘) || 0) > 0;
+            const rowStyle = willDel && !_delWithRem ? 'color:#bbb;' : '';
+            const tag = _delWithRem
+                ? `<span style="background:#fee2e2; color:#dc2626; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;" title="已出清但結餘>0，導入時結餘將一併刪除，導入前會再確認">移除⚠️結餘$${Math.round(r.月租金結餘).toLocaleString()}</span>`
+                : willDel
+                    ? '<span style="background:#fef2f2; color:#e8836a; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">導入後移除</span>'
+                    : (r._isNew ? '<span style="background:#fff8e8; color:#b07020; border-radius:4px; padding:1px 5px; font-size:0.72rem; font-weight:700;">新增</span>' : '');
 
             const eStyle = `width:100%; min-width:55px; padding:0.3rem 0.4rem; border:none; border-bottom:1.5px solid transparent; background:transparent; font-size:0.78rem; font-family:inherit; text-align:right; outline:none; cursor:pointer;`;
             const eFocus = `onfocus="this.style.borderBottomColor='#f2a7c3';this.style.background='#fff8fc';" onblur="this.style.borderBottomColor='transparent';this.style.background='transparent';"`;
@@ -6326,9 +6439,9 @@ async function previewMonthly() {
                     const formula = `showCalcFormula(event,'租金總計',['前期結餘 + ${label}上 + ${label}下','${fmtN(r.前期結餘)} + ${fmtN(r.上半期)} + ${fmtN(r.下半期)}'],'${fmtN(r.租金總計)}');return false;`;
                     contextStr = `oncontextmenu="${formula}" title="右鍵查看計算公式" style="${eStyle}${extraStyle}cursor:context-menu;"`;
                 } else if (colName === '分攤單價') {
-                    const base = r.上期結存 === 0 ? r.本期入庫 : r.上期結存;
-                    const baseLabel = r.上期結存 === 0 ? '本期入庫' : '上期結存';
-                    const formula = `showCalcFormula(event,'分攤單價',['租金總計 ÷ ${baseLabel}','${fmtN(r.租金總計)} ÷ ${fmtN(base)}'],'${(parseFloat(r.分攤單價)||0).toFixed(5)}');return false;`;
+                    // 與實際計算一致：租金總計 ÷ (上期結存 + 本期入庫)
+                    const base = (parseFloat(r.上期結存)||0) + (parseFloat(r.本期入庫)||0);
+                    const formula = `showCalcFormula(event,'分攤單價',['租金總計 ÷ (上期結存 + 本期入庫)','${fmtN(r.租金總計)} ÷ (${fmtN(r.上期結存)} + ${fmtN(r.本期入庫)}) = ${fmtN(r.租金總計)} ÷ ${fmtN(base)}'],'${(parseFloat(r.分攤單價)||0).toFixed(5)}');return false;`;
                     contextStr = `oncontextmenu="${formula}" title="右鍵查看計算公式" style="${eStyle}${extraStyle}cursor:context-menu;"`;
                 } else if (colName === '月租金(出庫)') {
                     const formula = `showCalcFormula(event,'月租金(出庫)',['分攤單價 × 本期出庫','${(parseFloat(r.分攤單價)||0).toFixed(5)} × ${fmtN(r.本期出庫)}'],'${fmtN(r.月租金出庫||r[colKeyMap[colName]])}');return false;`;
@@ -6374,7 +6487,7 @@ async function previewMonthly() {
 
         statusEl.innerHTML = '<span style="color:#4a9a37; font-weight:700;">✅ 預覽完成，請確認後導入</span>';
         // 只把結餘!=0的存入pendingMonthly（導入時移除清零的）
-        window._pendingMonthly = { preview: kept, label, colKeyMap };
+        window._pendingMonthly = { preview: kept, label, colKeyMap, resettleCount: _settledCount };
 
         // 顯示預覽的租金總計（供 F12 驗證）
         const previewRentalTotal = kept.reduce((s,r) => s+(r.租金總計||0), 0);
@@ -6417,6 +6530,36 @@ window.onPreviewEdit = function(input) {
             Object.keys(window._pendingMonthly.colKeyMap||{}).forEach(k => { keyMap[k] = window._pendingMonthly.colKeyMap[k]; });
             const key = keyMap[colName] || colName;
             r[key] = val;
+
+            // ── 連動重算：確保 出庫 + 結餘 = 租金總計 永遠成立 ──────────
+            const _n = v => parseFloat(v) || 0;
+            const _recalcChain = () => {
+                // 依現在的租金總計重算 分攤單價 → 出庫 → 結餘
+                const base = _n(r.上期結存) + _n(r.本期入庫);
+                r.分攤單價 = base > 0 ? Math.round((_n(r.租金總計) / base) * 100000) / 100000 : 0;
+                r.月租金出庫 = Math.min(Math.round(r.分攤單價 * _n(r.本期出庫)), Math.max(0, Math.round(_n(r.租金總計))));
+                r.月租金結餘 = Math.max(0, Math.round(_n(r.租金總計)) - Math.round(_n(r.月租金出庫)));
+            };
+            if (key === '前期結餘' || key === '上半期' || key === '下半期') {
+                r.租金總計 = Math.round(_n(r.前期結餘) + _n(r.上半期) + _n(r.下半期));
+                _recalcChain();
+            } else if (key === '租金總計' || key === '上期結存' || key === '本期入庫' || key === '本期出庫') {
+                _recalcChain();
+            } else if (key === '月租金出庫') {
+                r.月租金結餘 = Math.max(0, Math.round(_n(r.租金總計)) - Math.round(val));
+            } else if (key === '月租金結餘') {
+                r.月租金出庫 = Math.max(0, Math.round(_n(r.租金總計)) - Math.round(val));
+            }
+
+            // 更新同列其他被連動的儲存格
+            const _updCell = (pcol, v) => {
+                const el = document.querySelector(`#previewTable input[data-prow="${rowIdx}"][data-pcol="${pcol}"]`);
+                if (el && el !== input) el.value = v;
+            };
+            _updCell('租金總計', r.租金總計);
+            _updCell('分攤單價', r.分攤單價);
+            _updCell('月租金(出庫)', r.月租金出庫);
+            _updCell('月租金(結餘)', r.月租金結餘);
         }
     }
 
@@ -6722,9 +6865,43 @@ window.exportPreviewPDF = function() {
 
 async function confirmMonthly() {
     if (!window._pendingMonthly) return;
-    const { preview: allPreview, label } = window._pendingMonthly;
+    const { preview: allPreview, label, resettleCount } = window._pendingMonthly;
     // 全部品項都處理（本期結存=0 由 finalRows 刪除，不在這裡過濾）
     const preview = allPreview;
+
+    // ── 防線 1（A4）：帳平驗證——每列 出庫+結餘 必須等於 租金總計 ──────
+    const _unbalanced = preview.filter(r =>
+        Math.abs((Math.round(parseFloat(r.月租金出庫)||0)) + (Math.round(parseFloat(r.月租金結餘)||0)) - Math.round(parseFloat(r.租金總計)||0)) > 1
+    );
+    if (_unbalanced.length) {
+        const list = _unbalanced.slice(0, 10).map(r =>
+            `・${r.產品名稱} / ${r.批號}：出庫 ${Math.round(r.月租金出庫).toLocaleString()} + 結餘 ${Math.round(r.月租金結餘).toLocaleString()} ≠ 總計 ${Math.round(r.租金總計).toLocaleString()}`
+        ).join('\n');
+        alert(`❌ 有 ${_unbalanced.length} 筆「月租金出庫 + 結餘 ≠ 租金總計」，帳不平無法導入：\n\n${list}${_unbalanced.length > 10 ? `\n…等共 ${_unbalanced.length} 筆` : ''}\n\n請在預覽表修正後再導入（編輯任一金額欄會自動連動重算）。`);
+        return;
+    }
+
+    // ── 防線 2（A3）：此月份已結算過 → 必須勾選確認框 ─────────────────
+    if ((resettleCount || 0) > 0) {
+        const ack = document.getElementById('resettle_ack');
+        if (!ack || !ack.checked) {
+            alert(`⚠️ 「${label}」先前已確認導入過（總帳月結歷史有 ${resettleCount} 筆此月份記錄）。\n\n重複導入會把本月租金重複累計一次。\n如確定要重新結算，請先勾選預覽上方警告區的確認框。`);
+            return;
+        }
+    }
+
+    // ── 防線 3（A1）：結存=0 但結餘>0 的品項，刪除前列清單確認 ────────
+    const _zeroWithRem = preview.filter(r => (parseFloat(r.本期結存)||0) === 0 && (parseFloat(r.月租金結餘)||0) > 0);
+    if (_zeroWithRem.length) {
+        const totalRem = _zeroWithRem.reduce((s, r) => s + (parseFloat(r.月租金結餘)||0), 0);
+        const list = _zeroWithRem.slice(0, 10).map(r =>
+            `・${r.產品名稱} / ${r.批號}：結餘 $${Math.round(r.月租金結餘).toLocaleString()}`
+        ).join('\n');
+        const ok = confirm(
+            `⚠️ 有 ${_zeroWithRem.length} 筆品項已出清（本期結存=0）但月租金結餘還有錢，導入後將整筆刪除、結餘一併消失：\n\n${list}${_zeroWithRem.length > 10 ? `\n…等共 ${_zeroWithRem.length} 筆` : ''}\n\n合計將刪除結餘 $${Math.round(totalRem).toLocaleString()}\n\n【確定】＝照樣刪除\n【取消】＝回預覽修改（把「月租金(出庫)」改成租金總計，結餘會自動歸零由出庫吸收）`
+        );
+        if (!ok) return;
+    }
 
 
     const resultsEl = document.getElementById('ledger_results');
@@ -6780,12 +6957,12 @@ async function confirmMonthly() {
         const snapshotRows = Object.values(finalMap); // 不過濾，保留全部
         window._profitSnapshotRows = snapshotRows;
 
-        await saveLedgerRows(finalRows);
+        // 注意：總帳同步只在「步驟3」執行一次（出庫記錄回填完成後），
+        //       這裡不先同步，避免結存=0品項在回填前就被刪除、也避免整份總帳上傳兩次。
         await saveMonthlyRecord(label, {
             count: newRows.length,
             totalRental: preview.reduce((s,r)=>s+r.租金總計,0)
         });
-        await refreshLedgerStatus();
 
         // ══════════════════════════════════════════════════════
         // 方案C：先回填出庫記錄分攤單價，再刪除結存=0品項
@@ -6797,8 +6974,9 @@ async function confirmMonthly() {
         //        此時 ledger_table 仍保有結存=0品項的單價，可作為備用查詢來源
         if (!window._outboundRecords || window._outboundRecords.length === 0) {
             try {
+                // 只撈「本月＋未標月份」的未填單價記錄，不動其他月份的資料
                 const resp = await fetch(
-                    `${SUPABASE_URL}/rest/v1/outbound_records?select=*&allocated_price=eq.0&order=outbound_date.asc`,
+                    `${SUPABASE_URL}/rest/v1/outbound_records?select=*&allocated_price=eq.0&month_label=in.(${encodeURIComponent(`"${label}",""`)})&order=outbound_date.asc`,
                     { headers: SB_HEADERS }
                 );
                 if (resp.ok) {
@@ -6849,6 +7027,7 @@ async function confirmMonthly() {
         //        必須在出庫記錄回填完成後才執行
         //        必須明確傳入 finalRows，避免使用 window._ledgerData 的舊快取資料
         await syncLedgerToSupabase(finalRows);
+        await refreshLedgerStatus();
 
         window._pendingMonthly = null;
 
@@ -7679,7 +7858,7 @@ function calculateRental(rentalData, ioData, weightData, period = '', ledgerDept
         if (k !== '|') _keyCounts[k] = (_keyCounts[k] || 0) + 1;
     });
     Object.entries(_keyCounts).forEach(([k, n]) => {
-        if (n > 1) warnings.duplicateKeys.push(`${k.replace('|', ' / 批號 ')}：出現 ${n} 列，兩列會各自吃到同一批出入庫記錄（重複計費），請確認是否分倉`);
+        if (n > 1) warnings.duplicateKeys.push(`${k.replace('|', ' / 批號 ')}：出現 ${n} 列（分倉），出入庫明細已依「倉庫名稱」分配給各倉；若明細缺倉庫名稱或名稱與租金表不一致，會反映在上方「數量勾稽不符」，請對照確認`);
     });
 
     for (const row of rentalData) {
@@ -7698,10 +7877,18 @@ function calculateRental(rentalData, ioData, weightData, period = '', ledgerDept
         }
 
         // 對應的出入庫記錄
-        const ioMatch = ioData.filter(io =>
-            normalize(io[config.col_product2]) === productName &&
-            normalize(io[config.col_batch2])   === batchNo
-        );
+        // 同批號多列 = 分倉（每個倉庫中產品+批號唯一），用倉庫名稱把明細分配給正確的列，避免兩列重複計費
+        const rowWh   = normalize(row['倉庫'] || row['倉庫名稱'] || '');
+        const _isDupKey = (_keyCounts[`${productName}|${batchNo}`] || 0) > 1;
+        const ioMatch = ioData.filter(io => {
+            if (normalize(io[config.col_product2]) !== productName) return false;
+            if (normalize(io[config.col_batch2])   !== batchNo)     return false;
+            if (_isDupKey && rowWh) {
+                const ioWh = normalize(io['倉庫名稱'] || io['倉庫'] || '');
+                if (ioWh && ioWh !== rowWh) return false; // 明細有倉庫且不同倉 → 不歸這一列
+            }
+            return true;
+        });
         ioMatch.forEach(io => usedIoRows.add(io)); // 反向勾稽：記錄有被比對到的明細
 
         // ── 1. 前期結餘租金（不收手續費）────────────────────────────────
@@ -8100,7 +8287,7 @@ function displayResults(data) {
         ['unmatchedIO',   '🔍 明細比對不到租金表品項（完全未計費）',          '#ef4444'],
         ['outOfPeriod',   '⛔ 期間外單據（已排除不計費）',                   '#ef4444'],
         ['badDate',       '📅 日期無法解析',                                 '#ef4444'],
-        ['duplicateKeys', '📑 同產品+批號多列（出入庫重複計費風險）',        '#e8836a'],
+        ['duplicateKeys', '📑 同產品+批號多列（分倉，已依倉庫分配出入庫）',  '#b07020'],
         ['missingWeight', '⚖️ 重量表查不到（該品項租金=0）',                 '#e8836a'],
         ['negativeQty',   '➖ 負數量單據（仍以絕對值計費，請確認）',          '#b07020'],
         ['negativeBegin', '➖ 前期結存為負數',                               '#b07020'],
@@ -8544,8 +8731,8 @@ function showAllocPriceDetail(event, idx) {
     const 月租金出庫  = parseFloat(r['月租金出庫'])  || 0;
     const 月租金結餘  = parseFloat(r['月租金結餘'])  || 0;
 
-    const 除數Label = 上期結存 > 0 ? '上期結存' : '本期入庫';
-    const 除數值    = 上期結存 > 0 ? 上期結存   : 本期入庫;
+    // 與實際計算一致：分攤基數 = 上期結存 + 本期入庫
+    const 除數值 = 上期結存 + 本期入庫;
 
     const cardStyle = `background:#f8f4ff;border:1px solid #d8c8f0;border-radius:8px;padding:10px 14px;margin-bottom:8px;`;
     const labelStyle = `font-size:10px;font-weight:800;color:#8a5aa0;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;`;
@@ -8562,7 +8749,7 @@ function showAllocPriceDetail(event, idx) {
     </div>
     <div style="${cardStyle}">
         <div style="${labelStyle}">② 分攤單價</div>
-        <div style="${lineStyle}">${除數Label > 0 || 上期結存 > 0 ? '' : '<span style="color:#e8836a;font-size:10px;">⚠️ 上期結存=0，改用本期入庫</span><br>'}租金總計 ÷ ${除數Label} = ${租金總計.toLocaleString()} ÷ ${除數值.toLocaleString()}</div>
+        <div style="${lineStyle}">租金總計 ÷ (上期結存 + 本期入庫) = ${租金總計.toLocaleString()} ÷ (${上期結存.toLocaleString()} + ${本期入庫.toLocaleString()}) = ${租金總計.toLocaleString()} ÷ ${除數值.toLocaleString()}</div>
         <div style="${totalStyle}">= ${分攤單價.toFixed(5)}</div>
     </div>
     <div style="${cardStyle}">
