@@ -2115,6 +2115,17 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
             </div>
           </div>
 
+          <!-- 計費倉清單 -->
+          <div class="settings-section">
+            <h3>🧊 租金計費倉清單</h3>
+            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+              <label style="font-size:12px;font-weight:700;color:var(--muted);">只有下列倉庫的出入庫單據會列入租金計算（頓號或逗號分隔）</label>
+              <input type="text" id="billedWh-s" value="-35度冷凍庫、-50度冷凍庫" style="width:100%;"
+                     onchange="try{localStorage.setItem('billedWarehouses', this.value);}catch(e){}">
+              <span style="font-size:11.5px;color:var(--muted);">其他倉庫（加工倉、在途倉、正洋、三角貿易…）的單據會自動排除並列入「非計費倉」警告區，不再需要人工預先篩檔。</span>
+            </div>
+          </div>
+
           <!-- ══ 雲端同步 ══ -->
           <div class="settings-group-label">☁️ 雲端同步</div>
 
@@ -2388,6 +2399,10 @@ function initSettingsFields(){
     if(ly){
       const lyEl=document.getElementById('longYears'); if(lyEl) lyEl.value=ly;
       const lyS=document.getElementById('longYears-s'); if(lyS) lyS.value=ly;
+    }
+    const bw = localStorage.getItem('billedWarehouses');
+    if(bw){
+      const bwEl=document.getElementById('billedWh-s'); if(bwEl) bwEl.value=bw;
     }
   }catch(e){}
 }
@@ -7614,6 +7629,7 @@ function _detectProcessingColumnsFromHeaders(headers, withFallback = true) {
         childName: _findProcessingCol(headers, [/子件.*品名|子件.*產品|子件.*名稱|成品.*品名|成品.*產品|成品.*名稱/]),
         childBatch: _findProcessingCol(headers, [/^(?!.*有效)(?!.*效期).*(子件|成品).*(批號|批次|lot|batch)$/]),
         childQty: _findProcessingCol(headers, [/子件.*數量|子件.*產出|成品.*數量|成品.*產出|成品.*入庫/]),
+        audit: _findProcessingCol(headers, [/審核.*狀態|審核/]),
     };
 
     if (!withFallback) return cols;
@@ -7668,10 +7684,21 @@ function _detectProcessingLayout(rawRows) {
     };
 }
 
+// 批號格式守門：日期型批號（E?YYYYMMDD-序號）日期段必須是 8 碼；
+// 短編號批號（如 17-100W，數字段 < 6 碼）視為舊式編號，不擋。
+function _procBatchIssue(b) {
+    const m = String(b || '').trim().match(/^(E?)(\d+)(-.*)?$/i);
+    if (!m) return '';
+    if (m[2].length < 6) return '';
+    if (m[2].length !== 8) return `批號「${b}」日期段為 ${m[2].length} 碼（應為 8 碼 YYYYMMDD，疑似多打/少打數字）`;
+    return '';
+}
+
 function parseProcessingOrderRows(rawRows) {
     const layout = _detectProcessingLayout(rawRows);
     const c = layout.cols;
     const orderLines = [];
+    const blocked = [];   // 被守門擋下的列（未審核／批號格式錯誤），不進計算
 
     for (let i = layout.startRow; i < rawRows.length; i++) {
         const r = rawRows[i] || [];
@@ -7699,11 +7726,24 @@ function parseProcessingOrderRows(rawRows) {
         if (looksLikeHeader) continue;
 
         if (motherName && motherBatch && childBatch) {
+            // ── 守門 1：未審核加工單不進成本計算 ──────────────────────
+            const auditVal = c.audit >= 0 ? String(r[c.audit] ?? '').trim() : '';
+            if (auditVal.includes('未審核')) {
+                blocked.push({ orderNo, motherName, motherBatch, childBatch, reason: `審核狀態「${auditVal}」——請先在 ERP 審核後再重新上傳` });
+                continue;
+            }
+            // ── 守門 2：批號格式錯誤（會污染利潤比對）────────────────
+            const mIssue = _procBatchIssue(motherBatch);
+            const cIssue = _procBatchIssue(childBatch);
+            if (mIssue || cIssue) {
+                blocked.push({ orderNo, motherName, motherBatch, childBatch, reason: `${mIssue ? '母件' + mIssue : ''}${mIssue && cIssue ? '；' : ''}${cIssue ? '子件' + cIssue : ''}——請回 ERP 修正批號後重新匯出` });
+                continue;
+            }
             orderLines.push({ orderNo, motherName, motherBatch, motherQty, childName, childBatch, childQty });
         }
     }
 
-    return { orderLines, layout };
+    return { orderLines, layout, blocked };
 }
 
 // 日期輸入同步和格式轉換
@@ -7849,8 +7889,32 @@ function calculateRental(rentalData, ioData, weightData, period = '', ledgerDept
         negativeQty:   [],  // 負數量單據（沖銷/退貨？目前仍以絕對值計費）
         negativeBegin: [],  // 前期結存為負數
         ambiguousType: [],  // 業務屬性同時符合入庫與出庫字樣（已跳過不計費）
+        nonBilledWh:   [],  // 非計費倉單據（已自動排除，僅供對照）
+        nonBilledRent: [],  // 租金表出現非計費倉的列（仍照常計費，請人工確認）
     };
     const usedIoRows = new Set(); // 追蹤有被比對到的出入庫明細，供反向勾稽用
+
+    // ── 計費倉過濾：只有計費倉的出入庫單據列入計算（規則沉進系統，取代人工預篩檔）──
+    const _billedWh = String((typeof localStorage !== 'undefined' && localStorage.getItem('billedWarehouses')) || '-35度冷凍庫、-50度冷凍庫')
+        .split(/[,、;；\n]+/).map(x => x.trim()).filter(Boolean);
+    const _nonBilledStats = {};
+    ioData = ioData.filter(io => {
+        const wh = normalize(io['倉庫名稱'] || io['倉庫'] || '');
+        if (!wh || _billedWh.includes(wh)) return true;   // 明細無倉庫名稱時保留（相容舊格式）
+        const q = Math.abs(parseFloat(io['數量'] || 0) || 0);
+        const st = _nonBilledStats[wh] || (_nonBilledStats[wh] = { n: 0, kg: 0 });
+        st.n++; st.kg += q;
+        return false;
+    });
+    Object.entries(_nonBilledStats).forEach(([wh, st]) => {
+        warnings.nonBilledWh.push(`倉庫「${wh}」：${st.n} 筆、共 ${Math.round(st.kg).toLocaleString()} kg 已自動排除不計費（非計費倉；清單可在系統設定「租金計費倉清單」維護）`);
+    });
+    rentalData.forEach(row => {
+        const wh = normalize(row['倉庫'] || row['倉庫名稱'] || '');
+        if (wh && !_billedWh.includes(wh)) {
+            warnings.nonBilledRent.push(`${normalize(row[config.col_product1])} / ${normalize(row[config.col_batch1])}：租金表倉庫「${wh}」不在計費倉清單，但仍照常計費——請確認租金表是否含非計費倉資料`);
+        }
+    });
 
     // 偵測同產品+批號重複列（多倉庫或匯出重複時，出入庫比對不含倉庫會重複收費）
     const _keyCounts = {};
@@ -8293,6 +8357,8 @@ function displayResults(data) {
         ['negativeQty',   '➖ 負數量單據（仍以絕對值計費，請確認）',          '#b07020'],
         ['negativeBegin', '➖ 前期結存為負數',                               '#b07020'],
         ['ambiguousType', '❓ 業務屬性同時像入庫與出庫（已跳過不計費）',      '#b07020'],
+        ['nonBilledRent', '🚨 租金表出現非計費倉的列（仍照常計費，請確認）',  '#ef4444'],
+        ['nonBilledWh',   '🏭 非計費倉單據（已自動排除不計費，僅供對照）',    '#2a6a82'],
     ];
     const _warnTotal = _warnDefs.reduce((s, [k]) => s + ((_w[k] || []).length), 0);
     let warnHtml = '';
@@ -9841,6 +9907,28 @@ async function importTransitFromOutbound() {
                 <span style="font-size:0.78rem;color:#b07020;">⚠️ 缺少單價的品項（前5項）：${names}${missingPrice.length > 5 ? '…' : ''}</span>`;
             return;
         }
+
+        // ── 重複建帳守門：台帳已有「歷史匯入」的同品項+批號 → 再入帳會重複（識別鍵不同不會互相覆蓋），需人工確認 ──
+        try {
+            const histResp = await fetch(
+                `${SUPABASE_URL}/rest/v1/transit_sales_ledger?source=eq.${encodeURIComponent('歷史匯入')}&select=product_name,batch_no`,
+                { headers: getSBHeaders() }
+            );
+            const histRows = histResp.ok ? await histResp.json() : [];
+            const histKeys = new Set(histRows.map(r => `${String(r.product_name||'').trim()}|${String(r.batch_no||'').trim()}`));
+            const dupHist = [...new Set(rows
+                .map(r => `${String(r.product_name||'').trim()}|${String(r.batch_no||'').trim()}`)
+                .filter(k => histKeys.has(k)))];
+            if (dupHist.length) {
+                const ok = confirm(
+                    `⚠️ 重複建帳風險：在途台帳已有 ${dupHist.length} 個品項+批號是先前「歷史匯入」建立的：\n\n` +
+                    dupHist.slice(0, 10).map(k => '・' + k.replace('|', ' / ')).join('\n') +
+                    (dupHist.length > 10 ? `\n…等共 ${dupHist.length} 組` : '') +
+                    `\n\n若這批出庫記錄與歷史匯入是同一批貨，繼續匯入會重複建帳。\n\n【確定】＝我已核對不是同批貨，繼續匯入\n【取消】＝中止，先人工核對歷史匯入資料`
+                );
+                if (!ok) { statusEl.textContent = '已取消匯入（請先核對台帳「歷史匯入」資料是否與本批出庫重複）'; return; }
+            }
+        } catch(_) { /* 守門查詢失敗不擋主流程 */ }
 
         // 2. 取台帳現有記錄（銷貨出庫 + 在途出庫 + 其他出庫 都要保留）
         const ledResp = await fetch(
@@ -13336,7 +13424,7 @@ async function calcProfit() {
                 });
                 // 優先依表頭辨識加工單欄位；相容舊版固定欄位 D/E/F/I/J/K。
                 const childSummary = {}; // 子件批號 -> { totalCost, totalQty, counted: Set<加工單明細> }
-                const { orderLines: procLines } = parseProcessingOrderRows(procRaw);
+                const { orderLines: procLines, blocked: procBlocked = [] } = parseProcessingOrderRows(procRaw);
                 procLines.forEach(line => {
                     const { orderNo, motherName, motherBatch, motherQty, childBatch, childQty } = line;
                     if (!childSummary[childBatch]) childSummary[childBatch] = { totalCost: 0, totalQty: 0, counted: new Set() };
@@ -13360,7 +13448,8 @@ async function calcProfit() {
                 });
                 const procCount = Object.keys(processingUnitPriceMap).length;
                 const pfSt = document.getElementById('processing_form_status');
-                if (pfSt) pfSt.textContent = `✅ 計算出 ${procCount} 個子件批號單價`;
+                if (pfSt) pfSt.textContent = `✅ 計算出 ${procCount} 個子件批號單價${procBlocked.length ? `（另有 ${procBlocked.length} 筆未審核/批號格式錯誤被擋下）` : ''}`;
+                if (procBlocked.length) console.warn('加工單守門擋下清單：', procBlocked);
             } catch(e) {
                 const pfSt = document.getElementById('processing_form_status');
                 if (pfSt) pfSt.textContent = `⚠️ 讀取失敗：${e.message}`;
@@ -14782,7 +14871,7 @@ async function syncBothToSupabase() {
   const { data: { session } } = await _sbClient.auth.getSession();
 
   if (!session) {
-    localStorage.setItem('sb_redirect', 'dodo6123.html');
+    localStorage.setItem('sb_redirect', location.pathname.split('/').pop() || 'dodo6125.html');
     location.replace('login.html');
     return;
   }
@@ -14869,10 +14958,19 @@ async function _pgCalcFile(file) {
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
     // 2. 解析加工單：優先依表頭辨識欄位，找不到才退回舊版 D/E/F/I/J/K。
-    const { orderLines, layout } = parseProcessingOrderRows(rows);
+    const { orderLines, layout, blocked = [] } = parseProcessingOrderRows(rows);
 
     if (!orderLines.length) {
-      status.textContent = '⚠️ 無有效資料（請確認加工單有母件/子件/成品名稱、批號、數量欄位）';
+      if (blocked.length) {
+        status.textContent = `❌ ${blocked.length} 筆全部被守門擋下（未審核／批號格式錯誤），無可計算資料`;
+        container.innerHTML = `<div style="background:#fff5f5;border:1.5px solid #ef4444;border-radius:10px;padding:0.8rem 1rem;">
+          <div style="font-weight:800;color:#c0392b;font-size:0.88rem;margin-bottom:0.4rem;">🚫 守門擋下清單（不進成本計算）</div>
+          <ul style="margin:0 0 0 1.3rem;padding:0;font-size:0.8rem;color:#555;line-height:1.7;">
+            ${blocked.map(b => `<li>單據 ${b.orderNo}｜${b.motherName}/${b.motherBatch} → ${b.childBatch}：${b.reason}</li>`).join('')}
+          </ul></div>`;
+      } else {
+        status.textContent = '⚠️ 無有效資料（請確認加工單有母件/子件/成品名稱、批號、數量欄位）';
+      }
       return;
     }
 
@@ -15045,9 +15143,29 @@ async function _pgCalcFile(file) {
     sumBox.style.display = 'flex';
 
     _pgRenderResult();
+
+    // ── 常駐警告面板：守門擋下清單（紅）＋ 帳務庫存/無出庫單據警告（橘）──
+    let _pgWarnHtml = '';
+    if (blocked.length) {
+      _pgWarnHtml += `<div style="background:#fff5f5;border:1.5px solid #ef4444;border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;">
+        <div style="font-weight:800;color:#c0392b;font-size:0.85rem;margin-bottom:0.3rem;">🚫 守門擋下 ${blocked.length} 筆（未進成本計算）</div>
+        <ul style="margin:0 0 0 1.3rem;padding:0;font-size:0.78rem;color:#555;line-height:1.7;">
+          ${blocked.map(b => `<li>單據 ${b.orderNo}｜${b.motherName}/${b.motherBatch} → ${b.childBatch}：${b.reason}</li>`).join('')}
+        </ul></div>`;
+    }
+    if (stockWarnings.length) {
+      _pgWarnHtml += `<div style="background:#fff8f0;border:1.5px solid #f7a35c;border-radius:10px;padding:0.7rem 1rem;margin-bottom:0.8rem;">
+        <div style="font-weight:800;color:#b06010;font-size:0.85rem;margin-bottom:0.3rem;">⚠️ 帳務庫存警告 ${stockWarnings.length} 筆（母件查無出庫入帳記錄或數量不足，仍可計算，請人工確認）</div>
+        <ul style="margin:0 0 0 1.3rem;padding:0;font-size:0.78rem;color:#555;line-height:1.7;">
+          ${stockWarnings.map(t => `<li>${t}</li>`).join('')}
+        </ul></div>`;
+    }
+    if (_pgWarnHtml) container.insertAdjacentHTML('afterbegin', _pgWarnHtml);
+
+    const _blockNote = blocked.length ? `，守門擋下 ${blocked.length} 筆` : '';
     status.textContent = totalMiss > 0
-      ? `⚠️ 完成，${totalMiss} 種母件未找到租金記錄（已讀取 ${orderLines.length} 筆，欄位辨識 ${layout.score}/6）`
-      : `✅ 計算完成（已讀取 ${orderLines.length} 筆，欄位辨識 ${layout.score}/6）`;
+      ? `⚠️ 完成，${totalMiss} 種母件未找到租金記錄（已讀取 ${orderLines.length} 筆${_blockNote}，欄位辨識 ${layout.score}/6）`
+      : `✅ 計算完成（已讀取 ${orderLines.length} 筆${_blockNote}，欄位辨識 ${layout.score}/6）`;
 
   } catch(e) {
     status.textContent = `❌ 處理失敗：${e.message}`;
