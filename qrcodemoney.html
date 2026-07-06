@@ -514,26 +514,23 @@ function cleanSupabaseUrl(value){
 }
 
 function loadSupabaseConfig(){
-  let cfg = {};
-  try{ cfg = JSON.parse(localStorage.getItem(LS_SB) || '{}') || {}; }catch(e){}
-  const url = cleanSupabaseUrl(cfg.url || SUPABASE_URL);
-  const key = cfg.key || SUPABASE_KEY;
+  const url = cleanSupabaseUrl(SUPABASE_URL);
+  const key = SUPABASE_KEY;
   if($('sbUrl')) $('sbUrl').value = url;
   if($('sbKey')) $('sbKey').value = key;
   localStorage.setItem(LS_SB, JSON.stringify({url, key}));
 }
 
 function saveSupabaseConfig(showToast=true){
-  let old = {};
-  try{ old = JSON.parse(localStorage.getItem(LS_SB) || '{}') || {}; }catch(e){}
   const cfg = {
-    url: cleanSupabaseUrl($('sbUrl')?.value || SUPABASE_URL),
-    key: norm($('sbKey')?.value || SUPABASE_KEY)
+    url: cleanSupabaseUrl(SUPABASE_URL),
+    key: SUPABASE_KEY
   };
   if($('sbUrl')) $('sbUrl').value = cfg.url;
+  if($('sbKey')) $('sbKey').value = cfg.key;
   localStorage.setItem(LS_SB, JSON.stringify(cfg));
-  if(old.url !== cfg.url || old.key !== cfg.key) state.sbClient = null;
-  if(showToast) toast('Supabase 設定已保存');
+  state.sbClient = null;
+  if(showToast) toast('Supabase 設定已固定');
   return cfg;
 }
 
@@ -596,21 +593,33 @@ async function loadFromSupabase(){
     sb.from('barcode_order_items').select('order_id,line_no,product_name,ordered_qty,picked_qty').order('order_id', {ascending:true}).order('line_no', {ascending:true}),
     sb.from('barcode_map_items').select('barcode,product_name')
   ]);
-  if(ordersRes.error) throw ordersRes.error;
-  if(itemsRes.error) throw itemsRes.error;
-  if(mapRes.error) throw mapRes.error;
+  if(ordersRes.error) throw new Error(formatSupabaseLoadError(ordersRes.error));
+  if(itemsRes.error) throw new Error(formatSupabaseLoadError(itemsRes.error));
+  if(mapRes.error) throw new Error(formatSupabaseLoadError(mapRes.error));
   applyRemoteOrders(ordersRes.data, itemsRes.data, mapRes.data);
   renderMap();
   renderOrders();
   renderActive();
   $('dataStatus').textContent = `${Object.keys(state.orders).length} 張雲端訂單`;
-  toast(`已從 Supabase 載入 ${Object.keys(state.orders).length} 張訂單`);
+  if(!Object.keys(state.orders).length){
+    toast('目前專用資料表沒有訂單，請先到資料彙整頁重新上傳', 5000);
+  }else{
+    toast(`已從 Supabase 載入 ${Object.keys(state.orders).length} 張訂單`);
+  }
+}
+
+function formatSupabaseLoadError(error){
+  const msg = error?.message || String(error || '');
+  if(/barcode_orders|barcode_order_items|barcode_map_items|schema cache|relation/i.test(msg)){
+    return '找不到條碼機專用資料表，請先到 Supabase 執行 supabase-barcode-dedicated-schema.sql';
+  }
+  return msg;
 }
 
 async function syncPickedToSupabase(order, item, delta, barcode){
   if(!state.remoteMode) return;
   const sb = getSupabaseClient();
-  const status = order.items.every(i => i.picked >= i.qty) ? '完成' : order.items.some(i => i.picked > 0) ? '理貨中' : '未開始';
+  const status = order.items.some(i => i.picked > i.qty) ? '超量' : order.items.every(i => i.picked === i.qty) ? '完成' : order.items.some(i => i.picked > 0) ? '理貨中' : '未開始';
   const itemRes = await sb.from('barcode_order_items')
     .update({picked_qty: item.picked, updated_at: new Date().toISOString()})
     .eq('order_id', order.id)
@@ -884,6 +893,15 @@ function setShipmentNo(value){
 async function saveCurrentStatus(){
   const order = state.orders[state.activeOrderId];
   if(!order){ toast('請先選擇訂單'); return; }
+  const wrongItems = order.items.filter(item => item.picked !== item.qty);
+  if(wrongItems.length){
+    const first = wrongItems[0];
+    const msg = first.picked > first.qty
+      ? `數量超過：${first.name}，目前 ${first.picked} / 應出 ${first.qty}`
+      : `數量不足：${first.name}，目前 ${first.picked} / 應出 ${first.qty}`;
+    alertWrongQty(`無法儲存，商品數量不合。${msg}`);
+    return;
+  }
   try{
     await syncShipmentToSupabase();
     const jobs = order.items.map(item => syncPickedToSupabase(order, item, 0, '手動儲存'));
