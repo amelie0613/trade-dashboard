@@ -260,7 +260,7 @@
             <button class="btn" id="exportBtn">匯出核銷結果 CSV</button>
             <button class="btn" id="exportOrdersBtn">匯出訂單回寫 CSV</button>
             <button class="btn bad" id="clearBtn">清除本機紀錄</button>
-            <div class="hint">核銷紀錄與條碼對照會暫存在這台手機或電腦的瀏覽器。多人同時理貨時，建議把 orders、order_items、scan_logs、barcode_map、shipments 放到 Supabase 做即時同步。</div>
+            <div class="hint">核銷紀錄與條碼對照會暫存在這台手機或電腦的瀏覽器。多人同時理貨時，建議把 barcode_orders、barcode_order_items、barcode_scan_logs、barcode_map_items 放到 Supabase 做即時同步。</div>
           </div>
         </div>
       </div>
@@ -536,9 +536,9 @@ async function loadFromSupabase(){
   const sb = getSupabaseClient();
   $('dataStatus').textContent = 'Supabase 載入中';
   const [ordersRes, itemsRes, mapRes] = await Promise.all([
-    sb.from('orders').select('id,buyer_name,receiver_name,receiver_phone,receiver_address,shipment_no,status').order('id', {ascending:true}),
-    sb.from('order_items').select('order_id,line_no,product_name,ordered_qty,picked_qty').order('order_id', {ascending:true}).order('line_no', {ascending:true}),
-    sb.from('barcode_map').select('barcode,product_name')
+    sb.from('barcode_orders').select('id,buyer_name,receiver_name,receiver_phone,receiver_address,shipment_no,status').order('id', {ascending:true}),
+    sb.from('barcode_order_items').select('order_id,line_no,product_name,ordered_qty,picked_qty').order('order_id', {ascending:true}).order('line_no', {ascending:true}),
+    sb.from('barcode_map_items').select('barcode,product_name')
   ]);
   if(ordersRes.error) throw ordersRes.error;
   if(itemsRes.error) throw itemsRes.error;
@@ -555,16 +555,16 @@ async function syncPickedToSupabase(order, item, delta, barcode){
   if(!state.remoteMode) return;
   const sb = getSupabaseClient();
   const status = order.items.every(i => i.picked >= i.qty) ? '完成' : order.items.some(i => i.picked > 0) ? '理貨中' : '未開始';
-  const itemRes = await sb.from('order_items')
+  const itemRes = await sb.from('barcode_order_items')
     .update({picked_qty: item.picked, updated_at: new Date().toISOString()})
     .eq('order_id', order.id)
     .eq('product_name', item.name);
   if(itemRes.error) throw itemRes.error;
-  const orderRes = await sb.from('orders')
+  const orderRes = await sb.from('barcode_orders')
     .update({status, shipment_no: state.shipments[order.id] || '', updated_at: new Date().toISOString()})
     .eq('id', order.id);
   if(orderRes.error) throw orderRes.error;
-  await sb.from('scan_logs').insert({
+  await sb.from('barcode_scan_logs').insert({
     order_id: order.id,
     barcode: barcode || '',
     product_name: item.name,
@@ -576,7 +576,7 @@ async function syncPickedToSupabase(order, item, delta, barcode){
 async function syncShipmentToSupabase(){
   if(!state.remoteMode || !state.activeOrderId) return;
   const sb = getSupabaseClient();
-  const res = await sb.from('orders')
+  const res = await sb.from('barcode_orders')
     .update({shipment_no: state.shipments[state.activeOrderId] || '', updated_at: new Date().toISOString()})
     .eq('id', state.activeOrderId);
   if(res.error) throw res.error;
