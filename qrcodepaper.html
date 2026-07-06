@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>理貨資料彙整</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#68738a;--line:#dce3ef;--brand:#246bfe;--good:#138a43;--bad:#c93636;--r:8px;font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-size:15px}
+    button,input,select,textarea{font:inherit} .top{position:sticky;top:0;z-index:2;background:#0f172a;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px}
+    .top h1{font-size:18px;margin:0;font-weight:900}.top a{margin-left:auto;color:#bfdbfe;text-decoration:none;font-size:13px;font-weight:800}
+    main{width:min(1120px,100%);margin:0 auto;padding:12px;display:grid;grid-template-columns:360px 1fr;gap:12px}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.head{padding:12px 14px;border-bottom:1px solid var(--line);background:#fbfcff;font-weight:900}
+    .body{padding:12px;display:flex;flex-direction:column;gap:10px}.row{display:flex;gap:8px;align-items:center}.grow{flex:1}
+    label{display:block;font-size:12px;color:var(--muted);font-weight:900;margin-bottom:4px}
+    input,select,textarea{width:100%;border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--text);padding:9px 10px;outline:none}
+    textarea{min-height:90px;font-family:ui-monospace,Consolas,monospace;font-size:12px} input:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(36,107,254,.12)}
+    .btn{border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--text);font-weight:900;padding:9px 12px;cursor:pointer;white-space:nowrap}
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.good{background:var(--good);border-color:var(--good);color:#fff}
+    .hint{font-size:12px;color:var(--muted);line-height:1.55}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .metric{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px}.metric b{display:block;font-size:24px}.metric span{font-size:12px;color:var(--muted);font-weight:900}
+    table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}th{background:#f8fafc;color:var(--muted);font-size:12px;position:sticky;top:0}
+    .scroll{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:8px}.tag{display:inline-flex;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900;background:#eef4ff;color:#246bfe}.done{background:#ecfdf3;color:#138a43}.bad{background:#fff1f2;color:#c93636}
+    @media(max-width:820px){main{grid-template-columns:1fr;padding:8px}.metrics{grid-template-columns:repeat(2,1fr)}.row{flex-wrap:wrap}.top{padding-top:calc(12px + env(safe-area-inset-top))}}
+  </style>
+</head>
+<body>
+  <header class="top"><h1>理貨資料彙整</h1><a href="./barcode-check.html">開啟手機檢貨頁</a></header>
+  <main>
+    <section class="panel">
+      <div class="head">匯入與同步</div>
+      <div class="body">
+        <div><label>訂單 Excel</label><input type="file" id="orderFile" accept=".xlsx,.xls,.csv"></div>
+        <div class="row"><div class="grow"><label>訂單編號欄</label><select id="orderCol"></select></div><div style="width:92px"><label>商品起欄</label><input id="startCol" value="AJ"></div></div>
+        <div class="hint">讀取格式：第一列 AJ 起是產品名稱，第二列開始是各訂單數量。</div>
+        <div><label>Supabase URL</label><input id="sbUrl" placeholder="https://xxxxx.supabase.co"></div>
+        <div><label>Supabase anon / publishable key</label><input id="sbKey" placeholder="eyJhbGci..."></div>
+        <div class="row"><button class="btn" id="saveCfg">保存設定</button><button class="btn good" id="uploadSb">上傳到 Supabase</button></div>
+        <div class="row"><button class="btn primary" id="exportAll">匯出全部訂單</button><button class="btn primary" id="exportDone">匯出完成訂單</button></div>
+        <div class="hint" id="status">尚未載入資料</div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="head">訂單總覽</div>
+      <div class="body">
+        <div class="metrics">
+          <div class="metric"><b id="mOrders">0</b><span>訂單</span></div>
+          <div class="metric"><b id="mQty">0</b><span>訂購數量</span></div>
+          <div class="metric"><b id="mPicked">0</b><span>已核銷</span></div>
+          <div class="metric"><b id="mDone">0</b><span>完成</span></div>
+        </div>
+        <input id="search" placeholder="搜尋訂單、訂購人、收件人、電話">
+        <div class="scroll"><table><thead><tr><th>訂單</th><th>收件資料</th><th>數量</th><th>寄件編號</th><th>狀態</th></tr></thead><tbody id="rows"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+<script>
+const $=id=>document.getElementById(id);
+const LS='picker_admin_supabase_v1';
+let orders={}, scans=[], shipments={};
+function norm(v){return String(v??'').trim()} function num(v){const n=parseFloat(String(v??'').replace(/,/g,''));return Number.isFinite(n)?n:0}
+function colToIndex(col){let n=0;for(const ch of norm(col).toUpperCase()){if(ch>='A'&&ch<='Z')n=n*26+ch.charCodeAt(0)-64}return Math.max(0,n-1)}
+function indexToCol(i){let n=i+1,s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26)}return s}
+function findCol(headers, patterns){return headers.findIndex(h=>patterns.some(p=>p.test(norm(h))))}
+function findHeaderRow(rows){let best=0,score=-1;rows.slice(0,10).forEach((r,i)=>{const t=r.map(norm).join('|');let s=(/訂單|單號|order/i.test(t)?5:0)+(/產品|品名|商品|數量/.test(t)?3:0)+r.filter(c=>norm(c)).length/20;if(s>score){best=i;score=s}});return best}
+async function readWorkbook(file){const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{header:1,defval:''}).filter(r=>r.some(c=>norm(c)))}
+function fillOrderColOptions(headers){const sel=$('orderCol');sel.innerHTML=headers.map((h,i)=>`<option value="${i}">${indexToCol(i)} ${h||'(空欄)'}</option>`).join('');const idx=headers.findIndex(h=>/訂單|訂單編號|單號|order/i.test(norm(h)));sel.value=String(idx>=0?idx:0)}
+function parseOrders(rows){const hi=findHeaderRow(rows),headers=rows[hi].map(norm);fillOrderColOptions(headers);const orderCol=parseInt($('orderCol').value||'0',10),start=colToIndex($('startCol').value||'AJ');const buyerCol=findCol(headers,[/訂購人姓名/,/訂購人/,/買家/]);const receiverCol=findCol(headers,[/收件人姓名/,/收件人/]);const addrCol=findCol(headers,[/收件人地址/,/收件地址/,/地址/]);const phoneCol=findCol(headers,[/收件人電話/,/收件電話/,/電話/]);const out={};for(const row of rows.slice(hi+1)){const id=norm(row[orderCol]);if(!id)continue;const items=[];for(let c=start;c<Math.max(headers.length,row.length);c++){const name=norm(headers[c]),qty=num(row[c]);if(name&&qty>0&&!/數量|合計|總計|小計/.test(name))items.push({name,qty,picked:0})}if(items.length){out[id]={id,buyer:buyerCol>=0?norm(row[buyerCol]):'',receiver:receiverCol>=0?norm(row[receiverCol]):'',receiverAddress:addrCol>=0?norm(row[addrCol]):'',receiverPhone:phoneCol>=0?norm(row[phoneCol]):'',items}}}return out}
+function loadLocal(){try{scans=JSON.parse(localStorage.getItem('picker_scans_v1')||'[]')}catch(e){}try{shipments=JSON.parse(localStorage.getItem('picker_shipments_v1')||'{}')}catch(e){}const cfg=JSON.parse(localStorage.getItem(LS)||'{}');$('sbUrl').value=cfg.url||'';$('sbKey').value=cfg.key||''}
+function applyScans(){Object.values(orders).forEach(o=>o.items.forEach(i=>i.picked=0));for(const s of scans){const o=orders[s.orderId];if(!o)continue;const item=o.items.find(i=>i.name===s.product);if(item)item.picked+=s.qty}}
+function stats(o){const total=o.items.reduce((s,i)=>s+i.qty,0),picked=o.items.reduce((s,i)=>s+i.picked,0),done=o.items.length&&o.items.every(i=>i.picked>=i.qty),over=o.items.some(i=>i.picked>i.qty);return{total,picked,done,over,status:over?'超量':done?'完成':picked?'部分完成':'未開始'}}
+function render(){applyScans();const list=Object.values(orders);$('mOrders').textContent=list.length;$('mQty').textContent=list.reduce((s,o)=>s+stats(o).total,0);$('mPicked').textContent=list.reduce((s,o)=>s+stats(o).picked,0);$('mDone').textContent=list.filter(o=>stats(o).done).length;const q=norm($('search').value).toLowerCase();$('rows').innerHTML=list.filter(o=>!q||[o.id,o.buyer,o.receiver,o.receiverPhone,o.receiverAddress].join('|').toLowerCase().includes(q)).map(o=>{const st=stats(o);return`<tr><td><b>${esc(o.id)}</b><br><span class="hint">${esc(o.buyer||'')}</span></td><td>${esc(o.receiver||'')}<br>${esc(o.receiverPhone||'')}<br><span class="hint">${esc(o.receiverAddress||'')}</span></td><td>${st.picked} / ${st.total}</td><td>${esc(shipments[o.id]||'')}</td><td><span class="tag ${st.over?'bad':st.done?'done':''}">${st.status}</span></td></tr>`}).join('')||'<tr><td colspan="5" class="hint">尚無資料</td></tr>'}
+function csv(rows){return rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n')}
+function exportOrders(doneOnly=false){const rows=[['訂單編號','訂購人','收件人','收件電話','收件地址','寄件編號','品項數','訂購數量','已核銷數量','理貨狀態']];Object.values(orders).forEach(o=>{const st=stats(o);if(doneOnly&&!st.done)return;rows.push([o.id,o.buyer,o.receiver,o.receiverPhone,o.receiverAddress,shipments[o.id]||'',o.items.length,st.total,st.picked,st.status])});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv(rows)],{type:'text/csv;charset=utf-8'}));a.download=(doneOnly?'理貨完成訂單':'全部訂單')+'_'+new Date().toISOString().slice(0,10)+'.csv';a.click()}
+async function uploadSupabase(){const url=norm($('sbUrl').value),key=norm($('sbKey').value);if(!url||!key){alert('請先填 Supabase URL 與 key');return}const sb=supabase.createClient(url,key);const orderRows=Object.values(orders).map(o=>({id:o.id,buyer_name:o.buyer,receiver_name:o.receiver,receiver_phone:o.receiverPhone,receiver_address:o.receiverAddress,shipment_no:shipments[o.id]||'',status:stats(o).status,updated_at:new Date().toISOString()}));const itemRows=[];Object.values(orders).forEach(o=>o.items.forEach(i=>itemRows.push({order_id:o.id,product_name:i.name,ordered_qty:i.qty,picked_qty:i.picked})));let r=await sb.from('orders').upsert(orderRows);if(r.error)throw r.error;r=await sb.from('order_items').upsert(itemRows,{onConflict:'order_id,product_name'});if(r.error)throw r.error;$('status').textContent='已上傳 Supabase：'+orderRows.length+' 張訂單'}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+$('orderFile').onchange=e=>e.target.files[0]&&readWorkbook(e.target.files[0]).then(rows=>{orders=parseOrders(rows);render();$('status').textContent='已載入 '+Object.keys(orders).length+' 張訂單'}).catch(err=>alert(err.message));
+$('search').oninput=render;$('exportAll').onclick=()=>exportOrders(false);$('exportDone').onclick=()=>exportOrders(true);$('saveCfg').onclick=()=>{localStorage.setItem(LS,JSON.stringify({url:norm($('sbUrl').value),key:norm($('sbKey').value)}));$('status').textContent='Supabase 設定已保存'};$('uploadSb').onclick=()=>uploadSupabase().catch(e=>alert(e.message));
+loadLocal();render();
+</script>
+</body>
+</html>
