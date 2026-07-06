@@ -110,10 +110,22 @@
     table{width:100%;border-collapse:collapse;font-size:13px}
     th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left}
     th{font-size:12px;color:var(--muted);background:#f8fafc}
+    .home-panel{order:1;background:#fff;min-height:calc(100vh - 54px)}
+    .menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .menu-tile{min-height:132px;border:1.5px solid var(--line);border-radius:8px;background:#fff;color:#0f172a;text-align:left;padding:16px;display:flex;flex-direction:column;justify-content:space-between;font-weight:900;box-shadow:0 1px 3px rgba(15,23,42,.08)}
+    .menu-tile b{font-size:20px}
+    .menu-tile span{font-size:13px;color:#64748b;line-height:1.45}
+    .menu-tile.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    .menu-tile.primary span{color:#e0f2fe}
     .setup-panel{order:1;margin-top:0;background:#fff;border-top:1px solid var(--line)}
-    .setup-panel .panel-body > div:not(.cloud-loader):not(.order-status-panel){display:none}
+    .setup-panel .panel-body > div:not(.cloud-loader):not(.pick-order-panel):not(.order-status-panel){display:none}
     .cloud-loader{display:flex;gap:8px;align-items:center}
     .cloud-loader .btn{width:100%;height:48px;font-size:16px}
+    .pick-order-panel{display:none;background:#fff;border-top:1px solid var(--line);padding-top:10px}
+    body.mode-picklist .pick-order-panel{display:block}
+    body.mode-overview .pick-order-panel{display:none}
+    .quick-scan-box{border:1.5px solid var(--line);border-radius:8px;background:#f8fafc;padding:12px;display:grid;gap:8px}
+    .quick-scan-title{font-size:15px;font-weight:900;color:#0f172a}
     .order-status-panel{display:block;background:#fff;border-top:1px solid var(--line);padding-top:10px}
     .status-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:900;color:#0f172a;margin-bottom:8px}
     .status-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px}
@@ -128,7 +140,18 @@
     .status-badge.done{background:#dcfce7;color:#15803d}
     .status-badge.working{background:#fef3c7;color:#b45309}
     .status-badge.over{background:#fee2e2;color:#b91c1c}
+    .pick-hint{font-size:12px;color:#475569;font-weight:800;background:#f8fafc;border:1px solid var(--line);border-radius:7px;padding:8px 10px;margin-top:8px}
+    .status-action{display:flex!important;flex-direction:column;align-items:flex-end;gap:5px}
+    .start-pick{display:inline-flex!important;align-items:center;justify-content:center;background:var(--good);color:white!important;border-radius:7px;padding:6px 9px;font-size:12px;font-weight:900;white-space:nowrap}
     .work-panel{order:1;background:#fff;min-height:calc(100vh - 54px)}
+    body.mode-home .setup-panel,
+    body.mode-home .work-panel{display:none}
+    body.mode-overview .home-panel,
+    body.mode-overview .work-panel{display:none}
+    body.mode-picklist .home-panel,
+    body.mode-picklist .work-panel{display:none}
+    body.mode-pick .home-panel,
+    body.mode-pick .setup-panel{display:none}
     body:not(.has-order) .work-panel{display:none}
     body.has-order .setup-panel{display:none}
     .work-panel .panel-head{display:none}
@@ -170,6 +193,22 @@
   </header>
 
   <main class="main">
+    <section class="panel home-panel">
+      <div class="panel-head"><h2>主選單</h2></div>
+      <div class="panel-body stack">
+        <div class="menu-grid">
+          <button class="menu-tile" id="overviewMenuBtn">
+            <b>訂單總覽</b>
+            <span>查看全部訂單、未開始、理貨中、完成與超量狀態</span>
+          </button>
+          <button class="menu-tile primary" id="pickingMenuBtn">
+            <b>商品理貨</b>
+            <span>選擇訂單後進入掃碼核銷與寄件編號掃描</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
     <section class="panel setup-panel">
       <div class="panel-head"><h2>資料與訂單</h2></div>
       <div class="panel-body stack">
@@ -185,6 +224,16 @@
           <button class="btn" id="saveSbBtn" style="display:none">保存 Supabase</button>
           <button class="btn good" id="loadSbBtn">載入訂單</button>
         </div>
+        <div class="pick-order-panel">
+          <div class="quick-scan-box">
+            <div class="quick-scan-title">掃訂單條碼開始理貨</div>
+            <input type="text" id="quickOrderInput" placeholder="掃描或輸入訂單編號" autocomplete="off">
+            <div class="row">
+              <button class="btn primary grow" id="quickScanOrderBtn">開相機掃訂單</button>
+              <button class="btn good" id="quickSelectOrderBtn">帶出</button>
+            </div>
+          </div>
+        </div>
         <div class="order-status-panel">
           <div class="status-head">
             <b>全部訂單狀況</b>
@@ -198,6 +247,7 @@
             <button class="status-tab" data-status-filter="over">超量</button>
           </div>
           <input type="text" id="statusSearch" placeholder="搜尋訂單、姓名、電話">
+          <div class="pick-hint">商品理貨可先掃訂單條碼，也可點訂單或右側「開始理貨」進入掃碼核銷頁</div>
           <div class="all-order-list" id="allOrderStatus"></div>
         </div>
         <div class="hint">手機理貨建議直接從 Supabase 載入；Excel 匯入保留作為備用。</div>
@@ -349,7 +399,8 @@ const state = {
   scanning: false,
   remoteMode: false,
   sbClient: null,
-  statusFilter: 'all'
+  statusFilter: 'all',
+  pageMode: 'home'
 };
 
 const $ = (id) => document.getElementById(id);
@@ -781,7 +832,7 @@ function renderOrderStatus(){
     const phone = order.receiverPhone || '';
     return `<button class="status-order" data-order="${escapeHtml(order.id)}">
       <span><b>${escapeHtml(order.id)}</b><span>${escapeHtml(person)}${phone ? '<br>'+escapeHtml(phone) : ''}</span></span>
-      <span><span class="status-badge ${progress.key === 'done' ? 'done' : progress.key === 'working' ? 'working' : progress.key === 'over' ? 'over' : ''}">${progress.label}</span><br><span style="text-align:right">${progress.picked} / ${progress.qty}</span></span>
+      <span class="status-action"><span class="status-badge ${progress.key === 'done' ? 'done' : progress.key === 'working' ? 'working' : progress.key === 'over' ? 'over' : ''}">${progress.label}</span><span style="text-align:right">${progress.picked} / ${progress.qty}</span><span class="start-pick">開始理貨</span></span>
     </button>`;
   }).join('') || '<div class="hint" style="padding:12px">沒有符合的訂單</div>';
   box.querySelectorAll('.status-order').forEach(btn => btn.onclick = () => selectOrder(btn.dataset.order));
@@ -816,8 +867,10 @@ function backToOrders(){
   closeCamera();
   state.activeOrderId = '';
   document.body.classList.remove('has-order');
+  setPageMode('picklist');
   renderOrders();
   renderActive();
+  $('quickOrderInput')?.focus();
 }
 
 function setShipmentNo(value){
@@ -845,6 +898,7 @@ async function saveCurrentStatus(){
 function selectOrder(id){
   if(!state.orders[id]){ toast('找不到訂單'); return; }
   state.activeOrderId = id;
+  setPageMode('pick');
   document.body.classList.add('has-order');
   $('orderSearch').value = id;
   $('barcodeInput').value = '';
@@ -1087,6 +1141,7 @@ function handleScannedValue(value){
   closeCamera();
   if(state.scannerMode === 'order'){
     $('orderSearch').value = value;
+    if($('quickOrderInput')) $('quickOrderInput').value = value;
     selectOrder(value);
   }else if(state.scannerMode === 'shipment'){
     setShipmentNo(value);
@@ -1214,7 +1269,52 @@ function switchTab(tab){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${tab}`));
 }
 
+function setPageMode(mode){
+  state.pageMode = mode;
+  document.body.classList.toggle('mode-home', mode === 'home');
+  document.body.classList.toggle('mode-overview', mode === 'overview');
+  document.body.classList.toggle('mode-picklist', mode === 'picklist');
+  document.body.classList.toggle('mode-pick', mode === 'pick');
+  renderOrderStatus();
+}
+
+function showHome(){
+  closeCamera();
+  state.activeOrderId = '';
+  document.body.classList.remove('has-order');
+  setPageMode('home');
+  renderActive();
+}
+
+function showOverview(){
+  closeCamera();
+  state.activeOrderId = '';
+  document.body.classList.remove('has-order');
+  state.statusFilter = 'all';
+  setPageMode('overview');
+  renderOrders();
+  renderActive();
+}
+
+function showPickingList(){
+  closeCamera();
+  state.activeOrderId = '';
+  document.body.classList.remove('has-order');
+  state.statusFilter = 'all';
+  setPageMode('picklist');
+  renderOrders();
+  renderActive();
+  $('quickOrderInput')?.focus();
+}
+
 document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => switchTab(btn.dataset.tab));
+$('overviewMenuBtn').onclick = showOverview;
+$('pickingMenuBtn').onclick = showPickingList;
+$('quickScanOrderBtn').onclick = () => openCamera('order');
+$('quickSelectOrderBtn').onclick = () => selectOrder(norm($('quickOrderInput').value));
+$('quickOrderInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter') selectOrder(norm($('quickOrderInput').value));
+});
 document.querySelectorAll('[data-status-filter]').forEach(btn => btn.onclick = () => {
   state.statusFilter = btn.dataset.statusFilter;
   renderOrderStatus();
@@ -1259,6 +1359,7 @@ $('exportOrdersBtn').onclick = exportOrdersCsv;
 $('clearBtn').onclick = clearAll;
 
 loadLocal();
+setPageMode('home');
 renderMap();
 renderOrders();
 renderActive();
