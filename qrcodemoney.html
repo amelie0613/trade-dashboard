@@ -110,7 +110,7 @@
     table{width:100%;border-collapse:collapse;font-size:13px}
     th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left}
     th{font-size:12px;color:var(--muted);background:#f8fafc}
-    .setup-panel{order:2;margin-top:10px;background:#fff;border-top:1px solid var(--line)}
+    .setup-panel{order:1;margin-top:0;background:#fff;border-top:1px solid var(--line)}
     .setup-panel .panel-body > div:not(.cloud-loader):not(.order-status-panel){display:none}
     .cloud-loader{display:flex;gap:8px;align-items:center}
     .cloud-loader .btn{width:100%;height:48px;font-size:16px}
@@ -129,6 +129,8 @@
     .status-badge.working{background:#fef3c7;color:#b45309}
     .status-badge.over{background:#fee2e2;color:#b91c1c}
     .work-panel{order:1;background:#fff;min-height:calc(100vh - 54px)}
+    body:not(.has-order) .work-panel{display:none}
+    body.has-order .setup-panel{display:none}
     .work-panel .panel-head{display:none}
     body.has-order .scan-box{min-height:auto;padding:10px;background:#eef3f7;text-align:left}
     body.has-order .scan-box:before{display:none}
@@ -138,7 +140,7 @@
     body:not(.has-order) .summary,
     body:not(.has-order) #itemFilter,
     body:not(.has-order) #undoBtn,
-    body:not(.has-order) #exportDoneBtn,
+    body:not(.has-order) #saveStatusBtn,
     body:not(.has-order) #items,
     body.has-order #pendingOrderList,
     body:not(.has-order) #scanLog,
@@ -289,7 +291,7 @@
           <div class="info-cell" style="grid-column:span 2;"><span>收件地址</span><b id="receiverAddress">—</b></div>
           <div class="info-cell">
             <label>寄件編號</label>
-            <input type="text" id="shipmentNo" placeholder="掃描或輸入寄件編號">
+            <div class="row"><input type="text" id="shipmentNo" placeholder="掃描或輸入寄件編號"><button class="btn" id="scanShipmentBtn">掃寄件</button></div>
           </div>
         </div>
 
@@ -302,7 +304,8 @@
         <div class="row">
           <input type="text" id="itemFilter" placeholder="搜尋產品">
           <button class="btn" id="undoBtn">復原</button>
-          <button class="btn primary" id="exportDoneBtn">匯出完成訂單</button>
+          <button class="btn primary" id="saveStatusBtn">儲存狀態</button>
+          <button class="btn" id="backOrdersBtn">返回訂單</button>
         </div>
         <div class="items" id="items"></div>
 
@@ -340,6 +343,8 @@ const state = {
   detector: null,
   codeReader: null,
   zxingControls: null,
+  lastCameraValue: '',
+  lastCameraAt: 0,
   stream: null,
   scanning: false,
   remoteMode: false,
@@ -564,13 +569,15 @@ async function syncPickedToSupabase(order, item, delta, barcode){
     .update({status, shipment_no: state.shipments[order.id] || '', updated_at: new Date().toISOString()})
     .eq('id', order.id);
   if(orderRes.error) throw orderRes.error;
-  await sb.from('barcode_scan_logs').insert({
-    order_id: order.id,
-    barcode: barcode || '',
-    product_name: item.name,
-    qty: delta,
-    device_name: navigator.userAgent.slice(0, 120)
-  });
+  if(delta !== 0){
+    await sb.from('barcode_scan_logs').insert({
+      order_id: order.id,
+      barcode: barcode || '',
+      product_name: item.name,
+      qty: delta,
+      device_name: navigator.userAgent.slice(0, 120)
+    });
+  }
 }
 
 async function syncShipmentToSupabase(){
@@ -805,6 +812,36 @@ function renderPendingOrders(){
   box.querySelectorAll('.pending-order').forEach(btn => btn.onclick = () => selectOrder(btn.dataset.order));
 }
 
+function backToOrders(){
+  closeCamera();
+  state.activeOrderId = '';
+  document.body.classList.remove('has-order');
+  renderOrders();
+  renderActive();
+}
+
+function setShipmentNo(value){
+  if(!state.activeOrderId) return;
+  state.shipments[state.activeOrderId] = norm(value);
+  $('shipmentNo').value = state.shipments[state.activeOrderId];
+  saveLocal();
+  syncShipmentToSupabase().catch(err => alertWrongQty(`寄件編號同步失敗：${err.message}`));
+}
+
+async function saveCurrentStatus(){
+  const order = state.orders[state.activeOrderId];
+  if(!order){ toast('請先選擇訂單'); return; }
+  try{
+    await syncShipmentToSupabase();
+    const jobs = order.items.map(item => syncPickedToSupabase(order, item, 0, '手動儲存'));
+    await Promise.all(jobs);
+    toast('狀態已儲存');
+    renderOrders();
+    renderActive();
+  }catch(err){
+    alertWrongQty(`儲存失敗：${err.message}`);
+  }
+}
 function selectOrder(id){
   if(!state.orders[id]){ toast('找不到訂單'); return; }
   state.activeOrderId = id;
@@ -1007,7 +1044,7 @@ async function openCamera(mode){
   try{
     closeCamera();
     state.scannerMode = mode;
-    $('cameraTitle').textContent = mode === 'order' ? '掃訂單編號' : mode === 'map' ? '掃條碼建立對照' : '掃商品條碼';
+    cameraTitle.textContent = mode === 'order' ? '掃訂單編號' : mode === 'shipment' ? '掃寄件編號' : mode === 'map' ? '掃條碼建立對照' : '連續掃商品條碼';
     $('cameraHint').textContent = '請對準條碼，保持畫面明亮清楚';
     $('camera').classList.add('active');
     state.scanning = true;
@@ -1037,10 +1074,24 @@ async function openCamera(mode){
 function handleScannedValue(value){
   value = norm(value);
   if(!value) return;
+  const now = Date.now();
+  if(value === state.lastCameraValue && now - state.lastCameraAt < 900) return;
+  state.lastCameraValue = value;
+  state.lastCameraAt = now;
+
+  if(state.scannerMode === 'product'){
+    pickBarcode(value);
+    return;
+  }
+
   closeCamera();
   if(state.scannerMode === 'order'){
     $('orderSearch').value = value;
     selectOrder(value);
+  }else if(state.scannerMode === 'shipment'){
+    setShipmentNo(value);
+    toast('寄件編號已帶入');
+    $('barcodeInput').focus();
   }else if(state.scannerMode === 'map'){
     $('mapBarcode').value = value;
     toast('已掃到條碼，請輸入對應產品名稱');
@@ -1190,12 +1241,12 @@ $('barcodeInput').addEventListener('keydown', e => {
 $('saveMapBtn').onclick = addMap;
 $('undoBtn').onclick = undo;
 $('itemFilter').oninput = renderActive;
-$('exportDoneBtn').onclick = exportDoneOrdersCsv;
+$('saveStatusBtn').onclick = saveCurrentStatus;
+$('backOrdersBtn').onclick = backToOrders;
+$('scanShipmentBtn').onclick = () => openCamera('shipment');
 $('shipmentNo').addEventListener('input', () => {
   if(!state.activeOrderId) return;
-  state.shipments[state.activeOrderId] = norm($('shipmentNo').value);
-  saveLocal();
-  syncShipmentToSupabase().catch(err => alertWrongQty(`寄件編號同步失敗：${err.message}`));
+  setShipmentNo($('shipmentNo').value);
 });
 $('shipmentNo').addEventListener('keydown', e => {
   if(e.key === 'Enter'){
