@@ -6,6 +6,7 @@
   <title>理貨條碼機</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
   <style>
     :root{
       --bg:#f6f8fb;
@@ -110,9 +111,23 @@
     th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left}
     th{font-size:12px;color:var(--muted);background:#f8fafc}
     .setup-panel{order:2;margin-top:10px;background:#fff;border-top:1px solid var(--line)}
-    .setup-panel .panel-body > div:not(.cloud-loader){display:none}
+    .setup-panel .panel-body > div:not(.cloud-loader):not(.order-status-panel){display:none}
     .cloud-loader{display:flex;gap:8px;align-items:center}
     .cloud-loader .btn{width:100%;height:48px;font-size:16px}
+    .order-status-panel{display:block;background:#fff;border-top:1px solid var(--line);padding-top:10px}
+    .status-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:900;color:#0f172a;margin-bottom:8px}
+    .status-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px}
+    .status-tab{height:34px;border:1px solid var(--line);border-radius:6px;background:#f8fafc;color:#475569;font-size:12px;font-weight:900}
+    .status-tab.active{background:var(--brand);border-color:var(--brand);color:white}
+    .all-order-list{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#fff;margin-top:8px}
+    .status-order{width:100%;border:0;border-bottom:1px solid var(--line);background:#fff;padding:10px;display:grid;grid-template-columns:1fr auto;gap:8px;text-align:left;align-items:center}
+    .status-order:last-child{border-bottom:0}
+    .status-order b{display:block;font-size:15px;color:#0f172a;margin-bottom:2px}
+    .status-order span{display:block;font-size:12px;color:#64748b;line-height:1.35}
+    .status-badge{font-size:12px;font-weight:900;border-radius:999px;padding:4px 8px;background:#eef2ff;color:#1d4ed8;white-space:nowrap}
+    .status-badge.done{background:#dcfce7;color:#15803d}
+    .status-badge.working{background:#fef3c7;color:#b45309}
+    .status-badge.over{background:#fee2e2;color:#b91c1c}
     .work-panel{order:1;background:#fff;min-height:calc(100vh - 54px)}
     .work-panel .panel-head{display:none}
     body.has-order .scan-box{min-height:auto;padding:10px;background:#eef3f7;text-align:left}
@@ -167,6 +182,21 @@
         <div class="cloud-loader">
           <button class="btn" id="saveSbBtn" style="display:none">保存 Supabase</button>
           <button class="btn good" id="loadSbBtn">載入訂單</button>
+        </div>
+        <div class="order-status-panel">
+          <div class="status-head">
+            <b>全部訂單狀況</b>
+            <span id="statusTotal">0 張</span>
+          </div>
+          <div class="status-tabs">
+            <button class="status-tab active" data-status-filter="all">全部</button>
+            <button class="status-tab" data-status-filter="not-started">未開始</button>
+            <button class="status-tab" data-status-filter="working">理貨中</button>
+            <button class="status-tab" data-status-filter="done">完成</button>
+            <button class="status-tab" data-status-filter="over">超量</button>
+          </div>
+          <input type="text" id="statusSearch" placeholder="搜尋訂單、姓名、電話">
+          <div class="all-order-list" id="allOrderStatus"></div>
         </div>
         <div class="hint">手機理貨建議直接從 Supabase 載入；Excel 匯入保留作為備用。</div>
         <div>
@@ -308,10 +338,13 @@ const state = {
   lastAction: null,
   scannerMode: '',
   detector: null,
+  codeReader: null,
+  zxingControls: null,
   stream: null,
   scanning: false,
   remoteMode: false,
-  sbClient: null
+  sbClient: null,
+  statusFilter: 'all'
 };
 
 const $ = (id) => document.getElementById(id);
@@ -700,12 +733,51 @@ function renderOrders(){
   }).join('') || '<div class="hint" style="padding:12px">尚無訂單</div>';
   list.querySelectorAll('.order-item').forEach(btn => btn.onclick = () => selectOrder(btn.dataset.order));
   renderPendingOrders();
+  renderOrderStatus();
 }
 
 function orderProgress(order){
   const qty = order.items.reduce((s,i)=>s+i.qty,0);
   const picked = order.items.reduce((s,i)=>s+i.picked,0);
-  return { qty, picked, done: order.items.length > 0 && order.items.every(i => i.picked >= i.qty) };
+  const over = order.items.some(i => i.picked > i.qty);
+  const done = order.items.length > 0 && order.items.every(i => i.picked >= i.qty);
+  const key = over ? 'over' : done ? 'done' : picked > 0 ? 'working' : 'not-started';
+  const label = over ? '超量' : done ? '完成' : picked > 0 ? '理貨中' : '未開始';
+  return { qty, picked, done, over, key, label };
+}
+
+function renderOrderStatus(){
+  const box = $('allOrderStatus');
+  if(!box) return;
+  const orders = Object.values(state.orders);
+  const counts = {all: orders.length, 'not-started':0, working:0, done:0, over:0};
+  const rows = orders.map(order => ({order, progress: orderProgress(order)}));
+  rows.forEach(x => counts[x.progress.key]++);
+  $('statusTotal').textContent = `${orders.length} 張`;
+  document.querySelectorAll('[data-status-filter]').forEach(btn => {
+    const key = btn.dataset.statusFilter;
+    const label = key === 'all' ? '全部' : key === 'not-started' ? '未開始' : key === 'working' ? '理貨中' : key === 'done' ? '完成' : '超量';
+    btn.textContent = `${label} ${counts[key] || 0}`;
+    btn.classList.toggle('active', state.statusFilter === key);
+  });
+  const q = norm($('statusSearch')?.value || '').toLowerCase();
+  const filtered = rows
+    .filter(x => state.statusFilter === 'all' || x.progress.key === state.statusFilter)
+    .filter(x => {
+      if(!q) return true;
+      const o = x.order;
+      return [o.id, o.buyer, o.receiver, o.receiverPhone, o.receiverAddress, state.shipments[o.id]]
+        .some(v => String(v || '').toLowerCase().includes(q));
+    });
+  box.innerHTML = filtered.slice(0, 300).map(({order, progress}) => {
+    const person = order.receiver || order.buyer || '';
+    const phone = order.receiverPhone || '';
+    return `<button class="status-order" data-order="${escapeHtml(order.id)}">
+      <span><b>${escapeHtml(order.id)}</b><span>${escapeHtml(person)}${phone ? '<br>'+escapeHtml(phone) : ''}</span></span>
+      <span><span class="status-badge ${progress.key === 'done' ? 'done' : progress.key === 'working' ? 'working' : progress.key === 'over' ? 'over' : ''}">${progress.label}</span><br><span style="text-align:right">${progress.picked} / ${progress.qty}</span></span>
+    </button>`;
+  }).join('') || '<div class="hint" style="padding:12px">沒有符合的訂單</div>';
+  box.querySelectorAll('.status-order').forEach(btn => btn.onclick = () => selectOrder(btn.dataset.order));
 }
 
 function renderPendingOrders(){
@@ -932,22 +1004,48 @@ function addMap(){
 }
 
 async function openCamera(mode){
-  if(!('BarcodeDetector' in window)){
-    toast('此瀏覽器不支援相機辨識，請用輸入框或外接掃碼器');
-    return;
-  }
   try{
+    closeCamera();
     state.scannerMode = mode;
+    $('cameraTitle').textContent = mode === 'order' ? '掃訂單編號' : mode === 'map' ? '掃條碼建立對照' : '掃商品條碼';
+    $('cameraHint').textContent = '請對準條碼，保持畫面明亮清楚';
+    $('camera').classList.add('active');
+    state.scanning = true;
+    if(window.ZXing?.BrowserMultiFormatReader){
+      state.codeReader = state.codeReader || new ZXing.BrowserMultiFormatReader();
+      state.zxingControls = await state.codeReader.decodeFromVideoDevice(null, 'video', (result) => {
+        if(result && state.scanning) handleScannedValue(result.getText());
+      });
+      return;
+    }
+    if(!('BarcodeDetector' in window)){
+      toast('此瀏覽器不支援相機辨識，請改用 Safari/Chrome 或外接掃碼器');
+      closeCamera();
+      return;
+    }
     state.detector = state.detector || new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','qr_code','upc_a','upc_e']});
     state.stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
     $('video').srcObject = state.stream;
     await $('video').play();
-    $('cameraTitle').textContent = mode === 'order' ? '掃訂單編號' : mode === 'map' ? '掃條碼建立對照' : '掃商品條碼';
-    $('camera').classList.add('active');
-    state.scanning = true;
     scanLoop();
   }catch(e){
-    toast('無法開啟相機：請確認瀏覽器權限與 HTTPS/localhost');
+    toast(`無法開啟相機：${e.message || '請確認使用 HTTPS 並允許相機權限'}`, 5000);
+    closeCamera();
+  }
+}
+
+function handleScannedValue(value){
+  value = norm(value);
+  if(!value) return;
+  closeCamera();
+  if(state.scannerMode === 'order'){
+    $('orderSearch').value = value;
+    selectOrder(value);
+  }else if(state.scannerMode === 'map'){
+    $('mapBarcode').value = value;
+    toast('已掃到條碼，請輸入對應產品名稱');
+  }else{
+    pickBarcode(value);
   }
 }
 
@@ -956,17 +1054,7 @@ async function scanLoop(){
   try{
     const codes = await state.detector.detect($('video'));
     if(codes.length){
-      const value = codes[0].rawValue;
-      closeCamera();
-      if(state.scannerMode === 'order'){
-        $('orderSearch').value = value;
-        selectOrder(value);
-      }else if(state.scannerMode === 'map'){
-        $('mapBarcode').value = value;
-        toast('已讀取條碼，請填入對應產品');
-      }else{
-        pickBarcode(value);
-      }
+      handleScannedValue(codes[0].rawValue);
       return;
     }
   }catch(e){}
@@ -975,6 +1063,13 @@ async function scanLoop(){
 
 function closeCamera(){
   state.scanning = false;
+  if(state.zxingControls){
+    try{ state.zxingControls.stop(); }catch(e){}
+    state.zxingControls = null;
+  }
+  if(state.codeReader?.reset){
+    try{ state.codeReader.reset(); }catch(e){}
+  }
   if(state.stream){
     state.stream.getTracks().forEach(t => t.stop());
     state.stream = null;
@@ -1069,6 +1164,11 @@ function switchTab(tab){
 }
 
 document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => switchTab(btn.dataset.tab));
+document.querySelectorAll('[data-status-filter]').forEach(btn => btn.onclick = () => {
+  state.statusFilter = btn.dataset.statusFilter;
+  renderOrderStatus();
+});
+$('statusSearch').oninput = renderOrderStatus;
 $('saveSbBtn').onclick = saveSupabaseConfig;
 $('loadSbBtn').onclick = () => loadFromSupabase().catch(err => alertWrongQty(`Supabase 載入失敗：${err.message}`));
 $('orderFile').onchange = e => e.target.files[0] && handleOrderFile(e.target.files[0]).catch(err => toast(err.message, 5000));
