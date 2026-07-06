@@ -110,6 +110,9 @@
     th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left}
     th{font-size:12px;color:var(--muted);background:#f8fafc}
     .setup-panel{order:2;margin-top:10px;background:#fff;border-top:1px solid var(--line)}
+    .setup-panel .panel-body > div:not(.cloud-loader){display:none}
+    .cloud-loader{display:flex;gap:8px;align-items:center}
+    .cloud-loader .btn{width:100%;height:48px;font-size:16px}
     .work-panel{order:1;background:#fff;min-height:calc(100vh - 54px)}
     .work-panel .panel-head{display:none}
     body.has-order .scan-box{min-height:auto;padding:10px;background:#eef3f7;text-align:left}
@@ -153,17 +156,17 @@
     <section class="panel setup-panel">
       <div class="panel-head"><h2>資料與訂單</h2></div>
       <div class="panel-body stack">
-        <div>
+        <div style="display:none">
           <label>Supabase URL</label>
           <input type="text" id="sbUrl" placeholder="https://xxxxx.supabase.co">
         </div>
-        <div>
+        <div style="display:none">
           <label>Supabase anon / publishable key</label>
           <input type="text" id="sbKey" placeholder="sb_publishable_...">
         </div>
-        <div class="row">
-          <button class="btn" id="saveSbBtn">保存 Supabase</button>
-          <button class="btn good grow" id="loadSbBtn">從 Supabase 載入訂單</button>
+        <div class="cloud-loader">
+          <button class="btn" id="saveSbBtn" style="display:none">保存 Supabase</button>
+          <button class="btn good" id="loadSbBtn">載入訂單</button>
         </div>
         <div class="hint">手機理貨建議直接從 Supabase 載入；Excel 匯入保留作為備用。</div>
         <div>
@@ -316,6 +319,8 @@ const LS_MAP = 'picker_barcode_map_v1';
 const LS_SCANS = 'picker_scans_v1';
 const LS_SHIPMENTS = 'picker_shipments_v1';
 const LS_SB = 'picker_admin_supabase_v1';
+const SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_MfuP_a47htWc-GIH_KFazQ_A-CiPwlR';
 const DEFAULT_BARCODE_MAP = {
   '4711643801119': '魚樂薯條 (原味)',
   '4711643801126': '魚樂薯條 (辣味)',
@@ -422,16 +427,19 @@ function cleanSupabaseUrl(value){
 function loadSupabaseConfig(){
   let cfg = {};
   try{ cfg = JSON.parse(localStorage.getItem(LS_SB) || '{}') || {}; }catch(e){}
-  if($('sbUrl')) $('sbUrl').value = cleanSupabaseUrl(cfg.url || '');
-  if($('sbKey')) $('sbKey').value = cfg.key || '';
+  const url = cleanSupabaseUrl(cfg.url || SUPABASE_URL);
+  const key = cfg.key || SUPABASE_KEY;
+  if($('sbUrl')) $('sbUrl').value = url;
+  if($('sbKey')) $('sbKey').value = key;
+  localStorage.setItem(LS_SB, JSON.stringify({url, key}));
 }
 
 function saveSupabaseConfig(showToast=true){
   let old = {};
   try{ old = JSON.parse(localStorage.getItem(LS_SB) || '{}') || {}; }catch(e){}
   const cfg = {
-    url: cleanSupabaseUrl($('sbUrl')?.value || ''),
-    key: norm($('sbKey')?.value || '')
+    url: cleanSupabaseUrl($('sbUrl')?.value || SUPABASE_URL),
+    key: norm($('sbKey')?.value || SUPABASE_KEY)
   };
   if($('sbUrl')) $('sbUrl').value = cfg.url;
   localStorage.setItem(LS_SB, JSON.stringify(cfg));
@@ -1103,6 +1111,10 @@ loadLocal();
 renderMap();
 renderOrders();
 renderActive();
+loadFromSupabase().catch(err => {
+  $('dataStatus').textContent = '載入失敗';
+  toast(`Supabase 載入失敗：${err.message}`, 5000);
+});
 </script>
 </body>
 </html>
