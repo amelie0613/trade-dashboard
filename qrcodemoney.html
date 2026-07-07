@@ -30,7 +30,8 @@
     .app{min-height:100vh;display:grid;grid-template-rows:auto 1fr;background:#eef3f7}
     .topbar{position:sticky;top:0;z-index:20;background:var(--brand);color:white;padding:9px 10px calc(9px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
     .title{font-weight:900;font-size:17px;white-space:nowrap}
-    .topbar:before{content:'‹';font-size:38px;line-height:20px;font-weight:300;margin-right:2px}
+    .topbar-home{background:transparent;border:0;color:white;font-size:38px;line-height:20px;font-weight:300;padding:0;margin-right:2px;cursor:pointer}
+    body.mode-home .topbar-home{visibility:hidden}
     .status{margin-left:auto;font-size:11px;color:#e8f6ff;text-align:right;min-width:72px}
     .main{width:min(430px,100%);margin:0 auto;padding:0;display:flex;flex-direction:column;gap:0}
     .panel{background:transparent;border:0;border-radius:0;overflow:visible}
@@ -187,6 +188,7 @@
 <body>
 <div class="app">
   <header class="topbar">
+    <button class="topbar-home" id="homeBtn" aria-label="回首頁">‹</button>
     <div class="title">理貨條碼機</div>
     <span class="pill" id="activeOrderPill">未選訂單</span>
     <div class="status" id="dataStatus">尚未載入</div>
@@ -354,14 +356,17 @@
         <div class="row">
           <input type="text" id="itemFilter" placeholder="搜尋產品">
           <button class="btn" id="undoBtn">復原</button>
-          <button class="btn primary" id="saveStatusBtn">儲存狀態</button>
-          <button class="btn" id="backOrdersBtn">返回訂單</button>
         </div>
         <div class="items" id="items"></div>
 
         <div>
           <label>最近掃描</label>
           <div class="log" id="scanLog"></div>
+        </div>
+
+        <div class="row">
+          <button class="btn primary" id="saveStatusBtn">儲存狀態</button>
+          <button class="btn" id="backOrdersBtn">返回訂單</button>
         </div>
       </div>
     </section>
@@ -1360,6 +1365,7 @@ function showPickingList(){
 }
 
 document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => switchTab(btn.dataset.tab));
+$('homeBtn').onclick = showHome;
 $('overviewMenuBtn').onclick = showOverview;
 $('pickingMenuBtn').onclick = showPickingList;
 $('quickScanOrderBtn').onclick = () => openCamera('order');
@@ -1401,7 +1407,11 @@ $('undoBtn').onclick = undo;
 $('itemFilter').oninput = renderActive;
 $('saveStatusBtn').onclick = saveCurrentStatus;
 $('backOrdersBtn').onclick = backToOrders;
-$('scanShipmentBtn').onclick = () => openCamera('shipment');
+$('scanShipmentBtn').onclick = () => {
+  const el = $('shipmentNo');
+  el.focus();
+  el.select();
+};
 $('shipmentNo').addEventListener('input', () => {
   if(!state.activeOrderId) return;
   setShipmentNo($('shipmentNo').value);
