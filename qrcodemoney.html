@@ -649,6 +649,23 @@ async function syncShipmentToSupabase(){
   if(res.error) throw res.error;
 }
 
+async function upsertBarcodeMap(barcode, product){
+  const sb = getSupabaseClient();
+  const existing = await sb.from('barcode_map_items').select('barcode').eq('barcode', barcode).limit(1);
+  if(existing.error) throw new Error(formatSupabaseLoadError(existing.error));
+  const res = existing.data && existing.data.length
+    ? await sb.from('barcode_map_items').update({product_name: product}).eq('barcode', barcode).select()
+    : await sb.from('barcode_map_items').insert({barcode, product_name: product}).select();
+  if(res.error) throw new Error(res.error.message || '寫入 Supabase 失敗');
+  if(!res.data || !res.data.length) throw new Error('寫入後讀不到資料，請確認 barcode_map_items 資料表權限');
+}
+
+async function deleteBarcodeMap(barcode){
+  const sb = getSupabaseClient();
+  const res = await sb.from('barcode_map_items').delete().eq('barcode', barcode);
+  if(res.error) throw new Error(res.error.message || '刪除 Supabase 失敗');
+}
+
 async function readWorkbook(file){
   if(!window.XLSX) throw new Error('Excel 讀取套件尚未載入，請確認網路後重開頁面');
   const buf = await file.arrayBuffer();
@@ -1091,25 +1108,42 @@ function renderMap(){
     <td>${escapeHtml(barcode)}</td><td>${escapeHtml(product)}</td>
     <td><button class="btn" style="height:30px;padding:0 8px" data-del="${escapeHtml(barcode)}">刪除</button></td>
   </tr>`).join('') || '<tr><td colspan="3" class="hint">尚無條碼對照</td></tr>';
-  $('mapRows').querySelectorAll('[data-del]').forEach(btn => btn.onclick = () => {
-    delete state.barcodeMap[btn.dataset.del];
-    saveLocal();
-    renderMap();
-    renderActive();
+  $('mapRows').querySelectorAll('[data-del]').forEach(btn => btn.onclick = async () => {
+    btn.disabled = true;
+    try{
+      await deleteBarcodeMap(btn.dataset.del);
+      delete state.barcodeMap[btn.dataset.del];
+      saveLocal();
+      renderMap();
+      renderActive();
+      toast('已刪除（已同步 Supabase）');
+    }catch(err){
+      alertWrongQty(`刪除失敗，未同步到雲端：${err.message}`);
+      btn.disabled = false;
+    }
   });
 }
 
-function addMap(){
+async function addMap(){
   const barcode = norm($('mapBarcode').value);
   const product = norm($('mapProduct').value);
   if(!barcode || !product){ toast('請輸入條碼與產品'); return; }
-  state.barcodeMap[barcode] = product;
-  saveLocal();
-  $('mapBarcode').value = '';
-  $('mapProduct').value = '';
-  renderMap();
-  renderActive();
-  toast('已加入條碼對照');
+  $('saveMapBtn').disabled = true;
+  try{
+    await upsertBarcodeMap(barcode, product);
+    state.barcodeMap[barcode] = product;
+    saveLocal();
+    $('mapBarcode').value = '';
+    $('mapProduct').value = '';
+    renderMap();
+    renderActive();
+    toast('已加入條碼對照（已同步 Supabase）');
+    $('mapBarcode').focus();
+  }catch(err){
+    alertWrongQty(`加入失敗，未同步到雲端：${err.message}`);
+  }finally{
+    $('saveMapBtn').disabled = false;
+  }
 }
 
 async function openCamera(mode){
@@ -1357,6 +1391,12 @@ $('barcodeInput').addEventListener('keydown', e => {
   }
 });
 $('saveMapBtn').onclick = addMap;
+$('mapBarcode').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); $('mapProduct').focus(); }
+});
+$('mapProduct').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); addMap(); }
+});
 $('undoBtn').onclick = undo;
 $('itemFilter').oninput = renderActive;
 $('saveStatusBtn').onclick = saveCurrentStatus;
