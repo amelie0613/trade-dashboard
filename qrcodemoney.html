@@ -1283,7 +1283,7 @@ function exportDoneOrdersCsv(){
 }
 
 function exportOrdersCsvRows(orders, prefix){
-  const rows = [['訂單編號','訂購人','收件人','收件電話','收件地址','寄件編號','品項數','訂購數量','已核銷數量','理貨狀態']];
+  const rows = [['訂單編號','訂購人','收件人','收件電話','收件地址','寄件編號','品項數','訂購數量','已核銷數量','理貨狀態','品項明細（產品 已核銷/訂購）']];
   orders.forEach(order => {
     const totalQty = order.items.reduce((s,i)=>s+i.qty,0);
     const pickedQty = order.items.reduce((s,i)=>s+i.picked,0);
@@ -1299,7 +1299,8 @@ function exportOrdersCsvRows(orders, prefix){
       order.items.length,
       totalQty,
       pickedQty,
-      over ? '超量' : done ? '完成' : pickedQty > 0 ? '部分完成' : '未開始'
+      over ? '超量' : done ? '完成' : pickedQty > 0 ? '部分完成' : '未開始',
+      order.items.map(i => `${i.name} ${i.picked}/${i.qty}`).join('\n')
     ]);
   });
   const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')).join('\r\n');
