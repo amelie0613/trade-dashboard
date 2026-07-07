@@ -229,7 +229,7 @@
         <div class="pick-order-panel">
           <div class="quick-scan-box">
             <div class="quick-scan-title">掃訂單條碼開始理貨</div>
-            <input type="text" id="quickOrderInput" placeholder="掃描或輸入訂單編號" autocomplete="off" inputmode="none">
+            <input type="text" id="quickOrderInput" placeholder="掃描或輸入訂單編號" autocomplete="off">
             <div class="row">
               <button class="btn primary grow" id="quickScanOrderBtn">開相機掃訂單</button>
               <button class="btn good" id="quickSelectOrderBtn">帶出</button>
@@ -295,7 +295,7 @@
         <div class="view" id="view-mapping">
           <div class="stack">
             <div class="manual-map">
-              <input type="text" id="mapBarcode" placeholder="國際條碼" inputmode="none">
+              <input type="text" id="mapBarcode" placeholder="國際條碼">
               <input type="text" id="mapProduct" placeholder="產品名稱或產品代碼">
               <button class="btn primary" id="saveMapBtn">加入</button>
             </div>
@@ -328,7 +328,7 @@
       <div class="panel-body stack">
         <div class="scan-box">
           <label id="scanLabel">請刷訂單 QR Code</label>
-          <input class="scan-input" type="text" id="barcodeInput" placeholder="掃描或輸入條碼" inputmode="none" autocomplete="off">
+          <input class="scan-input" type="text" id="barcodeInput" placeholder="掃描或輸入條碼" inputmode="numeric" autocomplete="off">
           <div class="row">
             <button class="btn primary grow" id="scanProductBtn">開相機掃商品</button>
             <button class="btn good" id="manualPickBtn">核銷</button>
@@ -343,7 +343,7 @@
           <div class="info-cell" style="grid-column:span 2;"><span>收件地址</span><b id="receiverAddress">—</b></div>
           <div class="info-cell" style="grid-column:span 2;">
             <label>寄件編號</label>
-            <div class="row"><input type="text" id="shipmentNo" placeholder="掃描或輸入寄件編號" inputmode="none"><button class="btn" id="scanShipmentBtn">掃寄件</button></div>
+            <div class="row"><input type="text" id="shipmentNo" placeholder="掃描或輸入寄件編號"><button class="btn" id="scanShipmentBtn">掃寄件</button></div>
           </div>
         </div>
 
@@ -935,7 +935,7 @@ async function saveCurrentStatus(){
   }
 }
 function selectOrder(id){
-  if(!state.orders[id]){ toast('找不到訂單'); return; }
+  if(!state.orders[id]){ alertWrongQty(`找不到訂單，實際掃到的內容是：「${id}」（長度 ${id.length}）`); return; }
   state.activeOrderId = id;
   setPageMode('pick');
   document.body.classList.add('has-order');
