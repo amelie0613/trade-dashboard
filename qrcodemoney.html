@@ -901,6 +901,7 @@ function backToOrders(){
   setPageMode('picklist');
   renderOrders();
   renderActive();
+  if($('quickOrderInput')) $('quickOrderInput').value = '';
   $('quickOrderInput')?.focus();
 }
 
@@ -1347,6 +1348,7 @@ function showHome(){
   document.body.classList.remove('has-order');
   setPageMode('home');
   renderActive();
+  if($('quickOrderInput')) $('quickOrderInput').value = '';
 }
 
 function showOverview(){
@@ -1357,6 +1359,7 @@ function showOverview(){
   setPageMode('overview');
   renderOrders();
   renderActive();
+  if($('quickOrderInput')) $('quickOrderInput').value = '';
 }
 
 function showPickingList(){
@@ -1367,6 +1370,7 @@ function showPickingList(){
   setPageMode('picklist');
   renderOrders();
   renderActive();
+  if($('quickOrderInput')) $('quickOrderInput').value = '';
   $('quickOrderInput')?.focus();
 }
 
