@@ -38,6 +38,7 @@
         <div><label>Supabase URL</label><input id="sbUrl" placeholder="https://xxxxx.supabase.co"></div>
         <div><label>Supabase anon / publishable key</label><input id="sbKey" placeholder="eyJhbGci..."></div>
         <div class="row"><button class="btn" id="saveCfg">保存設定</button><button class="btn good" id="uploadSb">上傳到 Supabase</button></div>
+        <div class="row"><button class="btn good" id="loadSb">載入雲端訂單總覽</button></div>
         <div class="row"><button class="btn primary" id="exportAll">匯出全部訂單</button><button class="btn primary" id="exportDone">匯出完成訂單</button></div>
         <div class="hint" id="status">尚未載入資料</div>
       </div>
@@ -59,7 +60,9 @@
 <script>
 const $=id=>document.getElementById(id);
 const LS='picker_admin_supabase_v1';
-let orders={}, scans=[], shipments={};
+const SUPABASE_URL='https://yeposcucdppwkjmmoidi.supabase.co';
+const SUPABASE_KEY='sb_publishable_MfuP_a47htWc-GIH_KFazQ_A-CiPwlR';
+let orders={}, scans=[], shipments={}, remoteMode=false;
 function norm(v){return String(v??'').trim()} function num(v){const n=parseFloat(String(v??'').replace(/,/g,''));return Number.isFinite(n)?n:0}
 function colToIndex(col){let n=0;for(const ch of norm(col).toUpperCase()){if(ch>='A'&&ch<='Z')n=n*26+ch.charCodeAt(0)-64}return Math.max(0,n-1)}
 function indexToCol(i){let n=i+1,s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26)}return s}
@@ -68,17 +71,46 @@ function findHeaderRow(rows){let best=0,score=-1;rows.slice(0,10).forEach((r,i)=
 async function readWorkbook(file){const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];return XLSX.utils.sheet_to_json(ws,{header:1,defval:''}).filter(r=>r.some(c=>norm(c)))}
 function fillOrderColOptions(headers){const sel=$('orderCol');sel.innerHTML=headers.map((h,i)=>`<option value="${i}">${indexToCol(i)} ${h||'(空欄)'}</option>`).join('');const idx=headers.findIndex(h=>/訂單|訂單編號|單號|order/i.test(norm(h)));sel.value=String(idx>=0?idx:0)}
 function parseOrders(rows){const hi=findHeaderRow(rows),headers=rows[hi].map(norm);fillOrderColOptions(headers);const orderCol=parseInt($('orderCol').value||'0',10),start=colToIndex($('startCol').value||'AJ');const buyerCol=findCol(headers,[/訂購人姓名/,/訂購人/,/買家/]);const receiverCol=findCol(headers,[/收件人姓名/,/收件人/]);const addrCol=findCol(headers,[/收件人地址/,/收件地址/,/地址/]);const phoneCol=findCol(headers,[/收件人電話/,/收件電話/,/電話/]);const out={};for(const row of rows.slice(hi+1)){const id=norm(row[orderCol]);if(!id)continue;const items=[];for(let c=start;c<Math.max(headers.length,row.length);c++){const name=norm(headers[c]),qty=num(row[c]);if(name&&qty>0&&!/數量|合計|總計|小計/.test(name))items.push({name,qty,picked:0})}if(items.length){out[id]={id,buyer:buyerCol>=0?norm(row[buyerCol]):'',receiver:receiverCol>=0?norm(row[receiverCol]):'',receiverAddress:addrCol>=0?norm(row[addrCol]):'',receiverPhone:phoneCol>=0?norm(row[phoneCol]):'',items}}}return out}
-function loadLocal(){try{scans=JSON.parse(localStorage.getItem('picker_scans_v1')||'[]')}catch(e){}try{shipments=JSON.parse(localStorage.getItem('picker_shipments_v1')||'{}')}catch(e){}const cfg=JSON.parse(localStorage.getItem(LS)||'{}');$('sbUrl').value=cfg.url||'';$('sbKey').value=cfg.key||''}
+function loadLocal(){try{scans=JSON.parse(localStorage.getItem('picker_scans_v1')||'[]')}catch(e){}try{shipments=JSON.parse(localStorage.getItem('picker_shipments_v1')||'{}')}catch(e){}$('sbUrl').value=SUPABASE_URL;$('sbKey').value=SUPABASE_KEY}
 function cleanSupabaseUrl(v){let url=norm(v).replace(/\/+$/,'');url=url.replace('.supabase.cc','.supabase.co');if(url&&!/^https?:\/\//i.test(url))url='https://'+url;try{const u=new URL(url);return u.origin}catch(e){return url}}
 function applyScans(){Object.values(orders).forEach(o=>o.items.forEach(i=>i.picked=0));for(const s of scans){const o=orders[s.orderId];if(!o)continue;const item=o.items.find(i=>i.name===s.product);if(item)item.picked+=s.qty}}
 function stats(o){const total=o.items.reduce((s,i)=>s+i.qty,0),picked=o.items.reduce((s,i)=>s+i.picked,0),done=o.items.length&&o.items.every(i=>i.picked>=i.qty),over=o.items.some(i=>i.picked>i.qty);return{total,picked,done,over,status:over?'超量':done?'完成':picked?'部分完成':'未開始'}}
-function render(){applyScans();const list=Object.values(orders);$('mOrders').textContent=list.length;$('mQty').textContent=list.reduce((s,o)=>s+stats(o).total,0);$('mPicked').textContent=list.reduce((s,o)=>s+stats(o).picked,0);$('mDone').textContent=list.filter(o=>stats(o).done).length;const q=norm($('search').value).toLowerCase();$('rows').innerHTML=list.filter(o=>!q||[o.id,o.buyer,o.receiver,o.receiverPhone,o.receiverAddress].join('|').toLowerCase().includes(q)).map(o=>{const st=stats(o);return`<tr><td><b>${esc(o.id)}</b><br><span class="hint">${esc(o.buyer||'')}</span></td><td>${esc(o.receiver||'')}<br>${esc(o.receiverPhone||'')}<br><span class="hint">${esc(o.receiverAddress||'')}</span></td><td>${st.picked} / ${st.total}</td><td>${esc(shipments[o.id]||'')}</td><td><span class="tag ${st.over?'bad':st.done?'done':''}">${st.status}</span></td></tr>`}).join('')||'<tr><td colspan="5" class="hint">尚無資料</td></tr>'}
+function render(){if(!remoteMode)applyScans();const list=Object.values(orders);$('mOrders').textContent=list.length;$('mQty').textContent=list.reduce((s,o)=>s+stats(o).total,0);$('mPicked').textContent=list.reduce((s,o)=>s+stats(o).picked,0);$('mDone').textContent=list.filter(o=>stats(o).done).length;const q=norm($('search').value).toLowerCase();$('rows').innerHTML=list.filter(o=>!q||[o.id,o.buyer,o.receiver,o.receiverPhone,o.receiverAddress].join('|').toLowerCase().includes(q)).map(o=>{const st=stats(o);return`<tr><td><b>${esc(o.id)}</b><br><span class="hint">${esc(o.buyer||'')}</span></td><td>${esc(o.receiver||'')}<br>${esc(o.receiverPhone||'')}<br><span class="hint">${esc(o.receiverAddress||'')}</span></td><td>${st.picked} / ${st.total}</td><td>${esc(shipments[o.id]||'')}</td><td><span class="tag ${st.over?'bad':st.done?'done':''}">${st.status}</span></td></tr>`}).join('')||'<tr><td colspan="5" class="hint">尚無資料</td></tr>'}
 function csv(rows){return rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n')}
 function exportOrders(doneOnly=false){const rows=[['訂單編號','訂購人','收件人','收件電話','收件地址','寄件編號','品項數','訂購數量','已核銷數量','理貨狀態']];Object.values(orders).forEach(o=>{const st=stats(o);if(doneOnly&&!st.done)return;rows.push([o.id,o.buyer,o.receiver,o.receiverPhone,o.receiverAddress,shipments[o.id]||'',o.items.length,st.total,st.picked,st.status])});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv(rows)],{type:'text/csv;charset=utf-8'}));a.download=(doneOnly?'理貨完成訂單':'全部訂單')+'_'+new Date().toISOString().slice(0,10)+'.csv';a.click()}
+async function loadFromSupabase(){
+  const url=cleanSupabaseUrl($('sbUrl').value),key=norm($('sbKey').value);
+  $('sbUrl').value=url;
+  if(!url||!key){alert('請先填 Supabase URL 與 key');return}
+  const sb=supabase.createClient(url,key);
+  const [ordersRes,itemsRes]=await Promise.all([
+    sb.from('barcode_orders').select('id,buyer_name,receiver_name,receiver_phone,receiver_address,shipment_no,status').order('id',{ascending:true}),
+    sb.from('barcode_order_items').select('order_id,line_no,product_name,ordered_qty,picked_qty').order('order_id',{ascending:true}).order('line_no',{ascending:true})
+  ]);
+  if(ordersRes.error)throw new Error(ordersRes.error.message||'讀取 barcode_orders 失敗');
+  if(itemsRes.error)throw new Error(itemsRes.error.message||'讀取 barcode_order_items 失敗');
+  const nextOrders={},nextShipments={};
+  (ordersRes.data||[]).forEach(row=>{
+    const id=norm(row.id);
+    if(!id)return;
+    nextOrders[id]={id,buyer:row.buyer_name||'',receiver:row.receiver_name||'',receiverPhone:row.receiver_phone||'',receiverAddress:row.receiver_address||'',items:[]};
+    nextShipments[id]=row.shipment_no||'';
+  });
+  (itemsRes.data||[]).forEach(row=>{
+    const o=nextOrders[norm(row.order_id)];
+    if(!o)return;
+    o.items.push({name:row.product_name||'',qty:Number(row.ordered_qty||0),picked:Number(row.picked_qty||0)});
+  });
+  orders=nextOrders;
+  shipments=nextShipments;
+  remoteMode=true;
+  render();
+  $('status').textContent=`已從 Supabase 載入 ${Object.keys(orders).length} 張訂單（即時狀態）`;
+}
 async function uploadSupabase(){const url=cleanSupabaseUrl($('sbUrl').value),key=norm($('sbKey').value);$('sbUrl').value=url;if(!url||!key){alert('請先填 Supabase URL 與 key');return}if(!/https:\/\/[^/]+\.supabase\.co$/i.test(url)){alert('Supabase URL 格式不正確，應該像：https://xxxxx.supabase.co');return}if(!Object.keys(orders).length){alert('請先匯入訂單 Excel');return}const sb=supabase.createClient(url,key);const orderRows=Object.values(orders).map(o=>({id:o.id,buyer_name:o.buyer,receiver_name:o.receiver,receiver_phone:o.receiverPhone,receiver_address:o.receiverAddress,shipment_no:shipments[o.id]||'',status:stats(o).status,updated_at:new Date().toISOString()}));const itemRows=[];Object.values(orders).forEach(o=>o.items.forEach((i,idx)=>itemRows.push({order_id:o.id,line_no:idx+1,product_name:i.name,ordered_qty:i.qty,picked_qty:i.picked})));let r=await sb.from('barcode_orders').upsert(orderRows);if(r.error)throw new Error(r.error.message||JSON.stringify(r.error));const ids=orderRows.map(o=>o.id);r=await sb.from('barcode_order_items').delete().in('order_id',ids);if(r.error)throw new Error(r.error.message||JSON.stringify(r.error));r=await sb.from('barcode_order_items').insert(itemRows);if(r.error)throw new Error(r.error.message||JSON.stringify(r.error));$('status').textContent='已上傳 Supabase：'+orderRows.length+' 張訂單'}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-$('orderFile').onchange=e=>e.target.files[0]&&readWorkbook(e.target.files[0]).then(rows=>{orders=parseOrders(rows);render();$('status').textContent='已載入 '+Object.keys(orders).length+' 張訂單'}).catch(err=>alert(err.message));
-$('search').oninput=render;$('exportAll').onclick=()=>exportOrders(false);$('exportDone').onclick=()=>exportOrders(true);$('saveCfg').onclick=()=>{const url=cleanSupabaseUrl($('sbUrl').value);$('sbUrl').value=url;localStorage.setItem(LS,JSON.stringify({url,key:norm($('sbKey').value)}));$('status').textContent='Supabase 設定已保存'};$('uploadSb').onclick=()=>uploadSupabase().catch(e=>alert('Supabase 上傳失敗：'+e.message));
+$('orderFile').onchange=e=>e.target.files[0]&&readWorkbook(e.target.files[0]).then(rows=>{remoteMode=false;orders=parseOrders(rows);render();$('status').textContent='已載入 '+Object.keys(orders).length+' 張訂單'}).catch(err=>alert(err.message));
+$('search').oninput=render;$('exportAll').onclick=()=>exportOrders(false);$('exportDone').onclick=()=>exportOrders(true);$('saveCfg').onclick=()=>{const url=cleanSupabaseUrl($('sbUrl').value);$('sbUrl').value=url;localStorage.setItem(LS,JSON.stringify({url,key:norm($('sbKey').value)}));$('status').textContent='Supabase 設定已保存'};$('uploadSb').onclick=()=>uploadSupabase().catch(e=>alert('Supabase 上傳失敗：'+e.message));$('loadSb').onclick=()=>loadFromSupabase().catch(e=>alert('Supabase 載入失敗：'+e.message));
 loadLocal();render();
 </script>
 </body>

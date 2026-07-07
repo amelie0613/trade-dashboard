@@ -229,7 +229,7 @@
         <div class="pick-order-panel">
           <div class="quick-scan-box">
             <div class="quick-scan-title">掃訂單條碼開始理貨</div>
-            <input type="text" id="quickOrderInput" placeholder="掃描或輸入訂單編號" autocomplete="off">
+            <input type="text" id="quickOrderInput" placeholder="掃描或輸入訂單編號" autocomplete="off" inputmode="none">
             <div class="row">
               <button class="btn primary grow" id="quickScanOrderBtn">開相機掃訂單</button>
               <button class="btn good" id="quickSelectOrderBtn">帶出</button>
@@ -295,7 +295,7 @@
         <div class="view" id="view-mapping">
           <div class="stack">
             <div class="manual-map">
-              <input type="text" id="mapBarcode" placeholder="國際條碼">
+              <input type="text" id="mapBarcode" placeholder="國際條碼" inputmode="none">
               <input type="text" id="mapProduct" placeholder="產品名稱或產品代碼">
               <button class="btn primary" id="saveMapBtn">加入</button>
             </div>
@@ -328,7 +328,7 @@
       <div class="panel-body stack">
         <div class="scan-box">
           <label id="scanLabel">請刷訂單 QR Code</label>
-          <input class="scan-input" type="text" id="barcodeInput" placeholder="掃描或輸入條碼" inputmode="numeric" autocomplete="off">
+          <input class="scan-input" type="text" id="barcodeInput" placeholder="掃描或輸入條碼" inputmode="none" autocomplete="off">
           <div class="row">
             <button class="btn primary grow" id="scanProductBtn">開相機掃商品</button>
             <button class="btn good" id="manualPickBtn">核銷</button>
@@ -341,9 +341,9 @@
           <div class="info-cell"><span>收件人</span><b id="receiverName">—</b></div>
           <div class="info-cell"><span>收件電話</span><b id="receiverPhone">—</b></div>
           <div class="info-cell" style="grid-column:span 2;"><span>收件地址</span><b id="receiverAddress">—</b></div>
-          <div class="info-cell">
+          <div class="info-cell" style="grid-column:span 2;">
             <label>寄件編號</label>
-            <div class="row"><input type="text" id="shipmentNo" placeholder="掃描或輸入寄件編號"><button class="btn" id="scanShipmentBtn">掃寄件</button></div>
+            <div class="row"><input type="text" id="shipmentNo" placeholder="掃描或輸入寄件編號" inputmode="none"><button class="btn" id="scanShipmentBtn">掃寄件</button></div>
           </div>
         </div>
 
@@ -928,9 +928,8 @@ async function saveCurrentStatus(){
     await syncShipmentToSupabase();
     const jobs = order.items.map(item => syncPickedToSupabase(order, item, 0, '手動儲存'));
     await Promise.all(jobs);
-    toast('狀態已儲存');
-    renderOrders();
-    renderActive();
+    toast('狀態已儲存，返回首頁');
+    showHome();
   }catch(err){
     alertWrongQty(`儲存失敗：${err.message}`);
   }
@@ -970,10 +969,14 @@ function renderActive(){
     return;
   }
   const totalQty = order.items.reduce((s,i)=>s+i.qty,0);
-  $('scanLabel').textContent = '商品國際條碼';
+  const locked = orderProgress(order).key === 'done';
+  $('scanLabel').textContent = locked ? '此訂單已完成（鎖定，禁止再次掃描/編輯）' : '商品國際條碼';
   $('barcodeInput').placeholder = '掃描或輸入商品條碼';
+  $('barcodeInput').disabled = locked;
   $('scanProductBtn').textContent = '開相機掃商品';
+  $('scanProductBtn').disabled = locked;
   $('manualPickBtn').textContent = '核銷';
+  $('manualPickBtn').disabled = locked;
   const pickedQty = order.items.reduce((s,i)=>s+i.picked,0);
   const doneLines = order.items.filter(i => i.picked >= i.qty).length;
   $('completePill').textContent = `${doneLines} / ${order.items.length}`;
@@ -997,9 +1000,9 @@ function renderActive(){
         <div class="item-sub">條碼：${escapeHtml(findBarcodeByProduct(item.name) || '尚未對照')}</div>
         <div class="progress"><div class="bar" style="width:${pct}%"></div></div>
       </div>
-      <button class="qty-btn" data-adjust="${escapeHtml(item.name)}" data-delta="-1">−</button>
+      <button class="qty-btn" data-adjust="${escapeHtml(item.name)}" data-delta="-1" ${locked?'disabled':''}>−</button>
       <div class="qty ${qtyCls}">${item.picked} / ${item.qty}</div>
-      <button class="qty-btn" data-adjust="${escapeHtml(item.name)}" data-delta="1">＋</button>
+      <button class="qty-btn" data-adjust="${escapeHtml(item.name)}" data-delta="1" ${locked?'disabled':''}>＋</button>
     </div>`;
   }).join('') || '<div class="hint" style="padding:16px">沒有符合的品項</div>';
   $('items').querySelectorAll('[data-adjust]').forEach(btn => {
@@ -1031,6 +1034,7 @@ function pickBarcode(raw){
   if(!barcode){ toast('請先掃描或輸入條碼'); return; }
   const order = state.orders[state.activeOrderId];
   if(!order){ toast('請先選擇訂單'); return; }
+  if(orderProgress(order).key === 'done'){ alertWrongQty('此訂單已完成，禁止再次掃描'); return; }
   const product = resolveBarcode(barcode);
   if(!product){
     $('mapBarcode').value = barcode;
@@ -1063,6 +1067,7 @@ function pickBarcode(raw){
 function adjustItem(productName, delta){
   const order = state.orders[state.activeOrderId];
   if(!order) return;
+  if(orderProgress(order).key === 'done'){ alertWrongQty('此訂單已完成，禁止再次編輯'); return; }
   const item = order.items.find(i => i.name === productName);
   if(!item) return;
   if(delta < 0 && item.picked <= 0) return;
