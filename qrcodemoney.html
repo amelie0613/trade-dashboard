@@ -925,6 +925,11 @@ async function saveCurrentStatus(){
     alertWrongQty(`無法儲存，商品數量不合。${msg}`);
     return;
   }
+  if(!norm(state.shipments[order.id])){
+    alertWrongQty('請先掃描寄件編號才能儲存');
+    $('shipmentNo').focus();
+    return;
+  }
   try{
     await syncShipmentToSupabase();
     const jobs = order.items.map(item => syncPickedToSupabase(order, item, 0, '手動儲存'));
@@ -1041,6 +1046,7 @@ function pickBarcode(raw){
     $('mapBarcode').value = barcode;
     switchTab('mapping');
     alertWrongQty('找不到條碼對照，請選擇產品後加入');
+    $('barcodeInput').value = '';
     return;
   }
   const productKey = normProduct(product);
@@ -1048,7 +1054,11 @@ function pickBarcode(raw){
     const itemKey = normProduct(i.name);
     return itemKey === productKey || productKey.includes(itemKey) || itemKey.includes(productKey);
   });
-  if(!item){ alertWrongQty('此商品不在目前訂單內'); return; }
+  if(!item){
+    alertWrongQty('此商品不在目前訂單內');
+    $('barcodeInput').value = '';
+    return;
+  }
   item.picked += 1;
   const rec = {time: new Date().toISOString(), displayTime: nowText(), orderId: order.id, barcode, product: item.name, qty: 1};
   state.scans.push(rec);
@@ -1284,12 +1294,21 @@ function exportDoneOrdersCsv(){
 }
 
 function exportOrdersCsvRows(orders, prefix){
-  const rows = [['訂單編號','訂購人','收件人','收件電話','收件地址','寄件編號','品項數','訂購數量','已核銷數量','理貨狀態','品項明細（產品 已核銷/訂購）']];
+  const productNames = [];
+  const seenProducts = new Set();
+  orders.forEach(order => order.items.forEach(i => {
+    if(!seenProducts.has(i.name)){ seenProducts.add(i.name); productNames.push(i.name); }
+  }));
+  const rows = [['訂單編號','訂購人','收件人','收件電話','收件地址','寄件編號','品項數','訂購數量','已核銷數量','理貨狀態', ...productNames]];
   orders.forEach(order => {
     const totalQty = order.items.reduce((s,i)=>s+i.qty,0);
     const pickedQty = order.items.reduce((s,i)=>s+i.picked,0);
     const done = order.items.length > 0 && order.items.every(i => i.picked >= i.qty);
     const over = order.items.some(i => i.picked > i.qty);
+    const productCols = productNames.map(name => {
+      const item = order.items.find(i => i.name === name);
+      return item ? `${item.picked}/${item.qty}` : '';
+    });
     rows.push([
       order.id,
       order.buyer || '',
@@ -1301,7 +1320,7 @@ function exportOrdersCsvRows(orders, prefix){
       totalQty,
       pickedQty,
       over ? '超量' : done ? '完成' : pickedQty > 0 ? '部分完成' : '未開始',
-      order.items.map(i => `${i.name} ${i.picked}/${i.qty}`).join('\n')
+      ...productCols
     ]);
   });
   const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',')).join('\r\n');
