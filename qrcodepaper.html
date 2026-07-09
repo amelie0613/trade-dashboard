@@ -18,7 +18,7 @@
     input,select,textarea{width:100%;border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--text);padding:9px 10px;outline:none}
     textarea{min-height:90px;font-family:ui-monospace,Consolas,monospace;font-size:12px} input:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(36,107,254,.12)}
     .btn{border:1.5px solid var(--line);border-radius:7px;background:#fff;color:var(--text);font-weight:900;padding:9px 12px;cursor:pointer;white-space:nowrap}
-    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.good{background:var(--good);border-color:var(--good);color:#fff}
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.good{background:var(--good);border-color:var(--good);color:#fff}.btn.bad{background:var(--bad);border-color:var(--bad);color:#fff}
     .hint{font-size:12px;color:var(--muted);line-height:1.55}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
     .metric{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px}.metric b{display:block;font-size:24px}.metric span{font-size:12px;color:var(--muted);font-weight:900}
     table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}th{background:#f8fafc;color:var(--muted);font-size:12px;position:sticky;top:0}
@@ -40,6 +40,7 @@
         <div class="row"><button class="btn" id="saveCfg">保存設定</button><button class="btn good" id="uploadSb">上傳到 Supabase</button></div>
         <div class="row"><button class="btn good" id="loadSb">載入雲端訂單總覽</button></div>
         <div class="row"><button class="btn primary" id="exportAll">匯出全部訂單</button><button class="btn primary" id="exportDone">匯出完成訂單</button></div>
+        <div class="row"><button class="btn bad" id="clearOrders">清除訂單紀錄（從 Supabase 永久刪除）</button></div>
         <div class="hint" id="status">尚未載入資料</div>
       </div>
     </section>
@@ -78,6 +79,23 @@ function stats(o){const total=o.items.reduce((s,i)=>s+i.qty,0),picked=o.items.re
 function render(){if(!remoteMode)applyScans();const list=Object.values(orders);$('mOrders').textContent=list.length;$('mQty').textContent=list.reduce((s,o)=>s+stats(o).total,0);$('mPicked').textContent=list.reduce((s,o)=>s+stats(o).picked,0);$('mDone').textContent=list.filter(o=>stats(o).done).length;const q=norm($('search').value).toLowerCase();$('rows').innerHTML=list.filter(o=>!q||[o.id,o.buyer,o.receiver,o.receiverPhone,o.receiverAddress].join('|').toLowerCase().includes(q)).map(o=>{const st=stats(o);return`<tr><td><b>${esc(o.id)}</b><br><span class="hint">${esc(o.buyer||'')}</span></td><td>${esc(o.receiver||'')}<br>${esc(o.receiverPhone||'')}<br><span class="hint">${esc(o.receiverAddress||'')}</span></td><td>${st.picked} / ${st.total}</td><td>${esc(shipments[o.id]||'')}</td><td><span class="tag ${st.over?'bad':st.done?'done':''}">${st.status}</span></td></tr>`}).join('')||'<tr><td colspan="5" class="hint">尚無資料</td></tr>'}
 function csv(rows){return rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n')}
 function exportOrders(doneOnly=false){const rows=[['訂單編號','訂購人','收件人','收件電話','收件地址','寄件編號','品項數','訂購數量','已核銷數量','理貨狀態','品項明細（產品 已核銷/訂購）']];Object.values(orders).forEach(o=>{const st=stats(o);if(doneOnly&&!st.done)return;rows.push([o.id,o.buyer,o.receiver,o.receiverPhone,o.receiverAddress,shipments[o.id]||'',o.items.length,st.total,st.picked,st.status,o.items.map(i=>`${i.name} ${i.picked}/${i.qty}`).join('\n')])});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv(rows)],{type:'text/csv;charset=utf-8'}));a.download=(doneOnly?'理貨完成訂單':'全部訂單')+'_'+new Date().toISOString().slice(0,10)+'.csv';a.click()}
+async function clearOrderRecords(){
+  const ids=Object.keys(orders);
+  if(!ids.length){alert('尚無已載入的訂單可清除');return}
+  if(!confirm(`確定要從 Supabase 永久刪除目前載入的 ${ids.length} 張訂單嗎？此動作無法復原。`))return;
+  const url=cleanSupabaseUrl($('sbUrl').value),key=norm($('sbKey').value);
+  if(!url||!key){alert('請先填 Supabase URL 與 key');return}
+  const sb=supabase.createClient(url,key);
+  let r=await sb.from('barcode_order_items').delete().in('order_id',ids);
+  if(r.error)throw new Error(r.error.message||'刪除 barcode_order_items 失敗');
+  r=await sb.from('barcode_orders').delete().in('id',ids);
+  if(r.error)throw new Error(r.error.message||'刪除 barcode_orders 失敗');
+  orders={};
+  shipments={};
+  remoteMode=false;
+  render();
+  $('status').textContent=`已從 Supabase 永久刪除 ${ids.length} 張訂單`;
+}
 async function loadFromSupabase(){
   const url=cleanSupabaseUrl($('sbUrl').value),key=norm($('sbKey').value);
   $('sbUrl').value=url;
@@ -111,6 +129,7 @@ async function uploadSupabase(){const url=cleanSupabaseUrl($('sbUrl').value),key
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 $('orderFile').onchange=e=>e.target.files[0]&&readWorkbook(e.target.files[0]).then(rows=>{remoteMode=false;orders=parseOrders(rows);render();$('status').textContent='已載入 '+Object.keys(orders).length+' 張訂單'}).catch(err=>alert(err.message));
 $('search').oninput=render;$('exportAll').onclick=()=>exportOrders(false);$('exportDone').onclick=()=>exportOrders(true);$('saveCfg').onclick=()=>{const url=cleanSupabaseUrl($('sbUrl').value);$('sbUrl').value=url;localStorage.setItem(LS,JSON.stringify({url,key:norm($('sbKey').value)}));$('status').textContent='Supabase 設定已保存'};$('uploadSb').onclick=()=>uploadSupabase().catch(e=>alert('Supabase 上傳失敗：'+e.message));$('loadSb').onclick=()=>loadFromSupabase().catch(e=>alert('Supabase 載入失敗：'+e.message));
+$('clearOrders').onclick=()=>clearOrderRecords().catch(e=>alert('清除失敗：'+e.message));
 loadLocal();render();
 </script>
 </body>
