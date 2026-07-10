@@ -968,8 +968,8 @@ async function confirmShipmentModal(){
   try{
     await syncShipmentToSupabase();
     closeShipmentModal();
-    toast('已完成，返回首頁');
-    showHome();
+    toast('已完成，請掃下一張訂單條碼');
+    showPickingList();
   }catch(err){
     alertWrongQty(`寄件編號同步失敗：${err.message}`);
   }finally{
@@ -1502,7 +1502,7 @@ $('undoBtn').onclick = undo;
 $('itemFilter').oninput = renderActive;
 $('saveStatusBtn').onclick = saveCurrentStatus;
 $('shipmentModalConfirm').onclick = confirmShipmentModal;
-$('shipmentModalCancel').onclick = () => { closeShipmentModal(); toast('已儲存品項，稍後記得回來補寄件編號'); showHome(); };
+$('shipmentModalCancel').onclick = () => { closeShipmentModal(); toast('已儲存品項，稍後記得回來補寄件編號'); showPickingList(); };
 $('shipmentModalInput').addEventListener('keydown', e => {
   if(e.key === 'Enter'){ e.preventDefault(); confirmShipmentModal(); }
 });
