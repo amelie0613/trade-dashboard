@@ -107,6 +107,13 @@
     .camera.active{display:grid;grid-template-rows:auto 1fr auto}
     .cam-head,.cam-foot{padding:12px;display:flex;align-items:center;gap:8px;background:rgba(2,6,23,.9)}
     video{width:100%;height:100%;object-fit:cover}
+    .shipment-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;align-items:center;justify-content:center;padding:16px}
+    .shipment-modal.active{display:flex}
+    .shipment-modal-box{background:#fff;border-radius:10px;padding:18px;width:min(360px,100%);box-shadow:0 12px 32px rgba(15,23,42,.25)}
+    .shipment-modal-box h3{margin:0 0 6px;font-size:17px;color:var(--ink)}
+    .shipment-modal-box .hint{margin-bottom:12px}
+    .shipment-modal-box input{height:48px;font-size:18px;font-weight:900;text-align:center;margin-bottom:12px}
+    .shipment-modal-box .row{gap:8px}
     .manual-map{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}
     table{width:100%;border-collapse:collapse;font-size:13px}
     th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left}
@@ -383,6 +390,17 @@
     <span class="hint" id="cameraHint" style="color:#cbd5e1">請把條碼放在畫面中央</span>
   </div>
 </div>
+<div class="shipment-modal" id="shipmentModal">
+  <div class="shipment-modal-box">
+    <h3>請掃描寄件編號</h3>
+    <p class="hint">品項已核銷完成並儲存，最後一步：掃描或輸入這張訂單的寄件編號才算完成。</p>
+    <input type="text" id="shipmentModalInput" placeholder="掃描或輸入寄件編號" autocomplete="off">
+    <div class="row">
+      <button class="btn" id="shipmentModalCancel">稍後再填</button>
+      <button class="btn primary grow" id="shipmentModalConfirm">確認</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -590,18 +608,34 @@ function applyRemoteOrders(orderRows, itemRows, barcodeRows){
   saveLocal();
 }
 
+async function fetchAllRows(buildQuery){
+  const pageSize = 1000;
+  let rows = [];
+  for(let from = 0; ; from += pageSize){
+    const res = await buildQuery().range(from, from + pageSize - 1);
+    if(res.error) throw new Error(formatSupabaseLoadError(res.error));
+    rows = rows.concat(res.data || []);
+    if(!res.data || res.data.length < pageSize) break;
+  }
+  return rows;
+}
+
 async function loadFromSupabase(){
   const sb = getSupabaseClient();
   $('dataStatus').textContent = 'Supabase 載入中';
-  const [ordersRes, itemsRes, mapRes] = await Promise.all([
-    sb.from('barcode_orders').select('id,buyer_name,receiver_name,receiver_phone,receiver_address,shipment_no,status').order('id', {ascending:true}),
-    sb.from('barcode_order_items').select('order_id,line_no,product_name,ordered_qty,picked_qty').order('order_id', {ascending:true}).order('line_no', {ascending:true}),
-    sb.from('barcode_map_items').select('barcode,product_name')
+  const [orderRows, itemRows, mapRows, orderCountRes, itemCountRes] = await Promise.all([
+    fetchAllRows(() => sb.from('barcode_orders').select('id,buyer_name,receiver_name,receiver_phone,receiver_address,shipment_no,status').order('id', {ascending:true})),
+    fetchAllRows(() => sb.from('barcode_order_items').select('order_id,line_no,product_name,ordered_qty,picked_qty').order('order_id', {ascending:true}).order('line_no', {ascending:true})),
+    fetchAllRows(() => sb.from('barcode_map_items').select('barcode,product_name').order('barcode', {ascending:true})),
+    sb.from('barcode_orders').select('id', {count:'exact', head:true}),
+    sb.from('barcode_order_items').select('id', {count:'exact', head:true})
   ]);
-  if(ordersRes.error) throw new Error(formatSupabaseLoadError(ordersRes.error));
-  if(itemsRes.error) throw new Error(formatSupabaseLoadError(itemsRes.error));
-  if(mapRes.error) throw new Error(formatSupabaseLoadError(mapRes.error));
-  applyRemoteOrders(ordersRes.data, itemsRes.data, mapRes.data);
+  if(orderCountRes.error) throw new Error(formatSupabaseLoadError(orderCountRes.error));
+  if(itemCountRes.error) throw new Error(formatSupabaseLoadError(itemCountRes.error));
+  if(orderRows.length !== orderCountRes.count || itemRows.length !== itemCountRes.count){
+    throw new Error(`資料載入不完整（訂單 ${orderRows.length}/${orderCountRes.count}、品項 ${itemRows.length}/${itemCountRes.count}），請勿理貨，重新載入一次`);
+  }
+  applyRemoteOrders(orderRows, itemRows, mapRows);
   renderMap();
   renderOrders();
   renderActive();
@@ -635,13 +669,14 @@ async function syncPickedToSupabase(order, item, delta, barcode){
     .eq('id', order.id);
   if(orderRes.error) throw orderRes.error;
   if(delta !== 0){
-    await sb.from('barcode_scan_logs').insert({
+    const logRes = await sb.from('barcode_scan_logs').insert({
       order_id: order.id,
       barcode: barcode || '',
       product_name: item.name,
       qty: delta,
       device_name: navigator.userAgent.slice(0, 120)
     });
+    if(logRes.error) throw logRes.error;
   }
 }
 
@@ -913,6 +948,35 @@ function setShipmentNo(value){
   syncShipmentToSupabase().catch(err => alertWrongQty(`寄件編號同步失敗：${err.message}`));
 }
 
+function openShipmentModal(){
+  $('shipmentModalInput').value = state.shipments[state.activeOrderId] || '';
+  $('shipmentModal').classList.add('active');
+  $('shipmentModalInput').focus();
+}
+
+function closeShipmentModal(){
+  $('shipmentModal').classList.remove('active');
+}
+
+async function confirmShipmentModal(){
+  const value = norm($('shipmentModalInput').value);
+  if(!value){ toast('請先掃描或輸入寄件編號'); return; }
+  state.shipments[state.activeOrderId] = value;
+  $('shipmentNo').value = value;
+  saveLocal();
+  $('shipmentModalConfirm').disabled = true;
+  try{
+    await syncShipmentToSupabase();
+    closeShipmentModal();
+    toast('已完成，返回首頁');
+    showHome();
+  }catch(err){
+    alertWrongQty(`寄件編號同步失敗：${err.message}`);
+  }finally{
+    $('shipmentModalConfirm').disabled = false;
+  }
+}
+
 async function saveCurrentStatus(){
   const order = state.orders[state.activeOrderId];
   if(!order){ toast('請先選擇訂單'); return; }
@@ -925,17 +989,11 @@ async function saveCurrentStatus(){
     alertWrongQty(`無法儲存，商品數量不合。${msg}`);
     return;
   }
-  if(!norm(state.shipments[order.id])){
-    alertWrongQty('請先掃描寄件編號才能儲存');
-    $('shipmentNo').focus();
-    return;
-  }
   try{
-    await syncShipmentToSupabase();
     const jobs = order.items.map(item => syncPickedToSupabase(order, item, 0, '手動儲存'));
     await Promise.all(jobs);
-    toast('狀態已儲存，返回首頁');
-    showHome();
+    toast('品項已儲存，請掃描寄件編號');
+    openShipmentModal();
   }catch(err){
     alertWrongQty(`儲存失敗：${err.message}`);
   }
@@ -1104,8 +1162,16 @@ function adjustItem(productName, delta){
 }
 
 function undo(){
-  const rec = state.scans.pop();
-  if(!rec){ toast('沒有可復原的紀錄'); return; }
+  const activeId = state.activeOrderId;
+  if(!activeId){ toast('請先選擇訂單'); return; }
+  const activeOrder = state.orders[activeId];
+  if(activeOrder && orderProgress(activeOrder).key === 'done'){ alertWrongQty('此訂單已完成，禁止復原'); return; }
+  let idx = -1;
+  for(let i = state.scans.length - 1; i >= 0; i--){
+    if(state.scans[i].orderId === activeId){ idx = i; break; }
+  }
+  if(idx < 0){ toast('此訂單沒有可復原的紀錄'); return; }
+  const rec = state.scans.splice(idx, 1)[0];
   const order = state.orders[rec.orderId];
   const item = order?.items.find(i => i.name === rec.product);
   if(item) item.picked = Math.max(0, item.picked - rec.qty);
@@ -1435,6 +1501,11 @@ $('mapProduct').addEventListener('keydown', e => {
 $('undoBtn').onclick = undo;
 $('itemFilter').oninput = renderActive;
 $('saveStatusBtn').onclick = saveCurrentStatus;
+$('shipmentModalConfirm').onclick = confirmShipmentModal;
+$('shipmentModalCancel').onclick = () => { closeShipmentModal(); toast('已儲存品項，稍後記得回來補寄件編號'); showHome(); };
+$('shipmentModalInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); confirmShipmentModal(); }
+});
 $('backOrdersBtn').onclick = backToOrders;
 $('scanShipmentBtn').onclick = () => {
   const el = $('shipmentNo');

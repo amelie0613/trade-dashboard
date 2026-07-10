@@ -96,25 +96,41 @@ async function clearOrderRecords(){
   render();
   $('status').textContent=`已從 Supabase 永久刪除 ${ids.length} 張訂單`;
 }
+async function fetchAllRows(buildQuery){
+  const pageSize=1000;
+  let rows=[];
+  for(let from=0;;from+=pageSize){
+    const res=await buildQuery().range(from,from+pageSize-1);
+    if(res.error)throw new Error(res.error.message||'讀取 Supabase 失敗');
+    rows=rows.concat(res.data||[]);
+    if(!res.data||res.data.length<pageSize)break;
+  }
+  return rows;
+}
 async function loadFromSupabase(){
   const url=cleanSupabaseUrl($('sbUrl').value),key=norm($('sbKey').value);
   $('sbUrl').value=url;
   if(!url||!key){alert('請先填 Supabase URL 與 key');return}
   const sb=supabase.createClient(url,key);
-  const [ordersRes,itemsRes]=await Promise.all([
-    sb.from('barcode_orders').select('id,buyer_name,receiver_name,receiver_phone,receiver_address,shipment_no,status').order('id',{ascending:true}),
-    sb.from('barcode_order_items').select('order_id,line_no,product_name,ordered_qty,picked_qty').order('order_id',{ascending:true}).order('line_no',{ascending:true})
+  const [orderRows,itemRows,orderCountRes,itemCountRes]=await Promise.all([
+    fetchAllRows(()=>sb.from('barcode_orders').select('id,buyer_name,receiver_name,receiver_phone,receiver_address,shipment_no,status').order('id',{ascending:true})),
+    fetchAllRows(()=>sb.from('barcode_order_items').select('order_id,line_no,product_name,ordered_qty,picked_qty').order('order_id',{ascending:true}).order('line_no',{ascending:true})),
+    sb.from('barcode_orders').select('id',{count:'exact',head:true}),
+    sb.from('barcode_order_items').select('id',{count:'exact',head:true})
   ]);
-  if(ordersRes.error)throw new Error(ordersRes.error.message||'讀取 barcode_orders 失敗');
-  if(itemsRes.error)throw new Error(itemsRes.error.message||'讀取 barcode_order_items 失敗');
+  if(orderCountRes.error)throw new Error(orderCountRes.error.message||'讀取訂單筆數失敗');
+  if(itemCountRes.error)throw new Error(itemCountRes.error.message||'讀取品項筆數失敗');
+  if(orderRows.length!==orderCountRes.count||itemRows.length!==itemCountRes.count){
+    throw new Error(`資料載入不完整（訂單 ${orderRows.length}/${orderCountRes.count}、品項 ${itemRows.length}/${itemCountRes.count}），請重新載入`);
+  }
   const nextOrders={},nextShipments={};
-  (ordersRes.data||[]).forEach(row=>{
+  (orderRows||[]).forEach(row=>{
     const id=norm(row.id);
     if(!id)return;
     nextOrders[id]={id,buyer:row.buyer_name||'',receiver:row.receiver_name||'',receiverPhone:row.receiver_phone||'',receiverAddress:row.receiver_address||'',items:[]};
     nextShipments[id]=row.shipment_no||'';
   });
-  (itemsRes.data||[]).forEach(row=>{
+  (itemRows||[]).forEach(row=>{
     const o=nextOrders[norm(row.order_id)];
     if(!o)return;
     o.items.push({name:row.product_name||'',qty:Number(row.ordered_qty||0),picked:Number(row.picked_qty||0)});
