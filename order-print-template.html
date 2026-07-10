@@ -1048,6 +1048,7 @@
           </label>
           <button class="primary" type="button" id="savedPrintBtn">列印選取單據</button>
           <button type="button" id="confirmPrintedBtn">確認已列印</button>
+          <button class="danger" type="button" id="batchDeleteBtn">批次刪除</button>
           <button type="button" id="refreshOrdersBtn">刷新單號</button>
         </div>
       </div>
@@ -1415,6 +1416,11 @@
 
     async function supabaseDeleteOrder(orderId) {
       await supabaseFetch(`orders?id=eq.${encodeURIComponent(orderId)}`, { method: "DELETE" });
+    }
+
+    async function supabaseDeleteOrders(ids) {
+      if (ids.length === 0) return;
+      await supabaseFetch(`orders?id=in.(${ids.map(encodeURIComponent).join(",")})`, { method: "DELETE" });
     }
 
     function generateOrderId() {
@@ -1858,6 +1864,30 @@
       }
     }
 
+    async function batchDeleteSelectedOrders() {
+      const ids = selectedOrderIdList();
+      if (ids.length === 0) {
+        alert("\u8acb\u5148\u52fe\u9078\u8981\u522a\u9664\u7684\u55ae\u64da");
+        return;
+      }
+      if (!confirm(`\u78ba\u5b9a\u8981\u522a\u9664\u9078\u53d6\u7684 ${ids.length} \u5f35\u55ae\u64da\uff1f\u522a\u9664\u5f8c\u7121\u6cd5\u5fa9\u539f\u3002`)) return;
+      if (!useSupabase) {
+        alert("\u522a\u9664\u529f\u80fd\u76ee\u524d\u50c5\u652f\u63f4 Supabase \u7248\u672c\u3002");
+        return;
+      }
+      try {
+        await supabaseDeleteOrders(ids);
+        ids.forEach((id) => selectedOrderIds.delete(String(id)));
+        if (ids.includes(currentOrderId)) clearAll();
+        await loadSavedOrders();
+        await previewSelectedOrder();
+        alert("\u5df2\u522a\u9664 " + ids.length + " \u5f35\u55ae\u64da");
+      } catch (error) {
+        console.warn("Orders could not be batch deleted.", error);
+        alert("\u522a\u9664\u5931\u6557\uff0c\u8acb\u78ba\u8a8d Supabase orders \u6709 delete policy\u3002");
+      }
+    }
+
     async function toggleFavoriteOrder(orderId, favorite) {
       if (!orderId) return;
       try {
@@ -2186,6 +2216,7 @@
     document.getElementById("clearBtn").addEventListener("click", clearAll);
     document.getElementById("savedPrintBtn").addEventListener("click", openPrintConfirm);
     document.getElementById("confirmPrintedBtn").addEventListener("click", confirmPrinted);
+    document.getElementById("batchDeleteBtn").addEventListener("click", batchDeleteSelectedOrders);
     document.getElementById("refreshOrdersBtn").addEventListener("click", async (event) => {
       setBusy(event.currentTarget, true, "\u5237\u65b0\u4e2d...");
       try {
