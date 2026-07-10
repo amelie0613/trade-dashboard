@@ -1155,6 +1155,7 @@ function adjustItem(productName, delta){
   saveLocal();
   renderOrders();
   renderActive();
+  $('barcodeInput').focus();
   syncPickedToSupabase(order, item, delta, barcode).catch(err => alertWrongQty(`Supabase 同步失敗：${err.message}`));
   if(item.picked > item.qty){
     alertWrongQty(`數量超過：${item.name}，目前 ${item.picked} / 應出 ${item.qty}`);
