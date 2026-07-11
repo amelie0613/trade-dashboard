@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>訂單整合小軟體（離線版）</title>
+<title>薪水小偷訂單整合</title>
 <style>
   :root { --navy:#2f4358; --navy-dark:#223548; --green:#22b66f; --blue:#3399d6; --purple:#9855bf; --orange:#f0a31a; --red:#ef493d; --teal:#20bda7; --ink:#263746; --muted:#71808e; --line:#dce4e8; --surface:#fff; --bg:#f3f6f7; }
   * { box-sizing: border-box; }
@@ -177,7 +177,7 @@
 <body>
   <div class="auth-gate" id="authGate" hidden>
     <form class="auth-card" id="authForm">
-      <h2>訂單整合工具登入</h2>
+      <h2>薪水小偷訂單整合登入</h2>
       <p>此頁面僅限指定帳號使用。登入成功後會記住這台設備，下次開啟可直接使用。</p>
       <label for="authEmail">授權 Email</label>
       <input type="email" id="authEmail" autocomplete="email" placeholder="name@macroocean.org" required>
@@ -190,8 +190,7 @@
   <header class="app-header">
     <div class="header-inner">
       <div class="brand">
-        <h1>訂單整合小軟體<span class="offline-badge">離線可用</span><span class="mobile-mode-badge">手機模式</span></h1>
-        <p>集中處理客戶訂單、轉檔與出貨單同步</p>
+        <h1>薪水小偷訂單整合<span class="offline-badge">離線可用</span><span class="mobile-mode-badge">手機模式</span></h1>
       </div>
       <div class="header-actions">
         <span class="auth-user" id="authUser" hidden></span>
@@ -319,7 +318,7 @@
   <!-- ================= 啟新 ================= -->
   <div class="tab-panel" id="tab-qixin" hidden>
     <h2>啟新｜貼上 LINE 訊息</h2>
-    <p class="hint">直接貼上整段訊息文字，例如：<br>麻煩請幫我預約週四到貨<br>去皮鰹魚 10件（90KG)<br>黑鮪大腹 10箱<br>謝謝</p>
+    <p class="hint">直接貼上整段訊息文字</p>
     <textarea class="paste-box" id="qixinPasteBox" placeholder="在這裡貼上訊息文字"></textarea>
     <div class="actions" style="margin:10px 0;">
       <button id="qixinParseBtn">解析</button>
@@ -355,7 +354,7 @@
   <!-- ================= 魚君 ================= -->
   <div class="tab-panel" id="tab-yujun" hidden>
     <h2>魚君｜貼上 LINE 群組訊息</h2>
-    <p class="hint">直接貼上整段群組訊息，每個店家一段、中間空一行分隔，例如：<br>宏匯<br>赤身10公斤<br>謝謝<br><br>正義新光<br>赤身7公斤<br>大腹3公斤<br>謝謝</p>
+    <p class="hint">直接貼上整段群組訊息，每個店家一段、中間空一行分隔</p>
     <textarea class="paste-box" id="yujunPasteBox" placeholder="在這裡貼上整段群組訊息"></textarea>
     <div class="actions" style="margin:10px 0;">
       <button id="yujunParseBtn">解析</button>
@@ -804,7 +803,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   var isAdminMode = window.location.hash === "#admin";
   if (isAdminMode) {
     document.body.classList.add("admin-mode");
-    document.title = "後台資料管理｜訂單整合小軟體";
+    document.title = "後台資料管理｜薪水小偷訂單整合";
     adminMenuBtn.textContent = "← 返回訂單作業";
     var adminPanel = document.querySelector(".admin-wrap");
     if (adminPanel) adminPanel.open = true;
@@ -1324,12 +1323,41 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   function downloadBlob(blob, filename) {
+    var lowerName = String(filename || "").toLowerCase();
+    var mimeType = lowerName.endsWith(".xlsx")
+      ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      : (lowerName.endsWith(".zip") ? "application/zip" : (blob.type || "application/octet-stream"));
+    var downloadableBlob = blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
+
+    // 手機優先使用系統分享面板，可選「儲存到檔案」、雲端硬碟或其他 App。
+    try {
+      var file = new File([downloadableBlob], filename, { type: mimeType });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: filename }).catch(function (err) {
+          if (!err || err.name !== "AbortError") fallbackBrowserDownload(downloadableBlob, filename);
+        });
+        return;
+      }
+    } catch (e) {}
+
+    fallbackBrowserDownload(downloadableBlob, filename);
+  }
+
+  function fallbackBrowserDownload(blob, filename) {
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
     a.download = filename;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    // iOS / 內建瀏覽器需要較長時間讀取 Blob，不能點擊後立即釋放。
+    setTimeout(function () {
+      if (a.parentNode) a.parentNode.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 60000);
   }
 
   convertBtn.addEventListener("click", function () {
