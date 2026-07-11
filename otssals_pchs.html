@@ -28,6 +28,13 @@
   .header-actions { display:flex; align-items:center; gap:9px; }
   .header-action { display:inline-flex; align-items:center; min-height:38px; padding:8px 13px; border:1px solid rgba(255,255,255,.35); border-radius:7px; color:#fff; background:transparent; font-size:13px; font-weight:700; text-decoration:none; }
   .header-action:hover { color:var(--navy); background:#fff; box-shadow:none; }
+  .quick-links-menu { position:relative; }
+  .quick-links-menu > summary { list-style:none; cursor:pointer; user-select:none; }
+  .quick-links-menu > summary::-webkit-details-marker { display:none; }
+  .quick-links-dropdown { position:absolute; z-index:30; top:47px; right:0; width:260px; padding:8px; border-radius:8px; background:#fff; box-shadow:0 14px 36px rgba(25,42,58,.28); }
+  .quick-links-dropdown a,.quick-links-empty { display:block; padding:10px 11px; border-radius:5px; color:var(--ink); font-size:13px; text-decoration:none; }
+  .quick-links-dropdown a:hover { color:#fff; background:var(--navy); }
+  .quick-links-empty { color:var(--muted); }
   .container { max-width:1120px; margin:0 auto; padding:26px 22px 48px; }
   .section-title { margin:0 0 5px; font-size:18px; }
   .hint { margin:6px 0; color:var(--muted); font-size:12px; line-height:1.65; }
@@ -120,6 +127,9 @@
     .mobile-mode-badge { display:inline-block; float:right; margin-top:2px; padding:3px 7px; border-radius:12px; color:#d8ffeb; background:rgba(34,182,111,.2); font-size:10px; font-weight:400; }
     .header-actions { width:100%; flex-wrap:wrap; }
     .header-action { flex:1 1 130px; justify-content:center; min-height:42px; }
+    .quick-links-menu { flex:1 1 130px; }
+    .quick-links-menu > .header-action { width:100%; }
+    .quick-links-dropdown { position:fixed; top:126px; right:12px; left:12px; width:auto; }
     .container { padding:14px 12px 34px; }
     .sync-strip { align-items:flex-start; flex-direction:column; margin-bottom:14px; padding:9px 11px; font-size:12px; }
     .settings-card { padding:15px 13px; overflow:visible; }
@@ -195,6 +205,10 @@
       <div class="header-actions">
         <span class="auth-user" id="authUser" hidden></span>
         <button class="header-action" type="button" id="authLogoutBtn" hidden>登出</button>
+        <details class="quick-links-menu" id="quickLinksMenu">
+          <summary class="header-action">常用連結 ▾</summary>
+          <div class="quick-links-dropdown" id="quickLinksDropdown"><span class="quick-links-empty">尚未設定常用連結</span></div>
+        </details>
         <button class="header-action" type="button" id="adminMenuBtn">⚙ 後台資料管理</button>
         <a class="header-action" href="https://amelie0613.github.io/trade-dashboard/order-print-template.html" target="_blank" rel="noopener">列印出貨單 ↗</a>
       </div>
@@ -215,7 +229,7 @@
         <table id="settingsTable">
           <thead><tr>
             <th>業務人員編號（1）<small>用於 Excel 報表</small></th>
-            <th>業務人員編號（2）<small>用於轉單到 Supabase</small></th>
+            <th>業務人員編號（2）<small>用於轉單到出貨單</small></th>
             <th>公司編號</th><th>部門編號</th><th>發貨人</th>
           </tr></thead>
           <tbody></tbody>
@@ -277,7 +291,7 @@
 
       <div class="actions" style="display:flex;gap:10px;">
         <button id="convertBtn">轉換並下載 Excel</button>
-        <button id="supabaseBtn">轉單到 Supabase（出貨單系統）</button>
+        <button id="supabaseBtn">轉單到出貨單</button>
       </div>
     </div>
   </div>
@@ -310,7 +324,7 @@
 
       <div class="actions" style="display:flex;gap:10px;">
         <button id="napoliceConvertBtn">轉換並下載 Excel</button>
-        <button id="napoliceSupabaseBtn">轉單到 Supabase（出貨單系統）</button>
+        <button id="napoliceSupabaseBtn">轉單到出貨單</button>
       </div>
     </div>
   </div>
@@ -346,7 +360,7 @@
 
       <div class="actions" style="display:flex;gap:10px;">
         <button id="qixinConvertBtn">轉換並下載 Excel</button>
-        <button id="qixinSupabaseBtn">轉單到 Supabase（出貨單系統）</button>
+        <button id="qixinSupabaseBtn">轉單到出貨單</button>
       </div>
     </div>
   </div>
@@ -379,7 +393,7 @@
 
       <div class="actions" style="display:flex;gap:10px;">
         <button id="yujunConvertBtn">轉換並下載 Excel</button>
-        <button id="yujunSupabaseBtn">轉單到 Supabase（出貨單系統）</button>
+        <button id="yujunSupabaseBtn">轉單到出貨單</button>
       </div>
     </div>
     </div>
@@ -401,6 +415,12 @@
             <p class="hint">維護轉單時可選擇的發貨人名單。</p>
             <table id="shipperMapTable"><thead><tr><th>發貨人</th><th></th></tr></thead><tbody></tbody></table>
             <button class="small" id="addShipperRowBtn">新增一列</button>
+          </section>
+          <section class="admin-card wide">
+            <h3>常用連結設定</h3>
+            <p class="hint">設定頁首下拉選單的連結名稱與網址；網址請包含 https:// 或 http://。</p>
+            <table id="quickLinksTable"><thead><tr><th>連結名稱</th><th>URL</th><th></th></tr></thead><tbody></tbody></table>
+            <button class="small" id="addQuickLinkBtn">新增連結</button>
           </section>
           <section class="admin-card wide mapping-tabs">
             <h3>各客戶產品與門市對照</h3>
@@ -1070,6 +1090,105 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (typeof renderAllShipperSelects === "function") renderAllShipperSelects();
   });
 
+  // ---------- 頁首常用連結 ----------
+  var QUICK_LINKS_KEY = "otssals_quick_links_v1";
+  var quickLinks = loadQuickLinks();
+
+  function loadQuickLinks() {
+    try {
+      var raw = localStorage.getItem(QUICK_LINKS_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return [];
+  }
+
+  function saveQuickLinks() {
+    CloudSync.save(QUICK_LINKS_KEY, quickLinks);
+  }
+
+  function safeQuickLinkUrl(value) {
+    var url = String(value || "").trim();
+    return /^https?:\/\//i.test(url) ? url : "";
+  }
+
+  function renderQuickLinksMenu() {
+    var dropdown = document.getElementById("quickLinksDropdown");
+    dropdown.innerHTML = "";
+    var validLinks = quickLinks.filter(function (link) {
+      return String(link.label || "").trim() && safeQuickLinkUrl(link.url);
+    });
+    if (!validLinks.length) {
+      var empty = document.createElement("span");
+      empty.className = "quick-links-empty";
+      empty.textContent = "尚未設定常用連結";
+      dropdown.appendChild(empty);
+      return;
+    }
+    validLinks.forEach(function (link) {
+      var anchor = document.createElement("a");
+      anchor.href = safeQuickLinkUrl(link.url);
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.textContent = link.label;
+      anchor.addEventListener("click", function () {
+        document.getElementById("quickLinksMenu").open = false;
+      });
+      dropdown.appendChild(anchor);
+    });
+  }
+
+  function renderQuickLinksTable() {
+    var tbody = document.querySelector("#quickLinksTable tbody");
+    tbody.innerHTML = "";
+    quickLinks.forEach(function (link, idx) {
+      var tr = document.createElement("tr");
+      ["label", "url"].forEach(function (field) {
+        var td = document.createElement("td");
+        var input = document.createElement("input");
+        input.type = field === "url" ? "url" : "text";
+        input.placeholder = field === "url" ? "https://example.com" : "連結名稱";
+        input.value = link[field] || "";
+        input.addEventListener("input", function () {
+          quickLinks[idx][field] = input.value;
+          saveQuickLinks();
+          renderQuickLinksMenu();
+        });
+        td.appendChild(input);
+        tr.appendChild(td);
+      });
+      var tdDel = document.createElement("td");
+      var delBtn = document.createElement("button");
+      delBtn.className = "small";
+      delBtn.textContent = "刪除";
+      delBtn.addEventListener("click", function () {
+        quickLinks.splice(idx, 1);
+        saveQuickLinks();
+        renderQuickLinksTable();
+        renderQuickLinksMenu();
+      });
+      tdDel.appendChild(delBtn);
+      tr.appendChild(tdDel);
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById("addQuickLinkBtn").addEventListener("click", function () {
+    quickLinks.push({ label: "", url: "" });
+    saveQuickLinks();
+    renderQuickLinksTable();
+  });
+  document.addEventListener("click", function (event) {
+    var menu = document.getElementById("quickLinksMenu");
+    if (menu.open && !menu.contains(event.target)) menu.open = false;
+  });
+  renderQuickLinksTable();
+  renderQuickLinksMenu();
+  CloudSync.register(QUICK_LINKS_KEY, function (newData) {
+    quickLinks = Array.isArray(newData) ? newData : [];
+    renderQuickLinksTable();
+    renderQuickLinksMenu();
+  });
+
   // ---------- staff code -> name map (localStorage) ----------
   var STAFF_STORAGE_KEY = "shanshang_staff_map_v1";
   var DEFAULT_STAFF_MAP = [{ code: "101002", name: "楊正國" }];
@@ -1521,7 +1640,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       showError("轉單失敗：" + err.message);
     } finally {
       supabaseBtn.disabled = false;
-      supabaseBtn.textContent = "轉單到 Supabase（出貨單系統）";
+      supabaseBtn.textContent = "轉單到出貨單";
     }
   });
 
@@ -2184,7 +2303,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       showError("轉單失敗：" + err.message);
     } finally {
       napoliceSupabaseBtn.disabled = false;
-      napoliceSupabaseBtn.textContent = "轉單到 Supabase（出貨單系統）";
+      napoliceSupabaseBtn.textContent = "轉單到出貨單";
     }
   });
 
@@ -2471,7 +2590,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       showError("轉單失敗：" + err.message);
     } finally {
       qixinSupabaseBtn.disabled = false;
-      qixinSupabaseBtn.textContent = "轉單到 Supabase（出貨單系統）";
+      qixinSupabaseBtn.textContent = "轉單到出貨單";
     }
   });
 
@@ -2707,7 +2826,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       showError("轉單失敗：" + err.message);
     } finally {
       yujunSupabaseBtn.disabled = false;
-      yujunSupabaseBtn.textContent = "轉單到 Supabase（出貨單系統）";
+      yujunSupabaseBtn.textContent = "轉單到出貨單";
     }
   });
 
