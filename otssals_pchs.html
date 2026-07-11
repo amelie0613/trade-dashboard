@@ -4,89 +4,162 @@
 <meta charset="utf-8">
 <title>訂單整合小軟體（離線版）</title>
 <style>
-  body { font-family: "Microsoft JhengHei", Arial, sans-serif; max-width: 960px; margin: 40px auto; padding: 0 16px; color: #222; }
-  h1 { font-size: 20px; }
-  h2 { font-size: 16px; margin-top: 36px; border-top: 1px solid #eee; padding-top: 20px; }
-  .drop { border: 2px dashed #999; border-radius: 8px; padding: 40px; text-align: center; color: #666; cursor: pointer; }
-  .drop.dragover { background: #eef6ff; border-color: #3b82f6; }
-  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
-  th, td { border: 1px solid #ddd; padding: 6px 10px; font-size: 14px; text-align: left; }
-  th { background: #f5f5f5; }
-  td input { width: 100%; box-sizing: border-box; border: 1px solid #ccc; padding: 4px; font-size: 13px; }
-  .group { margin-bottom: 20px; border: 1px solid #eee; border-radius: 6px; padding: 12px; }
-  .group h3 { margin: 0 0 8px; font-size: 15px; }
-  .group.missing { border-color: #e67e22; background: #fffaf3; }
-  .missing-note { color: #d35400; font-size: 13px; margin-top: 6px; }
-  .dates { display: flex; gap: 24px; margin: 20px 0; }
-  .dates label { display: block; font-size: 13px; margin-bottom: 4px; color: #555; }
-  input[type=date], input[type=text] { padding: 6px; font-size: 14px; }
-  button { padding: 10px 20px; font-size: 15px; background: #2563eb; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
-  button.small { padding: 5px 12px; font-size: 13px; }
-  button:disabled { background: #999; cursor: not-allowed; }
-  .hint { color: #888; font-size: 12px; }
-  .offline-badge { display:inline-block; background:#e8f5e9; color:#2e7d32; font-size:12px; padding:2px 8px; border-radius: 10px; margin-left: 8px; }
-  .tabs { display: flex; gap: 8px; margin: 24px 0 0; border-bottom: 2px solid #e5e7eb; }
-  .tab-btn { background: #f1f5f9; color: #444; border: 1px solid #e5e7eb; border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 18px; font-size: 15px; cursor: pointer; }
-  .tab-btn.active { background: #2563eb; color: #fff; }
-  .tab-panel[hidden] { display: none; }
-  .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 20px; margin: 12px 0; }
-  .field-grid label { font-size: 13px; color: #555; display: block; }
-  .field-grid input, .field-grid select { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px; font-size: 14px; }
-  textarea.paste-box { width: 100%; box-sizing: border-box; min-height: 160px; padding: 8px; font-size: 14px; font-family: inherit; }
+  :root { --navy:#2f4358; --navy-dark:#223548; --green:#22b66f; --blue:#3399d6; --purple:#9855bf; --orange:#f0a31a; --red:#ef493d; --teal:#20bda7; --ink:#263746; --muted:#71808e; --line:#dce4e8; --surface:#fff; --bg:#f3f6f7; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Microsoft JhengHei",Arial,sans-serif; }
+  .app-header { background:var(--navy); color:#fff; box-shadow:0 3px 12px rgba(34,53,72,.18); }
+  .header-inner { max-width:1120px; min-height:76px; margin:auto; padding:14px 22px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+  .brand h1 { margin:0; font-size:24px; letter-spacing:.04em; }
+  .brand p { margin:5px 0 0; color:#dbe5ed; font-size:12px; }
+  .offline-badge { display:inline-block; margin-left:9px; padding:3px 9px; border-radius:20px; color:#d8ffeb; background:rgba(34,182,111,.2); border:1px solid rgba(127,235,181,.35); font-size:11px; vertical-align:middle; }
+  .header-actions { display:flex; align-items:center; gap:9px; }
+  .header-action { display:inline-flex; align-items:center; min-height:38px; padding:8px 13px; border:1px solid rgba(255,255,255,.35); border-radius:7px; color:#fff; background:transparent; font-size:13px; font-weight:700; text-decoration:none; }
+  .header-action:hover { color:var(--navy); background:#fff; box-shadow:none; }
+  .container { max-width:1120px; margin:0 auto; padding:26px 22px 48px; }
+  .section-title { margin:0 0 5px; font-size:18px; }
+  .hint { margin:6px 0; color:var(--muted); font-size:12px; line-height:1.65; }
+  .sync-strip { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:0 0 22px; padding:10px 14px; border:1px solid var(--line); border-radius:7px; background:#fff; }
+  .settings-card { margin:0 0 24px; padding:22px; border:1px solid var(--line); border-radius:9px; background:#fff; box-shadow:0 3px 12px rgba(34,53,72,.06); }
+  .settings-card h2 { margin-bottom:4px; }
+  .settings-card th { vertical-align:top; }
+  .settings-card th small { display:block; margin-top:4px; color:#d8e4eb; font-weight:400; line-height:1.35; }
+  button { padding:10px 18px; border:0; border-radius:6px; color:#fff; background:var(--navy); font:700 14px inherit; cursor:pointer; transition:transform .12s,box-shadow .12s,opacity .12s; }
+  button:hover { transform:translateY(-1px); box-shadow:0 4px 10px rgba(34,53,72,.15); }
+  button.small { padding:6px 11px; font-size:12px; }
+  button:disabled { cursor:not-allowed; opacity:.55; transform:none; }
+  .tabs { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:16px 0 22px; }
+  .tab-btn { min-height:86px; padding:14px 10px; border-radius:7px; color:#fff; background:var(--blue); box-shadow:0 3px 8px rgba(34,53,72,.08); }
+  .tab-btn:nth-child(2){background:var(--purple)} .tab-btn:nth-child(3){background:var(--orange)} .tab-btn:nth-child(4){background:var(--teal)}
+  .tab-btn::before { content:"訂單匯入"; display:block; margin-bottom:7px; font-size:11px; font-weight:400; opacity:.85; }
+  .tab-btn.active { outline:3px solid var(--navy); outline-offset:2px; }
+  .batch-download-card { display:flex; align-items:center; justify-content:space-between; gap:20px; margin:0 0 22px; padding:18px 20px; border:1px solid var(--line); border-left:5px solid var(--green); border-radius:9px; background:#fff; box-shadow:0 3px 12px rgba(34,53,72,.06); }
+  .batch-download-card h2 { margin:0 0 5px; }
+  .batch-statuses { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+  .batch-status { padding:4px 9px; border-radius:20px; color:#6f7f8c; background:#edf1f3; font-size:11px; }
+  .batch-status.ready { color:#167949; background:#daf7e8; }
+  #batchDownloadBtn { flex:0 0 auto; background:var(--green); }
+  .workspace,.admin-panel { padding:24px; border:1px solid var(--line); border-radius:9px; background:#fff; box-shadow:0 3px 12px rgba(34,53,72,.06); }
+  .tab-panel[hidden] { display:none; }
+  h2 { margin:0 0 14px; font-size:18px; }
+  h3 { margin:22px 0 8px; font-size:15px; }
+  .drop { margin-top:16px; padding:54px 24px; border:2px dashed #9eb1be; border-radius:9px; text-align:center; color:#617887; background:#f8fbfc; cursor:pointer; }
+  .drop::before { content:"＋"; display:block; margin:auto auto 10px; width:34px; height:34px; line-height:32px; border-radius:50%; color:#fff; background:var(--green); font-size:24px; }
+  .drop.dragover { border-color:var(--green); background:#edfff5; }
+  table { width:100%; margin:12px 0; border-collapse:collapse; }
+  th,td { padding:8px 10px; border:1px solid var(--line); font-size:13px; text-align:left; }
+  th { color:#fff; background:var(--navy); font-weight:700; }
+  tr:nth-child(even) td { background:#f8fafb; }
+  input,select,textarea { width:100%; border:1px solid #cbd7dd; border-radius:4px; background:#fff; color:var(--ink); font:14px inherit; }
+  td input { padding:6px; }
+  input[type=date],input[type=text],select { padding:8px; }
+  textarea.paste-box { min-height:180px; padding:12px; resize:vertical; }
+  .field-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px 20px; margin:18px 0; }
+  .field-grid label,.dates label { display:block; color:#526675; font-size:12px; font-weight:700; }
+  .field-grid input,.field-grid select { margin-top:5px; }
+  .dates { display:flex; gap:24px; margin:20px 0; }
+  .dates > div { flex:1; }
+  .dates input { margin-top:5px; }
+  .actions { flex-wrap:wrap; }
+  .actions button:last-child { background:var(--green); }
+  .group { margin-bottom:16px; padding:14px; border:1px solid var(--line); border-radius:7px; }
+  .group h3 { margin:0 0 8px; }
+  .group.missing { border-color:#f0a31a; background:#fffaf0; }
+  .missing-note { margin-top:7px; color:#d46f00; font-size:12px; }
+  #error,#ok { border-radius:6px; }
+  #error:not(:empty),#ok:not(:empty) { padding:10px 13px; background:#fff; border:1px solid var(--line); }
+  .admin-wrap { display:none; margin-top:28px; }
+  .admin-wrap > summary { list-style:none; cursor:pointer; padding:16px 20px; border-radius:8px; color:#fff; background:var(--navy); font-weight:700; }
+  .admin-wrap > summary::-webkit-details-marker { display:none; }
+  .admin-wrap > summary::after { content:"展開管理"; float:right; color:#d9e5ec; font-size:12px; font-weight:400; }
+  .admin-wrap[open] > summary { border-radius:8px 8px 0 0; }
+  .admin-wrap[open] > summary::after { content:"收合後台"; }
+  .admin-panel { border-radius:0 0 9px 9px; box-shadow:none; }
+  body.admin-mode .admin-wrap { display:block; margin-top:0; }
+  body.admin-mode .admin-wrap > summary { display:none; }
+  body.admin-mode .admin-panel { border-radius:9px; box-shadow:0 3px 12px rgba(34,53,72,.06); }
+  body.admin-mode .sync-strip,
+  body.admin-mode .settings-card,
+  body.admin-mode .section-title,
+  body.admin-mode .container > .hint,
+  body.admin-mode .tabs,
+  body.admin-mode .batch-download-card,
+  body.admin-mode #error,
+  body.admin-mode #ok,
+  body.admin-mode .workspace { display:none; }
+  .admin-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .admin-card { padding:16px; border:1px solid var(--line); border-radius:7px; background:#fbfcfd; overflow:auto; }
+  .admin-card.wide { grid-column:1/-1; }
+  .admin-card h3 { margin:0; }
+  .mapping-tabs details { margin-top:10px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  .mapping-tabs summary { cursor:pointer; padding:12px 14px; color:var(--navy); font-weight:700; }
+  .mapping-content { padding:0 14px 14px; overflow:auto; }
+  @media(max-width:760px){ .header-inner{align-items:flex-start;flex-direction:column}.brand h1{font-size:19px}.brand p{display:none}.header-actions{width:100%}.header-action{flex:1;justify-content:center}.tabs{grid-template-columns:1fr 1fr}.batch-download-card{align-items:stretch;flex-direction:column}.batch-download-card button{width:100%}.admin-grid{grid-template-columns:1fr}.admin-card.wide{grid-column:auto}.field-grid{grid-template-columns:1fr}.dates{flex-direction:column;gap:12px}.workspace{padding:17px}.settings-card{padding:16px;overflow:auto}.settings-card table{min-width:800px}.sync-strip{align-items:flex-start;flex-direction:column} }
 </style>
 </head>
 <body>
-  <h1>訂單整合小軟體<span class="offline-badge">離線版，雙擊即可用</span></h1>
-  <p class="hint">此頁面完全在您的電腦本機執行，不需要另外開伺服器。有網路時，所有對照表會自動同步到雲端（Supabase），多台電腦、線上/離線版共用同一份；沒網路時自動改用本機快取，照常運作。</p>
-  <p class="hint"><span id="syncStatus">正在檢查雲端對照表…</span>　<button class="small" type="button" id="syncNowBtn">立即同步</button></p>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <h1>訂單整合小軟體<span class="offline-badge">離線可用</span></h1>
+        <p>集中處理客戶訂單、轉檔與出貨單同步</p>
+      </div>
+      <div class="header-actions">
+        <button class="header-action" type="button" id="adminMenuBtn">⚙ 後台資料管理</button>
+        <a class="header-action" href="https://amelie0613.github.io/trade-dashboard/order-print-template.html" target="_blank" rel="noopener">列印出貨單 ↗</a>
+      </div>
+    </div>
+  </header>
 
-  <h2>① 基本設定（業務人員編號 / 公司編號 / 部門編號）</h2>
-  <p class="hint">這幾個欄位會自動存在這個瀏覽器裡，所有匯入類型共用，之後每次轉換都會套用這裡填的值。</p>
-  <table id="settingsTable">
-    <thead><tr><th>業務人員編號</th><th>公司編號</th><th>部門編號</th></tr></thead>
-    <tbody></tbody>
-  </table>
+  <main class="container">
+    <div class="sync-strip">
+      <span id="syncStatus">正在檢查雲端對照表…</span>
+      <button class="small" type="button" id="syncNowBtn">立即同步</button>
+    </div>
 
-  <h2>② 業務代碼對照表（業務人員編號 → 姓名，轉單到 Supabase 時用）</h2>
-  <p class="hint">「出貨單」系統存的業務欄位是姓名，不是編號，所以需要這份對照表把編號轉成姓名。</p>
-  <table id="staffMapTable">
-    <thead><tr><th>業務人員編號</th><th>姓名</th><th></th></tr></thead>
-    <tbody></tbody>
-  </table>
-  <button class="small" id="addStaffRowBtn">新增一列</button>
+    <section class="settings-card">
+      <h2>訂單基本設定</h2>
+      <p class="hint">所有客戶共用，修改後會自動保存並套用到後續訂單。</p>
+      <table id="settingsTable">
+        <thead><tr>
+          <th>業務人員編號（1）<small>用於 Excel 報表</small></th>
+          <th>業務人員編號（2）<small>用於轉單到 Supabase</small></th>
+          <th>公司編號</th><th>部門編號</th><th>發貨人</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
 
-  <h2>③ 發貨人選項（轉單到 Supabase 時可選擇）</h2>
-  <p class="hint">維護可選的發貨人名單，善商以外的匯入類型轉單時都可以從下拉選單挑選對應的發貨人。</p>
-  <table id="shipperMapTable">
-    <thead><tr><th>發貨人</th><th></th></tr></thead>
-    <tbody></tbody>
-  </table>
-  <button class="small" id="addShipperRowBtn">新增一列</button>
-
-  <div id="error" style="color:#c0392b;margin:16px 0;white-space:pre-wrap;"></div>
-  <div id="ok" style="color:#1e7e34;margin:16px 0;"></div>
-
-  <div class="tabs">
+    <h2 class="section-title">選擇訂單來源</h2>
+    <p class="hint">選擇客戶後，上傳訂單檔案或貼上訊息即可開始轉換。</p>
+    <div class="tabs">
     <button class="tab-btn active" type="button" data-tab="shanshang">善商（供應商訂單）</button>
     <button class="tab-btn" type="button" data-tab="napolice">那波麗士（採購單 PDF）</button>
     <button class="tab-btn" type="button" data-tab="qixin">啟新（LINE 訊息）</button>
     <button class="tab-btn" type="button" data-tab="yujun">魚君（LINE 群組）</button>
-  </div>
+    </div>
+
+    <section class="batch-download-card">
+      <div>
+        <h2>四客戶訂單批次下載</h2>
+        <p class="hint">四個來源都匯入或解析完成後，可一次下載全部 Excel。</p>
+        <div class="batch-statuses">
+          <span class="batch-status" id="batchStatusShanshang">善商：尚未匯入</span>
+          <span class="batch-status" id="batchStatusNapolice">那波麗士：尚未匯入</span>
+          <span class="batch-status" id="batchStatusQixin">啟新：尚未解析</span>
+          <span class="batch-status" id="batchStatusYujun">魚君：尚未解析</span>
+        </div>
+      </div>
+      <button type="button" id="batchDownloadBtn" disabled>一鍵下載全部 Excel</button>
+    </section>
+
+    <div id="error" style="color:#c0392b;margin:16px 0;white-space:pre-wrap;"></div>
+    <div id="ok" style="color:#1e7e34;margin:16px 0;"></div>
+
+    <section class="workspace">
 
   <!-- ================= 善商 ================= -->
   <div class="tab-panel" id="tab-shanshang">
-    <h2>品項對照表（品項代碼 → 產品資料編號 / 客單備註）</h2>
-    <p class="hint">資料會自動存在這個瀏覽器裡（下次開啟還在）。有新品項時，按「新增一列」填入即可；建議偶爾按「匯出備份」存一份 JSON 檔，避免瀏覽器資料被清除。</p>
-    <table id="mapTable">
-      <thead><tr><th>品項代碼</th><th>品項名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <button class="small" id="addRowBtn">新增一列</button>
-    <button class="small" id="exportMapBtn">匯出備份</button>
-    <button class="small" id="importMapBtn">匯入備份</button>
-    <input type="file" id="importMapFile" accept=".json" style="display:none">
-
-    <h2>上傳 ORD 檔案</h2>
+    <h2>善商｜上傳 ORD 檔案</h2>
     <div class="drop" id="dropzone">拖拉 ORD 檔案到這裡，或點擊選擇檔案</div>
     <input type="file" id="fileInput" accept=".xlsx" style="display:none">
 
@@ -114,26 +187,7 @@
 
   <!-- ================= 那波麗士 ================= -->
   <div class="tab-panel" id="tab-napolice" hidden>
-    <h2>商品對照表（商品編號 → 產品資料編號 / 客單備註）</h2>
-    <p class="hint">那波麗士的商品編號跟善商完全不同，需要另外一份對照表。</p>
-    <table id="napoliceMapTable">
-      <thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <button class="small" id="napoliceAddRowBtn">新增一列</button>
-    <button class="small" id="napoliceExportMapBtn">匯出備份</button>
-    <button class="small" id="napoliceImportMapBtn">匯入備份</button>
-    <input type="file" id="napoliceImportMapFile" accept=".json" style="display:none">
-
-    <h2>門市簡稱對照表（門市名稱 → 門市簡稱）</h2>
-    <p class="hint">PDF 上的門市名稱通常較長（如「承知助南港店」），出貨單上習慣用簡稱（如「南港」）。找不到對照時會直接沿用完整門市名稱。</p>
-    <table id="napoliceStoreMapTable">
-      <thead><tr><th>門市名稱</th><th>門市簡稱</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <button class="small" id="napoliceAddStoreRowBtn">新增一列</button>
-
-    <h2>上傳採購單 PDF</h2>
+    <h2>那波麗士｜上傳採購單 PDF</h2>
     <div class="drop" id="napoliceDropzone">拖拉那波麗士採購單 PDF 到這裡，或點擊選擇檔案</div>
     <input type="file" id="napoliceFileInput" accept=".pdf" style="display:none">
 
@@ -144,7 +198,7 @@
         <label>門市名稱<input type="text" id="napoliceStoreName"></label>
         <label>採購單號<input type="text" id="napolicePoNo"></label>
         <label>訂貨單號<input type="text" id="napoliceOrderNo"></label>
-        <label>發貨人（轉單到 Supabase 用）<select id="napoliceShipperSelect"></select></label>
+        <select id="napoliceShipperSelect" hidden></select>
       </div>
       <div id="napoliceItems"></div>
 
@@ -168,15 +222,7 @@
 
   <!-- ================= 啟新 ================= -->
   <div class="tab-panel" id="tab-qixin" hidden>
-    <h2>商品對照表（商品編號 → 產品資料編號 / 客單備註）</h2>
-    <p class="hint">啟新用簡稱下單（如「去皮鰹魚」「黑鮪大腹」），需要對照到您的產品資料編號。啟新沒有商品編號可用，「商品編號」欄可留空；「客單備註」欄不會用到（啟新的客單備註是從訊息內容自動算出來的，跟其他分頁不同）。</p>
-    <table id="qixinMapTable">
-      <thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <button class="small" id="qixinAddRowBtn">新增一列</button>
-
-    <h2>貼上 LINE 訊息</h2>
+    <h2>啟新｜貼上 LINE 訊息</h2>
     <p class="hint">直接貼上整段訊息文字，例如：<br>麻煩請幫我預約週四到貨<br>去皮鰹魚 10件（90KG)<br>黑鮪大腹 10箱<br>謝謝</p>
     <textarea class="paste-box" id="qixinPasteBox" placeholder="在這裡貼上訊息文字"></textarea>
     <div class="actions" style="margin:10px 0;">
@@ -187,7 +233,7 @@
       <div id="qixinMeta"></div>
       <p class="hint">解析可能有誤，請核對下面欄位再轉換。</p>
       <div class="field-grid">
-        <label>發貨人（轉單到 Supabase 用）<select id="qixinShipperSelect"></select></label>
+        <select id="qixinShipperSelect" hidden></select>
         <label>訂單備註<input type="text" id="qixinOrderNote" placeholder="例如：裕鵬 7/9要到貨"></label>
       </div>
       <div id="qixinItems"></div>
@@ -212,23 +258,7 @@
 
   <!-- ================= 魚君 ================= -->
   <div class="tab-panel" id="tab-yujun" hidden>
-    <h2>商品對照表（商品編號 → 產品資料編號 / 客單備註）</h2>
-    <p class="hint">魚君群組用簡稱下單（如「赤身」「大腹」「中腹」），需要對照到您的產品資料編號。魚君沒有商品編號可用，「商品編號」欄可留空。</p>
-    <table id="yujunMapTable">
-      <thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <button class="small" id="yujunAddRowBtn">新增一列</button>
-
-    <h2>門市簡稱對照表（可選）</h2>
-    <p class="hint">如果訊息裡的店名需要換成簡稱，可以在這裡設定；找不到對照時會直接沿用訊息裡的店名。</p>
-    <table id="yujunStoreMapTable">
-      <thead><tr><th>店名</th><th>簡稱</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <button class="small" id="yujunAddStoreRowBtn">新增一列</button>
-
-    <h2>貼上 LINE 群組訊息</h2>
+    <h2>魚君｜貼上 LINE 群組訊息</h2>
     <p class="hint">直接貼上整段群組訊息，每個店家一段、中間空一行分隔，例如：<br>宏匯<br>赤身10公斤<br>謝謝<br><br>正義新光<br>赤身7公斤<br>大腹3公斤<br>謝謝</p>
     <textarea class="paste-box" id="yujunPasteBox" placeholder="在這裡貼上整段群組訊息"></textarea>
     <div class="actions" style="margin:10px 0;">
@@ -238,9 +268,7 @@
     <div id="yujunResult" style="display:none;">
       <div id="yujunMeta"></div>
       <p class="hint">解析可能有誤，請核對下面欄位再轉換。每個店家會產生一張獨立的單據。</p>
-      <div class="field-grid">
-        <label>發貨人（轉單到 Supabase 用）<select id="yujunShipperSelect"></select></label>
-      </div>
+      <select id="yujunShipperSelect" hidden></select>
       <div id="yujunGroups"></div>
 
       <div class="dates">
@@ -259,7 +287,50 @@
         <button id="yujunSupabaseBtn">轉單到 Supabase（出貨單系統）</button>
       </div>
     </div>
-  </div>
+    </div>
+    </section>
+
+    <details class="admin-wrap">
+      <summary>後台資料管理</summary>
+      <div class="admin-panel">
+        <p class="hint">日常不需開啟；只有新增商品、資料未對照或人員異動時再進入確認。</p>
+        <div class="admin-grid">
+          <section class="admin-card">
+            <h3>業務代碼對照</h3>
+            <p class="hint">業務人員編號會轉換成出貨單系統使用的姓名。</p>
+            <table id="staffMapTable"><thead><tr><th>業務人員編號</th><th>姓名</th><th></th></tr></thead><tbody></tbody></table>
+            <button class="small" id="addStaffRowBtn">新增一列</button>
+          </section>
+          <section class="admin-card">
+            <h3>發貨人選項</h3>
+            <p class="hint">維護轉單時可選擇的發貨人名單。</p>
+            <table id="shipperMapTable"><thead><tr><th>發貨人</th><th></th></tr></thead><tbody></tbody></table>
+            <button class="small" id="addShipperRowBtn">新增一列</button>
+          </section>
+          <section class="admin-card wide mapping-tabs">
+            <h3>各客戶產品與門市對照</h3>
+            <details><summary>善商產品對照</summary><div class="mapping-content">
+              <table id="mapTable"><thead><tr><th>品項代碼</th><th>品項名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table>
+              <button class="small" id="addRowBtn">新增一列</button> <button class="small" id="exportMapBtn">匯出備份</button> <button class="small" id="importMapBtn">匯入備份</button>
+              <input type="file" id="importMapFile" accept=".json" style="display:none">
+            </div></details>
+            <details><summary>那波麗士產品與門市對照</summary><div class="mapping-content">
+              <h3>商品對照</h3><table id="napoliceMapTable"><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table>
+              <button class="small" id="napoliceAddRowBtn">新增一列</button> <button class="small" id="napoliceExportMapBtn">匯出備份</button> <button class="small" id="napoliceImportMapBtn">匯入備份</button><input type="file" id="napoliceImportMapFile" accept=".json" style="display:none">
+              <h3>門市簡稱對照</h3><table id="napoliceStoreMapTable"><thead><tr><th>門市名稱</th><th>門市簡稱</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="napoliceAddStoreRowBtn">新增一列</button>
+            </div></details>
+            <details><summary>啟新產品對照</summary><div class="mapping-content">
+              <table id="qixinMapTable"><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="qixinAddRowBtn">新增一列</button>
+            </div></details>
+            <details><summary>魚君產品與門市對照</summary><div class="mapping-content">
+              <h3>商品對照</h3><table id="yujunMapTable"><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="yujunAddRowBtn">新增一列</button>
+              <h3>門市簡稱對照</h3><table id="yujunStoreMapTable"><thead><tr><th>店名</th><th>簡稱</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="yujunAddStoreRowBtn">新增一列</button>
+            </div></details>
+          </section>
+        </div>
+      </div>
+    </details>
+  </main>
 
 <script type="text/plain" id="pdfWorkerSrc">
 /**
@@ -510,6 +581,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   });
 
+  var adminMenuBtn = document.getElementById("adminMenuBtn");
+  var isAdminMode = window.location.hash === "#admin";
+  if (isAdminMode) {
+    document.body.classList.add("admin-mode");
+    document.title = "後台資料管理｜訂單整合小軟體";
+    adminMenuBtn.textContent = "← 返回訂單作業";
+    var adminPanel = document.querySelector(".admin-wrap");
+    if (adminPanel) adminPanel.open = true;
+  }
+  adminMenuBtn.addEventListener("click", function () {
+    var baseUrl = window.location.href.split("#")[0];
+    if (isAdminMode) {
+      window.location.href = baseUrl;
+    } else {
+      window.open(baseUrl + "#admin", "_blank", "noopener");
+    }
+  });
+
   // ---------- pdf.js worker setup ----------
   var pdfWorkerText = document.getElementById("pdfWorkerSrc").textContent;
   var pdfWorkerBlob = new Blob([pdfWorkerText], { type: "application/javascript" });
@@ -610,7 +699,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // ---------- basic settings (staff/company/dept no.) ----------
   var SETTINGS_KEY = "shanshang_settings_v1";
-  var DEFAULT_SETTINGS = { staff_no: "101002", company_no: "02", dept_no: "1003" };
+  var DEFAULT_SETTINGS = {
+    staff_no: "101002",
+    supabase_staff_no: "101002",
+    company_no: "02",
+    dept_no: "1003",
+    shipper: "大漁水產有限公司"
+  };
   var settings = loadSettings();
 
   function loadSettings() {
@@ -629,7 +724,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var tbody = document.querySelector("#settingsTable tbody");
     tbody.innerHTML = "";
     var tr = document.createElement("tr");
-    ["staff_no", "company_no", "dept_no"].forEach(function (field) {
+    ["staff_no", "supabase_staff_no", "company_no", "dept_no"].forEach(function (field) {
       var td = document.createElement("td");
       var input = document.createElement("input");
       input.value = settings[field] || "";
@@ -640,6 +735,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       td.appendChild(input);
       tr.appendChild(td);
     });
+    var shipperTd = document.createElement("td");
+    var shipperSelect = document.createElement("select");
+    shipperSelect.id = "defaultShipperSelect";
+    shipperSelect.addEventListener("change", function () {
+      settings.shipper = shipperSelect.value;
+      saveSettings();
+      ["napoliceShipperSelect", "qixinShipperSelect", "yujunShipperSelect"].forEach(function (id) {
+        var select = document.getElementById(id);
+        if (select) select.value = settings.shipper;
+      });
+    });
+    shipperTd.appendChild(shipperSelect);
+    tr.appendChild(shipperTd);
     tbody.appendChild(tr);
   }
 
@@ -647,6 +755,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   CloudSync.register(SETTINGS_KEY, function (newData) {
     settings = Object.assign({}, DEFAULT_SETTINGS, newData);
     renderSettingsTable();
+    if (typeof renderAllShipperSelects === "function") renderAllShipperSelects();
   });
 
   // ---------- staff code -> name map (localStorage) ----------
@@ -719,7 +828,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------- helpers ----------
   var errorEl = document.getElementById("error");
   var okEl = document.getElementById("ok");
-  function showError(msg) { errorEl.textContent = msg; okEl.textContent = ""; }
+  function showError(msg) {
+    errorEl.textContent = msg;
+    okEl.textContent = "";
+    if (msg && (msg.indexOf("對照") !== -1 || msg.indexOf("業務人員編號") !== -1)) {
+      var admin = document.querySelector(".admin-wrap");
+      if (admin) admin.open = true;
+    }
+  }
   function showOk(msg) { okEl.textContent = msg; errorEl.textContent = ""; }
 
   function findProduct(code) {
@@ -831,6 +947,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         shipDateInput.value = toISODate(parsed.expected_ship_date);
         renderGroups(parsed);
         resultEl.style.display = "block";
+        updateBatchDownloadStatus();
       } catch (err) {
         showError("解析失敗：" + err.message);
       }
@@ -855,7 +972,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       div.innerHTML = "<h3>收貨方：" + g.recipient_name + "（" + g.recipient_code + "）— 將產生 1 張訂購單</h3>" +
         "<table><thead><tr><th>品項代碼</th><th>品項名稱</th><th>產品資料編號</th><th>數量</th><th>單位</th><th>不含稅單價</th><th>客單備註</th></tr></thead>" +
         "<tbody>" + rowsHtml + "</tbody></table>" +
-        (missingAny ? "<div class='missing-note'>有品項尚未對照，請先到上方「①品項對照表」新增該品項代碼再轉換</div>" : "");
+        (missingAny ? "<div class='missing-note'>有品項尚未對照，請至頁面下方「後台資料管理」補齊善商產品對照。</div>" : "");
       groupsEl.appendChild(div);
     });
   }
@@ -977,7 +1094,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       fill_date: orderDate,
       ship_date: shipDate,
       customer: SUPABASE_FIXED.customer,
-      shipper: supplierName || null,
+      shipper: settings.shipper || supplierName || null,
       po_no: poNoText,
       sales: staffName || null,
       note: null,
@@ -1017,9 +1134,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return;
     }
 
-    var staffName = findStaffName(settings.staff_no);
+    var supabaseStaffNo = settings.supabase_staff_no || settings.staff_no;
+    var staffName = findStaffName(supabaseStaffNo);
     if (!staffName) {
-      showError("業務人員編號「" + settings.staff_no + "」在③業務代碼對照表裡找不到對應姓名，請先補上。");
+      showError("業務人員編號（2）「" + supabaseStaffNo + "」在後台業務代碼對照裡找不到對應姓名，請先補上。");
       return;
     }
 
@@ -1234,7 +1352,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   var SHIPPER_KEY = "napolice_shipper_map_v1";
   var DEFAULT_SHIPPERS = ["大漁水產有限公司"];
   var shippers = loadShippers();
-  var SHIPPER_SELECT_IDS = ["napoliceShipperSelect", "qixinShipperSelect", "yujunShipperSelect"];
+  var SHIPPER_SELECT_IDS = ["defaultShipperSelect", "napoliceShipperSelect", "qixinShipperSelect", "yujunShipperSelect"];
 
   function loadShippers() {
     try {
@@ -1290,7 +1408,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     SHIPPER_SELECT_IDS.forEach(function (id) {
       var select = document.getElementById(id);
       if (!select) return;
-      var current = select.value;
+      var current = settings.shipper || select.value;
       select.innerHTML = "";
       shippers.forEach(function (name) {
         if (!name) return;
@@ -1300,7 +1418,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         select.appendChild(opt);
       });
       if (current && shippers.indexOf(current) !== -1) select.value = current;
+      else if (select.options.length) select.selectedIndex = 0;
     });
+    var defaultSelect = document.getElementById("defaultShipperSelect");
+    if (defaultSelect && defaultSelect.value) settings.shipper = defaultSelect.value;
   }
 
   renderShipperMapTable();
@@ -1436,6 +1557,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       napoliceMetaEl.innerHTML = "採購單號：<b>" + parsed.po_no + "</b>　訂貨單號：<b>" + parsed.order_no + "</b>　來源送貨日期：" + parsed.ship_date;
       renderNapoliceItems(parsed);
       napoliceResultEl.style.display = "block";
+      updateBatchDownloadStatus();
     } catch (err) {
       showError("PDF 解析失敗：" + err.message);
     }
@@ -1459,7 +1581,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     napoliceItemsEl.innerHTML =
       "<table><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>數量</th><th>單位</th><th>單價</th><th>客單備註</th></tr></thead>" +
       "<tbody>" + rowsHtml + "</tbody></table>" +
-      (missingAny ? "<div class='missing-note'>有品項尚未對照，請先到上方「商品對照表」新增該商品編號再轉換</div>" : "") +
+      (missingAny ? "<div class='missing-note'>有品項尚未對照，請至頁面下方「後台資料管理」補齊那波麗士產品對照。</div>" : "") +
       storeWarnings.map(function (w) { return "<div class='missing-note'>" + w + "</div>"; }).join("");
   }
 
@@ -1552,9 +1674,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return;
     }
 
-    var staffName = findStaffName(settings.staff_no);
+    var supabaseStaffNo = settings.supabase_staff_no || settings.staff_no;
+    var staffName = findStaffName(supabaseStaffNo);
     if (!staffName) {
-      showError("業務人員編號「" + settings.staff_no + "」在②業務代碼對照表裡找不到對應姓名，請先補上。");
+      showError("業務人員編號（2）「" + supabaseStaffNo + "」在後台業務代碼對照裡找不到對應姓名，請先補上。");
       return;
     }
 
@@ -1745,6 +1868,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       qixinMetaEl.innerHTML = "共解析出 <b>" + parsed.items.length + "</b> 項";
       renderQixinItems(parsed);
       qixinResultEl.style.display = "block";
+      updateBatchDownloadStatus();
     } catch (err) {
       showError("解析失敗：" + err.message);
     }
@@ -1761,7 +1885,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     qixinItemsEl.innerHTML =
       "<table><thead><tr><th>品名</th><th>產品資料編號</th><th>數量</th><th>單位</th><th>客單備註</th></tr></thead>" +
       "<tbody>" + rowsHtml + "</tbody></table>" +
-      (missingAny ? "<div class='missing-note'>有品項尚未對照，請先到上方「品名對照表」新增再轉換</div>" : "");
+      (missingAny ? "<div class='missing-note'>有品項尚未對照，請至頁面下方「後台資料管理」補齊啟新產品對照。</div>" : "");
   }
 
   function qixinMissingItems(parsed) {
@@ -1837,9 +1961,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return;
     }
 
-    var staffName = findStaffName(settings.staff_no);
+    var supabaseStaffNo = settings.supabase_staff_no || settings.staff_no;
+    var staffName = findStaffName(supabaseStaffNo);
     if (!staffName) {
-      showError("業務人員編號「" + settings.staff_no + "」在②業務代碼對照表裡找不到對應姓名，請先補上。");
+      showError("業務人員編號（2）「" + supabaseStaffNo + "」在後台業務代碼對照裡找不到對應姓名，請先補上。");
       return;
     }
 
@@ -1949,6 +2074,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       yujunMetaEl.innerHTML = "共解析出 <b>" + parsed.groups.length + "</b> 個店家";
       renderYujunGroups(parsed);
       yujunResultEl.style.display = "block";
+      updateBatchDownloadStatus();
     } catch (err) {
       showError("解析失敗：" + err.message);
     }
@@ -1970,7 +2096,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       div.innerHTML = "<h3>店家：" + g.store_name + "（簡稱：" + yujunStoreShortName(g.store_name) + "）— 將產生 1 張訂購單</h3>" +
         "<table><thead><tr><th>品名</th><th>產品資料編號</th><th>數量</th><th>單位</th><th>客單備註</th></tr></thead>" +
         "<tbody>" + rowsHtml + "</tbody></table>" +
-        (missingAny ? "<div class='missing-note'>有品項尚未對照，請先到上方「品名對照表」新增再轉換</div>" : "");
+        (missingAny ? "<div class='missing-note'>有品項尚未對照，請至頁面下方「後台資料管理」補齊魚君產品對照。</div>" : "");
       yujunGroupsEl.appendChild(div);
     });
   }
@@ -2063,9 +2189,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return;
     }
 
-    var staffName = findStaffName(settings.staff_no);
+    var supabaseStaffNo = settings.supabase_staff_no || settings.staff_no;
+    var staffName = findStaffName(supabaseStaffNo);
     if (!staffName) {
-      showError("業務人員編號「" + settings.staff_no + "」在②業務代碼對照表裡找不到對應姓名，請先補上。");
+      showError("業務人員編號（2）「" + supabaseStaffNo + "」在後台業務代碼對照裡找不到對應姓名，請先補上。");
       return;
     }
 
@@ -2120,6 +2247,113 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       yujunSupabaseBtn.textContent = "轉單到 Supabase（出貨單系統）";
     }
   });
+
+  // ---------- 四客戶批次下載 Excel ----------
+  var batchDownloadBtn = document.getElementById("batchDownloadBtn");
+  var batchSources = [
+    { id: "batchStatusShanshang", label: "善商", get: function () { return window.__lastParsed; }, empty: "尚未匯入" },
+    { id: "batchStatusNapolice", label: "那波麗士", get: function () { return window.__lastNapoliceParsed; }, empty: "尚未匯入" },
+    { id: "batchStatusQixin", label: "啟新", get: function () { return window.__lastQixinParsed; }, empty: "尚未解析" },
+    { id: "batchStatusYujun", label: "魚君", get: function () { return window.__lastYujunParsed; }, empty: "尚未解析" }
+  ];
+
+  function updateBatchDownloadStatus() {
+    var allReady = true;
+    batchSources.forEach(function (source) {
+      var ready = !!source.get();
+      var badge = document.getElementById(source.id);
+      badge.textContent = source.label + "：" + (ready ? "已完成" : source.empty);
+      badge.classList.toggle("ready", ready);
+      if (!ready) allReady = false;
+    });
+    batchDownloadBtn.disabled = !allReady;
+  }
+
+  batchDownloadBtn.addEventListener("click", async function () {
+    showError(""); showOk("");
+
+    var notReady = batchSources.filter(function (source) { return !source.get(); }).map(function (source) { return source.label; });
+    if (notReady.length) {
+      showError("請先完成以下客戶的訂單匯入或解析：" + notReady.join("、"));
+      return;
+    }
+
+    var missingDates = [];
+    if (!orderDateInput.value) missingDates.push("善商");
+    if (!napoliceOrderDateInput.value) missingDates.push("那波麗士");
+    if (!qixinOrderDateInput.value) missingDates.push("啟新");
+    if (!yujunOrderDateInput.value) missingDates.push("魚君");
+    if (missingDates.length) {
+      showError("批次下載前，請先填寫以下客戶的訂購日期：" + missingDates.join("、"));
+      return;
+    }
+
+    var missingProducts = [];
+    window.__lastParsed.groups.forEach(function (g) {
+      g.items.forEach(function (it) {
+        if (!findProduct(it.item_code)) missingProducts.push("善商：" + it.item_name);
+      });
+    });
+    napoliceMissingItems(window.__lastNapoliceParsed).forEach(function (name) { missingProducts.push("那波麗士：" + name); });
+    qixinMissingItems(window.__lastQixinParsed).forEach(function (name) { missingProducts.push("啟新：" + name); });
+    yujunMissingItems(window.__lastYujunParsed).forEach(function (name) { missingProducts.push("魚君：" + name); });
+    if (missingProducts.length) {
+      showError("以下產品尚未完成對照，請先至後台資料管理補齊：\n" + missingProducts.join("、"));
+      return;
+    }
+
+    batchDownloadBtn.disabled = true;
+    batchDownloadBtn.textContent = "正在整理 Excel...";
+    try {
+      var zip = new JSZip();
+      var fileCount = 0;
+      var shanshangOrderDate = orderDateInput.value.replaceAll("-", "/");
+      var shanshangShipDate = shipDateInput.value ? shipDateInput.value.replaceAll("-", "/") : "";
+      window.__lastParsed.groups.forEach(function (g) {
+        var wb = buildGroupSheets(g, shanshangOrderDate, shanshangShipDate, window.__lastParsed.shipment_no);
+        var filename = "訂購單_" + g.recipient_name + "_" + window.__lastParsed.shipment_no + ".xlsx";
+        zip.file("善商/" + filename, XLSX.write(wb, { bookType: "xlsx", type: "array" }));
+        fileCount++;
+      });
+
+      var napoliceOrderDate = napoliceOrderDateInput.value.replaceAll("-", "/");
+      var napoliceShipDate = napoliceShipDateInput.value ? napoliceShipDateInput.value.replaceAll("-", "/") : "";
+      var napoliceWb = buildNapoliceSheets(window.__lastNapoliceParsed, napoliceOrderDate, napoliceShipDate, buildNapoliceShipmentNo());
+      var napoliceFilename = "訂購單_" + napoliceStoreNameInput.value + "_" + napolicePoNoInput.value + ".xlsx";
+      zip.file("那波麗士/" + napoliceFilename, XLSX.write(napoliceWb, { bookType: "xlsx", type: "array" }));
+      fileCount++;
+
+      var qixinOrderDate = qixinOrderDateInput.value.replaceAll("-", "/");
+      var qixinShipDate = qixinShipDateInput.value ? qixinShipDateInput.value.replaceAll("-", "/") : "";
+      var qixinShipmentNo = generateOrderId();
+      var qixinWb = buildQixinSheets(window.__lastQixinParsed, qixinOrderDate, qixinShipDate, qixinShipmentNo, document.getElementById("qixinOrderNote").value);
+      zip.file("啟新/訂購單_啟新_" + qixinShipmentNo + ".xlsx", XLSX.write(qixinWb, { bookType: "xlsx", type: "array" }));
+      fileCount++;
+
+      var yujunOrderDate = yujunOrderDateInput.value.replaceAll("-", "/");
+      var yujunShipDate = yujunShipDateInput.value ? yujunShipDateInput.value.replaceAll("-", "/") : "";
+      window.__lastYujunParsed.groups.forEach(function (g) {
+        var shipmentNo = generateOrderId();
+        var wb = buildYujunSheets(g, yujunOrderDate, yujunShipDate, shipmentNo);
+        var filename = "訂購單_" + yujunStoreShortName(g.store_name) + "_" + shipmentNo + ".xlsx";
+        zip.file("魚君/" + filename, XLSX.write(wb, { bookType: "xlsx", type: "array" }));
+        fileCount++;
+      });
+
+      var now = new Date();
+      var stamp = now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0");
+      var blob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(blob, "四客戶訂單_" + stamp + ".zip");
+      showOk("批次下載完成，共整理 " + fileCount + " 個 Excel 檔案。");
+    } catch (err) {
+      showError("批次下載失敗：" + err.message);
+    } finally {
+      batchDownloadBtn.textContent = "一鍵下載全部 Excel";
+      updateBatchDownloadStatus();
+    }
+  });
+
+  updateBatchDownloadStatus();
 
   // ---------- 啟動時載入雲端對照表 ----------
   document.getElementById("syncNowBtn").addEventListener("click", function () {
