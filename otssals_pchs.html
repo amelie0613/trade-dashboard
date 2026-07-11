@@ -178,10 +178,12 @@
   <div class="auth-gate" id="authGate" hidden>
     <form class="auth-card" id="authForm">
       <h2>訂單整合工具登入</h2>
-      <p>此頁面僅限指定帳號使用。輸入授權 Email 後，系統會寄送一次性登入連結。</p>
+      <p>此頁面僅限指定帳號使用。登入成功後會記住這台設備，下次開啟可直接使用。</p>
       <label for="authEmail">授權 Email</label>
       <input type="email" id="authEmail" autocomplete="email" placeholder="name@macroocean.org" required>
-      <button type="submit" id="authSendBtn">寄送登入連結</button>
+      <label for="authPassword">密碼</label>
+      <input type="password" id="authPassword" autocomplete="current-password" placeholder="請輸入密碼" required>
+      <button type="submit" id="authSendBtn">登入並記住此設備</button>
       <div class="auth-message" id="authMessage"></div>
     </form>
   </div>
@@ -586,6 +588,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var gate = document.getElementById("authGate");
     var form = document.getElementById("authForm");
     var emailInput = document.getElementById("authEmail");
+    var passwordInput = document.getElementById("authPassword");
     var message = document.getElementById("authMessage");
     var sendBtn = document.getElementById("authSendBtn");
     var logoutBtn = document.getElementById("authLogoutBtn");
@@ -596,7 +599,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     try {
       await loadSupabaseAuthLibrary();
       authClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
       });
     } catch (err) {
       message.textContent = err.message;
@@ -631,23 +634,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         message.textContent = "此 Email 不在授權名單內。";
         return;
       }
+      if (!passwordInput.value) {
+        message.textContent = "請輸入密碼。";
+        return;
+      }
       sendBtn.disabled = true;
-      sendBtn.textContent = "寄送中...";
+      sendBtn.textContent = "登入中...";
       message.style.color = "#c0392b";
       try {
-        var redirectTo = window.location.origin + window.location.pathname;
-        var result = await authClient.auth.signInWithOtp({
+        var result = await authClient.auth.signInWithPassword({
           email: email,
-          options: { emailRedirectTo: redirectTo, shouldCreateUser: true }
+          password: passwordInput.value
         });
         if (result.error) throw result.error;
         message.style.color = "#167949";
-        message.textContent = "登入連結已寄出，請至信箱開啟連結。";
+        message.textContent = "登入成功，正在載入資料…";
       } catch (err) {
-        message.textContent = "寄送失敗：" + err.message;
+        message.textContent = "登入失敗，請確認 Email 與密碼是否正確。";
       } finally {
         sendBtn.disabled = false;
-        sendBtn.textContent = "寄送登入連結";
+        sendBtn.textContent = "登入並記住此設備";
       }
     });
 
