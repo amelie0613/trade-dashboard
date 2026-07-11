@@ -2,16 +2,19 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>訂單整合小軟體（離線版）</title>
 <style>
   :root { --navy:#2f4358; --navy-dark:#223548; --green:#22b66f; --blue:#3399d6; --purple:#9855bf; --orange:#f0a31a; --red:#ef493d; --teal:#20bda7; --ink:#263746; --muted:#71808e; --line:#dce4e8; --surface:#fff; --bg:#f3f6f7; }
   * { box-sizing: border-box; }
+  [hidden] { display:none !important; }
   body { margin:0; background:var(--bg); color:var(--ink); font-family:"Microsoft JhengHei",Arial,sans-serif; }
   .app-header { background:var(--navy); color:#fff; box-shadow:0 3px 12px rgba(34,53,72,.18); }
   .header-inner { max-width:1120px; min-height:76px; margin:auto; padding:14px 22px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
   .brand h1 { margin:0; font-size:24px; letter-spacing:.04em; }
   .brand p { margin:5px 0 0; color:#dbe5ed; font-size:12px; }
   .offline-badge { display:inline-block; margin-left:9px; padding:3px 9px; border-radius:20px; color:#d8ffeb; background:rgba(34,182,111,.2); border:1px solid rgba(127,235,181,.35); font-size:11px; vertical-align:middle; }
+  .mobile-mode-badge { display:none; }
   .header-actions { display:flex; align-items:center; gap:9px; }
   .header-action { display:inline-flex; align-items:center; min-height:38px; padding:8px 13px; border:1px solid rgba(255,255,255,.35); border-radius:7px; color:#fff; background:transparent; font-size:13px; font-weight:700; text-decoration:none; }
   .header-action:hover { color:var(--navy); background:#fff; box-shadow:none; }
@@ -64,6 +67,8 @@
   .group { margin-bottom:16px; padding:14px; border:1px solid var(--line); border-radius:7px; }
   .group h3 { margin:0 0 8px; }
   .group.missing { border-color:#f0a31a; background:#fffaf0; }
+  .napolice-order-card { margin:14px 0; padding:16px; border:1px solid var(--line); border-radius:8px; background:#fbfcfd; }
+  .napolice-order-card h3 { margin:0 0 12px; color:var(--navy); }
   .missing-note { margin-top:7px; color:#d46f00; font-size:12px; }
   #error,#ok { border-radius:6px; }
   #error:not(:empty),#ok:not(:empty) { padding:10px 13px; background:#fff; border:1px solid var(--line); }
@@ -93,14 +98,61 @@
   .mapping-tabs details { margin-top:10px; border:1px solid var(--line); border-radius:6px; background:#fff; }
   .mapping-tabs summary { cursor:pointer; padding:12px 14px; color:var(--navy); font-weight:700; }
   .mapping-content { padding:0 14px 14px; overflow:auto; }
-  @media(max-width:760px){ .header-inner{align-items:flex-start;flex-direction:column}.brand h1{font-size:19px}.brand p{display:none}.header-actions{width:100%}.header-action{flex:1;justify-content:center}.tabs{grid-template-columns:1fr 1fr}.batch-download-card{align-items:stretch;flex-direction:column}.batch-download-card button{width:100%}.admin-grid{grid-template-columns:1fr}.admin-card.wide{grid-column:auto}.field-grid{grid-template-columns:1fr}.dates{flex-direction:column;gap:12px}.workspace{padding:17px}.settings-card{padding:16px;overflow:auto}.settings-card table{min-width:800px}.sync-strip{align-items:flex-start;flex-direction:column} }
+  @media(max-width:760px){
+    body { padding-bottom:env(safe-area-inset-bottom); }
+    .header-inner { align-items:flex-start; flex-direction:column; min-height:0; padding:13px 14px; }
+    .brand { width:100%; }
+    .brand h1 { font-size:19px; }
+    .brand p { display:none; }
+    .mobile-mode-badge { display:inline-block; float:right; margin-top:2px; padding:3px 7px; border-radius:12px; color:#d8ffeb; background:rgba(34,182,111,.2); font-size:10px; font-weight:400; }
+    .header-actions { width:100%; flex-wrap:wrap; }
+    .header-action { flex:1 1 130px; justify-content:center; min-height:42px; }
+    .container { padding:14px 12px 34px; }
+    .sync-strip { align-items:flex-start; flex-direction:column; margin-bottom:14px; padding:9px 11px; font-size:12px; }
+    .settings-card { padding:15px 13px; overflow:visible; }
+    .settings-card table,.settings-card tbody,.settings-card tr,.settings-card td { display:block; width:100%; min-width:0; }
+    .settings-card thead { display:none; }
+    .settings-card tbody tr { border-top:1px solid var(--line); }
+    .settings-card td { display:grid; grid-template-columns:125px minmax(0,1fr); align-items:center; gap:10px; padding:9px 0; border:0; border-bottom:1px solid var(--line); background:#fff !important; }
+    .settings-card td::before { color:var(--navy); font-size:11px; font-weight:700; line-height:1.35; }
+    .settings-card td:nth-child(1)::before { content:"業務編號（1）\A Excel 報表"; white-space:pre; }
+    .settings-card td:nth-child(2)::before { content:"業務編號（2）\A Supabase"; white-space:pre; }
+    .settings-card td:nth-child(3)::before { content:"公司編號"; }
+    .settings-card td:nth-child(4)::before { content:"部門編號"; }
+    .settings-card td:nth-child(5)::before { content:"發貨人"; }
+    .tabs { position:sticky; z-index:12; top:0; grid-template-columns:1fr 1fr; gap:8px; margin:12px -2px 16px; padding:8px 2px; background:rgba(243,246,247,.96); backdrop-filter:blur(5px); }
+    .tab-btn { min-height:74px; padding:10px 6px; font-size:12px; }
+    .tab-btn::before { margin-bottom:4px; font-size:10px; }
+    .batch-download-card { align-items:stretch; flex-direction:column; padding:15px; }
+    .batch-download-card button { width:100%; min-height:46px; }
+    .batch-statuses { display:grid; grid-template-columns:1fr 1fr; }
+    .batch-status { text-align:center; }
+    .workspace { padding:15px 12px; overflow:hidden; }
+    .workspace h2 { font-size:17px; }
+    .workspace table { min-width:680px; }
+    .group,.napolice-order-card,#qixinItems,#yujunGroups { max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .drop { padding:38px 14px; font-size:13px; line-height:1.6; }
+    .field-grid { grid-template-columns:1fr; }
+    .dates { flex-direction:column; gap:12px; }
+    .actions { flex-direction:column; }
+    .actions button { width:100%; min-height:46px; }
+    .admin-grid { grid-template-columns:1fr; }
+    .admin-card.wide { grid-column:auto; }
+    .admin-panel { padding:14px 10px; }
+    .mapping-content { padding:0 10px 12px; }
+    .mapping-content table { min-width:720px; }
+  }
+  @media(max-width:420px){
+    .offline-badge { display:none; }
+    .batch-statuses { grid-template-columns:1fr; }
+  }
 </style>
 </head>
 <body>
   <header class="app-header">
     <div class="header-inner">
       <div class="brand">
-        <h1>訂單整合小軟體<span class="offline-badge">離線可用</span></h1>
+        <h1>訂單整合小軟體<span class="offline-badge">離線可用</span><span class="mobile-mode-badge">手機模式</span></h1>
         <p>集中處理客戶訂單、轉檔與出貨單同步</p>
       </div>
       <div class="header-actions">
@@ -118,7 +170,7 @@
 
     <section class="settings-card">
       <h2>訂單基本設定</h2>
-      <p class="hint">所有客戶共用，修改後會自動保存並套用到後續訂單。</p>
+      <p class="hint">✓ 所有客戶共用；輸入後會自動記憶，下次開啟仍會保留並套用到後續訂單。</p>
       <table id="settingsTable">
         <thead><tr>
           <th>業務人員編號（1）<small>用於 Excel 報表</small></th>
@@ -188,29 +240,27 @@
   <!-- ================= 那波麗士 ================= -->
   <div class="tab-panel" id="tab-napolice" hidden>
     <h2>那波麗士｜上傳採購單 PDF</h2>
-    <div class="drop" id="napoliceDropzone">拖拉那波麗士採購單 PDF 到這裡，或點擊選擇檔案</div>
-    <input type="file" id="napoliceFileInput" accept=".pdf" style="display:none">
+    <div class="drop" id="napoliceDropzone">可拖拉多個那波麗士採購單 PDF 到這裡，或點擊選擇多個檔案</div>
+    <input type="file" id="napoliceFileInput" accept=".pdf" multiple style="display:none">
 
     <div id="napoliceResult" style="display:none;">
       <div id="napoliceMeta"></div>
       <p class="hint">PDF 解析可能有誤，請核對下面欄位再轉換。</p>
-      <div class="field-grid">
+      <div class="field-grid" hidden>
         <label>門市名稱<input type="text" id="napoliceStoreName"></label>
         <label>採購單號<input type="text" id="napolicePoNo"></label>
         <label>訂貨單號<input type="text" id="napoliceOrderNo"></label>
         <select id="napoliceShipperSelect" hidden></select>
       </div>
-      <div id="napoliceItems"></div>
+      <div id="napoliceItems" hidden></div>
+      <div id="napoliceOrders"></div>
 
       <div class="dates">
         <div>
           <label>訂購日期（必填，請手動選擇）</label>
           <input type="date" id="napoliceOrderDate">
         </div>
-        <div>
-          <label>預出貨日</label>
-          <input type="date" id="napoliceShipDate">
-        </div>
+        <input type="date" id="napoliceShipDate" hidden>
       </div>
 
       <div class="actions" style="display:flex;gap:10px;">
@@ -313,6 +363,10 @@
               <table id="mapTable"><thead><tr><th>品項代碼</th><th>品項名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table>
               <button class="small" id="addRowBtn">新增一列</button> <button class="small" id="exportMapBtn">匯出備份</button> <button class="small" id="importMapBtn">匯入備份</button>
               <input type="file" id="importMapFile" accept=".json" style="display:none">
+              <h3>店名簡稱對照</h3>
+              <p class="hint">善商訂單上的店名會依此轉成 Excel、檔名與出貨單使用的簡稱；沒有設定時沿用原店名。</p>
+              <table id="shanshangStoreMapTable"><thead><tr><th>訂單店名</th><th>店名簡稱</th><th></th></tr></thead><tbody></tbody></table>
+              <button class="small" id="addShanshangStoreRowBtn">新增一列</button>
             </div></details>
             <details><summary>那波麗士產品與門市對照</summary><div class="mapping-content">
               <h3>商品對照</h3><table id="napoliceMapTable"><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table>
@@ -697,6 +751,86 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (window.__lastParsed) renderGroups(window.__lastParsed);
   });
 
+  // ---------- 善商店名 -> 簡稱（Excel、檔名、Supabase 共用） ----------
+  var SHANSHANG_STORE_MAP_KEY = "shanshang_store_map_v1";
+  var DEFAULT_SHANSHANG_STORE_MAP = [
+    { name: "中山民權", short: "中山民權" },
+    { name: "南京復興", short: "南京復興" },
+    { name: "信義安和站前", short: "信義安和" },
+    { name: "桃園", short: "桃園" },
+    { name: "基隆", short: "基隆" },
+    { name: "苗栗尚順", short: "苗栗尚順" },
+    { name: "楊梅", short: "楊梅" }
+  ];
+  var shanshangStoreMap = loadShanshangStoreMap();
+
+  function loadShanshangStoreMap() {
+    try {
+      var raw = localStorage.getItem(SHANSHANG_STORE_MAP_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return DEFAULT_SHANSHANG_STORE_MAP.map(function (row) { return Object.assign({}, row); });
+  }
+
+  function saveShanshangStoreMap() {
+    CloudSync.save(SHANSHANG_STORE_MAP_KEY, shanshangStoreMap);
+  }
+
+  function renderShanshangStoreMapTable() {
+    var tbody = document.querySelector("#shanshangStoreMapTable tbody");
+    tbody.innerHTML = "";
+    shanshangStoreMap.forEach(function (row, idx) {
+      var tr = document.createElement("tr");
+      ["name", "short"].forEach(function (field) {
+        var td = document.createElement("td");
+        var input = document.createElement("input");
+        input.value = row[field] || "";
+        input.addEventListener("input", function () {
+          shanshangStoreMap[idx][field] = input.value;
+          saveShanshangStoreMap();
+          if (window.__lastParsed) renderGroups(window.__lastParsed);
+        });
+        td.appendChild(input);
+        tr.appendChild(td);
+      });
+      var tdDel = document.createElement("td");
+      var delBtn = document.createElement("button");
+      delBtn.className = "small";
+      delBtn.textContent = "刪除";
+      delBtn.addEventListener("click", function () {
+        shanshangStoreMap.splice(idx, 1);
+        saveShanshangStoreMap();
+        renderShanshangStoreMapTable();
+        if (window.__lastParsed) renderGroups(window.__lastParsed);
+      });
+      tdDel.appendChild(delBtn);
+      tr.appendChild(tdDel);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function shanshangStoreShortName(fullName) {
+    var normalized = String(fullName || "").trim();
+    for (var i = 0; i < shanshangStoreMap.length; i++) {
+      if (String(shanshangStoreMap[i].name || "").trim() === normalized && shanshangStoreMap[i].short) {
+        return String(shanshangStoreMap[i].short).trim();
+      }
+    }
+    return normalized;
+  }
+
+  document.getElementById("addShanshangStoreRowBtn").addEventListener("click", function () {
+    shanshangStoreMap.push({ name: "", short: "" });
+    saveShanshangStoreMap();
+    renderShanshangStoreMapTable();
+  });
+  renderShanshangStoreMapTable();
+  CloudSync.register(SHANSHANG_STORE_MAP_KEY, function (newData) {
+    shanshangStoreMap = newData;
+    renderShanshangStoreMapTable();
+    if (window.__lastParsed) renderGroups(window.__lastParsed);
+  });
+
   // ---------- basic settings (staff/company/dept no.) ----------
   var SETTINGS_KEY = "shanshang_settings_v1";
   var DEFAULT_SETTINGS = {
@@ -968,8 +1102,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           "</td><td>" + it.qty + "</td><td>" + it.unit + "</td><td>" + it.price_ex_tax + "</td><td>" + note + "</td></tr>";
       }).join("");
       var div = document.createElement("div");
+      var storeShort = shanshangStoreShortName(g.recipient_name);
       div.className = "group" + (missingAny ? " missing" : "");
-      div.innerHTML = "<h3>收貨方：" + g.recipient_name + "（" + g.recipient_code + "）— 將產生 1 張訂購單</h3>" +
+      div.innerHTML = "<h3>收貨方：" + g.recipient_name + (storeShort !== g.recipient_name ? "（簡稱：" + storeShort + "）" : "") + "（" + g.recipient_code + "）— 將產生 1 張訂購單</h3>" +
         "<table><thead><tr><th>品項代碼</th><th>品項名稱</th><th>產品資料編號</th><th>數量</th><th>單位</th><th>不含稅單價</th><th>客單備註</th></tr></thead>" +
         "<tbody>" + rowsHtml + "</tbody></table>" +
         (missingAny ? "<div class='missing-note'>有品項尚未對照，請至頁面下方「後台資料管理」補齊善商產品對照。</div>" : "");
@@ -981,7 +1116,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function buildGroupSheets(group, orderDate, shipDate, shipmentNo) {
     var row1 = [
       orderDate, settings.company_no, settings.staff_no, settings.dept_no, DEFAULTS.customer_no,
-      group.recipient_name, "", "", DEFAULTS.currency, DEFAULTS.tax_type, "", "",
+      shanshangStoreShortName(group.recipient_name), "", "", DEFAULTS.currency, DEFAULTS.tax_type, "", "",
       DEFAULTS.invoice_channel, "", "", "", "", "", "", shipDate, shipmentNo
     ];
     var ws1 = XLSX.utils.aoa_to_sheet([HEADER1, row1]);
@@ -1034,7 +1169,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       var outputs = parsed.groups.map(function (g) {
         var wb = buildGroupSheets(g, orderDate, shipDate, parsed.shipment_no);
         var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        var filename = "訂購單_" + g.recipient_name + "_" + parsed.shipment_no + ".xlsx";
+        var filename = "訂購單_" + shanshangStoreShortName(g.recipient_name) + "_" + parsed.shipment_no + ".xlsx";
         return { filename: filename, data: arrbuf };
       });
 
@@ -1087,7 +1222,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function buildSupabaseOrder(group, orderDate, shipDate, supplierName, staffName) {
     var id = generateOrderId();
-    var poNoText = group.recipient_name + " " + window.__lastParsed.shipment_no;
+    var poNoText = shanshangStoreShortName(group.recipient_name) + " " + window.__lastParsed.shipment_no;
     var order = {
       id: id,
       company: SUPABASE_FIXED.company,
@@ -1519,6 +1654,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   var napoliceResultEl = document.getElementById("napoliceResult");
   var napoliceMetaEl = document.getElementById("napoliceMeta");
   var napoliceItemsEl = document.getElementById("napoliceItems");
+  var napoliceOrdersEl = document.getElementById("napoliceOrders");
   var napoliceStoreNameInput = document.getElementById("napoliceStoreName");
   var napolicePoNoInput = document.getElementById("napolicePoNo");
   var napoliceOrderNoInput = document.getElementById("napoliceOrderNo");
@@ -1537,33 +1673,103 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   napoliceDropzone.addEventListener("drop", function (e) {
     e.preventDefault();
     napoliceDropzone.classList.remove("dragover");
-    if (e.dataTransfer.files.length) handleNapoliceFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files.length) handleNapoliceFiles(e.dataTransfer.files);
   });
   napoliceFileInput.addEventListener("change", function () {
-    if (napoliceFileInput.files.length) handleNapoliceFile(napoliceFileInput.files[0]);
+    if (napoliceFileInput.files.length) handleNapoliceFiles(napoliceFileInput.files);
   });
 
-  async function handleNapoliceFile(file) {
+  async function handleNapoliceFiles(fileList) {
     showError(""); showOk("");
     napoliceResultEl.style.display = "none";
-    try {
-      var lines = await extractPdfLines(file);
-      var parsed = parseNapolicePdfText(lines);
-      window.__lastNapoliceParsed = parsed;
-      napoliceStoreNameInput.value = parsed.store_name;
-      napolicePoNoInput.value = parsed.po_no;
-      napoliceOrderNoInput.value = parsed.order_no;
-      napoliceShipDateInput.value = toISODate(parsed.ship_date);
-      napoliceMetaEl.innerHTML = "採購單號：<b>" + parsed.po_no + "</b>　訂貨單號：<b>" + parsed.order_no + "</b>　來源送貨日期：" + parsed.ship_date;
-      renderNapoliceItems(parsed);
+    var files = Array.prototype.slice.call(fileList);
+    var orders = [];
+    var errors = [];
+    for (var i = 0; i < files.length; i++) {
+      try {
+        var lines = await extractPdfLines(files[i]);
+        var parsed = parseNapolicePdfText(lines);
+        orders.push({
+          parsed: parsed,
+          file_name: files[i].name,
+          store_name: parsed.store_name,
+          po_no: parsed.po_no,
+          order_no: parsed.order_no,
+          ship_date: toISODate(parsed.ship_date)
+        });
+      } catch (err) {
+        errors.push(files[i].name + "：" + err.message);
+      }
+    }
+    if (orders.length) {
+      window.__napoliceParsedOrders = orders;
+      window.__lastNapoliceParsed = orders[0].parsed;
+      syncNapoliceLegacyFields(orders[0]);
+      napoliceMetaEl.innerHTML = "已成功解析 <b>" + orders.length + "</b> 份採購單" + (errors.length ? "，另有 " + errors.length + " 份失敗" : "");
+      renderNapoliceOrders();
       napoliceResultEl.style.display = "block";
       updateBatchDownloadStatus();
-    } catch (err) {
-      showError("PDF 解析失敗：" + err.message);
     }
+    if (errors.length) showError("以下 PDF 解析失敗：\n" + errors.join("\n"));
+    if (!orders.length && !errors.length) showError("沒有可解析的 PDF 檔案");
+  }
+
+  function syncNapoliceLegacyFields(order) {
+    napoliceStoreNameInput.value = order.store_name || "";
+    napolicePoNoInput.value = order.po_no || "";
+    napoliceOrderNoInput.value = order.order_no || "";
+    napoliceShipDateInput.value = order.ship_date || "";
+  }
+
+  function escapeNapoliceHtml(value) {
+    return String(value === null || value === undefined ? "" : value)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function renderNapoliceOrders() {
+    var orders = window.__napoliceParsedOrders || [];
+    napoliceOrdersEl.innerHTML = orders.map(function (order, idx) {
+      var missingAny = false;
+      var rowsHtml = order.parsed.items.map(function (it) {
+        var prod = findNapoliceProduct(it.item_code);
+        if (!prod) missingAny = true;
+        var eff = napoliceEffectiveItem(it, order.store_name);
+        return "<tr><td>" + escapeNapoliceHtml(it.item_code) + "</td><td>" + escapeNapoliceHtml(it.item_name) +
+          "</td><td>" + (prod ? escapeNapoliceHtml(prod.product_no) : "<span style='color:#d35400'>未對照</span>") +
+          "</td><td>" + escapeNapoliceHtml(eff.qty) + "</td><td>" + escapeNapoliceHtml(eff.unit) +
+          "</td><td>" + escapeNapoliceHtml(eff.price) + "</td><td>" + escapeNapoliceHtml(prod ? prod.note : "") + "</td></tr>";
+      }).join("");
+      return "<section class='napolice-order-card" + (missingAny ? " group missing" : "") + "'>" +
+        "<h3>第 " + (idx + 1) + " 份｜" + escapeNapoliceHtml(order.file_name) + "</h3>" +
+        "<div class='field-grid'>" +
+          "<label>門市名稱<input data-napo-index='" + idx + "' data-field='store_name' value='" + escapeNapoliceHtml(order.store_name) + "'></label>" +
+          "<label>採購單號<input data-napo-index='" + idx + "' data-field='po_no' value='" + escapeNapoliceHtml(order.po_no) + "'></label>" +
+          "<label>訂貨單號<input data-napo-index='" + idx + "' data-field='order_no' value='" + escapeNapoliceHtml(order.order_no) + "'></label>" +
+          "<label>預出貨日<input type='date' data-napo-index='" + idx + "' data-field='ship_date' value='" + escapeNapoliceHtml(order.ship_date) + "'></label>" +
+        "</div>" +
+        "<table><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>數量</th><th>單位</th><th>單價</th><th>客單備註</th></tr></thead><tbody>" + rowsHtml + "</tbody></table>" +
+        (missingAny ? "<div class='missing-note'>有品項尚未對照，請至後台資料管理補齊那波麗士產品對照。</div>" : "") +
+      "</section>";
+    }).join("");
+    napoliceOrdersEl.querySelectorAll("[data-napo-index]").forEach(function (input) {
+      input.addEventListener("input", function () {
+        var idx = Number(input.getAttribute("data-napo-index"));
+        var field = input.getAttribute("data-field");
+        orders[idx][field] = input.value;
+        if (idx === 0) syncNapoliceLegacyFields(orders[0]);
+      });
+      if (input.getAttribute("data-field") === "store_name") {
+        input.addEventListener("change", renderNapoliceOrders);
+      }
+    });
   }
 
   function renderNapoliceItems(parsed) {
+    if (window.__napoliceParsedOrders && window.__napoliceParsedOrders.length) {
+      renderNapoliceOrders();
+      return;
+    }
     var missingAny = false;
     var storeWarnings = [];
     var rowsHtml = parsed.items.map(function (it) {
@@ -1593,14 +1799,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return missing;
   }
 
-  function buildNapoliceShipmentNo() {
-    return napoliceStoreShortName(napoliceStoreNameInput.value) + " " + napolicePoNoInput.value.trim();
+  function buildNapoliceShipmentNo(order) {
+    var storeName = order ? order.store_name : napoliceStoreNameInput.value;
+    var poNo = order ? order.po_no : napolicePoNoInput.value;
+    return napoliceStoreShortName(storeName) + " " + String(poNo || "").trim();
   }
 
   // KG orders convert to 箱 at 10KG = 1箱, except 內湖店 which stays in KG.
-  function napoliceEffectiveItem(it) {
+  function napoliceEffectiveItem(it, storeNameOverride) {
     var isKg = /^(kg|公斤)$/i.test(String(it.unit || "").trim());
-    var storeName = napoliceStoreNameInput.value || "";
+    var storeName = storeNameOverride !== undefined ? storeNameOverride : (napoliceStoreNameInput.value || "");
     var isNeihu = storeName.indexOf("內湖") !== -1;
     if (isKg && !isNeihu) {
       return Object.assign({}, it, { qty: it.qty / 10, unit: "箱", price: it.price * 10 });
@@ -1608,17 +1816,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return it;
   }
 
-  function buildNapoliceSheets(parsed, orderDate, shipDate, shipmentNo) {
+  function buildNapoliceSheets(parsed, orderDate, shipDate, shipmentNo, storeNameOverride) {
+    var storeName = storeNameOverride !== undefined ? storeNameOverride : napoliceStoreNameInput.value;
     var row1 = [
       orderDate, settings.company_no, settings.staff_no, settings.dept_no, NAPOLICE_DEFAULTS.customer_no,
-      napoliceStoreShortName(napoliceStoreNameInput.value), "", "", NAPOLICE_DEFAULTS.currency, NAPOLICE_DEFAULTS.tax_type, "", "",
+      napoliceStoreShortName(storeName), "", "", NAPOLICE_DEFAULTS.currency, NAPOLICE_DEFAULTS.tax_type, "", "",
       NAPOLICE_DEFAULTS.invoice_channel, "", "", "", "", "", "", shipDate, shipmentNo
     ];
     var ws1 = XLSX.utils.aoa_to_sheet([HEADER1, row1]);
 
     var itemRows = parsed.items.map(function (it) {
       var prod = findNapoliceProduct(it.item_code);
-      var eff = napoliceEffectiveItem(it);
+      var eff = napoliceEffectiveItem(it, storeName);
       return [prod.product_no, eff.qty, eff.unit, eff.price, prod.product_note || "", prod.note];
     });
     var ws2 = XLSX.utils.aoa_to_sheet([HEADER2].concat(itemRows));
@@ -1629,31 +1838,46 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return wb;
   }
 
-  napoliceConvertBtn.addEventListener("click", function () {
+  napoliceConvertBtn.addEventListener("click", async function () {
     showError(""); showOk("");
-    var parsed = window.__lastNapoliceParsed;
-    if (!parsed) { showError("請先上傳 PDF"); return; }
+    var orders = window.__napoliceParsedOrders || [];
+    if (!orders.length) { showError("請先上傳 PDF"); return; }
     if (!napoliceOrderDateInput.value) { showError("請填寫訂購日期"); return; }
 
-    var allMissing = napoliceMissingItems(parsed);
+    var allMissing = [];
+    orders.forEach(function (order) {
+      napoliceMissingItems(order.parsed).forEach(function (name) {
+        allMissing.push(order.file_name + "：" + name);
+      });
+    });
     if (allMissing.length) {
       showError("以下品項尚未在對照表中，請先補上再轉換：\n" + allMissing.join("、"));
       return;
     }
 
     var orderDate = napoliceOrderDateInput.value.replaceAll("-", "/");
-    var shipDate = napoliceShipDateInput.value ? napoliceShipDateInput.value.replaceAll("-", "/") : "";
-    var shipmentNo = buildNapoliceShipmentNo();
 
     napoliceConvertBtn.disabled = true;
     napoliceConvertBtn.textContent = "轉換中...";
 
     try {
-      var wb = buildNapoliceSheets(parsed, orderDate, shipDate, shipmentNo);
-      var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-      var filename = "訂購單_" + napoliceStoreNameInput.value + "_" + napolicePoNoInput.value + ".xlsx";
-      downloadBlob(new Blob([arrbuf], { type: "application/octet-stream" }), filename);
-      showOk("已產生 1 個檔案並下載");
+      var outputs = orders.map(function (order) {
+        var shipDate = order.ship_date ? order.ship_date.replaceAll("-", "/") : "";
+        var wb = buildNapoliceSheets(order.parsed, orderDate, shipDate, buildNapoliceShipmentNo(order), order.store_name);
+        return {
+          filename: "訂購單_" + order.store_name + "_" + order.po_no + ".xlsx",
+          data: XLSX.write(wb, { bookType: "xlsx", type: "array" })
+        };
+      });
+      if (outputs.length === 1) {
+        downloadBlob(new Blob([outputs[0].data], { type: "application/octet-stream" }), outputs[0].filename);
+      } else {
+        var zip = new JSZip();
+        outputs.forEach(function (output) { zip.file(output.filename, output.data); });
+        var blob = await zip.generateAsync({ type: "blob" });
+        downloadBlob(blob, "訂購單_那波麗士_" + orderDate.replaceAll("/", "") + ".zip");
+      }
+      showOk("已產生 " + outputs.length + " 個 Excel 檔案並下載");
     } catch (err) {
       showError("轉換失敗：" + err.message);
     } finally {
@@ -1664,11 +1888,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   napoliceSupabaseBtn.addEventListener("click", async function () {
     showError(""); showOk("");
-    var parsed = window.__lastNapoliceParsed;
-    if (!parsed) { showError("請先上傳 PDF"); return; }
+    var orders = window.__napoliceParsedOrders || [];
+    if (!orders.length) { showError("請先上傳 PDF"); return; }
     if (!napoliceOrderDateInput.value) { showError("請填寫訂購日期"); return; }
 
-    var allMissing = napoliceMissingItems(parsed);
+    var allMissing = [];
+    orders.forEach(function (order) {
+      napoliceMissingItems(order.parsed).forEach(function (name) {
+        allMissing.push(order.file_name + "：" + name);
+      });
+    });
     if (allMissing.length) {
       showError("以下品項尚未在對照表中，請先補上再轉單：\n" + allMissing.join("、"));
       return;
@@ -1685,40 +1914,43 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     napoliceSupabaseBtn.textContent = "轉單中...";
 
     try {
-      var id = generateOrderId();
-      var poNoText = buildNapoliceShipmentNo();
-      var order = {
-        id: id,
-        company: NAPOLICE_SUPABASE_FIXED.company,
-        fill_date: napoliceOrderDateInput.value,
-        ship_date: napoliceShipDateInput.value,
-        customer: NAPOLICE_SUPABASE_FIXED.customer,
-        shipper: document.getElementById("napoliceShipperSelect").value || null,
-        po_no: poNoText,
-        sales: staffName,
-        note: null,
-        doc_flags: NAPOLICE_SUPABASE_FIXED.doc_flags,
-        total: 0
-      };
-      var items = parsed.items.map(function (it, idx) {
-        var prod = findNapoliceProduct(it.item_code);
-        var eff = napoliceEffectiveItem(it);
-        return {
-          order_id: id,
-          line_no: idx + 1,
-          batch: prod.note || null,
-          name: prod.name || it.item_name,
-          qty: eff.qty,
-          unit: eff.unit || null,
-          price: null,
-          amount: 0
+      var ids = [];
+      for (var orderIndex = 0; orderIndex < orders.length; orderIndex++) {
+        var sourceOrder = orders[orderIndex];
+        var id = generateOrderId();
+        ids.push(id);
+        var order = {
+          id: id,
+          company: NAPOLICE_SUPABASE_FIXED.company,
+          fill_date: napoliceOrderDateInput.value,
+          ship_date: sourceOrder.ship_date,
+          customer: NAPOLICE_SUPABASE_FIXED.customer,
+          shipper: document.getElementById("napoliceShipperSelect").value || null,
+          po_no: buildNapoliceShipmentNo(sourceOrder),
+          sales: staffName,
+          note: null,
+          doc_flags: NAPOLICE_SUPABASE_FIXED.doc_flags,
+          total: 0
         };
-      });
+        var items = sourceOrder.parsed.items.map(function (it, idx) {
+          var prod = findNapoliceProduct(it.item_code);
+          var eff = napoliceEffectiveItem(it, sourceOrder.store_name);
+          return {
+            order_id: id,
+            line_no: idx + 1,
+            batch: prod.note || null,
+            name: prod.name || it.item_name,
+            qty: eff.qty,
+            unit: eff.unit || null,
+            price: null,
+            amount: 0
+          };
+        });
+        await supabaseFetch("orders", { method: "POST", body: JSON.stringify(order) });
+        await supabaseFetch("order_items", { method: "POST", body: JSON.stringify(items) });
+      }
 
-      await supabaseFetch("orders", { method: "POST", body: JSON.stringify(order) });
-      await supabaseFetch("order_items", { method: "POST", body: JSON.stringify(items) });
-
-      showOk("已成功轉單到 Supabase 出貨單系統，單號：" + id);
+      showOk("已成功轉單 " + ids.length + " 張到 Supabase 出貨單系統，單號：" + ids.join("、"));
     } catch (err) {
       showError("轉單失敗：" + err.message);
     } finally {
@@ -2262,7 +2494,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     batchSources.forEach(function (source) {
       var ready = !!source.get();
       var badge = document.getElementById(source.id);
-      badge.textContent = source.label + "：" + (ready ? "已完成" : source.empty);
+      var readyText = "已完成";
+      if (source.id === "batchStatusNapolice" && window.__napoliceParsedOrders) {
+        readyText = "已完成 " + window.__napoliceParsedOrders.length + " 份";
+      }
+      badge.textContent = source.label + "：" + (ready ? readyText : source.empty);
       badge.classList.toggle("ready", ready);
       if (!ready) allReady = false;
     });
@@ -2294,7 +2530,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (!findProduct(it.item_code)) missingProducts.push("善商：" + it.item_name);
       });
     });
-    napoliceMissingItems(window.__lastNapoliceParsed).forEach(function (name) { missingProducts.push("那波麗士：" + name); });
+    (window.__napoliceParsedOrders || []).forEach(function (order) {
+      napoliceMissingItems(order.parsed).forEach(function (name) {
+        missingProducts.push("那波麗士（" + order.file_name + "）：" + name);
+      });
+    });
     qixinMissingItems(window.__lastQixinParsed).forEach(function (name) { missingProducts.push("啟新：" + name); });
     yujunMissingItems(window.__lastYujunParsed).forEach(function (name) { missingProducts.push("魚君：" + name); });
     if (missingProducts.length) {
@@ -2311,17 +2551,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       var shanshangShipDate = shipDateInput.value ? shipDateInput.value.replaceAll("-", "/") : "";
       window.__lastParsed.groups.forEach(function (g) {
         var wb = buildGroupSheets(g, shanshangOrderDate, shanshangShipDate, window.__lastParsed.shipment_no);
-        var filename = "訂購單_" + g.recipient_name + "_" + window.__lastParsed.shipment_no + ".xlsx";
+        var filename = "訂購單_" + shanshangStoreShortName(g.recipient_name) + "_" + window.__lastParsed.shipment_no + ".xlsx";
         zip.file("善商/" + filename, XLSX.write(wb, { bookType: "xlsx", type: "array" }));
         fileCount++;
       });
 
       var napoliceOrderDate = napoliceOrderDateInput.value.replaceAll("-", "/");
-      var napoliceShipDate = napoliceShipDateInput.value ? napoliceShipDateInput.value.replaceAll("-", "/") : "";
-      var napoliceWb = buildNapoliceSheets(window.__lastNapoliceParsed, napoliceOrderDate, napoliceShipDate, buildNapoliceShipmentNo());
-      var napoliceFilename = "訂購單_" + napoliceStoreNameInput.value + "_" + napolicePoNoInput.value + ".xlsx";
-      zip.file("那波麗士/" + napoliceFilename, XLSX.write(napoliceWb, { bookType: "xlsx", type: "array" }));
-      fileCount++;
+      (window.__napoliceParsedOrders || []).forEach(function (order) {
+        var napoliceShipDate = order.ship_date ? order.ship_date.replaceAll("-", "/") : "";
+        var napoliceWb = buildNapoliceSheets(order.parsed, napoliceOrderDate, napoliceShipDate, buildNapoliceShipmentNo(order), order.store_name);
+        var napoliceFilename = "訂購單_" + order.store_name + "_" + order.po_no + ".xlsx";
+        zip.file("那波麗士/" + napoliceFilename, XLSX.write(napoliceWb, { bookType: "xlsx", type: "array" }));
+        fileCount++;
+      });
 
       var qixinOrderDate = qixinOrderDateInput.value.replaceAll("-", "/");
       var qixinShipDate = qixinShipDateInput.value ? qixinShipDateInput.value.replaceAll("-", "/") : "";
