@@ -1958,7 +1958,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     if (!poMatch) throw new Error("找不到採購單號（PO開頭），請確認上傳的是那波麗士採購單 PDF");
 
-    var itemRegex = /(\d+)\s+(\d{10})\s+([\s\S]+?)\s+(\d+)\s+(\S+?)\s+(\d+)\s+(免稅|應稅)\s+(\d+)\s+([\d,]+)/g;
+    var itemRegex = /(\d+)\s+(\d{10})\s+([\s\S]+?)\s+(\d+)\s+(\S+?)\s+(\d+)\s+(免稅|應稅|合稅|含稅)\s+(\d+)\s+([\d,]+)/g;
     var items = [];
     var m;
     while ((m = itemRegex.exec(fullText)) !== null) {
