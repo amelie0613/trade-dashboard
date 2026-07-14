@@ -90,7 +90,8 @@
     .item.over{border-color:rgba(201,54,54,.35);background:#fff5f5}
     .item-name{font-weight:900;color:var(--ink);line-height:1.35}
     .item-sub{font-size:11px;color:var(--muted);margin-top:3px}
-    .qty{font-weight:900;font-size:20px;text-align:center;min-width:72px;color:#496074}
+    .qty{font-weight:900;font-size:20px;text-align:center;min-width:72px;color:#496074;cursor:pointer;text-decoration:underline dotted;text-underline-offset:4px}
+    .qty.locked{cursor:default;text-decoration:none}
     .qty-btn{width:34px;height:30px;border:1.5px solid #cfd8e3;border-radius:5px;background:#fff;color:#333;font-size:24px;line-height:24px;display:flex;align-items:center;justify-content:center}
     .qty.good{color:var(--good)}
     .qty.bad{color:var(--bad)}
@@ -401,6 +402,17 @@
     </div>
   </div>
 </div>
+<div class="shipment-modal" id="qtyModal">
+  <div class="shipment-modal-box">
+    <h3 id="qtyModalTitle">手動調整數量</h3>
+    <p class="hint" id="qtyModalHint">請輸入正確的核銷數量</p>
+    <input type="number" id="qtyModalInput" inputmode="numeric" min="0" step="1" placeholder="輸入數量">
+    <div class="row">
+      <button class="btn" id="qtyModalCancel">取消</button>
+      <button class="btn primary grow" id="qtyModalConfirm">確認</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -423,7 +435,8 @@ const state = {
   remoteMode: false,
   sbClient: null,
   statusFilter: 'all',
-  pageMode: 'home'
+  pageMode: 'home',
+  qtyModalProduct: ''
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1065,12 +1078,15 @@ function renderActive(){
         <div class="progress"><div class="bar" style="width:${pct}%"></div></div>
       </div>
       <button class="qty-btn" data-adjust="${escapeHtml(item.name)}" data-delta="-1" ${locked?'disabled':''}>−</button>
-      <div class="qty ${qtyCls}">${item.picked} / ${item.qty}</div>
+      <div class="qty ${qtyCls} ${locked?'locked':''}" ${locked?'':`data-qty-open="${escapeHtml(item.name)}"`}>${item.picked} / ${item.qty}</div>
       <button class="qty-btn" data-adjust="${escapeHtml(item.name)}" data-delta="1" ${locked?'disabled':''}>＋</button>
     </div>`;
   }).join('') || '<div class="hint" style="padding:16px">沒有符合的品項</div>';
   $('items').querySelectorAll('[data-adjust]').forEach(btn => {
     btn.onclick = () => adjustItem(btn.dataset.adjust, parseInt(btn.dataset.delta, 10));
+  });
+  $('items').querySelectorAll('[data-qty-open]').forEach(el => {
+    el.onclick = () => openQtyModal(el.dataset.qtyOpen);
   });
   renderLog();
 }
@@ -1159,6 +1175,65 @@ function adjustItem(productName, delta){
   syncPickedToSupabase(order, item, delta, barcode).catch(err => alertWrongQty(`Supabase 同步失敗：${err.message}`));
   if(item.picked > item.qty){
     alertWrongQty(`數量超過：${item.name}，目前 ${item.picked} / 應出 ${item.qty}`);
+  }
+}
+
+function openQtyModal(productName){
+  const order = state.orders[state.activeOrderId];
+  if(!order) return;
+  if(orderProgress(order).key === 'done'){ alertWrongQty('此訂單已完成，禁止再次編輯'); return; }
+  const item = order.items.find(i => i.name === productName);
+  if(!item) return;
+  state.qtyModalProduct = productName;
+  $('qtyModalTitle').textContent = item.name;
+  $('qtyModalHint').textContent = `應出數量：${item.qty}，目前已核銷：${item.picked}`;
+  $('qtyModalInput').value = item.picked;
+  $('qtyModal').classList.add('active');
+  $('qtyModalInput').focus();
+  $('qtyModalInput').select();
+}
+
+function closeQtyModal(){
+  $('qtyModal').classList.remove('active');
+  state.qtyModalProduct = '';
+}
+
+function confirmQtyModal(){
+  const order = state.orders[state.activeOrderId];
+  const productName = state.qtyModalProduct;
+  if(!order || !productName){ closeQtyModal(); return; }
+  const item = order.items.find(i => i.name === productName);
+  if(!item){ closeQtyModal(); return; }
+  const raw = norm($('qtyModalInput').value);
+  const value = parseInt(raw, 10);
+  if(!Number.isFinite(value) || value < 0 || String(value) !== raw){
+    toast('請輸入正確的數量（0 或以上整數）');
+    return;
+  }
+  const delta = value - item.picked;
+  if(delta === 0){ closeQtyModal(); $('barcodeInput').focus(); return; }
+  item.picked = value;
+  const barcode = findBarcodeByProduct(item.name) || '手動輸入';
+  const rec = {
+    time: new Date().toISOString(),
+    displayTime: nowText(),
+    orderId: order.id,
+    barcode,
+    product: item.name,
+    qty: delta
+  };
+  state.scans.push(rec);
+  state.lastAction = rec;
+  saveLocal();
+  renderOrders();
+  renderActive();
+  closeQtyModal();
+  $('barcodeInput').focus();
+  syncPickedToSupabase(order, item, delta, barcode).catch(err => alertWrongQty(`Supabase 同步失敗：${err.message}`));
+  if(item.picked > item.qty){
+    alertWrongQty(`數量超過：${item.name}，目前 ${item.picked} / 應出 ${item.qty}`);
+  }else{
+    toast(`已手動調整：${item.name}，目前 ${item.picked} / ${item.qty}`);
   }
 }
 
@@ -1506,6 +1581,11 @@ $('shipmentModalConfirm').onclick = confirmShipmentModal;
 $('shipmentModalCancel').onclick = () => { closeShipmentModal(); toast('已儲存品項，稍後記得回來補寄件編號'); showPickingList(); };
 $('shipmentModalInput').addEventListener('keydown', e => {
   if(e.key === 'Enter'){ e.preventDefault(); confirmShipmentModal(); }
+});
+$('qtyModalCancel').onclick = () => { closeQtyModal(); $('barcodeInput').focus(); };
+$('qtyModalConfirm').onclick = confirmQtyModal;
+$('qtyModalInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); confirmQtyModal(); }
 });
 $('backOrdersBtn').onclick = backToOrders;
 $('scanShipmentBtn').onclick = () => {
