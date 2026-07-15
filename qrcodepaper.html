@@ -9,9 +9,14 @@
   <style>
     :root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#68738a;--line:#dce3ef;--brand:#246bfe;--good:#138a43;--bad:#c93636;--r:8px;font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif}
     *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-size:15px}
-    button,input,select,textarea{font:inherit} .top{position:sticky;top:0;z-index:2;background:#0f172a;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px}
-    .top h1{font-size:18px;margin:0;font-weight:900}.top a{margin-left:auto;color:#bfdbfe;text-decoration:none;font-size:13px;font-weight:800}
+    button,input,select,textarea{font:inherit} .top{position:sticky;top:0;z-index:2;background:#0f172a;color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .top h1{font-size:18px;margin:0;font-weight:900}.top a{margin-left:auto;color:#bfdbfe;text-decoration:none;font-size:13px;font-weight:800}.top-sync{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;font-weight:700;color:#bfdbfe}
+    .view{display:none}.view.on{display:block}
+    .tabbar{width:min(1120px,100%);margin:10px auto 0;padding:0 12px;display:flex;gap:8px}
+    .tabbtn{border:1.5px solid var(--line);background:#fff;color:var(--muted);border-radius:7px;padding:8px 14px;font-weight:900;cursor:pointer}
+    .tabbtn.on{background:var(--brand);border-color:var(--brand);color:#fff}
     main{width:min(1120px,100%);margin:0 auto;padding:12px;display:grid;grid-template-columns:360px 1fr;gap:12px}
+    main.single{grid-template-columns:1fr}
     .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.head{padding:12px 14px;border-bottom:1px solid var(--line);background:#fbfcff;font-weight:900}
     .body{padding:12px;display:flex;flex-direction:column;gap:10px}.row{display:flex;gap:8px;align-items:center}.grow{flex:1}
     label{display:block;font-size:12px;color:var(--muted);font-weight:900;margin-bottom:4px}
@@ -23,12 +28,14 @@
     .metric{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px}.metric b{display:block;font-size:24px}.metric span{font-size:12px;color:var(--muted);font-weight:900}
     table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}th{background:#f8fafc;color:var(--muted);font-size:12px;position:sticky;top:0}
     .scroll{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:8px}.tag{display:inline-flex;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900;background:#eef4ff;color:#246bfe}.done{background:#ecfdf3;color:#138a43}.bad{background:#fff1f2;color:#c93636}
-    .overview-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.overview-time{font-size:12px;color:var(--muted);font-weight:700}.tools{display:grid;grid-template-columns:1fr 190px;gap:8px}.product-summary{display:flex;gap:6px;overflow:auto;padding-bottom:2px}.product-chip{flex:none;border:1px solid var(--line);border-radius:999px;background:#f8fafc;padding:5px 9px;font-size:12px}.item-list{min-width:190px;display:flex;flex-direction:column;gap:4px}.item-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed #e5eaf2;padding-bottom:3px}.item-row:last-child{border:0}.item-qty{white-space:nowrap;font-weight:900;color:var(--brand)}
-    @media(max-width:820px){main{grid-template-columns:1fr;padding:8px}.metrics{grid-template-columns:repeat(2,1fr)}.row{flex-wrap:wrap}.top{padding-top:calc(12px + env(safe-area-inset-top))}}
+    .overview-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.overview-time{font-size:12px;color:var(--muted);font-weight:700}.tools{display:grid;grid-template-columns:1fr 190px;gap:8px}.product-scroll{max-height:220px}.item-list{min-width:190px;display:flex;flex-direction:column;gap:4px}.item-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed #e5eaf2;padding-bottom:3px}.item-row:last-child{border:0}.item-qty{white-space:nowrap;font-weight:900;color:var(--brand)}
+    @media(max-width:820px){main{grid-template-columns:1fr;padding:8px}.metrics{grid-template-columns:repeat(2,1fr)}.row{flex-wrap:wrap}.top{padding-top:calc(12px + env(safe-area-inset-top))}.tabbar{padding:0 8px}}
   </style>
 </head>
 <body>
-  <header class="top"><h1>理貨資料彙整</h1><a href="./qrcodemoney.html">開啟手機檢貨頁</a></header>
+  <header class="top"><h1>理貨資料彙整</h1><div class="top-sync"><span id="topStatus">尚未載入資料</span><span id="topSaved">最後儲存：尚無資料</span></div><a href="./qrcodemoney.html">開啟手機檢貨頁</a></header>
+  <nav class="tabbar"><button class="tabbtn on" id="tabOrders">訂單管理</button><button class="tabbtn" id="tabScans">掃描紀錄 Scan Log</button></nav>
+  <div class="view on" id="viewOrders">
   <main>
     <section class="panel">
       <div class="head">匯入與同步</div>
@@ -55,12 +62,32 @@
           <div class="metric"><b id="mPicked">0</b><span>已核銷</span></div>
           <div class="metric"><b id="mDone">0</b><span>完成</span></div>
         </div>
-        <div class="product-summary" id="productSummary"></div>
+        <div class="scroll product-scroll"><table><thead><tr><th>商品</th><th>訂購數量</th><th>已核銷</th><th>完成度</th></tr></thead><tbody id="productSummary"></tbody></table></div>
         <div class="tools"><input id="search" placeholder="搜尋訂單、訂購人、收件人、電話、商品"><select id="sortBy"><option value="saved-desc">最後儲存：新到舊</option><option value="saved-asc">最後儲存：舊到新</option><option value="id-desc">訂單編號：大到小</option><option value="id-asc">訂單編號：小到大</option><option value="qty-desc">訂購數量：多到少</option><option value="qty-asc">訂購數量：少到多</option><option value="status">狀態：未完成優先</option></select></div>
         <div class="scroll"><table><thead><tr><th>訂單</th><th>收件資料</th><th>商品與數量</th><th>合計</th><th>寄件編號</th><th>狀態</th></tr></thead><tbody id="rows"></tbody></table></div>
       </div>
     </section>
   </main>
+  </div>
+  <div class="view" id="viewScans">
+  <main class="single">
+    <section class="panel">
+      <div class="head overview-head"><span>掃描紀錄 Scan Log</span><span class="overview-time" id="scanCount">共 0 筆</span></div>
+      <div class="body">
+        <div class="hint">資料來源：本機瀏覽器 localStorage（由「開啟手機檢貨頁」掃描時寫入），僅此裝置看得到，換裝置或清除瀏覽器資料會遺失。</div>
+        <div class="metrics">
+          <div class="metric"><b id="sTotal">0</b><span>掃描次數</span></div>
+          <div class="metric"><b id="sOrders">0</b><span>涉及訂單</span></div>
+          <div class="metric"><b id="sProducts">0</b><span>涉及商品</span></div>
+          <div class="metric"><b id="sQty">0</b><span>掃描總數量</span></div>
+        </div>
+        <div class="row"><button class="btn good" id="reloadScans">重新載入本機掃描紀錄</button><button class="btn bad" id="clearScans">清除本機掃描紀錄</button></div>
+        <div class="tools"><input id="scanSearch" placeholder="搜尋訂單編號、商品"><select id="scanSortBy"><option value="time-desc">時間：新到舊</option><option value="time-asc">時間：舊到新</option><option value="order">訂單編號</option><option value="product">商品名稱</option><option value="qty-desc">數量：多到少</option></select></div>
+        <div class="scroll"><table><thead><tr><th>#</th><th>時間</th><th>訂單編號</th><th>商品</th><th>數量</th></tr></thead><tbody id="scanRows"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+  </div>
 <script>
 const $=id=>document.getElementById(id);
 const LS='picker_admin_supabase_v1';
@@ -78,11 +105,12 @@ function parseOrders(rows){const hi=findHeaderRow(rows),headers=rows[hi].map(nor
 function loadLocal(){try{scans=JSON.parse(localStorage.getItem('picker_scans_v1')||'[]')}catch(e){}try{shipments=JSON.parse(localStorage.getItem('picker_shipments_v1')||'{}')}catch(e){}$('sbUrl').value=SUPABASE_URL;$('sbKey').value=SUPABASE_KEY}
 function cleanSupabaseUrl(v){let url=norm(v).replace(/\/+$/,'');url=url.replace('.supabase.cc','.supabase.co');if(url&&!/^https?:\/\//i.test(url))url='https://'+url;try{const u=new URL(url);return u.origin}catch(e){return url}}
 let lastSavedISO='';
-function setLastSaved(value){lastSavedISO=value||'';const d=value?new Date(value):null;const text=d&&!Number.isNaN(d.getTime())?d.toLocaleString('zh-TW',{hour12:false}):'尚無資料';$('lastSaved').textContent='雲端最後儲存時間：'+text;$('overviewLastSaved').textContent='最後儲存：'+text}
+function setLastSaved(value){lastSavedISO=value||'';const d=value?new Date(value):null;const text=d&&!Number.isNaN(d.getTime())?d.toLocaleString('zh-TW',{hour12:false}):'尚無資料';$('lastSaved').textContent='雲端最後儲存時間：'+text;$('overviewLastSaved').textContent='最後儲存：'+text;$('topSaved').textContent='最後儲存：'+text}
+function setStatus(text){$('status').textContent=text;$('topStatus').textContent=text}
 function applyScans(){Object.values(orders).forEach(o=>o.items.forEach(i=>i.picked=0));for(const s of scans){const o=orders[s.orderId];if(!o)continue;const item=o.items.find(i=>i.name===s.product);if(item)item.picked+=s.qty}}
 function stats(o){const total=o.items.reduce((s,i)=>s+i.qty,0),picked=o.items.reduce((s,i)=>s+i.picked,0),done=o.items.length&&o.items.every(i=>i.picked>=i.qty),over=o.items.some(i=>i.picked>i.qty);return{total,picked,done,over,status:over?'超量':done?'完成':picked?'部分完成':'未開始'}}
 function sortOrders(list,sortBy){const arr=list.slice();const cmp=(a,b)=>String(a||'').localeCompare(String(b||''),undefined,{numeric:true,sensitivity:'base'});switch(sortBy){case'saved-asc':return arr.sort((a,b)=>cmp(a.updatedAt,b.updatedAt));case'id-desc':return arr.sort((a,b)=>cmp(b.id,a.id));case'id-asc':return arr.sort((a,b)=>cmp(a.id,b.id));case'qty-desc':return arr.sort((a,b)=>stats(b).total-stats(a).total);case'qty-asc':return arr.sort((a,b)=>stats(a).total-stats(b).total);case'status':return arr.sort((a,b)=>Number(stats(a).done)-Number(stats(b).done));case'saved-desc':default:return arr.sort((a,b)=>cmp(b.updatedAt,a.updatedAt))}}
-function buildProductSummary(list){const map={};list.forEach(o=>o.items.forEach(i=>{if(!map[i.name])map[i.name]={total:0,picked:0};map[i.name].total+=i.qty;map[i.name].picked+=i.picked}));const names=Object.keys(map).sort((a,b)=>map[b].total-map[a].total);$('productSummary').innerHTML=names.length?names.map(n=>`<span class="product-chip">${esc(n)} <span class="item-qty">${map[n].picked}/${map[n].total}</span></span>`).join(''):'<span class="hint">尚無商品資料</span>'}
+function buildProductSummary(list){const map={};list.forEach(o=>o.items.forEach(i=>{if(!map[i.name])map[i.name]={total:0,picked:0};map[i.name].total+=i.qty;map[i.name].picked+=i.picked}));const names=Object.keys(map).sort((a,b)=>map[b].total-map[a].total);$('productSummary').innerHTML=names.length?names.map(n=>{const d=map[n],pct=d.total?Math.round(d.picked/d.total*100):0;return`<tr><td>${esc(n)}</td><td>${d.total}</td><td>${d.picked}</td><td><span class="tag ${pct>=100?'done':''}">${pct}%</span></td></tr>`}).join(''):'<tr><td colspan="4" class="hint">尚無商品資料</td></tr>'}
 function render(){if(!remoteMode)applyScans();const list=Object.values(orders);$('mOrders').textContent=list.length;$('mQty').textContent=list.reduce((s,o)=>s+stats(o).total,0);$('mPicked').textContent=list.reduce((s,o)=>s+stats(o).picked,0);$('mDone').textContent=list.filter(o=>stats(o).done).length;buildProductSummary(list);const q=norm($('search').value).toLowerCase();let filtered=list.filter(o=>!q||[o.id,o.buyer,o.receiver,o.receiverPhone,o.receiverAddress,...o.items.map(i=>i.name)].join('|').toLowerCase().includes(q));filtered=sortOrders(filtered,$('sortBy').value);$('rows').innerHTML=filtered.map(o=>{const st=stats(o);const itemsHtml=o.items.map(i=>`<div class="item-row"><span>${esc(i.name)}</span><span class="item-qty">${i.picked}/${i.qty}</span></div>`).join('')||'<span class="hint">—</span>';return`<tr><td><b>${esc(o.id)}</b><br><span class="hint">${esc(o.buyer||'')}</span></td><td>${esc(o.receiver||'')}<br>${esc(o.receiverPhone||'')}<br><span class="hint">${esc(o.receiverAddress||'')}</span></td><td><div class="item-list">${itemsHtml}</div></td><td>${st.picked} / ${st.total}</td><td>${esc(shipments[o.id]||'')}</td><td><span class="tag ${st.over?'bad':st.done?'done':''}">${st.status}</span></td></tr>`}).join('')||'<tr><td colspan="6" class="hint">尚無資料</td></tr>'}
 function csv(rows){return rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n')}
 function exportOrders(doneOnly=false){const list=Object.values(orders).filter(o=>!doneOnly||stats(o).done);const productNames=[];const seenProducts=new Set();list.forEach(o=>o.items.forEach(i=>{if(!seenProducts.has(i.name)){seenProducts.add(i.name);productNames.push(i.name)}}));const savedText=lastSavedISO?new Date(lastSavedISO).toLocaleString('zh-TW',{hour12:false}):'尚無資料（尚未上傳至 Supabase）';const rows=[['最後儲存時間',savedText],['匯出時間',new Date().toLocaleString('zh-TW',{hour12:false})],[],['訂單編號','訂購人','收件人','收件電話','收件地址','寄件編號','品項數','訂購數量','已核銷數量','理貨狀態',...productNames]];list.forEach(o=>{const st=stats(o);const productCols=productNames.map(name=>{const item=o.items.find(i=>i.name===name);return item?item.qty:''});rows.push([o.id,o.buyer,o.receiver,o.receiverPhone,o.receiverAddress,shipments[o.id]||'',o.items.length,st.total,st.picked,st.status,...productCols])});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv(rows)],{type:'text/csv;charset=utf-8'}));a.download=(doneOnly?'理貨完成訂單':'全部訂單')+'_'+new Date().toISOString().slice(0,10)+'.csv';a.click()}
@@ -102,7 +130,7 @@ async function clearOrderRecords(){
   remoteMode=false;
   render();
   setLastSaved('');
-  $('status').textContent=`已從 Supabase 永久刪除 ${ids.length} 張訂單`;
+  setStatus(`已從 Supabase 永久刪除 ${ids.length} 張訂單`);
 }
 async function fetchAllRows(buildQuery){
   const pageSize=1000;
@@ -149,13 +177,23 @@ async function loadFromSupabase(){
   render();
   const latestSaved=(orderRows||[]).reduce((latest,row)=>!latest||new Date(row.updated_at)>new Date(latest)?row.updated_at:latest,'');
   setLastSaved(latestSaved);
-  $('status').textContent=`已從 Supabase 載入 ${Object.keys(orders).length} 張訂單（即時狀態）`;
+  setStatus(`已從 Supabase 載入 ${Object.keys(orders).length} 張訂單（即時狀態）`);
 }
-async function uploadSupabase(){const url=cleanSupabaseUrl($('sbUrl').value),key=norm($('sbKey').value);$('sbUrl').value=url;if(!url||!key){alert('請先填 Supabase URL 與 key');return}if(!/https:\/\/[^/]+\.supabase\.co$/i.test(url)){alert('Supabase URL 格式不正確，應該像：https://xxxxx.supabase.co');return}if(!Object.keys(orders).length){alert('請先匯入訂單 Excel');return}const sb=supabase.createClient(url,key);const savedAt=new Date().toISOString();const orderRows=Object.values(orders).map(o=>({id:o.id,buyer_name:o.buyer,receiver_name:o.receiver,receiver_phone:o.receiverPhone,receiver_address:o.receiverAddress,shipment_no:shipments[o.id]||'',status:stats(o).status,updated_at:savedAt}));const itemRows=[];Object.values(orders).forEach(o=>o.items.forEach((i,idx)=>itemRows.push({order_id:o.id,line_no:idx+1,product_name:i.name,ordered_qty:i.qty,picked_qty:i.picked})));let r=await sb.from('barcode_orders').upsert(orderRows);if(r.error)throw new Error(r.error.message||JSON.stringify(r.error));const ids=orderRows.map(o=>o.id);r=await sb.from('barcode_order_items').delete().in('order_id',ids);if(r.error)throw new Error(r.error.message||JSON.stringify(r.error));r=await sb.from('barcode_order_items').insert(itemRows);if(r.error)throw new Error(r.error.message||JSON.stringify(r.error));Object.values(orders).forEach(o=>o.updatedAt=savedAt);setLastSaved(savedAt);render();$('status').textContent='已上傳 Supabase：'+orderRows.length+' 張訂單'}
+async function uploadSupabase(){const url=cleanSupabaseUrl($('sbUrl').value),key=norm($('sbKey').value);$('sbUrl').value=url;if(!url||!key){alert('請先填 Supabase URL 與 key');return}if(!/https:\/\/[^/]+\.supabase\.co$/i.test(url)){alert('Supabase URL 格式不正確，應該像：https://xxxxx.supabase.co');return}if(!Object.keys(orders).length){alert('請先匯入訂單 Excel');return}const sb=supabase.createClient(url,key);const savedAt=new Date().toISOString();const orderRows=Object.values(orders).map(o=>({id:o.id,buyer_name:o.buyer,receiver_name:o.receiver,receiver_phone:o.receiverPhone,receiver_address:o.receiverAddress,shipment_no:shipments[o.id]||'',status:stats(o).status,updated_at:savedAt}));const itemRows=[];Object.values(orders).forEach(o=>o.items.forEach((i,idx)=>itemRows.push({order_id:o.id,line_no:idx+1,product_name:i.name,ordered_qty:i.qty,picked_qty:i.picked})));let r=await sb.from('barcode_orders').upsert(orderRows);if(r.error)throw new Error(r.error.message||JSON.stringify(r.error));const ids=orderRows.map(o=>o.id);r=await sb.from('barcode_order_items').delete().in('order_id',ids);if(r.error)throw new Error(r.error.message||JSON.stringify(r.error));r=await sb.from('barcode_order_items').insert(itemRows);if(r.error)throw new Error(r.error.message||JSON.stringify(r.error));Object.values(orders).forEach(o=>o.updatedAt=savedAt);setLastSaved(savedAt);render();setStatus('已上傳 Supabase：'+orderRows.length+' 張訂單')}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-$('orderFile').onchange=e=>e.target.files[0]&&readWorkbook(e.target.files[0]).then(rows=>{remoteMode=false;orders=parseOrders(rows);render();$('status').textContent='已載入 '+Object.keys(orders).length+' 張訂單'}).catch(err=>alert(err.message));
-$('search').oninput=render;$('sortBy').onchange=render;$('exportAll').onclick=()=>exportOrders(false);$('exportDone').onclick=()=>exportOrders(true);$('saveCfg').onclick=()=>{const url=cleanSupabaseUrl($('sbUrl').value);$('sbUrl').value=url;localStorage.setItem(LS,JSON.stringify({url,key:norm($('sbKey').value)}));$('status').textContent='Supabase 設定已保存'};$('uploadSb').onclick=()=>uploadSupabase().catch(e=>alert('Supabase 上傳失敗：'+e.message));$('loadSb').onclick=()=>loadFromSupabase().catch(e=>alert('Supabase 載入失敗：'+e.message));
+function scanTime(s){return s.time||s.ts||s.at||s.scannedAt||s.createdAt||s.timestamp||''}
+function sortScans(list,sortBy){const arr=list.slice();const cmp=(a,b)=>String(a||'').localeCompare(String(b||''),undefined,{numeric:true,sensitivity:'base'});switch(sortBy){case'time-asc':return arr.sort((a,b)=>cmp(scanTime(a),scanTime(b)));case'order':return arr.sort((a,b)=>cmp(a.orderId,b.orderId));case'product':return arr.sort((a,b)=>cmp(a.product,b.product));case'qty-desc':return arr.sort((a,b)=>num(b.qty)-num(a.qty));case'time-desc':default:return arr.sort((a,b)=>cmp(scanTime(b),scanTime(a)))}}
+function renderScanLog(){const q=norm($('scanSearch').value).toLowerCase();let list=scans.filter(s=>!q||[s.orderId,s.product].join('|').toLowerCase().includes(q));list=sortScans(list,$('scanSortBy').value);const totalQty=scans.reduce((s,x)=>s+num(x.qty),0);const orderSet=new Set(scans.map(s=>s.orderId));const productSet=new Set(scans.map(s=>s.product));$('sTotal').textContent=scans.length;$('sOrders').textContent=orderSet.size;$('sProducts').textContent=productSet.size;$('sQty').textContent=totalQty;$('scanCount').textContent='共 '+scans.length+' 筆'+(list.length!==scans.length?'（篩選出 '+list.length+' 筆）':'');$('scanRows').innerHTML=list.map((s,idx)=>{const t=scanTime(s);const dt=t?new Date(t):null;const timeText=t?(dt&&!Number.isNaN(dt.getTime())?dt.toLocaleString('zh-TW',{hour12:false}):esc(String(t))):'—';return`<tr><td>${idx+1}</td><td>${timeText}</td><td>${esc(s.orderId||'')}</td><td>${esc(s.product||'')}</td><td>${num(s.qty)}</td></tr>`}).join('')||'<tr><td colspan="5" class="hint">尚無掃描紀錄</td></tr>'}
+function goTab(name){const isOrders=name==='orders';$('viewOrders').classList.toggle('on',isOrders);$('viewScans').classList.toggle('on',!isOrders);$('tabOrders').classList.toggle('on',isOrders);$('tabScans').classList.toggle('on',!isOrders);if(!isOrders)renderScanLog()}
+$('orderFile').onchange=e=>e.target.files[0]&&readWorkbook(e.target.files[0]).then(rows=>{remoteMode=false;orders=parseOrders(rows);render();setStatus('已載入 '+Object.keys(orders).length+' 張訂單')}).catch(err=>alert(err.message));
+$('search').oninput=render;$('sortBy').onchange=render;$('exportAll').onclick=()=>exportOrders(false);$('exportDone').onclick=()=>exportOrders(true);$('saveCfg').onclick=()=>{const url=cleanSupabaseUrl($('sbUrl').value);$('sbUrl').value=url;localStorage.setItem(LS,JSON.stringify({url,key:norm($('sbKey').value)}));setStatus('Supabase 設定已保存')};$('uploadSb').onclick=()=>uploadSupabase().catch(e=>alert('Supabase 上傳失敗：'+e.message));$('loadSb').onclick=()=>loadFromSupabase().catch(e=>alert('Supabase 載入失敗：'+e.message));
 $('clearOrders').onclick=()=>clearOrderRecords().catch(e=>alert('清除失敗：'+e.message));
+$('tabOrders').onclick=()=>goTab('orders');
+$('tabScans').onclick=()=>goTab('scans');
+$('scanSearch').oninput=renderScanLog;
+$('scanSortBy').onchange=renderScanLog;
+$('reloadScans').onclick=()=>{try{scans=JSON.parse(localStorage.getItem('picker_scans_v1')||'[]')}catch(e){scans=[]}render();renderScanLog();setStatus('已重新載入本機掃描紀錄，共 '+scans.length+' 筆')};
+$('clearScans').onclick=()=>{if(!scans.length){alert('目前沒有本機掃描紀錄可清除');return}if(!confirm(`確定要清除本機瀏覽器裡的 ${scans.length} 筆掃描紀錄嗎？此動作只會清掉這台裝置上的紀錄、不會動到 Supabase 資料，且無法復原。`))return;scans=[];localStorage.setItem('picker_scans_v1','[]');render();renderScanLog();setStatus('已清除本機掃描紀錄')};
 loadLocal();render();
 </script>
 </body>
