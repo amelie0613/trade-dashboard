@@ -10670,7 +10670,7 @@ function _renderTransitTable() {
         const srcC = srcCol[src]||'#aaa';
         const done = r.status === '已核銷' || Number(r.remaining_qty || 0) <= 0;
         const actionBtn = done
-          ? '<span style="font-size:10px;color:#94a3b8;">已完成</span>'
+          ? `<button onclick="archiveCompletedTransitRow('${r.id}')" style="padding:2px 8px;border:1px solid #ef4444;background:#fff5f5;color:#ef4444;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;" title="先備份至 Google Sheets，再從台帳刪除">結案刪除</button>`
           : `<button onclick="manualTransitOffset('${r.id}')" style="padding:2px 8px;border:1px solid #22c55e;background:#f0faf0;color:#16a34a;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;">手動核銷</button>`;
         const deleteBtn = src === '加工子件'
           ? `<button onclick="deleteTransitRow('${r.id}')" style="margin-left:4px;padding:2px 8px;border:1px solid #ef4444;background:#fff5f5;color:#ef4444;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;">刪除</button>`
@@ -11152,6 +11152,33 @@ async function deleteTransitRow(id) {
     await loadTransitLedger();
 }
 window.deleteTransitRow = deleteTransitRow;
+
+async function archiveCompletedTransitRow(id) {
+    const row = (_transitRecords || []).find(r => String(r.id) === String(id));
+    if (!row) { alert('找不到這筆在途資料，請先重新讀取台帳'); return; }
+    const done = row.status === '已核銷' || Number(row.remaining_qty || 0) <= 0;
+    if (!done) {
+        alert('這筆 CASE 尚未完成核銷，不能結案刪除。');
+        return;
+    }
+
+    const name = `${row.product_name || ''} / ${row.batch_no || ''}`;
+    if (!confirm(`確定將這筆已結案 CASE 移出台帳？\n${name}\n\n系統會先備份到 Google Sheets「在途核銷備份」，備份成功後才從 Supabase 刪除。`)) return;
+
+    const statusEl = document.getElementById('transit_status');
+    if (statusEl) statusEl.textContent = '⏳ 正在備份並刪除已結案 CASE…';
+    try {
+        const archivedCount = await _archiveCompletedTransitRecords([String(id)]);
+        if (!archivedCount) throw new Error('找不到可歸檔的已結案記錄');
+        if (window._periodOffsetMap) delete window._periodOffsetMap[String(id)];
+        if (statusEl) statusEl.textContent = '✅ 已備份並刪除 1 筆已結案 CASE';
+        await loadTransitLedger();
+    } catch (e) {
+        if (statusEl) statusEl.textContent = `❌ 結案刪除失敗：${e.message}`;
+        alert(`結案刪除失敗：${e.message}\n\n資料尚未從台帳刪除。`);
+    }
+}
+window.archiveCompletedTransitRow = archiveCompletedTransitRow;
 
 // ── 自動比對核銷：在途銷貨 × 利潤分析 ────────────────────────────
 async function autoMatchTransitSales() {
@@ -15680,5 +15707,4 @@ window._runFullAnalysis = _runFullAnalysis;
 
 </body>
 </html>
-
 
