@@ -1951,6 +1951,13 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 </div>
                 <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;margin-bottom:1rem;display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
                   <button onclick="loadMaterialsLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
+                  <div style="display:flex;align-items:center;gap:0.4rem;">
+                    <label style="font-size:0.82rem;color:#64748b;font-weight:700;white-space:nowrap;">匯入月份</label>
+                    <select id="mat_month_filter" title="只匯入此月份的加工原料出庫記錄；選「全部月份」會匯入所有歷史記錄"
+                      style="padding:0.4rem 0.8rem;border:1.5px solid #dde6ef;border-radius:8px;font-size:0.82rem;width:130px;background:white;cursor:pointer;">
+                      <option value="">全部月份</option>
+                    </select>
+                  </div>
                   <button onclick="importMaterialsFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入</button>
                   <button onclick="document.getElementById('materialsLedgerFileInput').click()" style="padding:0.5rem 1.2rem;background:#764ba2;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📂 匯入 Excel</button>
                   <input type="file" id="materialsLedgerFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importMaterialsFromExcel(this)">
@@ -5614,6 +5621,7 @@ window.switchPage = function(page) {
     });
     if (page === 'ledger') refreshLedgerStatus();
     if (page === 'outbound' && typeof loadOutboundMonthOptions === 'function') loadOutboundMonthOptions();
+    if (page === 'pairing' && typeof loadOutboundMonthOptions === 'function') loadOutboundMonthOptions(false, 'mat_month_filter');
     // Update rental subnav buttons
     ['calc','ledger','profit','pairing','outbound','transit'].forEach(p => {
         const rsnBtn = document.getElementById('rsn-'+p);
@@ -9060,9 +9068,9 @@ function loadOutboundPage() {
 }
 window.loadOutboundPage = loadOutboundPage;
 
-// 讀取資料庫現有的月份，填入出庫管理頁的月份下拉選單
-async function loadOutboundMonthOptions(notify = false) {
-    const sel = document.getElementById('ob_month_filter');
+// 讀取資料庫現有的月份，填入指定的月份下拉選單（預設：出庫管理頁）
+async function loadOutboundMonthOptions(notify = false, selectId = 'ob_month_filter') {
+    const sel = document.getElementById(selectId);
     if (!sel) return;
     try {
         const resp = await fetch(`${SUPABASE_URL}/rest/v1/outbound_records?select=month_label`, { headers: getSBHeaders() });
@@ -9327,9 +9335,8 @@ async function syncOutboundToSupabase(records, label) {
         console.error('出庫記錄備份失敗：', e);
         throw e;
     }
-    // 同步更新兩個台帳（不阻塞主流程）
-    syncToMaterialsLedger(records).catch(e => console.warn('加工原料台帳同步失敗：', e));
-    syncToTransitLedger(records).catch(e => console.warn('在途銷貨台帳同步失敗：', e));
+    // 不再自動同步兩個台帳：出庫記錄只寫回「出庫記錄管理」，
+    // 加工原料台帳／在途銷貨台帳一律改由手動「📥 從出庫記錄匯入」轉單，避免誤帶入其他月份資料。
 }
 
 // 月結頁 / 舊入口：自動選擇可用容器，呼叫統一核心
@@ -9570,16 +9577,20 @@ window.syncToMaterialsLedger = syncToMaterialsLedger;
 // ── 一次性匯入：從 Supabase outbound_records → 加工原料台帳 ───────
 async function importMaterialsFromOutbound() {
     const statusEl = document.getElementById('mat_status');
-    statusEl.textContent = '讀取出庫記錄中…';
+    // 匯入範圍：依「匯入月份」下拉選單；空白＝全部月份（含歷史）
+    const _selVal   = (document.getElementById('mat_month_filter')?.value || '').trim();
+    const _scopeQS  = _selVal ? `&month_label=eq.${encodeURIComponent(_selVal === '__EMPTY__' ? '' : _selVal)}` : '';
+    const _scopeName = _selVal ? (_selVal === '__EMPTY__' ? '(未標月份)' : _selVal) : '全部月份';
+    statusEl.textContent = `讀取出庫記錄中…（範圍：${_scopeName}）`;
     try {
-        // 1. 取出庫記錄（加工原料）
+        // 1. 取出庫記錄（加工原料，依選定月份篩選）
         const outResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.加工原料&select=*`,
+            `${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.加工原料${_scopeQS}&select=*`,
             { headers: getSBHeaders() }
         );
         if (!outResp.ok) throw new Error(await outResp.text());
         const rows = await outResp.json();
-        if (!rows.length) { statusEl.textContent = '出庫記錄中找不到加工原料類型的記錄'; return; }
+        if (!rows.length) { statusEl.textContent = `出庫記錄中找不到加工原料類型的記錄（範圍：${_scopeName}）`; return; }
 
         // 2. 取台帳現有記錄（保留加工進度）
         const ledResp = await fetch(
@@ -9676,7 +9687,7 @@ async function importMaterialsFromOutbound() {
             });
         }));
 
-        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（共檢查 ${rows.length} 筆出庫明細）`;
+        statusEl.textContent = `✅ 匯入完成（範圍：${_scopeName}）：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（共檢查 ${rows.length} 筆出庫明細）`;
         await loadMaterialsLedger();
     } catch(e) {
         statusEl.textContent = `❌ 匯入失敗：${e.message}`;
