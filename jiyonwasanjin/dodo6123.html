@@ -2049,6 +2049,7 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
                 <button onclick="pushTransitToProfit()" style="padding:0.5rem 1.2rem;background:linear-gradient(135deg,#6878C0,#7c3aed);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="將已確認核銷的台帳單價推送到利潤分析報表">🔀 推送到利潤分析</button>
                 <button onclick="runSalesReconciliation()" style="padding:0.5rem 1.2rem;background:#7c3aed;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="扣除加工原料＋在途銷貨後，與利潤分析比對數量金額">📊 銷貨核對</button>
+                <button onclick="runQtyValidation()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="檢查同一批號的利潤銷貨數量加總，是否超過台帳的出庫數量">🧮 驗算數量</button>
                 <button onclick="resetTransitOffset()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷核銷</button>
                 <button onclick="document.getElementById('transitHistoryFileInput').click()" style="padding:0.5rem 1.2rem;background:#764ba2;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📂 匯入歷史 Excel</button>
                 <input type="file" id="transitHistoryFileInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importTransitFromExcel(this)">
@@ -11079,7 +11080,7 @@ async function _applyTransitOffsetPanel(id) {
                 profit_projects: [],
                 unit_price: finalPrice,
             }];
-            const mergeResult = _mergeReconciliationToProfit(changes);
+            const mergeResult = await _mergeReconciliationToProfit(changes);
             if (mergeResult) {
                 mergeSuccess = true;
                 mergeMsg = `　✅ 已推送到利潤分析（${mergeResult.confirmed} 筆）`;
@@ -11151,7 +11152,7 @@ async function pushTransitToProfit() {
             unit_price:   parseFloat(r.unit_price)    || 0,
         }));
 
-        const mergeResult = _mergeReconciliationToProfit(changes);
+        const mergeResult = await _mergeReconciliationToProfit(changes);
         if (mergeResult) {
             statusEl.textContent =
                 `✅ 已推送到利潤分析：確認 ${mergeResult.confirmed} 筆單價，排除 ${mergeResult.excluded} 筆（共 ${confirmed.length} 筆台帳）`;
@@ -11631,7 +11632,7 @@ async function _commitTransitChanges() {
         }
 
         // ── 確認後自動合併到利潤報表 ──────────────────────────────────
-        const mergeResult = _mergeReconciliationToProfit(changes);
+        const mergeResult = await _mergeReconciliationToProfit(changes);
         const mergeMsg = mergeResult
             ? `　|　利潤報表更新：確認 ${mergeResult.confirmed} 筆、排除 ${mergeResult.excluded} 筆`
             : '';
@@ -11662,8 +11663,8 @@ async function _commitTransitChanges() {
 window._commitTransitChanges = _commitTransitChanges;
 
 // ── 確認核銷後合併到利潤分析報表 ───────────────────────────────────────
-// 邏輯：已核銷/部分核銷的在途記錄 → 提供單價；未核銷（含手動改 0 的）→ 不提供
-function _mergeReconciliationToProfit(changes) {
+// 邏輯：已核銷/部分核銷的在途記錄 → 提供單價（三層比對，見 _matchTransitForProfit）；未核銷（含手動改 0 的）→ 不提供
+async function _mergeReconciliationToProfit(changes) {
     if (!profitCalcData || !profitCalcData.length) return null;
     if (!changes || !changes.length) return null;
 
@@ -11672,46 +11673,51 @@ function _mergeReconciliationToProfit(changes) {
     const qtyCol   = (document.getElementById('pcol_qty')?.value   || '數量').trim();
 
     // 以 new_status 決定：已核銷/部分核銷 → confirmed；未核銷 → excluded
-    // key = product_name|batch_no（在途台帳的維度）
-    const confirmedPriceMap = new Map(); // `product_name|batch_no` → unit_price
-    const excludedKeySet    = new Set(); // `product_name|batch_no`（手動改成 0 / 不核銷）
+    // key = product_name|batch_no（在途台帳的維度，實際單價由三層比對決定，不是這裡的 c.unit_price）
+    const confirmedKeys  = new Set(); // `product_name|batch_no`
+    const excludedKeySet = new Set(); // `product_name|batch_no`（手動改成 0 / 不核銷）
 
     changes.forEach(c => {
         if (c.apply_to_profit === false) return;
         const key = `${c.product_name}|${c.batch_no}`;
         if (c.new_status === '已核銷' || c.new_status === '部分核銷') {
-            confirmedPriceMap.set(key, c.unit_price);
+            confirmedKeys.add(key);
             excludedKeySet.delete(key);
-        } else {
+        } else if (!confirmedKeys.has(key)) {
             // 未核銷（consume_qty=0）
-            if (!confirmedPriceMap.has(key)) {
-                excludedKeySet.add(key);
-            }
+            excludedKeySet.add(key);
         }
     });
+
+    // 重新抓取最新的已核銷/部分核銷台帳列（含專案備註/原始數量/金額），供三層比對用，
+    // 避免用 changes 裡單一 unit_price 覆蓋整批號（同批號多筆不同單價時會誤蓋）。
+    const transitLedgerRows = await _fetchTransitLedgerRowsForProfitMatch();
 
     let confirmedCount = 0, excludedCount = 0, matched = 0, unmatched = 0, rentTotal = 0;
 
     profitCalcData = profitCalcData.map(r => {
-        const name   = String(r[nameCol]  || '').trim();
-        const batch  = String(r[batchCol] || '').trim();
-        const qty    = parseFloat(String(r[qtyCol] || '').replace(/,/g,'')) || 0;
-        const key    = `${name}|${batch}`;
+        const name    = String(r[nameCol]  || '').trim();
+        const batch   = String(r[batchCol] || '').trim();
+        const project = String(r['專案'] || '').trim();
+        const qty     = parseFloat(String(r[qtyCol] || '').replace(/,/g,'')) || 0;
+        const key     = `${name}|${batch}`;
 
         let rentPrice  = r.租金單價;
         let rentSource = r.租金來源 || '';
         let rentNotes  = r.來源備註 || '';
 
-        if (confirmedPriceMap.has(key)) {
-            // 已/部分核銷 → 套用此在途記錄的 unit_price
-            rentPrice  = confirmedPriceMap.get(key);
-            rentSource = '台帳核銷';
-            rentNotes  = '';
-            confirmedCount++;
+        if (confirmedKeys.has(key)) {
+            const m = _matchTransitForProfit(transitLedgerRows, name, batch, project, qty);
+            if (m) {
+                rentPrice  = m.price;
+                rentSource = m.source;
+                rentNotes  = '';
+                confirmedCount++;
+            }
         } else if (excludedKeySet.has(key)) {
             // 未核銷（使用者設為 0 或不核銷）→ 清除在途來源的單價
             // 租金結果 / 加工成品 來源不受影響
-            if (rentSource === '在途台帳' || rentSource === '台帳核銷') {
+            if (rentSource === '在途台帳' || rentSource === '台帳核銷' || rentSource === '在途台帳(專案)' || rentSource === '在途台帳(金額)') {
                 rentPrice  = '';
                 rentSource = '';
                 rentNotes  = '';
@@ -12038,6 +12044,145 @@ function _toggleReconDetail(key) {
     if (btn) btn.textContent = isOpen ? '▾ 明細' : '▴ 收合';
 }
 window._toggleReconDetail = _toggleReconDetail;
+
+// ── 驗算數量：同一批號的「利潤銷貨數量」加總，不可大於「在途銷貨台帳數量」加總 ──
+// 範圍：整個批號一起比，不分專案（同一產品+批號，不管哪個 CASE，數量都算在一起）
+let _qtyValidationSort = { key: 'over', asc: false };
+
+async function runQtyValidation() {
+    const statusEl  = document.getElementById('transit_status');
+    const previewEl = document.getElementById('transit_preview');
+    if (!previewEl) return;
+
+    if (!profitCalcData || !profitCalcData.length) {
+        alert('請先到「💹 利潤分析」頁上傳並試算利潤明細表，再執行驗算數量');
+        return;
+    }
+
+    statusEl.textContent = '⏳ 驗算數量中…';
+
+    const nameCol  = (document.getElementById('pcol_name')?.value  || '產品名稱').trim();
+    const batchCol = (document.getElementById('pcol_batch')?.value || '批號').trim();
+    const qtyCol   = (document.getElementById('pcol_qty')?.value   || '數量').trim();
+
+    // Step 1：利潤分析彙總（產品名稱|批號 → 總數量）
+    const profitSummary = {};
+    profitCalcData.forEach(r => {
+        const name  = String(r[nameCol]  || '').trim();
+        const batch = String(r[batchCol] || '').trim();
+        if (!name && !batch) return;
+        const key = `${name}|${batch}`;
+        const qty = Math.abs(parseFloat(String(r[qtyCol]||'').replace(/,/g,'')) || 0);
+        profitSummary[key] = (profitSummary[key] || 0) + qty;
+    });
+
+    // Step 2：在途銷貨台帳彙總——整個批號一起加總，不分專案／來源／核銷狀態
+    let ledgerRows = [];
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=product_name,batch_no,original_qty`,
+            { headers: getSBHeaders() }
+        );
+        if (resp.ok) ledgerRows = await resp.json();
+    } catch(_) {}
+
+    const ledgerSummary = {};
+    ledgerRows.forEach(r => {
+        const key = `${String(r.product_name||'').trim()}|${String(r.batch_no||'').trim()}`;
+        ledgerSummary[key] = (ledgerSummary[key] || 0) + (parseFloat(r.original_qty) || 0);
+    });
+
+    // Step 3：比對——利潤數量 > 台帳數量 才算超額
+    const results = Object.keys(profitSummary).map(key => {
+        const [pName, pBatch] = key.split('|');
+        const profitQty = profitSummary[key] || 0;
+        const ledgerQty = ledgerSummary[key] || 0;
+        const diff = profitQty - ledgerQty;
+        return { key, pName, pBatch, profitQty, ledgerQty, diff, over: diff > 0.01 };
+    });
+
+    const overCount = results.filter(r => r.over).length;
+    const okCount   = results.length - overCount;
+    statusEl.textContent = `🧮 驗算完成：${overCount} 筆超額、${okCount} 筆正常`;
+
+    window._qtyValidationResults  = results;
+    window._qtyValidationOverCount = overCount;
+    window._qtyValidationOkCount   = okCount;
+    _qtyValidationSort = { key: 'over', asc: false };
+
+    previewEl.style.display = '';
+    previewEl.style.borderColor = '#ef4444';
+    _renderQtyValidationTable(previewEl);
+}
+window.runQtyValidation = runQtyValidation;
+
+function _qtyValidationSortBy(key) {
+    if (_qtyValidationSort.key === key) _qtyValidationSort.asc = !_qtyValidationSort.asc;
+    else _qtyValidationSort = { key, asc: true };
+    const previewEl = document.getElementById('transit_preview');
+    if (previewEl) _renderQtyValidationTable(previewEl);
+}
+window._qtyValidationSortBy = _qtyValidationSortBy;
+
+function _renderQtyValidationTable(previewEl) {
+    const results   = window._qtyValidationResults   || [];
+    const overCount = window._qtyValidationOverCount ?? 0;
+    const okCount   = window._qtyValidationOkCount   ?? 0;
+    const fmt = n => Number(n).toLocaleString(undefined, {maximumFractionDigits:2});
+    const th  = `padding:6px 10px;font-size:11px;font-weight:700;background:#ef4444;color:#fff;border:1px solid #b91c1c;white-space:nowrap;`;
+    const ths = `${th}cursor:pointer;user-select:none;`;
+    const td  = `padding:5px 10px;font-size:0.78rem;border:1px solid #f3d0d0;`;
+    const thS = (key, label, align='left', extra='') =>
+        `<th onclick="_qtyValidationSortBy('${key}')" style="${ths}text-align:${align};${extra}">${label}${_sortArrow(_qtyValidationSort, key)}</th>`;
+
+    const sorted = _sortRows(
+        results.map(r => ({ ...r, _overNum: r.over ? 1 : 0 })),
+        _qtyValidationSort.key === 'over' ? { key: '_overNum', asc: _qtyValidationSort.asc } : _qtyValidationSort
+    );
+
+    previewEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem;">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.4rem;">
+          <span style="font-weight:800;color:#ef4444;font-size:0.92rem;">🧮 驗算數量結果</span>
+          <span style="font-size:0.76rem;color:#94a3b8;">利潤分析數量加總（整批號） vs 在途銷貨台帳數量加總（整批號，不分專案）</span>
+        </div>
+        <div style="display:flex;gap:0.8rem;font-size:0.8rem;align-items:center;">
+          <span style="color:#ef4444;font-weight:700;">⚠️ 超額 ${overCount} 筆</span>
+          <span style="color:#22c55e;font-weight:700;">✅ 正常 ${okCount} 筆</span>
+          <button onclick="document.getElementById('transit_preview').style.display='none';" style="padding:0.3rem 0.8rem;border:1px solid #94a3b8;border-radius:6px;background:#fff;color:#64748b;font-size:0.78rem;cursor:pointer;">關閉</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            ${thS('over','狀態','center')}
+            ${thS('pName','產品名稱')}
+            ${thS('pBatch','批號')}
+            ${thS('ledgerQty','台帳數量','right')}
+            ${thS('profitQty','利潤數量','right')}
+            ${thS('diff','超額數量','right')}
+          </tr></thead>
+          <tbody>
+            ${sorted.map((r, idx) => {
+                const rowBg = r.over ? '#fff5f5' : (idx%2===0?'#fff':'#fafbfc');
+                return `<tr style="background:${rowBg};">
+                  <td style="${td}text-align:center;">
+                    ${r.over
+                      ? '<span style="background:#ef444420;color:#ef4444;font-weight:800;border:1px solid #ef4444;border-radius:4px;padding:1px 8px;font-size:10px;">⚠️ 超額</span>'
+                      : '<span style="background:#22c55e20;color:#22c55e;font-weight:700;border:1px solid #22c55e;border-radius:4px;padding:1px 8px;font-size:10px;">✅ 正常</span>'}
+                  </td>
+                  <td style="${td}font-weight:600;">${r.pName || '—'}</td>
+                  <td style="${td}font-family:monospace;color:#6878C0;">${r.pBatch || '—'}</td>
+                  <td style="${td}text-align:right;">${fmt(r.ledgerQty)}</td>
+                  <td style="${td}text-align:right;font-weight:${r.over?'800':'400'};color:${r.over?'#ef4444':'inherit'};">${fmt(r.profitQty)}</td>
+                  <td style="${td}text-align:right;font-weight:800;color:${r.over?'#ef4444':'#d1d5db'};">${r.over ? '+'+fmt(r.diff) : '—'}</td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+}
+window._renderQtyValidationTable = _renderQtyValidationTable;
 
 async function resetTransitOffset() {
     const statusEl = document.getElementById('transit_status');
@@ -13150,6 +13295,48 @@ function _profitLookup(map, keys) {
     }
     return '';
 }
+
+// ── 在途銷貨台帳（倉庫）↔ 利潤明細（出庫）三層比對 ──────────────────────
+// tier1：產品+批號+專案+數量 完全一致 → 直接用該筆台帳「金額」，避免單價×數量的捨入誤差
+// tier2：產品+批號+專案 一致（數量不比對）→ 用該專案下所有台帳列的金額/數量算加權平均單價
+// tier3：產品+批號 一致、專案兜不上 → 用該批號「所有」台帳列的金額/數量算加權平均單價
+//        （不是抓某一筆單價；同批號不管哪個專案，只要產品+批號相同就一起算進來）
+function _matchTransitForProfit(ledgerRows, name, batch, project, qty) {
+    const rows = (ledgerRows || []).filter(r => String(r.product_name||'').trim() === name && String(r.batch_no||'').trim() === batch);
+    if (!rows.length) return null;
+
+    if (project) {
+        const sameProj = rows.filter(r => String(r.notes||'').trim() === project);
+        if (sameProj.length) {
+            const exact = sameProj.find(r => Math.abs((parseFloat(r.original_qty) || 0) - qty) < 1e-9);
+            if (exact) {
+                const cost = Math.round(parseFloat(exact.total_cost) || 0);
+                return { price: qty > 0 ? cost / qty : 0, cost, source: '在途台帳(金額)' };
+            }
+            const totalCost = sameProj.reduce((s, r) => s + (parseFloat(r.total_cost) || 0), 0);
+            const totalQty  = sameProj.reduce((s, r) => s + (parseFloat(r.original_qty) || 0), 0);
+            if (totalQty > 0) return { price: totalCost / totalQty, cost: null, source: '在途台帳(專案)' };
+        }
+    }
+
+    const totalCost = rows.reduce((s, r) => s + (parseFloat(r.total_cost) || 0), 0);
+    const totalQty  = rows.reduce((s, r) => s + (parseFloat(r.original_qty) || 0), 0);
+    if (totalQty > 0) return { price: totalCost / totalQty, cost: null, source: '在途台帳' };
+    return null;
+}
+
+// 讀取「已核銷／部分核銷且單價>0」的在途銷貨台帳列，供三層比對使用
+async function _fetchTransitLedgerRowsForProfitMatch() {
+    try {
+        const resp = await fetch(
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=product_name,batch_no,unit_price,total_cost,original_qty,notes&unit_price=gt.0&status=in.(已核銷,部分核銷)`,
+            { headers: getSBHeaders() }
+        );
+        if (resp.ok) return await resp.json();
+    } catch(_) {}
+    return [];
+}
+
 async function calcProfit() {
     const input = document.getElementById('profit_file');
     const file = ledgerFiles['profit_file'] || (input && input.files[0]);
@@ -13202,26 +13389,9 @@ async function calcProfit() {
             document.getElementById('rental_result_status').textContent = '';
         }
 
-        // 第2.5層：從在途銷貨台帳讀取 unit_price 及 notes（只取已核銷或部分核銷的記錄）
-        const transitPriceMap = {};
-        const transitNotesMap = {};
-        try {
-            const tResp = await fetch(
-                `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=product_name,batch_no,unit_price,notes&unit_price=gt.0&status=in.(已核銷,部分核銷)`,
-                { headers: getSBHeaders() }
-            );
-            if (tResp.ok) {
-                const tRows = await tResp.json();
-                tRows.forEach(r => {
-                    const name = String(r.product_name||'').trim();
-                    const batch = String(r.batch_no||'').trim();
-                    const keys = _profitKeyCandidates({ name, batch }, { includeBatchOnly: false });
-                    if (keys.length && !_profitLookup(transitPriceMap, keys)) {
-                        _profitPutMap(transitPriceMap, keys, r.unit_price, transitNotesMap, String(r.notes||'').trim());
-                    }
-                });
-            }
-        } catch(_) {}
+        // 第2.5層：從在途銷貨台帳讀取台帳列（含專案備註/原始數量/金額，只取已核銷或部分核銷的記錄）
+        // 比對邏輯見 _matchTransitForProfit()：產品+批號+專案+數量 全一致 > 產品+批號+專案 一致 > 產品+批號 一致（CASE 對不上時的 fallback）
+        const transitLedgerRows = await _fetchTransitLedgerRowsForProfitMatch();
 
         // 第3層：讀取加工單，計算每個子件批號的租金單價
         // 邏輯：母件名稱+批號 → 查 rentalPriceMap 得分攤單價 → × 母件數量 = 母件租金成本
@@ -13310,14 +13480,16 @@ async function calcProfit() {
                 rentSource = '租金結果';
                 rentNotes  = _profitLookup(rentalNotesMap, keys) || '';
             }
-            // 查在途銷貨台帳
-            else if (_profitLookup(transitPriceMap, keys) !== '') {
-                rentPrice  = _profitLookup(transitPriceMap, keys);
-                rentSource = '在途台帳';
-                rentNotes  = _profitLookup(transitNotesMap, keys) || '';
+            // 查在途銷貨台帳（三層比對：產品+批號+專案+數量 > 產品+批號+專案 > 產品+批號 fallback）
+            else {
+                const tMatch = _matchTransitForProfit(transitLedgerRows, name, batch, project, qty);
+                if (tMatch) {
+                    rentPrice  = tMatch.price;
+                    rentSource = tMatch.source;
+                }
             }
             // 不再使用月結算總帳 fallback，避免台帳未核銷或不同產品同批號被誤算。
-            
+
             if (rentPrice !== '') {
                 rentCost  = Math.round(rentPrice * qty);
                 rentTotal += rentCost;
@@ -13361,24 +13533,8 @@ async function refreshProfitFromTransit() {
     const btn = document.getElementById('profit_refresh_btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 同步中…'; }
     try {
-        // 重新讀取在途銷貨台帳的 unit_price（只取已核銷或部分核銷）
-        const tResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=product_name,batch_no,unit_price,notes&unit_price=gt.0&status=in.(已核銷,部分核銷)`,
-            { headers: getSBHeaders() }
-        );
-        if (!tResp.ok) throw new Error(await tResp.text());
-        const tRows = await tResp.json();
-        const newTransitPriceMap = {};
-        const newTransitNotesMap = {};
-        tRows.forEach(r => {
-            const keys = _profitKeyCandidates({
-                name: r.product_name,
-                batch: r.batch_no
-            }, { includeBatchOnly: false });
-            if (keys.length && !_profitLookup(newTransitPriceMap, keys)) {
-                _profitPutMap(newTransitPriceMap, keys, r.unit_price, newTransitNotesMap, String(r.notes||'').trim());
-            }
-        });
+        // 重新讀取在途銷貨台帳（只取已核銷或部分核銷），供三層比對用
+        const transitLedgerRows = await _fetchTransitLedgerRowsForProfitMatch();
 
         const codeCol  = (document.getElementById('pcol_code')?.value  || '產品').trim();
         const nameCol  = (document.getElementById('pcol_name')?.value  || '產品名稱').trim();
@@ -13413,16 +13569,15 @@ async function refreshProfitFromTransit() {
                     rentSource = '租金結果';
                     rentNotes  = _profitLookup(_savedRentalNotesMap || {}, keys) || '';
                 } else {
-                    const transitPrice = _profitLookup(newTransitPriceMap, keys);
-                    const transitNotes = _profitLookup(newTransitNotesMap, keys) || '';
-                    if (transitPrice !== '') {
-                        // 在途台帳有新/更新的單價
-                        if (transitPrice !== rentPrice || transitNotes !== rentNotes) {
+                    // 三層比對：產品+批號+專案+數量 > 產品+批號+專案 > 產品+批號 fallback
+                    const tMatch = _matchTransitForProfit(transitLedgerRows, name, batch, project, qty);
+                    if (tMatch) {
+                        if (tMatch.price !== rentPrice || tMatch.source !== rentSource) {
                             updated++;
                         }
-                        rentPrice  = transitPrice;
-                        rentSource = '在途台帳';
-                        rentNotes  = transitNotes;
+                        rentPrice  = tMatch.price;
+                        rentSource = tMatch.source;
+                        rentNotes  = '';
                     } else {
                         // 台帳沒有新單價時保留原本試算結果，避免同步只剩台帳筆數
                     }
