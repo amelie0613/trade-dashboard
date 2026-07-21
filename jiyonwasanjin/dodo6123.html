@@ -12092,14 +12092,17 @@ async function runQtyValidation() {
         ledgerSummary[key] = (ledgerSummary[key] || 0) + (parseFloat(r.original_qty) || 0);
     });
 
-    // Step 3：比對——利潤數量 > 台帳數量 才算超額
-    const results = Object.keys(profitSummary).map(key => {
-        const [pName, pBatch] = key.split('|');
-        const profitQty = profitSummary[key] || 0;
-        const ledgerQty = ledgerSummary[key] || 0;
-        const diff = profitQty - ledgerQty;
-        return { key, pName, pBatch, profitQty, ledgerQty, diff, over: diff > 0.01 };
-    });
+    // Step 3：比對——只比對台帳內有品項的批號（台帳完全沒有的批號不列入，那是匯入/核銷問題，不是超額問題）
+    //         利潤數量 > 台帳數量 才算超額
+    const results = Object.keys(profitSummary)
+        .filter(key => Object.prototype.hasOwnProperty.call(ledgerSummary, key))
+        .map(key => {
+            const [pName, pBatch] = key.split('|');
+            const profitQty = profitSummary[key] || 0;
+            const ledgerQty = ledgerSummary[key] || 0;
+            const diff = profitQty - ledgerQty;
+            return { key, pName, pBatch, profitQty, ledgerQty, diff, over: diff > 0.01 };
+        });
 
     const overCount = results.filter(r => r.over).length;
     const okCount   = results.length - overCount;
@@ -12144,7 +12147,7 @@ function _renderQtyValidationTable(previewEl) {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem;flex-wrap:wrap;gap:0.5rem;">
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.4rem;">
           <span style="font-weight:800;color:#ef4444;font-size:0.92rem;">🧮 驗算數量結果</span>
-          <span style="font-size:0.76rem;color:#94a3b8;">利潤分析數量加總（整批號） vs 在途銷貨台帳數量加總（整批號，不分專案）</span>
+          <span style="font-size:0.76rem;color:#94a3b8;">利潤分析數量加總（整批號） vs 在途銷貨台帳數量加總（整批號，不分專案；只列台帳內有品項的批號）</span>
         </div>
         <div style="display:flex;gap:0.8rem;font-size:0.8rem;align-items:center;">
           <span style="color:#ef4444;font-weight:700;">⚠️ 超額 ${overCount} 筆</span>
