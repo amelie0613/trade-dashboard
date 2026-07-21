@@ -2038,6 +2038,13 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
               <!-- 操作列 -->
               <div style="background:white;border:1.5px solid #dde6ef;border-radius:12px;padding:1rem;margin-bottom:1rem;display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
                 <button onclick="loadTransitLedger()" style="padding:0.5rem 1.2rem;background:#6878C0;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔍 讀取台帳</button>
+                <div style="display:flex;align-items:center;gap:0.4rem;">
+                  <label style="font-size:0.82rem;color:#64748b;font-weight:700;white-space:nowrap;">匯入月份</label>
+                  <select id="transit_month_filter" title="只匯入此月份的銷貨／再途銷貨／其他出庫記錄；選「全部月份」會匯入所有歷史記錄"
+                    style="padding:0.4rem 0.8rem;border:1.5px solid #dde6ef;border-radius:8px;font-size:0.82rem;width:130px;background:white;cursor:pointer;">
+                    <option value="">全部月份</option>
+                  </select>
+                </div>
                 <button onclick="importTransitFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入（銷貨＋再途銷貨）</button>
                 <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
                 <button onclick="pushTransitToProfit()" style="padding:0.5rem 1.2rem;background:linear-gradient(135deg,#6878C0,#7c3aed);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="將已確認核銷的台帳單價推送到利潤分析報表">🔀 推送到利潤分析</button>
@@ -5622,6 +5629,7 @@ window.switchPage = function(page) {
     if (page === 'ledger') refreshLedgerStatus();
     if (page === 'outbound' && typeof loadOutboundMonthOptions === 'function') loadOutboundMonthOptions();
     if (page === 'pairing' && typeof loadOutboundMonthOptions === 'function') loadOutboundMonthOptions(false, 'mat_month_filter');
+    if (page === 'transit' && typeof loadOutboundMonthOptions === 'function') loadOutboundMonthOptions(false, 'transit_month_filter');
     // Update rental subnav buttons
     ['calc','ledger','profit','pairing','outbound','transit'].forEach(p => {
         const rsnBtn = document.getElementById('rsn-'+p);
@@ -9730,19 +9738,23 @@ window.resetMaterialsProcessed = resetMaterialsProcessed;
 // ── 一次性匯入：從 Supabase outbound_records → 在途銷貨台帳 ───────
 async function importTransitFromOutbound() {
     const statusEl = document.getElementById('transit_status');
-    statusEl.textContent = '讀取出庫記錄中…';
+    // 匯入範圍：依「匯入月份」下拉選單；空白＝全部月份（含歷史）
+    const _selVal   = (document.getElementById('transit_month_filter')?.value || '').trim();
+    const _scopeQS  = _selVal ? `&month_label=eq.${encodeURIComponent(_selVal === '__EMPTY__' ? '' : _selVal)}` : '';
+    const _scopeName = _selVal ? (_selVal === '__EMPTY__' ? '(未標月份)' : _selVal) : '全部月份';
+    statusEl.textContent = `讀取出庫記錄中…（範圍：${_scopeName}）`;
     try {
-        // 1. 取出庫記錄（銷貨 + 再途銷貨 + 其他出庫 都匯入台帳）
+        // 1. 取出庫記錄（銷貨 + 再途銷貨 + 其他出庫 都匯入台帳，依選定月份篩選）
         const [resp1, resp2, resp3] = await Promise.all([
-            fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.銷貨&select=*`, { headers: getSBHeaders() }),
-            fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.再途銷貨&select=*`, { headers: getSBHeaders() }),
-            fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.其他出庫&select=*`, { headers: getSBHeaders() }),
+            fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.銷貨${_scopeQS}&select=*`, { headers: getSBHeaders() }),
+            fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.再途銷貨${_scopeQS}&select=*`, { headers: getSBHeaders() }),
+            fetch(`${SUPABASE_URL}/rest/v1/outbound_records?warehouse_type=eq.其他出庫${_scopeQS}&select=*`, { headers: getSBHeaders() }),
         ]);
         if (!resp1.ok) throw new Error(await resp1.text());
         if (!resp2.ok) throw new Error(await resp2.text());
         if (!resp3.ok) throw new Error(await resp3.text());
         const rows = [...(await resp1.json()), ...(await resp2.json()), ...(await resp3.json())];
-        if (!rows.length) { statusEl.textContent = '出庫記錄中找不到銷貨、再途銷貨或其他出庫類型的記錄'; return; }
+        if (!rows.length) { statusEl.textContent = `出庫記錄中找不到銷貨、再途銷貨或其他出庫類型的記錄（範圍：${_scopeName}）`; return; }
 
         // ── 轉入台帳前：確認所有記錄都有分攤單價 ─────────────────────
         const missingPrice = rows.filter(r => !r.allocated_price || r.allocated_price <= 0);
@@ -9856,7 +9868,7 @@ async function importTransitFromOutbound() {
             });
         }));
 
-        statusEl.textContent = `✅ 匯入完成：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（銷貨出庫 ${salesCnt} 組 / 在途出庫 ${transitCnt} 組 / 其他出庫 ${otherCnt} 組）`;
+        statusEl.textContent = `✅ 匯入完成（範圍：${_scopeName}）：新增 ${toInsert.length} 筆，更新 ${toUpdate.length} 筆（銷貨出庫 ${salesCnt} 組 / 在途出庫 ${transitCnt} 組 / 其他出庫 ${otherCnt} 組）`;
         await loadTransitLedger();
     } catch(e) {
         statusEl.textContent = `❌ 匯入失敗：${e.message}`;
