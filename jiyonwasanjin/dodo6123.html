@@ -2047,7 +2047,6 @@ table.data-tbl .row-track   td{background:#f5fff0!important;}
                 </div>
                 <button onclick="importTransitFromOutbound()" style="padding:0.5rem 1.2rem;background:#f7a35c;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">📥 從出庫記錄匯入（銷貨＋再途銷貨）</button>
                 <button onclick="autoMatchTransitSales()" style="padding:0.5rem 1.2rem;background:#7ec8e3;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔗 自動比對核銷</button>
-                <button onclick="pushTransitToProfit()" style="padding:0.5rem 1.2rem;background:linear-gradient(135deg,#6878C0,#7c3aed);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="將已確認核銷的台帳單價推送到利潤分析報表">🔀 推送到利潤分析</button>
                 <button onclick="runSalesReconciliation()" style="padding:0.5rem 1.2rem;background:#7c3aed;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="扣除加工原料＋在途銷貨後，與利潤分析比對數量金額">📊 銷貨核對</button>
                 <button onclick="runQtyValidation()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;" title="檢查同一批號的利潤銷貨數量加總，是否超過台帳的出庫數量">🧮 驗算數量</button>
                 <button onclick="resetTransitOffset()" style="padding:0.5rem 1.2rem;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">🔄 撤銷核銷</button>
@@ -11066,7 +11065,7 @@ async function _applyTransitOffsetPanel(id) {
         // ── 自動推送到利潤分析 ─────────────────────────────────────
         // 重要：必須在歸檔（刪 Supabase）之前完成 merge，
         //       若利潤分析未載入則不歸檔，讓記錄保留在 Supabase，
-        //       使用者稍後可按「🔀 推送到利潤分析」補同步。
+        //       使用者稍後可按「🔄 同步台帳單價」補同步。
         let mergeMsg = '';
         let mergeSuccess = false;
         if (profitCalcData && profitCalcData.length) {
@@ -11087,7 +11086,7 @@ async function _applyTransitOffsetPanel(id) {
             }
         } else {
             // 利潤未載入 → 不歸檔，記錄保留在 Supabase 供日後批量推送
-            mergeMsg = `　⚠️ 利潤分析未載入，記錄保留在 Supabase 未歸檔，請載入利潤分析後按「🔀 推送到利潤分析」完成同步`;
+            mergeMsg = `　⚠️ 利潤分析未載入，記錄保留在 Supabase 未歸檔，請載入利潤分析後按「🔄 同步台帳單價」完成同步`;
         }
 
         if (statusEl) statusEl.innerHTML =
@@ -11114,56 +11113,6 @@ async function _applyTransitOffsetPanel(id) {
     }
 }
 window._applyTransitOffsetPanel = _applyTransitOffsetPanel;
-
-// ── 批量推送已核銷台帳單價到利潤分析 ──────────────────────────────────
-async function pushTransitToProfit() {
-    const statusEl = document.getElementById('transit_status');
-    if (!profitCalcData || !profitCalcData.length) {
-        statusEl.textContent = '⚠️ 請先在「💹 利潤分析」頁載入利潤明細表，再執行推送';
-        return;
-    }
-    statusEl.textContent = '⏳ 讀取已確認台帳記錄中…';
-    try {
-        const resp = await fetch(
-            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?status=in.(已核銷,部分核銷)&unit_price=gt.0&select=*&order=outbound_date.asc`,
-            { headers: getSBHeaders() }
-        );
-        if (!resp.ok) throw new Error(await resp.text());
-        const confirmed = await resp.json();
-
-        if (!confirmed.length) {
-            statusEl.textContent = '⚠️ 目前沒有單價 > 0 的已核銷或部分核銷記錄';
-            return;
-        }
-
-        const changes = confirmed.map(r => ({
-            id:           r.id,
-            product_name: r.product_name,
-            batch_no:     r.batch_no,
-            original_qty: parseFloat(r.original_qty)  || 0,
-            old_offset:   parseFloat(r.offset_qty)    || 0,
-            old_remaining:parseFloat(r.remaining_qty) || 0,
-            old_status:   r.status,
-            consume_qty:  parseFloat(r.offset_qty)    || 0,
-            new_offset:   parseFloat(r.offset_qty)    || 0,
-            new_remaining:parseFloat(r.remaining_qty) || 0,
-            new_status:   r.status,
-            profit_projects: [],
-            unit_price:   parseFloat(r.unit_price)    || 0,
-        }));
-
-        const mergeResult = await _mergeReconciliationToProfit(changes);
-        if (mergeResult) {
-            statusEl.textContent =
-                `✅ 已推送到利潤分析：確認 ${mergeResult.confirmed} 筆單價，排除 ${mergeResult.excluded} 筆（共 ${confirmed.length} 筆台帳）`;
-        } else {
-            statusEl.textContent = '❌ 推送失敗，請確認利潤分析頁已載入';
-        }
-    } catch (e) {
-        statusEl.textContent = `❌ 推送失敗：${e.message}`;
-    }
-}
-window.pushTransitToProfit = pushTransitToProfit;
 
 async function deleteTransitRow(id) {
     const row = (_transitRecords || []).find(r => String(r.id) === String(id));
@@ -11214,6 +11163,99 @@ async function archiveCompletedTransitRow(id) {
 window.archiveCompletedTransitRow = archiveCompletedTransitRow;
 
 // ── 自動比對核銷：在途銷貨 × 利潤分析 ────────────────────────────
+// ── 分層扣庫存規劃：核銷「該扣哪一列」跟查價格「該用哪一列的價格」用同一套
+//    _selectTransitTierRows 判斷，兩者才不會對不上。銷貨/在途出庫依專案分層扣減
+//    候選台帳列的剩餘數量；其他出庫維持原本「整列扣完、不綁定利潤專案」的行為。
+//    庫存不夠扣時不會憑空生出庫存，短缺的部分記在回傳的 shortages 裡。
+function _planTierBasedConsumption(profitRows, pendingLedgerRows, { nameCol, batchCol, qtyCol }) {
+    const projectLedgerRows = pendingLedgerRows.filter(r => _isProjectMatchedOutbound(r));
+    const otherLedgerRows   = pendingLedgerRows.filter(r => _isOtherOutbound(r));
+
+    // 工作副本：remaining_qty 會在規劃過程中被即時扣減（尚未寫入 Supabase）
+    const working = projectLedgerRows.map(r => ({
+        ...r,
+        remaining_qty: Math.max(0, (parseFloat(r.original_qty) || 0) - (parseFloat(r.offset_qty) || 0)),
+    }));
+    working.forEach(r => { r._startRemaining = r.remaining_qty; });
+
+    // 整理每一筆利潤明細（銷貨），依銷貨日期排序——沿用舊版 FIFO 的「先進先出」精神
+    const sales = [];
+    profitRows.forEach((r, idx) => {
+        const name  = String(r[nameCol]  || '').trim();
+        const batch = String(r[batchCol] || '').trim();
+        const qty   = Math.abs(parseFloat(String(r[qtyCol] || '').replace(/,/g,'')) || 0);
+        if (!name || !batch || qty <= 0) return;
+        sales.push({
+            idx, name, batch, qty,
+            proj:     String(r['專案']     || r['project']      || '').trim(),
+            projName: String(r['專案名稱'] || r['project_name'] || '').trim(),
+            date:     String(r['銷貨日期'] || r['sale_date']    || '').trim(),
+        });
+    });
+    sales.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.idx - b.idx);
+
+    const ledgerConsumption = new Map(); // id -> { row, consumeQty, contributions:[] }
+    const shortages = [];
+
+    for (const sale of sales) {
+        const sel = _selectTransitTierRows(working, sale.name, sale.batch, sale.projName, sale.qty);
+        if (!sel) { shortages.push({ product_name: sale.name, batch_no: sale.batch, project: sale.projName, qty: sale.qty, shortfall: sale.qty }); continue; }
+
+        const drawOrder = (sel.tier === 1 ? [sel.exactRow] : sel.candidateRows)
+            .filter(r => r.remaining_qty > 1e-9)
+            .sort((a, b) => (a.outbound_date || '').localeCompare(b.outbound_date || '') || String(a.id).localeCompare(String(b.id)));
+
+        let need = sale.qty;
+        for (const row of drawOrder) {
+            if (need <= 1e-9) break;
+            const take = Math.min(row.remaining_qty, need);
+            row.remaining_qty -= take;
+            need -= take;
+            if (!ledgerConsumption.has(row.id)) ledgerConsumption.set(row.id, { row, consumeQty: 0, contributions: [] });
+            const entry = ledgerConsumption.get(row.id);
+            entry.consumeQty += take;
+            entry.contributions.push({ proj: sale.proj, projName: sale.projName, date: sale.date, qty: take });
+        }
+        if (need > 1e-9) shortages.push({ product_name: sale.name, batch_no: sale.batch, project: sale.projName, qty: sale.qty, shortfall: need });
+    }
+
+    const tieredChanges = [...ledgerConsumption.values()].map(({ row, consumeQty, contributions }) => {
+        const originalQty   = parseFloat(row.original_qty) || 0;
+        const currentOffset = parseFloat(row.offset_qty)   || 0;
+        const newOffset     = currentOffset + consumeQty;
+        const newRemaining  = Math.max(0, originalQty - newOffset);
+        return {
+            id: row.id, product_name: row.product_name, batch_no: row.batch_no,
+            outbound_date: row.outbound_date, original_qty: originalQty,
+            old_offset: currentOffset, old_remaining: row._startRemaining, old_status: row.status,
+            consume_qty: consumeQty, new_offset: newOffset, new_remaining: newRemaining,
+            new_status: _transitStatus(originalQty, newOffset),
+            profit_projects: contributions, apply_to_profit: true,
+            unit_price: row.unit_price || 0,
+        };
+    });
+
+    // 其他出庫：維持原本「整列扣完、不綁定利潤專案」的行為，不受本次分層比對影響
+    const otherChanges = otherLedgerRows.map(rec => {
+        const originalQty      = parseFloat(rec.original_qty) || 0;
+        const currentOffset    = parseFloat(rec.offset_qty)   || 0;
+        const currentRemaining = Math.max(0, originalQty - currentOffset);
+        if (currentRemaining <= 0) return null;
+        const newOffset = currentOffset + currentRemaining;
+        return {
+            id: rec.id, product_name: rec.product_name, batch_no: rec.batch_no,
+            outbound_date: rec.outbound_date, original_qty: originalQty,
+            old_offset: currentOffset, old_remaining: currentRemaining, old_status: rec.status,
+            consume_qty: currentRemaining, new_offset: newOffset,
+            new_remaining: Math.max(0, originalQty - newOffset),
+            new_status: _transitStatus(originalQty, newOffset),
+            profit_projects: [], apply_to_profit: false, unit_price: rec.unit_price || 0,
+        };
+    }).filter(Boolean);
+
+    return { plannedChanges: [...tieredChanges, ...otherChanges], shortages };
+}
+
 async function autoMatchTransitSales() {
     const statusEl = document.getElementById('transit_status');
     if (!profitCalcData || !profitCalcData.length) {
@@ -11227,28 +11269,6 @@ async function autoMatchTransitSales() {
 
     statusEl.textContent = '⏳ 比對計算中，請稍候…';
 
-    // 建立利潤 FIFO 佇列：key = 產品名稱|批號 → [{proj, projName, date, qty, remaining}]
-    // remaining 是可變的，dry-run 時逐筆扣減，達到 1 對 1 精確追蹤
-    const profitMap = {};
-    const profitQueueMap = {}; // key → [{proj, projName, date, qty, remaining}]
-    profitCalcData.forEach(r => {
-        const key = `${(r[nameCol]||'').trim()}|${(r[batchCol]||'').trim()}`;
-        const qty = Math.abs(parseFloat(String(r[qtyCol]||'').replace(/,/g,'')) || 0);
-        profitMap[key] = (profitMap[key] || 0) + qty;
-        if (!profitQueueMap[key]) profitQueueMap[key] = [];
-        profitQueueMap[key].push({
-            proj:     String(r['專案']     || r['project']      || '').trim(),
-            projName: String(r['專案名稱'] || r['project_name'] || '').trim(),
-            date:     String(r['銷貨日期'] || r['sale_date']    || '').trim(),
-            qty,
-            remaining: qty,   // FIFO 消耗用，dry-run 時會被扣減
-        });
-    });
-    // 各 key 的佇列依銷貨日期排序（FIFO）
-    Object.values(profitQueueMap).forEach(q =>
-        q.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-    );
-
     // 讀取在途銷貨台帳（未核銷 + 部分核銷）
     const resp = await fetch(
         `${SUPABASE_URL}/rest/v1/transit_sales_ledger?status=neq.已核銷&select=*&order=outbound_date.asc,id.asc`,
@@ -11257,85 +11277,11 @@ async function autoMatchTransitSales() {
     if (!resp.ok) throw new Error(await resp.text());
     const pendingRaw = await resp.json();
 
-    // ── 銷貨/在途出庫消耗利潤專案；其他出庫只扣台帳、不分配專案
-    const pending = pendingRaw
-        .filter(r => _isProjectMatchedOutbound(r) || _isOtherOutbound(r))
-        .sort((a, b) => {
-            const pri = r => _isProjectMatchedOutbound(r) ? 0 : 1;
-            const po = pri(a) - pri(b);
-            if (po !== 0) return po;
-            return (a.outbound_date || '').localeCompare(b.outbound_date || '');
-        });
-
     const today = new Date().toISOString().slice(0,10);
 
-    // ── DRY RUN：逐筆 FIFO 追蹤，只顯示實際被消耗的利潤交易 ────────
-    const plannedChanges = [];
-
-    for (const rec of pending) {
-        const key   = `${rec.product_name}|${rec.batch_no}`;
-        const isProjectOutbound = _isProjectMatchedOutbound(rec);
-
-        const originalQty      = parseFloat(rec.original_qty) || 0;
-        const currentOffset    = parseFloat(rec.offset_qty)   || 0;
-        const currentRemaining = Math.max(0, originalQty - currentOffset);
-        let consumeQty = 0;
-        let consumedProjects = [];
-
-        if (isProjectOutbound) {
-            const queue = profitQueueMap[key];
-            if (!queue) continue;
-
-            // 目前佇列剩餘總量
-            const totalLeft = queue.reduce((s, t) => s + t.remaining, 0);
-            if (totalLeft <= 0) continue;
-
-            consumeQty = Math.min(totalLeft, currentRemaining);
-            if (consumeQty <= 0) continue;
-
-            // FIFO：逐筆從佇列前端扣減，記錄實際消耗的利潤交易
-            let leftToConsume = consumeQty;
-            for (const t of queue) {
-                if (leftToConsume <= 0.0001) break;
-                if (t.remaining <= 0) continue;
-                const take = Math.min(leftToConsume, t.remaining);
-                consumedProjects.push({
-                    proj:     t.proj,
-                    projName: t.projName,
-                    date:     t.date,
-                    qty:      take,   // 實際消耗量（非原始 qty）
-                });
-                t.remaining   -= take;
-                leftToConsume -= take;
-            }
-        } else {
-            // 其他出庫：實際扣台帳，但不消耗利潤專案
-            consumeQty = currentRemaining;
-            if (consumeQty <= 0) continue;
-        }
-
-        const newOffset    = currentOffset + consumeQty;
-        const newRemaining = Math.max(0, originalQty - newOffset);
-        const newStatus    = _transitStatus(rec.original_qty, newOffset);
-
-        plannedChanges.push({
-            id: rec.id,
-            product_name:   rec.product_name,
-            batch_no:       rec.batch_no,
-            outbound_date:  rec.outbound_date,
-            original_qty:   originalQty,
-            old_offset:     currentOffset,
-            old_remaining:  currentRemaining,
-            old_status:     rec.status,
-            consume_qty:    consumeQty,
-            new_offset:     newOffset,
-            new_remaining:  newRemaining,
-            new_status:     newStatus,
-            profit_projects: consumedProjects,  // 銷貨/在途才會有專案；其他出庫保持空陣列
-            apply_to_profit: isProjectOutbound,
-            unit_price:     rec.unit_price || 0, // 供合併報表用
-        });
-    }
+    // ── DRY RUN：分層比對（產品+批號+專案+數量），只顯示實際被消耗的台帳列 ────
+    const { plannedChanges, shortages } = _planTierBasedConsumption(profitCalcData, pendingRaw, { nameCol, batchCol, qtyCol });
+    window._transitPendingShortages = shortages;
 
     // ── 顯示預覽確認面板 ─────────────────────────────────────────────
     window._transitPendingChanges = plannedChanges;
@@ -11354,7 +11300,10 @@ function _showTransitPreview(changes, today, statusEl) {
         return;
     }
 
-    statusEl.textContent = `📋 比對完成：找到 ${changes.length} 筆待更新，請確認後再寫入`;
+    const shortages = window._transitPendingShortages || [];
+    statusEl.textContent = shortages.length
+        ? `📋 比對完成：找到 ${changes.length} 筆待更新，但有 ${shortages.length} 筆庫存不足，請確認後再寫入`
+        : `📋 比對完成：找到 ${changes.length} 筆待更新，請確認後再寫入`;
     window._transitPendingChanges = changes; // 確保同步
     _renderTransitPreviewTable();
 }
@@ -11378,8 +11327,19 @@ function _renderTransitPreviewTable() {
     // 排序
     const sorted = _sortRows(changes, _previewSort);
 
+    // 庫存不足警示：利潤明細需要的數量超過台帳可核銷的剩餘量，不會憑空扣出庫存，只能少扣並在此提示
+    const shortages = window._transitPendingShortages || [];
+    const shortageBanner = shortages.length ? `
+      <div style="background:#fff5f5;border:1.5px solid #ef4444;border-radius:8px;padding:0.6rem 0.9rem;margin-bottom:0.8rem;">
+        <div style="font-weight:800;color:#ef4444;font-size:0.85rem;margin-bottom:0.3rem;">⚠️ ${shortages.length} 筆庫存不足，無法完全核銷（未憑空生成庫存，僅核銷實際可用的數量）</div>
+        <div style="font-size:0.76rem;color:#7a3030;line-height:1.7;">
+          ${shortages.map(s => `${s.product_name} / ${s.batch_no}${s.project ? ' / ' + s.project : ''}：需要 ${fmt(s.qty)}，還差 ${fmt(s.shortfall)}`).join('<br/>')}
+        </div>
+      </div>` : '';
+
     previewEl.style.display = '';
     previewEl.innerHTML = `
+      ${shortageBanner}
       <div style="position:sticky;top:0;z-index:8;background:#fff;border:1.5px solid #bbf7d0;border-radius:8px;padding:0.65rem 0.75rem;margin-bottom:0.8rem;box-shadow:0 3px 10px rgba(34,197,94,.12);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
         <div>
           <span style="font-weight:800;color:#16a34a;font-size:0.92rem;">📋 核銷預覽 — 尚未寫入，請按右側確認</span>
@@ -11654,6 +11614,7 @@ async function _commitTransitChanges() {
         statusEl.textContent = `✅ 寫入完成：${changes.length} 筆已更新，本期核銷 ${Number(total).toLocaleString()}${mergeMsg}${archiveMsg}`;
 
         window._transitPendingChanges = [];
+        window._transitPendingShortages = [];
         if (previewEl) previewEl.style.display = 'none';
         await loadTransitLedger();
     } catch(e) {
@@ -11691,14 +11652,16 @@ async function _mergeReconciliationToProfit(changes) {
 
     // 重新抓取最新的已核銷/部分核銷台帳列（含專案備註/原始數量/金額），供三層比對用，
     // 避免用 changes 裡單一 unit_price 覆蓋整批號（同批號多筆不同單價時會誤蓋）。
-    const transitLedgerRows = await _fetchTransitLedgerRowsForProfitMatch();
+    // 傳入這次 changes 的 id，讓「剛核銷完、歸檔還沒跑完」的列也能立刻參與比對。
+    const transitLedgerRows = await _fetchTransitLedgerRowsForProfitMatch(changes.map(c => c.id));
 
     let confirmedCount = 0, excludedCount = 0, matched = 0, unmatched = 0, rentTotal = 0;
 
     profitCalcData = profitCalcData.map(r => {
         const name    = String(r[nameCol]  || '').trim();
         const batch   = String(r[batchCol] || '').trim();
-        const project = String(r['專案'] || '').trim();
+        // 台帳備註存的是「專案名稱」格式（如「26-0193 大順在庫/TRINIDAD SEAFOODS (水鯊*1C)」），不是純代號「專案」欄位
+        const project = String(r['專案名稱'] || '').trim();
         const qty     = parseFloat(String(r[qtyCol] || '').replace(/,/g,'')) || 0;
         const key     = `${name}|${batch}`;
 
@@ -11707,12 +11670,15 @@ async function _mergeReconciliationToProfit(changes) {
         let rentNotes  = r.來源備註 || '';
 
         if (confirmedKeys.has(key)) {
-            const m = _matchTransitForProfit(transitLedgerRows, name, batch, project, qty);
-            if (m) {
-                rentPrice  = m.price;
-                rentSource = m.source;
-                rentNotes  = '';
-                confirmedCount++;
+            // 加工成品／租金結果優先度更高，已經有這兩種來源的列不該被台帳核銷結果覆蓋
+            if (rentSource !== '加工成品' && rentSource !== '租金結果') {
+                const m = _matchTransitForProfit(transitLedgerRows, name, batch, project, qty);
+                if (m) {
+                    rentPrice  = m.price;
+                    rentSource = m.source;
+                    rentNotes  = '';
+                    confirmedCount++;
+                }
             }
         } else if (excludedKeySet.has(key)) {
             // 未核銷（使用者設為 0 或不核銷）→ 清除在途來源的單價
@@ -11750,6 +11716,7 @@ window._mergeReconciliationToProfit = _mergeReconciliationToProfit;
 
 function _cancelTransitPreview() {
     window._transitPendingChanges = [];
+    window._transitPendingShortages = [];
     const previewEl = document.getElementById('transit_preview');
     if (previewEl) previewEl.style.display = 'none';
     const statusEl = document.getElementById('transit_status');
@@ -13304,38 +13271,65 @@ function _profitLookup(map, keys) {
 // tier2：產品+批號+專案 一致（數量不比對）→ 用該專案下所有台帳列的金額/數量算加權平均單價
 // tier3：產品+批號 一致、專案兜不上 → 用該批號「所有」台帳列的金額/數量算加權平均單價
 //        （不是抓某一筆單價；同批號不管哪個專案，只要產品+批號相同就一起算進來）
-function _matchTransitForProfit(ledgerRows, name, batch, project, qty) {
+//
+// _selectTransitTierRows 是純比對邏輯（哪些台帳列、屬於哪一層），供查價格
+// （_matchTransitForProfit）跟規劃扣庫存（_planTierBasedConsumption）共用同一套判斷，
+// 避免兩邊各自實作導致「扣哪一列」跟「用哪一列的價格」對不上。
+function _selectTransitTierRows(ledgerRows, name, batch, project, qty) {
     const rows = (ledgerRows || []).filter(r => String(r.product_name||'').trim() === name && String(r.batch_no||'').trim() === batch);
     if (!rows.length) return null;
 
     if (project) {
         const sameProj = rows.filter(r => String(r.notes||'').trim() === project);
         if (sameProj.length) {
-            const exact = sameProj.find(r => Math.abs((parseFloat(r.original_qty) || 0) - qty) < 1e-9);
-            if (exact) {
-                const cost = Math.round(parseFloat(exact.total_cost) || 0);
-                return { price: qty > 0 ? cost / qty : 0, cost, source: '在途台帳(金額)' };
-            }
-            const totalCost = sameProj.reduce((s, r) => s + (parseFloat(r.total_cost) || 0), 0);
-            const totalQty  = sameProj.reduce((s, r) => s + (parseFloat(r.original_qty) || 0), 0);
-            if (totalQty > 0) return { price: totalCost / totalQty, cost: null, source: '在途台帳(專案)' };
+            // tier1 用「剩餘數量」而非「原始數量」判斷是否精準吻合——
+            // 原始數量從建立後就不會變，剩餘數量才是「現在真正還能被核銷/計價的量」
+            const exact = sameProj.find(r => Math.abs((parseFloat(r.remaining_qty) || 0) - qty) < 1e-9);
+            if (exact) return { tier: 1, exactRow: exact, candidateRows: sameProj };
+            return { tier: 2, exactRow: null, candidateRows: sameProj };
         }
     }
+    return { tier: 3, exactRow: null, candidateRows: rows };
+}
 
-    const totalCost = rows.reduce((s, r) => s + (parseFloat(r.total_cost) || 0), 0);
-    const totalQty  = rows.reduce((s, r) => s + (parseFloat(r.original_qty) || 0), 0);
-    if (totalQty > 0) return { price: totalCost / totalQty, cost: null, source: '在途台帳' };
+function _matchTransitForProfit(ledgerRows, name, batch, project, qty) {
+    const sel = _selectTransitTierRows(ledgerRows, name, batch, project, qty);
+    if (!sel) return null;
+
+    if (sel.tier === 1) {
+        const exact = sel.exactRow;
+        const origQty = parseFloat(exact.original_qty) || 0;
+        const remQty  = parseFloat(exact.remaining_qty) || 0;
+        if (Math.abs(origQty - remQty) < 1e-9) {
+            // 這一列從沒被核銷過，整批成本都歸這筆比對，金額除以數量剛好整除，避免捨入誤差
+            const cost = Math.round(parseFloat(exact.total_cost) || 0);
+            return { price: qty > 0 ? cost / qty : 0, cost, source: '在途台帳(金額)' };
+        }
+        // 已核銷過一部分：total_cost 是整批貨的成本，不能拿來除「剩餘」的部分，改用固定的單價
+        const price = parseFloat(exact.unit_price) || 0;
+        return { price, cost: Math.round(price * qty), source: '在途台帳(金額)' };
+    }
+
+    const totalCost = sel.candidateRows.reduce((s, r) => s + (parseFloat(r.total_cost) || 0), 0);
+    const totalQty  = sel.candidateRows.reduce((s, r) => s + (parseFloat(r.original_qty) || 0), 0);
+    if (totalQty > 0) return { price: totalCost / totalQty, cost: null, source: sel.tier === 2 ? '在途台帳(專案)' : '在途台帳' };
     return null;
 }
 
 // 讀取「已核銷／部分核銷且單價>0」的在途銷貨台帳列，供三層比對使用
-async function _fetchTransitLedgerRowsForProfitMatch() {
+// keepIds：即使剩餘數量已核銷完（<=0），只要 id 在這個清單裡還是保留——
+// 用於「這次核銷動作剛處理」的列，讓歸檔尚未跑完前也能立刻把單價帶進利潤分析。
+// 其餘剩餘數量<=0 的列一律視為「已核銷完但沒被歸檔刪除的殭屍記錄」而排除，避免污染其他月份的比對。
+async function _fetchTransitLedgerRowsForProfitMatch(keepIds = null) {
     try {
         const resp = await fetch(
-            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=product_name,batch_no,unit_price,total_cost,original_qty,notes&unit_price=gt.0&status=in.(已核銷,部分核銷)`,
+            `${SUPABASE_URL}/rest/v1/transit_sales_ledger?select=id,product_name,batch_no,unit_price,total_cost,original_qty,remaining_qty,notes&unit_price=gt.0&status=in.(已核銷,部分核銷)`,
             { headers: getSBHeaders() }
         );
-        if (resp.ok) return await resp.json();
+        if (!resp.ok) return [];
+        const rows = await resp.json();
+        const keep = keepIds ? new Set(keepIds.map(String)) : null;
+        return rows.filter(r => (parseFloat(r.remaining_qty) || 0) > 0 || (keep && keep.has(String(r.id))));
     } catch(_) {}
     return [];
 }
@@ -13461,7 +13455,8 @@ async function calcProfit() {
         // 第4層：試算利潤表，帶入租金單價（優先順序：加工成品 > 租金結果 > 已核銷台帳）
         let matched = 0, unmatched = 0, rentTotal = 0;
         profitCalcData = profitRows.map(r => {
-            const project = String(r['專案'] || '').trim();
+            // 台帳備註存的是「專案名稱」格式，不是純代號「專案」欄位
+            const project = String(r['專案名稱'] || '').trim();
             const code  = String(r[codeCol] || '').trim();
             const name  = String(r[nameCol]||'').trim();
             const batch = String(r['小批號'] || r[batchCol] || '').trim();
@@ -13522,12 +13517,6 @@ async function calcProfit() {
 }
 window.calcProfit = calcProfit;
 
-async function calcProfitAndMatch() {
-    await calcProfit();
-    await autoMatchTransitSales();
-}
-window.calcProfitAndMatch = calcProfitAndMatch;
-
 // ── 從在途台帳重新同步單價（不需重傳 Excel）────────────────────────────
 async function refreshProfitFromTransit() {
     if (!profitCalcData || profitCalcData.length === 0) {
@@ -13546,7 +13535,8 @@ async function refreshProfitFromTransit() {
 
         let updated = 0, matched = 0, unmatched = 0, rentTotal = 0;
         profitCalcData = profitCalcData.map(r => {
-            const project = String(r['專案'] || '').trim();
+            // 台帳備註存的是「專案名稱」格式，不是純代號「專案」欄位
+            const project = String(r['專案名稱'] || '').trim();
             const code  = String(r[codeCol] || '').trim();
             const name  = String(r[nameCol] || '').trim();
             const batch = String(r['小批號'] || r[batchCol] || '').trim();
