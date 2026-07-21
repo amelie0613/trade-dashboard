@@ -9425,7 +9425,8 @@ function _isProjectMatchedOutbound(r = {}) {
     const source        = String(r.source || '').trim();
     return _isProfitSalesOutbound(r) ||
            warehouseType === '再途銷貨' ||
-           source === '在途出庫';
+           source === '在途出庫' ||
+           source === '歷史匯入'; // 歷史 Excel 匯入的台帳列也要能參與核銷比對，不然舊資料永遠核銷不到
 }
 
 function _matLineKey(r) {
@@ -11295,7 +11296,10 @@ function _showTransitPreview(changes, today, statusEl) {
     if (!previewEl) return;
 
     if (!changes.length) {
-        statusEl.textContent = '✅ 比對完成：無需更新的記錄';
+        const shortages = window._transitPendingShortages || [];
+        statusEl.textContent = shortages.length
+            ? `⚠️ 比對完成：沒有台帳庫存可核銷，${shortages.length} 筆利潤明細完全對不到台帳（可能是台帳沒有對應批號，或庫存已用完）`
+            : '✅ 比對完成：無需更新的記錄';
         previewEl.style.display = 'none';
         return;
     }
