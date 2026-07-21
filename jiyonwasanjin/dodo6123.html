@@ -9757,14 +9757,23 @@ async function importTransitFromOutbound() {
         if (!rows.length) { statusEl.textContent = `出庫記錄中找不到銷貨、再途銷貨或其他出庫類型的記錄（範圍：${_scopeName}）`; return; }
 
         // ── 轉入台帳前：確認所有記錄都有分攤單價 ─────────────────────
+        // 注意：單價=0 可能是「尚未月結算」，也可能是「租金分攤四捨五入後確實=0」（少量、低金額品項），
+        // 資料庫欄位無法區分這兩種情況，因此改為提示使用者確認，而非直接擋下。
         const missingPrice = rows.filter(r => !r.allocated_price || r.allocated_price <= 0);
         if (missingPrice.length > 0) {
             const names = [...new Set(missingPrice.map(r => r.product_name))].slice(0, 5).join('、');
             const moreText = missingPrice.length > 5 ? `…等共 ${missingPrice.length} 筆` : `共 ${missingPrice.length} 筆`;
-            statusEl.innerHTML = `<span style="color:#e05a5a;">❌ 有 ${moreText} 出庫記錄尚無分攤單價，無法轉入台帳。</span><br/>
-                <span style="font-size:0.8rem;color:#64748b;">請先完成月租金結算（結算完成後會自動回寫單價），再執行匯入。</span><br/>
-                <span style="font-size:0.78rem;color:#b07020;">⚠️ 缺少單價的品項（前5項）：${names}${missingPrice.length > 5 ? '…' : ''}</span>`;
-            return;
+            const ok = confirm(
+                `⚠️ 有 ${moreText} 出庫記錄的分攤單價為 0：\n${names}${missingPrice.length > 5 ? '…' : ''}\n\n` +
+                `這可能是尚未完成月租金結算，也可能是租金分攤四捨五入後確實為 0（少量、低金額品項）。\n\n` +
+                `【確定】＝以 0 元繼續匯入這些品項\n【取消】＝先去完成月租金結算再匯入`
+            );
+            if (!ok) {
+                statusEl.innerHTML = `<span style="color:#e05a5a;">已取消匯入。</span><br/>
+                    <span style="font-size:0.8rem;color:#64748b;">請先完成月租金結算（結算完成後會自動回寫單價），再執行匯入。</span><br/>
+                    <span style="font-size:0.78rem;color:#b07020;">⚠️ 單價為 0 的品項（前5項）：${names}${missingPrice.length > 5 ? '…' : ''}</span>`;
+                return;
+            }
         }
 
         // 2. 取台帳現有記錄（銷貨出庫 + 在途出庫 + 其他出庫 都要保留）
