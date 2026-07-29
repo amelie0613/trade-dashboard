@@ -291,6 +291,7 @@
 
       <div class="actions" style="display:flex;gap:10px;">
         <button id="convertBtn">轉換並下載 Excel</button>
+        <button id="convertSummaryBtn">轉換並下載 Excel（匯總單）</button>
         <button id="supabaseBtn">轉單到出貨單</button>
       </div>
     </div>
@@ -324,6 +325,7 @@
 
       <div class="actions" style="display:flex;gap:10px;">
         <button id="napoliceConvertBtn">轉換並下載 Excel</button>
+        <button id="napoliceConvertSummaryBtn">轉換並下載 Excel（匯總單）</button>
         <button id="napoliceSupabaseBtn">轉單到出貨單</button>
       </div>
     </div>
@@ -360,6 +362,7 @@
 
       <div class="actions" style="display:flex;gap:10px;">
         <button id="qixinConvertBtn">轉換並下載 Excel</button>
+        <button id="qixinConvertSummaryBtn">轉換並下載 Excel（匯總單）</button>
         <button id="qixinSupabaseBtn">轉單到出貨單</button>
       </div>
     </div>
@@ -393,6 +396,7 @@
 
       <div class="actions" style="display:flex;gap:10px;">
         <button id="yujunConvertBtn">轉換並下載 Excel</button>
+        <button id="yujunConvertSummaryBtn">轉換並下載 Excel（匯總單）</button>
         <button id="yujunSupabaseBtn">轉單到出貨單</button>
       </div>
     </div>
@@ -429,21 +433,25 @@
               <button class="small" id="addRowBtn">新增一列</button> <button class="small" id="exportMapBtn">匯出備份</button> <button class="small" id="importMapBtn">匯入備份</button>
               <input type="file" id="importMapFile" accept=".json" style="display:none">
               <h3>店名簡稱對照</h3>
-              <p class="hint">善商訂單上的店名會依此轉成 Excel、檔名與出貨單使用的簡稱；沒有設定時沿用原店名。</p>
-              <table id="shanshangStoreMapTable"><thead><tr><th>訂單店名</th><th>店名簡稱</th><th></th></tr></thead><tbody></tbody></table>
+              <p class="hint">善商訂單上的店名會依此轉成 Excel、檔名與出貨單使用的簡稱；沒有設定時沿用原店名。收件人名稱/電話/地址會帶入 Excel 的聯絡人/聯絡電話/客戶地址欄位。</p>
+              <table id="shanshangStoreMapTable"><thead><tr><th>訂單店名</th><th>店名簡稱</th><th>收件人名稱</th><th>電話</th><th>地址</th><th></th></tr></thead><tbody></tbody></table>
               <button class="small" id="addShanshangStoreRowBtn">新增一列</button>
             </div></details>
             <details><summary>那波麗士產品與門市對照</summary><div class="mapping-content">
               <h3>商品對照</h3><table id="napoliceMapTable"><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table>
               <button class="small" id="napoliceAddRowBtn">新增一列</button> <button class="small" id="napoliceExportMapBtn">匯出備份</button> <button class="small" id="napoliceImportMapBtn">匯入備份</button><input type="file" id="napoliceImportMapFile" accept=".json" style="display:none">
-              <h3>門市簡稱對照</h3><table id="napoliceStoreMapTable"><thead><tr><th>門市名稱</th><th>門市簡稱</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="napoliceAddStoreRowBtn">新增一列</button>
+              <h3>門市簡稱對照</h3>
+              <p class="hint">收件人名稱/電話/地址會帶入 Excel 的聯絡人/聯絡電話/客戶地址欄位。</p>
+              <table id="napoliceStoreMapTable"><thead><tr><th>門市名稱</th><th>門市簡稱</th><th>收件人名稱</th><th>電話</th><th>地址</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="napoliceAddStoreRowBtn">新增一列</button>
             </div></details>
             <details><summary>啟新產品對照</summary><div class="mapping-content">
               <table id="qixinMapTable"><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="qixinAddRowBtn">新增一列</button>
             </div></details>
             <details><summary>魚君產品與門市對照</summary><div class="mapping-content">
               <h3>商品對照</h3><table id="yujunMapTable"><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="yujunAddRowBtn">新增一列</button>
-              <h3>門市簡稱對照</h3><table id="yujunStoreMapTable"><thead><tr><th>店名</th><th>簡稱</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="yujunAddStoreRowBtn">新增一列</button>
+              <h3>門市簡稱對照</h3>
+              <p class="hint">收件人名稱/電話/地址會帶入 Excel 的聯絡人/聯絡電話/客戶地址欄位。</p>
+              <table id="yujunStoreMapTable"><thead><tr><th>店名</th><th>簡稱</th><th>收件人名稱</th><th>電話</th><th>地址</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="yujunAddStoreRowBtn">新增一列</button>
             </div></details>
           </section>
         </div>
@@ -557,18 +565,78 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   var DEFAULTS = {
     customer_no: "0736",
     currency: "TWD",
-    tax_type: "1",
+    tax_type: "3",
     invoice_channel: "1"
   };
 
   var HEADER1 = [
-    "訂購日期", "公司編號", "業務人員編號", "部門編號", "客戶編號", "聯絡人", "聯絡電話", "客戶地址",
+    "匯入序號", "訂購日期", "預出貨日", "公司編號", "業務人員編號", "部門編號", "客戶編號", "聯絡人", "聯絡電話", "客戶地址",
     "幣別代碼", "扣稅類別（1：稅外加、2：含稅）", "統一編號", "發票抬頭",
     "開立管道（1：電子發票、2：載具、3：紙本、4：不開立發票）",
     "電子信箱/載具號碼/紙本聯式（紙本：1：二聯式、2：三聯式）",
-    "轉帳後5碼", "銀行名稱", "銀行帳戶名稱", "銀行帳戶號碼", "訂單備註", "預出貨日", "出貨單號"
+    "轉帳後5碼", "銀行名稱", "銀行帳戶名稱", "銀行帳戶號碼", "訂單備註", "出貨標記欄"
   ];
-  var HEADER2 = ["產品資料編號", "數量", "報價單位", "單價", "產品備註", "客單備註"];
+  var HEADER2 = ["匯入序號", "產品資料編號", "數量", "報價單位", "單價", "產品備註", "客單備註"];
+
+  // HEADER1 欄位（不含開頭的「匯入序號」）依序對應的鍵名，供 buildMetaRow() 組列使用
+  var META_FIELDS = [
+    "order_date", "ship_date", "company_no", "staff_no", "dept_no", "customer_no",
+    "contact_name", "contact_phone", "contact_address", "currency", "tax_type", "tax_id", "invoice_title",
+    "invoice_channel", "invoice_carrier", "last5", "bank_name", "bank_account_name", "bank_account_no",
+    "order_note", "ship_mark"
+  ];
+
+  function buildMetaRow(fields) {
+    return META_FIELDS.map(function (key) {
+      var v = fields[key];
+      return (v === undefined || v === null) ? "" : v;
+    });
+  }
+
+  // entries: [{ meta: {依 META_FIELDS 鍵名}, items: [[產品資料編號, 數量, 報價單位, 單價, 產品備註, 客單備註], ...] }, ...]
+  // 每筆 entry 對應一張訂單，會依序給一個共用的「匯入序號」，讓「基本資料」與「產品明細」兩個工作表能夠對應。
+  function buildBatchWorkbook(entries) {
+    var basicRows = [];
+    var itemRows = [];
+    entries.forEach(function (entry, idx) {
+      var seq = String(idx + 1);
+      basicRows.push([seq].concat(buildMetaRow(entry.meta)));
+      entry.items.forEach(function (it) { itemRows.push([seq].concat(it)); });
+    });
+    var ws1 = XLSX.utils.aoa_to_sheet([HEADER1].concat(basicRows));
+    var ws2 = XLSX.utils.aoa_to_sheet([HEADER2].concat(itemRows));
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws1, "基本資料");
+    XLSX.utils.book_append_sheet(wb, ws2, "產品明細");
+    return wb;
+  }
+
+  // 把多筆品項依「產品資料編號 + 報價單位」合併，數量加總；單價/備註取第一次出現的那筆。
+  function mergeItemsByProduct(items) {
+    var order = [];
+    var byKey = {};
+    items.forEach(function (it) {
+      var key = it[0] + "||" + it[2];
+      if (!byKey[key]) {
+        var merged = it.slice();
+        byKey[key] = merged;
+        order.push(merged);
+      } else {
+        byKey[key][1] = (Number(byKey[key][1]) || 0) + (Number(it[1]) || 0);
+      }
+    });
+    return order;
+  }
+
+  // 把多筆訂單（entries）合併成「一張匯總單」：基本資料只留一列（不分店，聯絡人/電話/地址留空），
+  // 產品明細用 mergeItemsByProduct 把相同產品的數量加總在一起。
+  function buildAggregatedEntries(entries) {
+    if (!entries.length) return [];
+    var meta = Object.assign({}, entries[0].meta, { contact_name: "", contact_phone: "", contact_address: "" });
+    var allItems = [];
+    entries.forEach(function (e) { allItems = allItems.concat(e.items); });
+    return [{ meta: meta, items: mergeItemsByProduct(allItems) }];
+  }
 
   var ORD_COL = {
     po_no: 0, order_date: 2, supplier_name: 8, item_code: 9, item_name: 10,
@@ -584,7 +652,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function requiresCloudAuth() {
     return window.location.protocol === "https:" &&
       window.location.hostname === "amelie0613.github.io" &&
-      window.location.pathname === "/trade-dashboard/otssals_pchs.html";
+      window.location.pathname === "/trade-dashboard/otssals_pchs2.html";
   }
 
   function loadSupabaseAuthLibrary() {
@@ -705,7 +773,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   var NAPOLICE_DEFAULTS = {
     customer_no: "1087",
     currency: "TWD",
-    tax_type: "1",
+    tax_type: "3",
     invoice_channel: "1"
   };
   var NAPOLICE_SUPABASE_FIXED = {
@@ -979,7 +1047,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     tbody.innerHTML = "";
     shanshangStoreMap.forEach(function (row, idx) {
       var tr = document.createElement("tr");
-      ["name", "short"].forEach(function (field) {
+      ["name", "short", "recipient_name", "phone", "address"].forEach(function (field) {
         var td = document.createElement("td");
         var input = document.createElement("input");
         input.value = row[field] || "";
@@ -1017,8 +1085,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return normalized;
   }
 
+  function shanshangStoreContact(fullName) {
+    var normalized = String(fullName || "").trim();
+    for (var i = 0; i < shanshangStoreMap.length; i++) {
+      if (String(shanshangStoreMap[i].name || "").trim() === normalized) return shanshangStoreMap[i];
+    }
+    return {};
+  }
+
   document.getElementById("addShanshangStoreRowBtn").addEventListener("click", function () {
-    shanshangStoreMap.push({ name: "", short: "" });
+    shanshangStoreMap.push({ name: "", short: "", recipient_name: "", phone: "", address: "" });
     saveShanshangStoreMap();
     renderShanshangStoreMapTable();
   });
@@ -1032,10 +1108,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------- basic settings (staff/company/dept no.) ----------
   var SETTINGS_KEY = "shanshang_settings_v1";
   var DEFAULT_SETTINGS = {
-    staff_no: "101002",
+    staff_no: "113002",
     supabase_staff_no: "101002",
     company_no: "02",
-    dept_no: "1003",
+    dept_no: "1002",
     shipper: "大漁水產有限公司"
   };
   var settings = loadSettings();
@@ -1421,24 +1497,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // ---------- convert & download ----------
-  function buildGroupSheets(group, orderDate, shipDate, shipmentNo) {
-    var row1 = [
-      orderDate, settings.company_no, settings.staff_no, settings.dept_no, DEFAULTS.customer_no,
-      shanshangStoreShortName(group.recipient_name), "", "", DEFAULTS.currency, DEFAULTS.tax_type, "", "",
-      DEFAULTS.invoice_channel, "", "", "", "", "", "", shipDate, shipmentNo
-    ];
-    var ws1 = XLSX.utils.aoa_to_sheet([HEADER1, row1]);
+  function shanshangEntry(group, orderDate, shipDate) {
+    var contact = shanshangStoreContact(group.recipient_name);
+    return {
+      meta: {
+        order_date: orderDate, ship_date: shipDate,
+        company_no: settings.company_no, staff_no: settings.staff_no, dept_no: settings.dept_no,
+        customer_no: DEFAULTS.customer_no,
+        contact_name: contact.recipient_name || shanshangStoreShortName(group.recipient_name),
+        contact_phone: contact.phone || "", contact_address: contact.address || "",
+        currency: DEFAULTS.currency, tax_type: DEFAULTS.tax_type, invoice_channel: DEFAULTS.invoice_channel
+      },
+      items: group.items.map(function (it) {
+        var prod = findProduct(it.item_code);
+        return [prod.product_no, it.qty, it.unit, it.price_ex_tax, prod.product_note || "", prod.note];
+      })
+    };
+  }
 
-    var itemRows = group.items.map(function (it) {
-      var prod = findProduct(it.item_code);
-      return [prod.product_no, it.qty, it.unit, it.price_ex_tax, prod.product_note || "", prod.note];
-    });
-    var ws2 = XLSX.utils.aoa_to_sheet([HEADER2].concat(itemRows));
-
-    var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws1, "基本資料");
-    XLSX.utils.book_append_sheet(wb, ws2, "產品明細");
-    return wb;
+  function shanshangEntries(parsed, orderDate, shipDate) {
+    return parsed.groups.map(function (g) { return shanshangEntry(g, orderDate, shipDate); });
   }
 
   function downloadBlob(blob, filename) {
@@ -1503,29 +1581,54 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     convertBtn.textContent = "轉換中...";
 
     try {
-      var outputs = parsed.groups.map(function (g) {
-        var wb = buildGroupSheets(g, orderDate, shipDate, parsed.shipment_no);
-        var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        var filename = "訂購單_" + shanshangStoreShortName(g.recipient_name) + "_" + parsed.shipment_no + ".xlsx";
-        return { filename: filename, data: arrbuf };
-      });
-
-      if (outputs.length === 1) {
-        downloadBlob(new Blob([outputs[0].data], { type: "application/octet-stream" }), outputs[0].filename);
-        showOk("已產生 1 個檔案並下載");
-      } else {
-        var zip = new JSZip();
-        outputs.forEach(function (o) { zip.file(o.filename, o.data); });
-        zip.generateAsync({ type: "blob" }).then(function (blob) {
-          downloadBlob(blob, "訂購單_" + parsed.shipment_no + ".zip");
-          showOk("已產生 " + outputs.length + " 個檔案，打包成 zip 下載完成");
-        });
-      }
+      var wb = buildBatchWorkbook(shanshangEntries(parsed, orderDate, shipDate));
+      var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      var filename = "訂購單_善商_" + parsed.shipment_no + ".xlsx";
+      downloadBlob(new Blob([arrbuf], { type: "application/octet-stream" }), filename);
+      showOk("已產生 1 個檔案（含 " + parsed.groups.length + " 筆訂單）並下載");
     } catch (err) {
       showError("轉換失敗：" + err.message);
     } finally {
       convertBtn.disabled = false;
       convertBtn.textContent = "轉換並下載";
+    }
+  });
+
+  var convertSummaryBtn = document.getElementById("convertSummaryBtn");
+  convertSummaryBtn.addEventListener("click", function () {
+    showError(""); showOk("");
+    var parsed = window.__lastParsed;
+    if (!parsed) { showError("請先上傳檔案"); return; }
+    if (!orderDateInput.value) { showError("請填寫訂購日期"); return; }
+
+    var allMissing = [];
+    parsed.groups.forEach(function (g) {
+      g.items.forEach(function (it) {
+        if (!findProduct(it.item_code)) allMissing.push(it.item_code + "（" + it.item_name + "）");
+      });
+    });
+    if (allMissing.length) {
+      showError("以下品項尚未在對照表中，請先補上再轉換：\n" + allMissing.join("、"));
+      return;
+    }
+
+    var orderDate = orderDateInput.value.replaceAll("-", "/");
+    var shipDate = shipDateInput.value ? shipDateInput.value.replaceAll("-", "/") : "";
+
+    convertSummaryBtn.disabled = true;
+    convertSummaryBtn.textContent = "轉換中...";
+
+    try {
+      var wb = buildBatchWorkbook(buildAggregatedEntries(shanshangEntries(parsed, orderDate, shipDate)));
+      var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      var filename = "訂購單_善商_匯總單_" + parsed.shipment_no + ".xlsx";
+      downloadBlob(new Blob([arrbuf], { type: "application/octet-stream" }), filename);
+      showOk("已產生匯總單並下載");
+    } catch (err) {
+      showError("轉換失敗：" + err.message);
+    } finally {
+      convertSummaryBtn.disabled = false;
+      convertSummaryBtn.textContent = "轉換並下載 Excel（匯總單）";
     }
   });
 
@@ -1778,7 +1881,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     tbody.innerHTML = "";
     napoliceStoreMap.forEach(function (row, idx) {
       var tr = document.createElement("tr");
-      ["name", "short"].forEach(function (field) {
+      ["name", "short", "recipient_name", "phone", "address"].forEach(function (field) {
         var td = document.createElement("td");
         var input = document.createElement("input");
         input.value = row[field] || "";
@@ -1807,7 +1910,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   document.getElementById("napoliceAddStoreRowBtn").addEventListener("click", function () {
-    napoliceStoreMap.push({ name: "", short: "" });
+    napoliceStoreMap.push({ name: "", short: "", recipient_name: "", phone: "", address: "" });
     saveNapoliceStoreMap();
     renderNapoliceStoreMapTable();
   });
@@ -1825,6 +1928,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (napoliceStoreMap[i].name === fullName && napoliceStoreMap[i].short) return napoliceStoreMap[i].short;
     }
     return fullName;
+  }
+
+  function napoliceStoreContact(fullName) {
+    fullName = (fullName || "").trim();
+    for (var i = 0; i < napoliceStoreMap.length; i++) {
+      if (napoliceStoreMap[i].name === fullName) return napoliceStoreMap[i];
+    }
+    return {};
   }
 
   // ---------- shipper options (localStorage, shared across all non-善商 tabs) ----------
@@ -2005,6 +2116,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   var napoliceOrderDateInput = document.getElementById("napoliceOrderDate");
   var napoliceShipDateInput = document.getElementById("napoliceShipDate");
   var napoliceConvertBtn = document.getElementById("napoliceConvertBtn");
+  var napoliceConvertSummaryBtn = document.getElementById("napoliceConvertSummaryBtn");
   var napoliceSupabaseBtn = document.getElementById("napoliceSupabaseBtn");
 
   napoliceStoreNameInput.addEventListener("input", function () {
@@ -2164,26 +2276,32 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return it;
   }
 
-  function buildNapoliceSheets(parsed, orderDate, shipDate, shipmentNo, storeNameOverride) {
+  function napoliceEntry(parsed, orderDate, shipDate, storeNameOverride) {
     var storeName = storeNameOverride !== undefined ? storeNameOverride : napoliceStoreNameInput.value;
-    var row1 = [
-      orderDate, settings.company_no, settings.staff_no, settings.dept_no, NAPOLICE_DEFAULTS.customer_no,
-      napoliceStoreShortName(storeName), "", "", NAPOLICE_DEFAULTS.currency, NAPOLICE_DEFAULTS.tax_type, "", "",
-      NAPOLICE_DEFAULTS.invoice_channel, "", "", "", "", "", "", shipDate, shipmentNo
-    ];
-    var ws1 = XLSX.utils.aoa_to_sheet([HEADER1, row1]);
+    var contact = napoliceStoreContact(storeName);
+    return {
+      meta: {
+        order_date: orderDate, ship_date: shipDate,
+        company_no: settings.company_no, staff_no: settings.staff_no, dept_no: settings.dept_no,
+        customer_no: NAPOLICE_DEFAULTS.customer_no,
+        contact_name: contact.recipient_name || napoliceStoreShortName(storeName),
+        contact_phone: contact.phone || "", contact_address: contact.address || "",
+        currency: NAPOLICE_DEFAULTS.currency, tax_type: NAPOLICE_DEFAULTS.tax_type,
+        invoice_channel: NAPOLICE_DEFAULTS.invoice_channel
+      },
+      items: parsed.items.map(function (it) {
+        var prod = findNapoliceProduct(it.item_code);
+        var eff = napoliceEffectiveItem(it, storeName);
+        return [prod.product_no, eff.qty, eff.unit, eff.price, prod.product_note || "", prod.note];
+      })
+    };
+  }
 
-    var itemRows = parsed.items.map(function (it) {
-      var prod = findNapoliceProduct(it.item_code);
-      var eff = napoliceEffectiveItem(it, storeName);
-      return [prod.product_no, eff.qty, eff.unit, eff.price, prod.product_note || "", prod.note];
+  function napoliceEntries(orders, orderDate) {
+    return orders.map(function (order) {
+      var shipDate = order.ship_date ? order.ship_date.replaceAll("-", "/") : "";
+      return napoliceEntry(order.parsed, orderDate, shipDate, order.store_name);
     });
-    var ws2 = XLSX.utils.aoa_to_sheet([HEADER2].concat(itemRows));
-
-    var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws1, "基本資料");
-    XLSX.utils.book_append_sheet(wb, ws2, "產品明細");
-    return wb;
   }
 
   napoliceConvertBtn.addEventListener("click", async function () {
@@ -2209,28 +2327,52 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     napoliceConvertBtn.textContent = "轉換中...";
 
     try {
-      var outputs = orders.map(function (order) {
-        var shipDate = order.ship_date ? order.ship_date.replaceAll("-", "/") : "";
-        var wb = buildNapoliceSheets(order.parsed, orderDate, shipDate, buildNapoliceShipmentNo(order), order.store_name);
-        return {
-          filename: "訂購單_" + order.store_name + "_" + order.po_no + ".xlsx",
-          data: XLSX.write(wb, { bookType: "xlsx", type: "array" })
-        };
-      });
-      if (outputs.length === 1) {
-        downloadBlob(new Blob([outputs[0].data], { type: "application/octet-stream" }), outputs[0].filename);
-      } else {
-        var zip = new JSZip();
-        outputs.forEach(function (output) { zip.file(output.filename, output.data); });
-        var blob = await zip.generateAsync({ type: "blob" });
-        downloadBlob(blob, "訂購單_那波麗士_" + orderDate.replaceAll("/", "") + ".zip");
-      }
-      showOk("已產生 " + outputs.length + " 個 Excel 檔案並下載");
+      var wb = buildBatchWorkbook(napoliceEntries(orders, orderDate));
+      var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      var filename = "訂購單_那波麗士_" + orderDate.replaceAll("/", "") + ".xlsx";
+      downloadBlob(new Blob([arrbuf], { type: "application/octet-stream" }), filename);
+      showOk("已產生 1 個檔案（含 " + orders.length + " 筆訂單）並下載");
     } catch (err) {
       showError("轉換失敗：" + err.message);
     } finally {
       napoliceConvertBtn.disabled = false;
       napoliceConvertBtn.textContent = "轉換並下載 Excel";
+    }
+  });
+
+  napoliceConvertSummaryBtn.addEventListener("click", async function () {
+    showError(""); showOk("");
+    var orders = window.__napoliceParsedOrders || [];
+    if (!orders.length) { showError("請先上傳 PDF"); return; }
+    if (!napoliceOrderDateInput.value) { showError("請填寫訂購日期"); return; }
+
+    var allMissing = [];
+    orders.forEach(function (order) {
+      napoliceMissingItems(order.parsed).forEach(function (name) {
+        allMissing.push(order.file_name + "：" + name);
+      });
+    });
+    if (allMissing.length) {
+      showError("以下品項尚未在對照表中，請先補上再轉換：\n" + allMissing.join("、"));
+      return;
+    }
+
+    var orderDate = napoliceOrderDateInput.value.replaceAll("-", "/");
+
+    napoliceConvertSummaryBtn.disabled = true;
+    napoliceConvertSummaryBtn.textContent = "轉換中...";
+
+    try {
+      var wb = buildBatchWorkbook(buildAggregatedEntries(napoliceEntries(orders, orderDate)));
+      var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      var filename = "訂購單_那波麗士_匯總單_" + orderDate.replaceAll("/", "") + ".xlsx";
+      downloadBlob(new Blob([arrbuf], { type: "application/octet-stream" }), filename);
+      showOk("已產生匯總單並下載");
+    } catch (err) {
+      showError("轉換失敗：" + err.message);
+    } finally {
+      napoliceConvertSummaryBtn.disabled = false;
+      napoliceConvertSummaryBtn.textContent = "轉換並下載 Excel（匯總單）";
     }
   });
 
@@ -2427,6 +2569,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   var qixinOrderDateInput = document.getElementById("qixinOrderDate");
   var qixinShipDateInput = document.getElementById("qixinShipDate");
   var qixinConvertBtn = document.getElementById("qixinConvertBtn");
+  var qixinConvertSummaryBtn = document.getElementById("qixinConvertSummaryBtn");
   var qixinSupabaseBtn = document.getElementById("qixinSupabaseBtn");
 
   function parseQixinText(text) {
@@ -2477,24 +2620,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return missing;
   }
 
-  function buildQixinSheets(parsed, orderDate, shipDate, shipmentNo, orderNote) {
-    var row1 = [
-      orderDate, settings.company_no, settings.staff_no, settings.dept_no, QIXIN_CUSTOMER_NO,
-      "", "", "", NAPOLICE_DEFAULTS.currency, NAPOLICE_DEFAULTS.tax_type, "", "",
-      NAPOLICE_DEFAULTS.invoice_channel, "", "", "", "", "", orderNote || "", shipDate, shipmentNo
-    ];
-    var ws1 = XLSX.utils.aoa_to_sheet([HEADER1, row1]);
+  function qixinEntry(parsed, orderDate, shipDate, orderNote) {
+    return {
+      meta: {
+        order_date: orderDate, ship_date: shipDate,
+        company_no: settings.company_no, staff_no: settings.staff_no, dept_no: settings.dept_no,
+        customer_no: QIXIN_CUSTOMER_NO,
+        currency: NAPOLICE_DEFAULTS.currency, tax_type: NAPOLICE_DEFAULTS.tax_type,
+        invoice_channel: NAPOLICE_DEFAULTS.invoice_channel, order_note: orderNote || ""
+      },
+      items: parsed.items.map(function (it) {
+        var prod = qixinMap.find(it.name, ["code", "name"]);
+        return [prod.product_no, it.qty, it.unit, "", prod.product_note || "", it.note];
+      })
+    };
+  }
 
-    var itemRows = parsed.items.map(function (it) {
-      var prod = qixinMap.find(it.name, ["code", "name"]);
-      return [prod.product_no, it.qty, it.unit, "", prod.product_note || "", it.note];
-    });
-    var ws2 = XLSX.utils.aoa_to_sheet([HEADER2].concat(itemRows));
-
-    var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws1, "基本資料");
-    XLSX.utils.book_append_sheet(wb, ws2, "產品明細");
-    return wb;
+  function qixinEntries(parsed, orderDate, shipDate, orderNote) {
+    return [qixinEntry(parsed, orderDate, shipDate, orderNote)];
   }
 
   qixinConvertBtn.addEventListener("click", function () {
@@ -2517,7 +2660,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     qixinConvertBtn.textContent = "轉換中...";
 
     try {
-      var wb = buildQixinSheets(parsed, orderDate, shipDate, shipmentNo, document.getElementById("qixinOrderNote").value);
+      var wb = buildBatchWorkbook(qixinEntries(parsed, orderDate, shipDate, document.getElementById("qixinOrderNote").value));
       var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
       var filename = "訂購單_啟新_" + shipmentNo + ".xlsx";
       downloadBlob(new Blob([arrbuf], { type: "application/octet-stream" }), filename);
@@ -2527,6 +2670,39 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     } finally {
       qixinConvertBtn.disabled = false;
       qixinConvertBtn.textContent = "轉換並下載 Excel";
+    }
+  });
+
+  qixinConvertSummaryBtn.addEventListener("click", function () {
+    showError(""); showOk("");
+    var parsed = window.__lastQixinParsed;
+    if (!parsed) { showError("請先解析訊息"); return; }
+    if (!qixinOrderDateInput.value) { showError("請填寫訂購日期"); return; }
+
+    var allMissing = qixinMissingItems(parsed);
+    if (allMissing.length) {
+      showError("以下品項尚未在對照表中，請先補上再轉換：\n" + allMissing.join("、"));
+      return;
+    }
+
+    var orderDate = qixinOrderDateInput.value.replaceAll("-", "/");
+    var shipDate = qixinShipDateInput.value ? qixinShipDateInput.value.replaceAll("-", "/") : "";
+    var shipmentNo = generateOrderId();
+
+    qixinConvertSummaryBtn.disabled = true;
+    qixinConvertSummaryBtn.textContent = "轉換中...";
+
+    try {
+      var wb = buildBatchWorkbook(buildAggregatedEntries(qixinEntries(parsed, orderDate, shipDate, document.getElementById("qixinOrderNote").value)));
+      var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      var filename = "訂購單_啟新_匯總單_" + shipmentNo + ".xlsx";
+      downloadBlob(new Blob([arrbuf], { type: "application/octet-stream" }), filename);
+      showOk("已產生匯總單並下載");
+    } catch (err) {
+      showError("轉換失敗：" + err.message);
+    } finally {
+      qixinConvertSummaryBtn.disabled = false;
+      qixinConvertSummaryBtn.textContent = "轉換並下載 Excel（匯總單）";
     }
   });
 
@@ -2610,7 +2786,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   var yujunStoreMap = makeSimpleMap(
     "yujun_store_map_v1", [],
-    ["name", "short"],
+    ["name", "short", "recipient_name", "phone", "address"],
     "#yujunStoreMapTable", "yujunAddStoreRowBtn",
     function () { if (window.__lastYujunParsed) renderYujunGroups(window.__lastYujunParsed); }
   );
@@ -2628,6 +2804,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   var yujunOrderDateInput = document.getElementById("yujunOrderDate");
   var yujunShipDateInput = document.getElementById("yujunShipDate");
   var yujunConvertBtn = document.getElementById("yujunConvertBtn");
+  var yujunConvertSummaryBtn = document.getElementById("yujunConvertSummaryBtn");
   var yujunSupabaseBtn = document.getElementById("yujunSupabaseBtn");
 
   function parseYujunText(text) {
@@ -2693,24 +2870,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return missing;
   }
 
-  function buildYujunSheets(group, orderDate, shipDate, shipmentNo) {
-    var row1 = [
-      orderDate, settings.company_no, settings.staff_no, settings.dept_no, YUJUN_CUSTOMER_NO,
-      yujunStoreShortName(group.store_name), "", "", NAPOLICE_DEFAULTS.currency, NAPOLICE_DEFAULTS.tax_type, "", "",
-      NAPOLICE_DEFAULTS.invoice_channel, "", "", "", "", "", "", shipDate, shipmentNo
-    ];
-    var ws1 = XLSX.utils.aoa_to_sheet([HEADER1, row1]);
+  function yujunEntry(group, orderDate, shipDate) {
+    var contact = yujunStoreMap.find(group.store_name) || {};
+    return {
+      meta: {
+        order_date: orderDate, ship_date: shipDate,
+        company_no: settings.company_no, staff_no: settings.staff_no, dept_no: settings.dept_no,
+        customer_no: YUJUN_CUSTOMER_NO,
+        contact_name: contact.recipient_name || yujunStoreShortName(group.store_name),
+        contact_phone: contact.phone || "", contact_address: contact.address || "",
+        currency: NAPOLICE_DEFAULTS.currency, tax_type: NAPOLICE_DEFAULTS.tax_type,
+        invoice_channel: NAPOLICE_DEFAULTS.invoice_channel
+      },
+      items: group.items.map(function (it) {
+        var prod = yujunMap.find(it.name, ["code", "name"]);
+        return [prod.product_no, it.qty, it.unit, "", prod.product_note || "", prod.note || it.note];
+      })
+    };
+  }
 
-    var itemRows = group.items.map(function (it) {
-      var prod = yujunMap.find(it.name, ["code", "name"]);
-      return [prod.product_no, it.qty, it.unit, "", prod.product_note || "", prod.note || it.note];
-    });
-    var ws2 = XLSX.utils.aoa_to_sheet([HEADER2].concat(itemRows));
-
-    var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws1, "基本資料");
-    XLSX.utils.book_append_sheet(wb, ws2, "產品明細");
-    return wb;
+  function yujunEntries(parsed, orderDate, shipDate) {
+    return parsed.groups.map(function (g) { return yujunEntry(g, orderDate, shipDate); });
   }
 
   yujunConvertBtn.addEventListener("click", function () {
@@ -2732,30 +2912,48 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     yujunConvertBtn.textContent = "轉換中...";
 
     try {
-      var outputs = parsed.groups.map(function (g) {
-        var shipmentNo = generateOrderId();
-        var wb = buildYujunSheets(g, orderDate, shipDate, shipmentNo);
-        var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        var filename = "訂購單_" + yujunStoreShortName(g.store_name) + "_" + shipmentNo + ".xlsx";
-        return { filename: filename, data: arrbuf };
-      });
-
-      if (outputs.length === 1) {
-        downloadBlob(new Blob([outputs[0].data], { type: "application/octet-stream" }), outputs[0].filename);
-        showOk("已產生 1 個檔案並下載");
-      } else {
-        var zip = new JSZip();
-        outputs.forEach(function (o) { zip.file(o.filename, o.data); });
-        zip.generateAsync({ type: "blob" }).then(function (blob) {
-          downloadBlob(blob, "訂購單_魚君_" + orderDate.replaceAll("/", "") + ".zip");
-          showOk("已產生 " + outputs.length + " 個檔案，打包成 zip 下載完成");
-        });
-      }
+      var wb = buildBatchWorkbook(yujunEntries(parsed, orderDate, shipDate));
+      var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      var filename = "訂購單_魚君_" + orderDate.replaceAll("/", "") + ".xlsx";
+      downloadBlob(new Blob([arrbuf], { type: "application/octet-stream" }), filename);
+      showOk("已產生 1 個檔案（含 " + parsed.groups.length + " 筆訂單）並下載");
     } catch (err) {
       showError("轉換失敗：" + err.message);
     } finally {
       yujunConvertBtn.disabled = false;
       yujunConvertBtn.textContent = "轉換並下載 Excel";
+    }
+  });
+
+  yujunConvertSummaryBtn.addEventListener("click", function () {
+    showError(""); showOk("");
+    var parsed = window.__lastYujunParsed;
+    if (!parsed) { showError("請先解析訊息"); return; }
+    if (!yujunOrderDateInput.value) { showError("請填寫訂購日期"); return; }
+
+    var allMissing = yujunMissingItems(parsed);
+    if (allMissing.length) {
+      showError("以下品項尚未在對照表中，請先補上再轉換：\n" + allMissing.join("、"));
+      return;
+    }
+
+    var orderDate = yujunOrderDateInput.value.replaceAll("-", "/");
+    var shipDate = yujunShipDateInput.value ? yujunShipDateInput.value.replaceAll("-", "/") : "";
+
+    yujunConvertSummaryBtn.disabled = true;
+    yujunConvertSummaryBtn.textContent = "轉換中...";
+
+    try {
+      var wb = buildBatchWorkbook(buildAggregatedEntries(yujunEntries(parsed, orderDate, shipDate)));
+      var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      var filename = "訂購單_魚君_匯總單_" + orderDate.replaceAll("/", "") + ".xlsx";
+      downloadBlob(new Blob([arrbuf], { type: "application/octet-stream" }), filename);
+      showOk("已產生匯總單並下載");
+    } catch (err) {
+      showError("轉換失敗：" + err.message);
+    } finally {
+      yujunConvertSummaryBtn.disabled = false;
+      yujunConvertSummaryBtn.textContent = "轉換並下載 Excel（匯總單）";
     }
   });
 
@@ -2895,48 +3093,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     batchDownloadBtn.disabled = true;
     batchDownloadBtn.textContent = "正在整理 Excel...";
     try {
-      var zip = new JSZip();
-      var fileCount = 0;
       var shanshangOrderDate = orderDateInput.value.replaceAll("-", "/");
       var shanshangShipDate = shipDateInput.value ? shipDateInput.value.replaceAll("-", "/") : "";
-      window.__lastParsed.groups.forEach(function (g) {
-        var wb = buildGroupSheets(g, shanshangOrderDate, shanshangShipDate, window.__lastParsed.shipment_no);
-        var filename = "訂購單_" + shanshangStoreShortName(g.recipient_name) + "_" + window.__lastParsed.shipment_no + ".xlsx";
-        zip.file("善商/" + filename, XLSX.write(wb, { bookType: "xlsx", type: "array" }));
-        fileCount++;
-      });
-
       var napoliceOrderDate = napoliceOrderDateInput.value.replaceAll("-", "/");
-      (window.__napoliceParsedOrders || []).forEach(function (order) {
-        var napoliceShipDate = order.ship_date ? order.ship_date.replaceAll("-", "/") : "";
-        var napoliceWb = buildNapoliceSheets(order.parsed, napoliceOrderDate, napoliceShipDate, buildNapoliceShipmentNo(order), order.store_name);
-        var napoliceFilename = "訂購單_" + order.store_name + "_" + order.po_no + ".xlsx";
-        zip.file("那波麗士/" + napoliceFilename, XLSX.write(napoliceWb, { bookType: "xlsx", type: "array" }));
-        fileCount++;
-      });
-
       var qixinOrderDate = qixinOrderDateInput.value.replaceAll("-", "/");
       var qixinShipDate = qixinShipDateInput.value ? qixinShipDateInput.value.replaceAll("-", "/") : "";
-      var qixinShipmentNo = generateOrderId();
-      var qixinWb = buildQixinSheets(window.__lastQixinParsed, qixinOrderDate, qixinShipDate, qixinShipmentNo, document.getElementById("qixinOrderNote").value);
-      zip.file("啟新/訂購單_啟新_" + qixinShipmentNo + ".xlsx", XLSX.write(qixinWb, { bookType: "xlsx", type: "array" }));
-      fileCount++;
-
       var yujunOrderDate = yujunOrderDateInput.value.replaceAll("-", "/");
       var yujunShipDate = yujunShipDateInput.value ? yujunShipDateInput.value.replaceAll("-", "/") : "";
-      window.__lastYujunParsed.groups.forEach(function (g) {
-        var shipmentNo = generateOrderId();
-        var wb = buildYujunSheets(g, yujunOrderDate, yujunShipDate, shipmentNo);
-        var filename = "訂購單_" + yujunStoreShortName(g.store_name) + "_" + shipmentNo + ".xlsx";
-        zip.file("魚君/" + filename, XLSX.write(wb, { bookType: "xlsx", type: "array" }));
-        fileCount++;
-      });
 
+      var allEntries = []
+        .concat(shanshangEntries(window.__lastParsed, shanshangOrderDate, shanshangShipDate))
+        .concat(napoliceEntries(window.__napoliceParsedOrders || [], napoliceOrderDate))
+        .concat(qixinEntries(window.__lastQixinParsed, qixinOrderDate, qixinShipDate, document.getElementById("qixinOrderNote").value))
+        .concat(yujunEntries(window.__lastYujunParsed, yujunOrderDate, yujunShipDate));
+      var fileCount = allEntries.length;
+
+      var wb = buildBatchWorkbook(allEntries);
       var now = new Date();
       var stamp = now.getFullYear() + String(now.getMonth() + 1).padStart(2, "0") + String(now.getDate()).padStart(2, "0");
-      var blob = await zip.generateAsync({ type: "blob" });
-      downloadBlob(blob, "四客戶訂單_" + stamp + ".zip");
-      showOk("批次下載完成，共整理 " + fileCount + " 個 Excel 檔案。");
+      var arrbuf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      downloadBlob(new Blob([arrbuf], { type: "application/octet-stream" }), "四客戶訂單_" + stamp + ".xlsx");
+      showOk("批次下載完成，共整理 " + fileCount + " 筆訂單，已合併成 1 個 Excel 檔案。");
     } catch (err) {
       showError("批次下載失敗：" + err.message);
     } finally {
