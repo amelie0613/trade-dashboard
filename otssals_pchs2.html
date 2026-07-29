@@ -429,21 +429,25 @@
               <button class="small" id="addRowBtn">新增一列</button> <button class="small" id="exportMapBtn">匯出備份</button> <button class="small" id="importMapBtn">匯入備份</button>
               <input type="file" id="importMapFile" accept=".json" style="display:none">
               <h3>店名簡稱對照</h3>
-              <p class="hint">善商訂單上的店名會依此轉成 Excel、檔名與出貨單使用的簡稱；沒有設定時沿用原店名。</p>
-              <table id="shanshangStoreMapTable"><thead><tr><th>訂單店名</th><th>店名簡稱</th><th></th></tr></thead><tbody></tbody></table>
+              <p class="hint">善商訂單上的店名會依此轉成 Excel、檔名與出貨單使用的簡稱；沒有設定時沿用原店名。收件人名稱/電話/地址會帶入 Excel 的聯絡人/聯絡電話/客戶地址欄位。</p>
+              <table id="shanshangStoreMapTable"><thead><tr><th>訂單店名</th><th>店名簡稱</th><th>收件人名稱</th><th>電話</th><th>地址</th><th></th></tr></thead><tbody></tbody></table>
               <button class="small" id="addShanshangStoreRowBtn">新增一列</button>
             </div></details>
             <details><summary>那波麗士產品與門市對照</summary><div class="mapping-content">
               <h3>商品對照</h3><table id="napoliceMapTable"><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table>
               <button class="small" id="napoliceAddRowBtn">新增一列</button> <button class="small" id="napoliceExportMapBtn">匯出備份</button> <button class="small" id="napoliceImportMapBtn">匯入備份</button><input type="file" id="napoliceImportMapFile" accept=".json" style="display:none">
-              <h3>門市簡稱對照</h3><table id="napoliceStoreMapTable"><thead><tr><th>門市名稱</th><th>門市簡稱</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="napoliceAddStoreRowBtn">新增一列</button>
+              <h3>門市簡稱對照</h3>
+              <p class="hint">收件人名稱/電話/地址會帶入 Excel 的聯絡人/聯絡電話/客戶地址欄位。</p>
+              <table id="napoliceStoreMapTable"><thead><tr><th>門市名稱</th><th>門市簡稱</th><th>收件人名稱</th><th>電話</th><th>地址</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="napoliceAddStoreRowBtn">新增一列</button>
             </div></details>
             <details><summary>啟新產品對照</summary><div class="mapping-content">
               <table id="qixinMapTable"><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="qixinAddRowBtn">新增一列</button>
             </div></details>
             <details><summary>魚君產品與門市對照</summary><div class="mapping-content">
               <h3>商品對照</h3><table id="yujunMapTable"><thead><tr><th>商品編號</th><th>商品名稱</th><th>產品資料編號</th><th>產品備註</th><th>客單備註</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="yujunAddRowBtn">新增一列</button>
-              <h3>門市簡稱對照</h3><table id="yujunStoreMapTable"><thead><tr><th>店名</th><th>簡稱</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="yujunAddStoreRowBtn">新增一列</button>
+              <h3>門市簡稱對照</h3>
+              <p class="hint">收件人名稱/電話/地址會帶入 Excel 的聯絡人/聯絡電話/客戶地址欄位。</p>
+              <table id="yujunStoreMapTable"><thead><tr><th>店名</th><th>簡稱</th><th>收件人名稱</th><th>電話</th><th>地址</th><th></th></tr></thead><tbody></tbody></table><button class="small" id="yujunAddStoreRowBtn">新增一列</button>
             </div></details>
           </section>
         </div>
@@ -1012,7 +1016,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     tbody.innerHTML = "";
     shanshangStoreMap.forEach(function (row, idx) {
       var tr = document.createElement("tr");
-      ["name", "short"].forEach(function (field) {
+      ["name", "short", "recipient_name", "phone", "address"].forEach(function (field) {
         var td = document.createElement("td");
         var input = document.createElement("input");
         input.value = row[field] || "";
@@ -1050,8 +1054,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return normalized;
   }
 
+  function shanshangStoreContact(fullName) {
+    var normalized = String(fullName || "").trim();
+    for (var i = 0; i < shanshangStoreMap.length; i++) {
+      if (String(shanshangStoreMap[i].name || "").trim() === normalized) return shanshangStoreMap[i];
+    }
+    return {};
+  }
+
   document.getElementById("addShanshangStoreRowBtn").addEventListener("click", function () {
-    shanshangStoreMap.push({ name: "", short: "" });
+    shanshangStoreMap.push({ name: "", short: "", recipient_name: "", phone: "", address: "" });
     saveShanshangStoreMap();
     renderShanshangStoreMapTable();
   });
@@ -1065,10 +1077,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------- basic settings (staff/company/dept no.) ----------
   var SETTINGS_KEY = "shanshang_settings_v1";
   var DEFAULT_SETTINGS = {
-    staff_no: "101002",
+    staff_no: "113002",
     supabase_staff_no: "101002",
     company_no: "02",
-    dept_no: "1003",
+    dept_no: "1002",
     shipper: "大漁水產有限公司"
   };
   var settings = loadSettings();
@@ -1455,11 +1467,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   // ---------- convert & download ----------
   function shanshangEntry(group, orderDate, shipDate) {
+    var contact = shanshangStoreContact(group.recipient_name);
     return {
       meta: {
         order_date: orderDate, ship_date: shipDate,
         company_no: settings.company_no, staff_no: settings.staff_no, dept_no: settings.dept_no,
-        customer_no: DEFAULTS.customer_no, contact_name: shanshangStoreShortName(group.recipient_name),
+        customer_no: DEFAULTS.customer_no,
+        contact_name: contact.recipient_name || shanshangStoreShortName(group.recipient_name),
+        contact_phone: contact.phone || "", contact_address: contact.address || "",
         currency: DEFAULTS.currency, tax_type: DEFAULTS.tax_type, invoice_channel: DEFAULTS.invoice_channel
       },
       items: group.items.map(function (it) {
@@ -1797,7 +1812,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     tbody.innerHTML = "";
     napoliceStoreMap.forEach(function (row, idx) {
       var tr = document.createElement("tr");
-      ["name", "short"].forEach(function (field) {
+      ["name", "short", "recipient_name", "phone", "address"].forEach(function (field) {
         var td = document.createElement("td");
         var input = document.createElement("input");
         input.value = row[field] || "";
@@ -1826,7 +1841,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   document.getElementById("napoliceAddStoreRowBtn").addEventListener("click", function () {
-    napoliceStoreMap.push({ name: "", short: "" });
+    napoliceStoreMap.push({ name: "", short: "", recipient_name: "", phone: "", address: "" });
     saveNapoliceStoreMap();
     renderNapoliceStoreMapTable();
   });
@@ -1844,6 +1859,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (napoliceStoreMap[i].name === fullName && napoliceStoreMap[i].short) return napoliceStoreMap[i].short;
     }
     return fullName;
+  }
+
+  function napoliceStoreContact(fullName) {
+    fullName = (fullName || "").trim();
+    for (var i = 0; i < napoliceStoreMap.length; i++) {
+      if (napoliceStoreMap[i].name === fullName) return napoliceStoreMap[i];
+    }
+    return {};
   }
 
   // ---------- shipper options (localStorage, shared across all non-善商 tabs) ----------
@@ -2185,11 +2208,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function napoliceEntry(parsed, orderDate, shipDate, storeNameOverride) {
     var storeName = storeNameOverride !== undefined ? storeNameOverride : napoliceStoreNameInput.value;
+    var contact = napoliceStoreContact(storeName);
     return {
       meta: {
         order_date: orderDate, ship_date: shipDate,
         company_no: settings.company_no, staff_no: settings.staff_no, dept_no: settings.dept_no,
-        customer_no: NAPOLICE_DEFAULTS.customer_no, contact_name: napoliceStoreShortName(storeName),
+        customer_no: NAPOLICE_DEFAULTS.customer_no,
+        contact_name: contact.recipient_name || napoliceStoreShortName(storeName),
+        contact_phone: contact.phone || "", contact_address: contact.address || "",
         currency: NAPOLICE_DEFAULTS.currency, tax_type: NAPOLICE_DEFAULTS.tax_type,
         invoice_channel: NAPOLICE_DEFAULTS.invoice_channel
       },
@@ -2620,7 +2646,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   var yujunStoreMap = makeSimpleMap(
     "yujun_store_map_v1", [],
-    ["name", "short"],
+    ["name", "short", "recipient_name", "phone", "address"],
     "#yujunStoreMapTable", "yujunAddStoreRowBtn",
     function () { if (window.__lastYujunParsed) renderYujunGroups(window.__lastYujunParsed); }
   );
@@ -2704,11 +2730,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   function yujunEntry(group, orderDate, shipDate) {
+    var contact = yujunStoreMap.find(group.store_name) || {};
     return {
       meta: {
         order_date: orderDate, ship_date: shipDate,
         company_no: settings.company_no, staff_no: settings.staff_no, dept_no: settings.dept_no,
-        customer_no: YUJUN_CUSTOMER_NO, contact_name: yujunStoreShortName(group.store_name),
+        customer_no: YUJUN_CUSTOMER_NO,
+        contact_name: contact.recipient_name || yujunStoreShortName(group.store_name),
+        contact_phone: contact.phone || "", contact_address: contact.address || "",
         currency: NAPOLICE_DEFAULTS.currency, tax_type: NAPOLICE_DEFAULTS.tax_type,
         invoice_channel: NAPOLICE_DEFAULTS.invoice_channel
       },
