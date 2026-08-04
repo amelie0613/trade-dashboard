@@ -21,6 +21,9 @@
     .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.good{background:var(--good);border-color:var(--good);color:#fff}.btn.bad{background:var(--bad);border-color:var(--bad);color:#fff}
     .hint{font-size:12px;color:var(--muted);line-height:1.55}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
     .metric{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px}.metric b{display:block;font-size:24px}.metric span{font-size:12px;color:var(--muted);font-weight:900}
+    .summary-title{font-size:14px;font-weight:900;margin-top:2px}.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+    .summary-item{border:1px solid var(--line);border-radius:8px;padding:10px;background:#fff}.summary-item-name{font-weight:900;line-height:1.4;margin-bottom:7px;white-space:normal}
+    .summary-item-qty{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.summary-item-qty div{padding:6px;border-radius:6px;background:#f8fafc;text-align:center}.summary-item-qty b{display:block;font-size:18px}.summary-item-qty span{font-size:11px;color:var(--muted);font-weight:800}
     table{width:max-content;min-width:100%;border-collapse:collapse;font-size:13px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;vertical-align:top;white-space:nowrap}th{background:#f8fafc;color:var(--muted);font-size:12px;position:sticky;top:0}
     .scroll{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:8px}.tag{display:inline-flex;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900;background:#eef4ff;color:#246bfe}.done{background:#ecfdf3;color:#138a43}.bad{background:#fff1f2;color:#c93636}
     @media(max-width:820px){main{grid-template-columns:1fr;padding:8px}.metrics{grid-template-columns:repeat(2,1fr)}.row{flex-wrap:wrap}.top{padding-top:calc(12px + env(safe-area-inset-top))}}
@@ -47,6 +50,8 @@
     <section class="panel">
       <div class="head">訂單總覽</div>
       <div class="body">
+        <div class="summary-title">訂單商品彙總</div>
+        <div class="summary-grid" id="productSummary"></div>
         <div class="metrics">
           <div class="metric"><b id="mOrders">0</b><span>訂單</span></div>
           <div class="metric"><b id="mQty">0</b><span>訂購數量</span></div>
@@ -168,6 +173,9 @@ async function upsertMap(barcode,product){const sb=getSb();const existing=await 
 async function addMap(){const barcode=norm($('mapBarcode').value),product=norm($('mapProduct').value);if(!barcode||!product){alert('請輸入條碼與產品名稱');return}$('addMapBtn').disabled=true;try{await upsertMap(barcode,product);barcodeMap[barcode]=product;renderMap();$('mapBarcode').value='';$('mapProduct').value='';$('mapBarcode').focus();$('status').textContent='已加入條碼對照'}catch(e){alert('加入失敗：'+e.message)}finally{$('addMapBtn').disabled=false}}
 async function deleteMap(barcode){if(!confirm(`確定刪除條碼 ${barcode} 的對照嗎？`))return;const sb=getSb();const r=await sb.from('barcode_map_items').delete().eq('barcode',barcode);if(r.error)throw new Error(r.error.message||'刪除失敗');delete barcodeMap[barcode];renderMap();$('status').textContent='已刪除條碼對照'}
 async function importBarcodeFile(file){const rows=await readWorkbook(file);const hi=findHeaderRow(rows),headers=rows[hi].map(norm);const barcodeCol=findCol(headers,[/國際條碼/,/^條碼$/,/barcode/i,/ean/i,/upc/i]);const nameCol=findCol(headers,[/產品名稱/,/商品名稱/,/品名/,/產品代碼/,/商品編號/,/sku/i]);if(barcodeCol<0||nameCol<0){alert('找不到條碼欄或產品欄');return}const pairs=[];rows.slice(hi+1).forEach(row=>{const barcode=norm(row[barcodeCol]),product=norm(row[nameCol]);if(barcode&&product)pairs.push([barcode,product])});if(!pairs.length){alert('沒有可匯入的資料');return}let ok=0;for(const [barcode,product] of pairs){try{await upsertMap(barcode,product);barcodeMap[barcode]=product;ok++;$('status').textContent=`匯入中 ${ok}/${pairs.length}`}catch(e){console.error(barcode,e)}}renderMap();$('status').textContent=`已匯入 ${ok}/${pairs.length} 筆條碼對照`}
+function renderProductSummary(list){const totals=new Map();list.forEach(o=>o.items.forEach(item=>{const name=norm(item.name);if(!name)return;const row=totals.get(name)||{ordered:0,picked:0};row.ordered+=num(item.qty);row.picked+=num(item.picked);totals.set(name,row)}));const rows=[...totals.entries()].sort((a,b)=>b[1].ordered-a[1].ordered||a[0].localeCompare(b[0],'zh-Hant'));$('productSummary').innerHTML=rows.map(([name,v])=>`<div class="summary-item"><div class="summary-item-name">${esc(name)}</div><div class="summary-item-qty"><div><b>${v.ordered}</b><span>訂購</span></div><div><b>${v.picked}</b><span>已核銷</span></div><div><b>${Math.max(0,v.ordered-v.picked)}</b><span>未核銷</span></div></div></div>`).join('')||'<div class="hint">尚無商品資料</div>'}
+const renderOrders=render;
+render=function(){renderOrders();renderProductSummary(Object.values(orders))};
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 $('orderFile').onchange=e=>e.target.files[0]&&readWorkbook(e.target.files[0]).then(rows=>{remoteMode=false;orders=parseOrders(rows);render();$('status').textContent='已載入 '+Object.keys(orders).length+' 張訂單'}).catch(err=>alert(err.message));
 $('search').oninput=render;$('exportAll').onclick=()=>exportOrders(false);$('exportDone').onclick=()=>exportOrders(true);$('saveCfg').onclick=()=>{const url=cleanSupabaseUrl($('sbUrl').value);$('sbUrl').value=url;localStorage.setItem(LS,JSON.stringify({url,key:norm($('sbKey').value)}));$('status').textContent='Supabase 設定已保存'};$('uploadSb').onclick=()=>uploadSupabase().catch(e=>alert('Supabase 上傳失敗：'+e.message));$('loadSb').onclick=()=>loadFromSupabase().catch(e=>alert('Supabase 載入失敗：'+e.message));
