@@ -62,7 +62,7 @@
     .scan-box{border:0;background:#fff;border-radius:0;padding:22px 12px;display:flex;flex-direction:column;gap:12px;text-align:center;min-height:260px;justify-content:center}
     .scan-box:before{content:'▣';font-size:86px;color:var(--brand);line-height:1;letter-spacing:0}
     .scan-input{height:52px!important;font-size:22px;font-weight:900;letter-spacing:0;text-align:center}
-    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+    .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
     .metric{background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:10px}
     .metric b{display:block;font-size:22px;color:var(--ink);line-height:1.1}
     .metric span{font-size:11px;color:var(--muted);font-weight:800}
@@ -180,7 +180,7 @@
       .main{padding:0;gap:0}
       .topbar{padding-left:10px;padding-right:10px}
       .title{font-size:17px}
-      .summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .summary{grid-template-columns:repeat(2,minmax(0,1fr))}
       .order-info{grid-template-columns:1fr}
       .metric{padding:8px}
       .metric b{font-size:20px}
@@ -358,6 +358,7 @@
           <div class="metric"><b id="sumLines">0</b><span>品項</span></div>
           <div class="metric"><b id="sumQty">0</b><span>訂購數量</span></div>
           <div class="metric"><b id="sumPicked">0</b><span>已核銷</span></div>
+          <div class="metric"><b id="sumCarton">—</b><span>建議紙箱</span></div>
         </div>
 
         <div class="row">
@@ -517,6 +518,25 @@ function productMatches(mappedProduct, orderProduct){
   return productAliases(mappedProduct).some(alias =>
     alias === itemKey || alias.includes(itemKey) || itemKey.includes(alias)
   );
+}
+const CARTON_CFG={friesVolume:1,stickGiftVolume:.5,companionGiftVolume:4,xl:36,large:18,medium:11,small:5};
+function cartonForVolume(volume,forceLargeMin=false){
+  const rounded=Math.ceil(volume);
+  if(rounded<=0)return forceLargeMin?{volume,xl:0,large:1,medium:0,small:0,label:'1個大紙箱'}:{volume,xl:0,large:0,medium:0,small:1,label:'1個小紙箱'};
+  const remainder=rounded%CARTON_CFG.xl;
+  let xl=Math.floor(rounded/CARTON_CFG.xl)+(remainder>CARTON_CFG.large?1:0);
+  let large=remainder>CARTON_CFG.medium&&remainder<=CARTON_CFG.large?1:0;
+  let medium=remainder>CARTON_CFG.small&&remainder<=CARTON_CFG.medium?1:0;
+  let small=remainder>0&&remainder<=CARTON_CFG.small?1:0;
+  if(forceLargeMin&&(medium||small)){large=1;medium=0;small=0}
+  const parts=[];
+  if(xl)parts.push(`${xl}個特大紙箱`);if(large)parts.push(`${large}個大紙箱`);if(medium)parts.push(`${medium}個中紙箱`);if(small)parts.push(`${small}個小紙箱`);
+  return{volume,xl,large,medium,small,label:parts.join(' + ')};
+}
+function cartonForOrder(order){
+  let volume=0,hasCompanionGift=false;
+  order.items.forEach(item=>{const name=norm(item.name),qty=num(item.qty);if(name.includes('魚樂薯條'))volume+=qty*CARTON_CFG.friesVolume;else if(name.includes('魚樂棒棒禮盒'))volume+=qty*CARTON_CFG.stickGiftVolume;else if(name.includes('魚你相伴')&&name.includes('禮盒')){volume+=qty*CARTON_CFG.companionGiftVolume;hasCompanionGift=true}});
+  return cartonForVolume(volume,hasCompanionGift);
 }
 function num(v){
   const n = parseFloat(String(v ?? '').replace(/,/g,'').trim());
@@ -1040,6 +1060,7 @@ function renderActive(){
     $('sumLines').textContent = '0';
     $('sumQty').textContent = '0';
     $('sumPicked').textContent = '0';
+    $('sumCarton').textContent = '—';
     $('buyerName').textContent = '—';
     $('receiverName').textContent = '—';
     $('receiverPhone').textContent = '—';
@@ -1064,6 +1085,7 @@ function renderActive(){
   $('sumLines').textContent = order.items.length;
   $('sumQty').textContent = totalQty;
   $('sumPicked').textContent = pickedQty;
+  $('sumCarton').textContent = cartonForOrder(order).label;
   $('buyerName').textContent = order.buyer || '—';
   $('receiverName').textContent = order.receiver || '—';
   $('receiverPhone').textContent = order.receiverPhone || '—';
@@ -1340,7 +1362,7 @@ function closeCamera(){
 }
 
 function exportCsv(){
-  const rows = [['時間','訂單編號','訂購人','收件人','收件電話','收件地址','寄件編號','條碼','產品','數量']];
+  const rows = [['時間','訂單編號','訂購人','收件人','收件電話','收件地址','貨運單號','條碼','產品','數量']];
   state.scans.forEach(s => {
     const order = state.orders[s.orderId] || {};
     rows.push([
@@ -1382,7 +1404,7 @@ function exportOrdersCsvRows(orders, prefix){
   orders.forEach(order => order.items.forEach(i => {
     if(!seenProducts.has(i.name)){ seenProducts.add(i.name); productNames.push(i.name); }
   }));
-  const rows = [['訂單編號','訂購人','收件人','收件電話','收件地址','寄件編號','品項數','訂購數量','已核銷數量','理貨狀態', ...productNames]];
+  const rows = [['訂單編號','訂購人','收件人','收件電話','收件地址','貨運單號','品項數','訂購數量','已核銷數量','理貨狀態','薯條材積','建議紙箱', ...productNames]];
   orders.forEach(order => {
     const totalQty = order.items.reduce((s,i)=>s+i.qty,0);
     const pickedQty = order.items.reduce((s,i)=>s+i.picked,0);
@@ -1392,6 +1414,7 @@ function exportOrdersCsvRows(orders, prefix){
       const item = order.items.find(i => i.name === name);
       return item ? `${item.picked}/${item.qty}` : '';
     });
+    const carton = cartonForOrder(order);
     rows.push([
       String(order.id),
       order.buyer || '',
@@ -1403,6 +1426,8 @@ function exportOrdersCsvRows(orders, prefix){
       totalQty,
       pickedQty,
       over ? '超量' : done ? '完成' : pickedQty > 0 ? '部分完成' : '未開始',
+      carton.volume,
+      carton.label,
       ...productCols
     ]);
   });
