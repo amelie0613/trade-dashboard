@@ -519,7 +519,7 @@ function productMatches(mappedProduct, orderProduct){
     alias === itemKey || alias.includes(itemKey) || itemKey.includes(alias)
   );
 }
-const CARTON_CFG={friesVolume:1,stickGiftVolume:.5,companionGiftVolume:4,xl:36,large:18,medium:11,small:5};
+const CARTON_CFG={friesVolume:1,stickGiftVolume:.5,companionGiftVolume:4,shrimpCakeVolume:1,xl:36,large:18,medium:11,small:5};
 function cartonForVolume(volume,forceLargeMin=false){
   const rounded=Math.ceil(volume);
   if(rounded<=0)return forceLargeMin?{volume,xl:0,large:1,medium:0,small:0,label:'1個大紙箱'}:{volume,xl:0,large:0,medium:0,small:1,label:'1個小紙箱'};
@@ -535,7 +535,7 @@ function cartonForVolume(volume,forceLargeMin=false){
 }
 function cartonForOrder(order){
   let volume=0,hasCompanionGift=false;
-  order.items.forEach(item=>{const name=norm(item.name),qty=num(item.qty);if(name.includes('魚樂薯條'))volume+=qty*CARTON_CFG.friesVolume;else if(name.includes('魚樂棒棒禮盒'))volume+=qty*CARTON_CFG.stickGiftVolume;else if(name.includes('魚你相伴')&&name.includes('禮盒')){volume+=qty*CARTON_CFG.companionGiftVolume;hasCompanionGift=true}});
+  order.items.forEach(item=>{const name=norm(item.name),qty=num(item.qty);if(name.includes('中元普渡彭湃組'))volume+=qty*(4*CARTON_CFG.friesVolume+2*CARTON_CFG.stickGiftVolume);else if(name.includes('魚樂薯條'))volume+=qty*CARTON_CFG.friesVolume;else if(name.includes('魚樂棒棒禮盒'))volume+=qty*CARTON_CFG.stickGiftVolume;else if(name.includes('魚樂櫻花蝦餅')||name.includes('魚樂蝦餅'))volume+=qty*CARTON_CFG.shrimpCakeVolume;else if(name.includes('魚你相伴')&&name.includes('禮盒')){volume+=qty*CARTON_CFG.companionGiftVolume;hasCompanionGift=true}});
   return cartonForVolume(volume,hasCompanionGift);
 }
 function num(v){
