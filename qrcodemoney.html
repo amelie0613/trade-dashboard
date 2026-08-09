@@ -372,6 +372,7 @@
           <div class="log" id="scanLog"></div>
         </div>
 
+        <button class="btn bad" id="resetOrderBtn">重新掃描（重置本訂單）</button>
         <div class="row">
           <button class="btn primary" id="saveStatusBtn">儲存狀態</button>
           <button class="btn" id="backOrdersBtn">返回訂單</button>
@@ -450,27 +451,30 @@ function toast(msg, ms=2200){
   el._t = setTimeout(()=>el.classList.remove('show'), ms);
 }
 
-function alertWrongQty(msg){
+function speakText(text){
   try{
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if(AudioCtx){
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.28, ctx.currentTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.24);
-      setTimeout(()=>ctx.close(), 320);
+    if('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window){
+      window.speechSynthesis.cancel();
+      const speech = new SpeechSynthesisUtterance(text);
+      speech.lang = 'zh-TW';
+      speech.rate = 1;
+      speech.pitch = 1;
+      speech.volume = 1;
+      window.speechSynthesis.speak(speech);
     }
   }catch(e){}
+}
+
+function alertWrongQty(msg){
+  speakText('錯誤');
   if(navigator.vibrate) navigator.vibrate([180, 80, 180]);
   toast(msg, 3600);
+}
+
+function announceOrder(order){
+  const buyerText = norm(order.buyer) || '姓名未提供';
+  const cartonLabel = cartonForOrder(order).label.replace(/^1個/, '') || '紙箱待確認';
+  speakText(`${buyerText}，${cartonLabel}`);
 }
 
 function colToIndex(col){
@@ -715,6 +719,20 @@ async function syncPickedToSupabase(order, item, delta, barcode){
     });
     if(logRes.error) throw logRes.error;
   }
+}
+
+async function resetOrderInSupabase(order){
+  if(!state.remoteMode) return;
+  const sb = getSupabaseClient();
+  const updatedAt = new Date().toISOString();
+  const itemRes = await sb.from('barcode_order_items')
+    .update({picked_qty: 0, updated_at: updatedAt})
+    .eq('order_id', order.id);
+  if(itemRes.error) throw itemRes.error;
+  const orderRes = await sb.from('barcode_orders')
+    .update({status: '未開始', updated_at: updatedAt})
+    .eq('id', order.id);
+  if(orderRes.error) throw orderRes.error;
 }
 
 async function syncShipmentToSupabase(){
@@ -1035,8 +1053,47 @@ async function saveCurrentStatus(){
     alertWrongQty(`儲存失敗：${err.message}`);
   }
 }
+
+async function resetCurrentOrder(){
+  const order = state.orders[state.activeOrderId];
+  if(!order){ toast('請先選擇訂單'); return; }
+  const hasPickedQty = order.items.some(item => item.picked !== 0);
+  const hasScanRecords = state.scans.some(scan => scan.orderId === order.id);
+  if(!hasPickedQty && !hasScanRecords){
+    toast('此訂單目前已是未開始狀態');
+    $('barcodeInput').focus();
+    return;
+  }
+  if(!confirm(`確定要重新掃描訂單「${order.id}」？\n\n此訂單的核銷數量將全部歸零，本機掃描紀錄也會清除；其他訂單及寄件編號不受影響。`)){
+    $('barcodeInput').focus();
+    return;
+  }
+
+  closeCamera();
+  $('resetOrderBtn').disabled = true;
+  $('barcodeInput').disabled = true;
+  $('scanProductBtn').disabled = true;
+  $('manualPickBtn').disabled = true;
+  try{
+    await resetOrderInSupabase(order);
+    order.items.forEach(item => item.picked = 0);
+    state.scans = state.scans.filter(scan => scan.orderId !== order.id);
+    if(state.lastAction?.orderId === order.id) state.lastAction = null;
+    saveLocal();
+    renderOrders();
+    renderActive();
+    toast(`訂單 ${order.id} 已重置，請重新掃描`);
+    $('barcodeInput').focus();
+  }catch(err){
+    alertWrongQty(`訂單重置失敗：${err.message}`);
+  }finally{
+    $('resetOrderBtn').disabled = false;
+    renderActive();
+  }
+}
 function selectOrder(id){
   if(!state.orders[id]){ alertWrongQty(`找不到訂單，實際掃到的內容是：「${id}」（長度 ${id.length}）`); return; }
+  const order = state.orders[id];
   state.activeOrderId = id;
   setPageMode('pick');
   document.body.classList.add('has-order');
@@ -1045,6 +1102,7 @@ function selectOrder(id){
   renderOrders();
   renderActive();
   $('barcodeInput').focus();
+  announceOrder(order);
 }
 
 function renderActive(){
@@ -1543,6 +1601,7 @@ $('mapProduct').addEventListener('keydown', e => {
 $('undoBtn').onclick = undo;
 $('itemFilter').oninput = renderActive;
 $('saveStatusBtn').onclick = saveCurrentStatus;
+$('resetOrderBtn').onclick = resetCurrentOrder;
 $('shipmentModalConfirm').onclick = confirmShipmentModal;
 $('shipmentModalCancel').onclick = () => { closeShipmentModal(); toast('已儲存品項，稍後記得回來補寄件編號'); showPickingList(); };
 $('shipmentModalInput').addEventListener('keydown', e => {
