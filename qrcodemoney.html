@@ -451,6 +451,10 @@ function toast(msg, ms=2200){
   el._t = setTimeout(()=>el.classList.remove('show'), ms);
 }
 
+function speakCompleted(){
+  speakText('已完成');
+}
+
 function speakText(text){
   try{
     if('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window){
@@ -1023,6 +1027,7 @@ async function confirmShipmentModal(){
   try{
     await syncShipmentToSupabase();
     closeShipmentModal();
+    speakCompleted();
     toast('已完成，請掃下一張訂單條碼');
     showPickingList();
   }catch(err){
@@ -1381,6 +1386,7 @@ function handleScannedValue(value){
     selectOrder(value);
   }else if(state.scannerMode === 'shipment'){
     setShipmentNo(value);
+    speakCompleted();
     toast('寄件編號已帶入');
     $('barcodeInput').focus();
   }else if(state.scannerMode === 'map'){
@@ -1619,6 +1625,8 @@ $('shipmentNo').addEventListener('input', () => {
 });
 $('shipmentNo').addEventListener('keydown', e => {
   if(e.key === 'Enter'){
+    if(!norm($('shipmentNo').value)){ toast('請先掃描或輸入寄件編號'); return; }
+    speakCompleted();
     $('barcodeInput').focus();
     toast('寄件編號已保存');
   }
