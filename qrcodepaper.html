@@ -42,7 +42,8 @@
         <div><label>Supabase anon / publishable key</label><input id="sbKey" placeholder="eyJhbGci..."></div>
         <div class="row"><button class="btn" id="saveCfg">保存設定</button><button class="btn good" id="uploadSb">上傳到 Supabase</button></div>
         <div class="row"><button class="btn good" id="loadSb">載入雲端訂單總覽</button></div>
-        <div class="row"><button class="btn primary" id="exportAll">匯出全部訂單</button><button class="btn primary" id="exportDone">匯出完成訂單</button></div>
+        <div class="row"><button class="btn primary" id="exportAll">匯出全部訂單</button><button class="btn primary" id="exportDone">匯出完成訂單</button><button class="btn good" id="exportPostal">匯出郵局報表</button></div>
+        <div class="hint">郵局報表會使用目前載入訂單的收件人、電話、地址與備註，直接產生郵局地址匯入 Excel。</div>
         <div class="row"><button class="btn bad" id="clearOrders">清除訂單紀錄（從 Supabase 永久刪除）</button></div>
         <div class="hint" id="status">尚未載入資料</div>
       </div>
@@ -95,6 +96,7 @@ const SUPABASE_URL='https://yeposcucdppwkjmmoidi.supabase.co';
 const SUPABASE_KEY='sb_publishable_MfuP_a47htWc-GIH_KFazQ_A-CiPwlR';
 let orders={}, scans=[], shipments={}, remoteMode=false, barcodeMap={};
 const PRODUCT_LIST=['魚樂薯條 (原味)','魚樂薯條 (辣味)','魚樂薯條 (白金土魠-原味)','魚你相伴 禮盒','TORO魚鬆 (海苔鮪魚)','TORO魚鬆 (鮭魚)','魚樂棒棒禮盒(10入)','??DiDi 阿優鮪 專屬貼紙'];
+const POSTAL_HEADERS=['交寄日期','客戶編號','客戶名稱','電話','郵遞區號','地址','內裝物品Memo','件數編號','備註(出貨單編號)','使用單位編號','託運單編號','手機','代收貨價','重量','資費','銷貨單編號'];
 const CARTON_CFG={friesVolume:1,stickGiftVolume:.5,companionGiftVolume:4,shrimpCakeVolume:1,xl:36,large:18,medium:11,small:5};
 function norm(v){return String(v??'').trim()} function num(v){const n=parseFloat(String(v??'').replace(/,/g,''));return Number.isFinite(n)?n:0}
 function colToIndex(col){let n=0;for(const ch of norm(col).toUpperCase()){if(ch>='A'&&ch<='Z')n=n*26+ch.charCodeAt(0)-64}return Math.max(0,n-1)}
@@ -114,6 +116,8 @@ function render(){if(!remoteMode)applyScans();const list=Object.values(orders);$
 function csv(rows){return rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n')}
 function downloadXlsx(rows,prefix){const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=rows[0].map((_,i)=>({wch:i===4?34:i>=10?22:i===0||i===5?20:14}));ws['!autofilter']={ref:ws['!ref']};const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'訂單');XLSX.writeFile(wb,`${prefix}_${new Date().toISOString().slice(0,10)}.xlsx`)}
 function exportOrders(doneOnly=false){const list=Object.values(orders).filter(o=>!doneOnly||stats(o).done);const productNames=[];const seenProducts=new Set();list.forEach(o=>o.items.forEach(i=>{if(!seenProducts.has(i.name)){seenProducts.add(i.name);productNames.push(i.name)}}));const rows=[['訂單編號','訂購人','收件人','收件電話','收件地址','貨運單號','品項數','訂購數量','已核銷數量','理貨狀態','薯條材積','建議紙箱',...productNames]];list.forEach(o=>{const st=stats(o),carton=cartonForOrder(o);const productCols=productNames.map(name=>{const item=o.items.find(i=>i.name===name);return item?`${item.picked}/${item.qty}`:''});rows.push([String(o.id),o.buyer,o.receiver,String(o.receiverPhone||''),o.receiverAddress,String(shipments[o.id]||''),o.items.length,st.total,st.picked,st.status,carton.volume,carton.label,...productCols])});downloadXlsx(rows,doneOnly?'理貨完成訂單':'全部訂單')}
+function todayText(){const d=new Date();return`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`}
+function exportPostalWorkbook(){const list=Object.values(orders).filter(o=>norm(o.receiver)||norm(o.receiverAddress)||norm(o.receiverPhone));if(!list.length){alert('目前沒有可匯出的收件資料');return}const rows=[POSTAL_HEADERS];list.forEach(o=>{const note=norm(o.note);rows.push([todayText(),'',norm(o.receiver),String(o.receiverPhone||''),'',norm(o.receiverAddress),`餅乾-${note}`,'',note,'','',String(o.receiverPhone||''),'','','',''])});const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=POSTAL_HEADERS.map((header,i)=>({wch:i===5?36:i===6||i===8?24:Math.max(12,header.length+4)}));ws['!autofilter']={ref:ws['!ref']};const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'工作表1');XLSX.writeFile(wb,`郵局地址匯入_${new Date().toISOString().slice(0,10)}.xlsx`);$('status').textContent=`已匯出 ${list.length} 筆郵局匯入資料`}
 async function clearOrderRecords(){
   const ids=Object.keys(orders);
   if(!ids.length){alert('尚無已載入的訂單可清除');return}
@@ -190,7 +194,7 @@ const renderOrders=render;
 render=function(){renderOrders();const list=Object.values(orders);renderProductSummary(list);renderCartonSummary(list)};
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 $('orderFile').onchange=e=>e.target.files[0]&&readWorkbook(e.target.files[0]).then(rows=>{remoteMode=false;orders=parseOrders(rows);render();$('status').textContent='已載入 '+Object.keys(orders).length+' 張訂單'}).catch(err=>alert(err.message));
-$('search').oninput=render;$('exportAll').onclick=()=>exportOrders(false);$('exportDone').onclick=()=>exportOrders(true);$('saveCfg').onclick=()=>{const url=cleanSupabaseUrl($('sbUrl').value);$('sbUrl').value=url;localStorage.setItem(LS,JSON.stringify({url,key:norm($('sbKey').value)}));$('status').textContent='Supabase 設定已保存'};$('uploadSb').onclick=()=>uploadSupabase().catch(e=>alert('Supabase 上傳失敗：'+e.message));$('loadSb').onclick=()=>loadFromSupabase().catch(e=>alert('Supabase 載入失敗：'+e.message));
+$('search').oninput=render;$('exportAll').onclick=()=>exportOrders(false);$('exportDone').onclick=()=>exportOrders(true);$('exportPostal').onclick=exportPostalWorkbook;$('saveCfg').onclick=()=>{const url=cleanSupabaseUrl($('sbUrl').value);$('sbUrl').value=url;localStorage.setItem(LS,JSON.stringify({url,key:norm($('sbKey').value)}));$('status').textContent='Supabase 設定已保存'};$('uploadSb').onclick=()=>uploadSupabase().catch(e=>alert('Supabase 上傳失敗：'+e.message));$('loadSb').onclick=()=>loadFromSupabase().catch(e=>alert('Supabase 載入失敗：'+e.message));
 $('clearOrders').onclick=()=>clearOrderRecords().catch(e=>alert('清除失敗：'+e.message));
 $('addMapBtn').onclick=()=>addMap();
 $('mapBarcode').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('mapProduct').focus()}});
