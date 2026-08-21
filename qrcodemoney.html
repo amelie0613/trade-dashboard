@@ -806,8 +806,8 @@ function parseOrders(rows){
   const orderCol = parseInt($('orderCol').value || '0', 10);
   const buyerCol = findCol(headers, [/訂購人姓名/, /訂購人/, /購買人/, /買家/]);
   const receiverCol = findCol(headers, [/收件人姓名/, /收件人/, /收貨人/]);
-  const receiverAddressCol = findCol(headers, [/收件人地址/, /收件地址/, /收貨地址/, /地址/]);
-  const receiverPhoneCol = findCol(headers, [/收件人電話/, /收件電話/, /收貨電話/, /電話/]);
+  const receiverAddressCol = findCol(headers, [/收件人地址/, /收件地址/, /收貨地址/, /^地址$/]);
+  const receiverPhoneCol = findCol(headers, [/收件人電話/, /收件電話/, /收貨電話/, /^電話$/]);
   const shipmentCol = findCol(headers, [/寄件編號/, /物流單號/, /宅配單號/, /託運單號/, /配送編號/]);
   const start = colToIndex($('startCol').value || 'AJ');
   const orders = {};
@@ -878,7 +878,11 @@ async function handleOrderFile(file){
 }
 
 function findCol(headers, patterns){
-  return headers.findIndex(h => patterns.some(p => p.test(norm(h))));
+  for(const pattern of patterns){
+    const index = headers.findIndex(header => pattern.test(norm(header)));
+    if(index >= 0) return index;
+  }
+  return -1;
 }
 
 async function handleBarcodeFile(file){
