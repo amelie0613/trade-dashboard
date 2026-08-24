@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ERP 銷售月比分析</title>
+<title>OT國內銷售分析</title>
 <script async src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script async src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
@@ -61,7 +61,7 @@ body{font-size:17px}.top h1{font-size:30px}.top p{font-size:16px}.section h2{fon
 </style>
 </head>
 <body>
-<header class="top"><div class="topbar"><div class="top-brand"><div class="top-title-row"><h1>ERP 銷售月比分析</h1><span class="top-badge">即時分析</span></div><p>依業務、客戶與商品，快速比較本月與上月的數量及銷售金額。</p></div><div class="top-upload" id="uploadDrop" aria-label="拖拉或選擇 Excel 檔案"><div class="top-upload-status" aria-live="polite"><div id="status" class="status">銷售資料：等待上傳</div><div id="arStatus" class="status">未收款資料：等待上傳</div></div><button id="uploadFileButton" class="top-upload-button" type="button">上傳 Excel ↗</button><input id="uploadFileInput" class="hidden" type="file" accept=".xlsx,.xls" multiple></div></div></header>
+<header class="top"><div class="topbar"><div class="top-brand"><div class="top-title-row"><h1>OT國內銷售分析</h1></div></div><div class="top-upload" id="uploadDrop" aria-label="拖拉或選擇 Excel 檔案"><div class="top-upload-status" aria-live="polite"><div id="status" class="status">銷售資料：等待上傳</div><div id="arStatus" class="status">未收款資料：等待上傳</div></div><button id="uploadFileButton" class="top-upload-button" type="button">上傳 Excel ↗</button><input id="uploadFileInput" class="hidden" type="file" accept=".xlsx,.xls" multiple></div></div></header>
 <main class="wrap">
   <section id="otweekCloudPanel" class="hidden" aria-hidden="true">
     <div class="otweek-cloud-brand"><strong>資料狀態</strong><span id="otweekCloudStatus" class="status">正在連線…</span></div>
