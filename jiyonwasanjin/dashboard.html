@@ -846,21 +846,21 @@ mark.hl { background: #fef08a; color: #713f12; border-radius: 2px; padding: 0 1p
     <table>
       <thead>
         <tr>
-          <th style="width:5%"  onclick="sortInv('category')">類別</th>
-          <th style="width:5%"  onclick="sortInv('code')">產品代碼</th>
-          <th style="width:12%" onclick="sortInv('name')">產品名稱</th>
-          <th style="width:7%"  onclick="sortInv('spec')">規格</th>
-          <th style="width:5%"  onclick="sortInv('qty')">數量</th>
-          <th style="width:4%"  onclick="sortInv('unit')">單位</th>
-          <th style="width:6%"  onclick="sortInv('warehouse')">倉庫</th>
-          <th style="width:8%"  onclick="sortInv('lot')">批號</th>
-          <th style="width:6%"  onclick="sortInv('lotDate')">入庫日期</th>
-          <th style="width:6%"  onclick="sortInv('expDate')">有效期至</th>
-          <th style="width:5%"  onclick="sortInv('days')" id="th-days">剩餘天數</th>
-          <th style="width:6%"  onclick="sortInv('price')">單價</th>
-          <th style="width:6%"  onclick="sortInv('scope')">核算範圍</th>
-          <th style="width:7%"  onclick="sortInv('cost')">存貨成本</th>
-          <th style="width:12%">備註</th>
+          <th class="sort-th" data-inv-sort="category" style="width:5%"  onclick="sortInv('category')">類別</th>
+          <th class="sort-th" data-inv-sort="code" style="width:5%"  onclick="sortInv('code')">產品代碼</th>
+          <th class="sort-th" data-inv-sort="name" style="width:12%" onclick="sortInv('name')">產品名稱</th>
+          <th class="sort-th" data-inv-sort="spec" style="width:7%"  onclick="sortInv('spec')">規格</th>
+          <th class="sort-th" data-inv-sort="qty" style="width:5%"  onclick="sortInv('qty')">數量</th>
+          <th class="sort-th" data-inv-sort="unit" style="width:4%"  onclick="sortInv('unit')">單位</th>
+          <th class="sort-th" data-inv-sort="warehouse" style="width:6%"  onclick="sortInv('warehouse')">倉庫</th>
+          <th class="sort-th" data-inv-sort="lot" style="width:8%"  onclick="sortInv('lot')">批號</th>
+          <th class="sort-th" data-inv-sort="lotDate" style="width:6%"  onclick="sortInv('lotDate')">入庫日期</th>
+          <th class="sort-th" data-inv-sort="expDate" style="width:6%"  onclick="sortInv('expDate')">有效期至</th>
+          <th class="sort-th" data-inv-sort="days" style="width:5%"  onclick="sortInv('days')" id="th-days">剩餘天數</th>
+          <th class="sort-th" data-inv-sort="price" style="width:6%"  onclick="sortInv('price')">單價</th>
+          <th class="sort-th" data-inv-sort="scope" style="width:6%"  onclick="sortInv('scope')">核算範圍</th>
+          <th class="sort-th" data-inv-sort="cost" style="width:7%"  onclick="sortInv('cost')">存貨成本</th>
+          <th class="sort-th" data-inv-sort="note" style="width:12%" onclick="sortInv('note')">備註</th>
         </tr>
       </thead>
       <tbody id="inv-body"></tbody>
@@ -1304,6 +1304,21 @@ function daysDiff(d){ return d ? Math.round((d - TODAY) / 86400000) : null; }
 
 function priceKey(r){ return `${String(r['產品名稱']||'').trim()}__${String(r['批號']||'').trim()}`; }
 function noteKey(r) { return `${String(r['產品名稱']||'').trim()}__${String(r['批號']||'').trim()}__${String(r['倉庫名稱']||'').trim()}`; }
+function parseMoney(v){ return parseFloat(String(v ?? '').replace(/[$,\s]/g,'')) || 0; }
+function getRowPriceData(r){
+  const fallback = prices[priceKey(r)] || { price: 0, scope: '' };
+  const hasRowSource =
+    Object.prototype.hasOwnProperty.call(r, '單價') ||
+    Object.prototype.hasOwnProperty.call(r, '存貨核算範圍名稱');
+  const rowScope = String(r['存貨核算範圍名稱'] || r.scope || '').trim();
+  if(hasRowSource){
+    return { price: parseMoney(r['單價']), scope: rowScope };
+  }
+  return {
+    price: fallback.price || 0,
+    scope: fallback.scope || ''
+  };
+}
 
 function classify(row){
   const expDate = row._expDate;
@@ -1399,7 +1414,7 @@ async function refreshData(){
     // 載入備註（從 Supabase，失敗時回退 localStorage）
     notesMap = await fetchNotesFromSupabase();
 
-    // 從 Supabase 資料建立單價對照（每筆已含 單價、存貨核算範圍名稱）
+    // 從 Supabase 資料建立備用單價對照；成本計算仍以每列自己的單價為主
     prices = {};
     rawRows = invRows.map(r => {
       r._expDate = parseDate(r['有效期至']);
@@ -1407,9 +1422,9 @@ async function refreshData(){
       if(!r['基本單位名稱'] && r['單位']) r['基本單位名稱'] = r['單位'];
       const k = priceKey(r);
       if(k !== '__'){
-        const p    = parseFloat(r['單價']) || 0;
+        const p    = parseMoney(r['單價']);
         const scope = String(r['存貨核算範圍名稱'] || '').trim();
-        prices[k] = { price: p, scope };
+        if(p > 0 || scope) prices[k] = { price: p, scope };
       }
       return r;
     });
@@ -1463,13 +1478,24 @@ function sortInv(col){
   renderInventory();
 }
 
+function updateInvSortHeaders(){
+  const daysTh = document.getElementById('th-days');
+  if(daysTh) daysTh.textContent = DAYS_HEADER[invStatus] || '剩餘天數';
+  document.querySelectorAll('[data-inv-sort]').forEach(th => {
+    const active = th.dataset.invSort === invSortCol;
+    th.classList.toggle('sort-asc',  active && invSortDir === 'asc');
+    th.classList.toggle('sort-desc', active && invSortDir === 'desc');
+  });
+}
+
 function getInvRows(){
   // Build processed rows
   const numCols = new Set(['qty','days','price','cost']);
+  const dateCols = new Set(['lotDate','expDate']);
   let rows = rawRows.map(r => {
     const flags  = classify(r);
     const status = getStatus(flags);
-    const pd     = prices[priceKey(r)] || { price: 0, scope: '' };
+    const pd     = getRowPriceData(r);
     const qty    = parseFloat(r['庫存數量']) || 0;
     const days   = flags.long && r._lotDate ? daysDiff(r._lotDate) : daysDiff(r._expDate);
     // 4-digit code: pad pure-numeric codes to 4 digits
@@ -1486,12 +1512,15 @@ function getInvRows(){
       warehouse: r['倉庫名稱']  || '',
       lot:       r['批號']     || '',
       lotDate:   fmtDate(r._lotDate),
+      lotDateRaw:r._lotDate ? r._lotDate.getTime() : null,
       expDate:   fmtDate(r._expDate) || (r['有效期至'] || ''),
+      expDateRaw:r._expDate ? r._expDate.getTime() : null,
       days,
       daysAbs:   days !== null ? Math.abs(days) : null,
       price:     pd.price,
       scope:     pd.scope,
       cost:      qty * pd.price,
+      note:      notesMap[noteKey(r)] || '',
       _key:      noteKey(r),
     };
   });
@@ -1519,6 +1548,11 @@ function getInvRows(){
     rows.sort((a,b) => {
       let va = a[invSortCol], vb = b[invSortCol];
       if(numCols.has(invSortCol)){ va = va ?? -Infinity; vb = vb ?? -Infinity; return (va-vb)*dir; }
+      if(dateCols.has(invSortCol)){
+        va = a[invSortCol + 'Raw'] ?? -Infinity;
+        vb = b[invSortCol + 'Raw'] ?? -Infinity;
+        return (va-vb)*dir;
+      }
       return String(va||'').localeCompare(String(vb||''),'zh-TW') * dir;
     });
   }
@@ -1571,7 +1605,7 @@ function _rebuildDropdown(type){
     options = [...new Set(rawRows.map(r => String(r['倉庫名稱']||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
   } else if(type === 'scope'){
     const s = new Set();
-    rawRows.forEach(r => { const pd = prices[priceKey(r)]; if(pd && pd.scope) s.add(pd.scope); });
+    rawRows.forEach(r => { const pd = getRowPriceData(r); if(pd && pd.scope) s.add(pd.scope); });
     options = [...s].sort((a,b)=>a.localeCompare(b,'zh-TW'));
   } else if(type === 'category'){
     options = [...new Set(rawRows.map(r => String(r['產品類別']||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
@@ -1734,6 +1768,7 @@ function renderInventory(){
   _syncMobileMergeBar('inventory');
 
   const rows = getInvRows();
+  updateInvSortHeaders();
 
   // Counts
   const counts = { all: rawRows.length, normal:0, soon:0, expired:0, long:0 };
@@ -1916,7 +1951,7 @@ function renderCost(){
   rawRows.forEach(r => {
     const flags = classify(r);
     const st    = getStatus(flags);
-    const pd    = prices[priceKey(r)] || { price:0, scope:'' };
+    const pd    = getRowPriceData(r);
     const sc    = pd.scope || '（未設定）';
     const wh    = r['倉庫名稱'] || '—';
     const cost  = (parseFloat(r['庫存數量'])||0) * pd.price;
@@ -3292,10 +3327,11 @@ function loadExcel(input){
         const tryPrice = key => {
           const h = colMap[key];
           if(!h) return 0;
-          return parseFloat(String(row[h]||'').replace(/[$, ]/g,'')) || 0;
+          return parseMoney(row[h]);
         };
         const price = tryPrice('_price_end') || tryPrice('_price_start') || tryPrice('_price_direct');
         const scope = r['存貨核算範圍名稱'] || r['核算組織名稱'];
+        r['單價'] = price;
         const k = priceKey(r);
         if(price > 0 && k !== '__') prices[k] = { price, scope };
 
@@ -3436,7 +3472,7 @@ function toggleMobChip(containerId, chipEl){
 function _buildScopeWarehouseMap(){
   const map = {};
   rawRows.forEach(r => {
-    const pd = prices[priceKey(r)];
+    const pd = getRowPriceData(r);
     const sc = (pd?.scope || String(r['存貨核算範圍名稱']||'').trim());
     const wh = String(r['倉庫名稱']||'').trim();
     if(sc && wh){
