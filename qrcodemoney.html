@@ -358,7 +358,6 @@
             <button class="btn good" id="shippingOrderConfirmBtn">確認</button>
           </div>
         </div>
-        <div class="shipping-order-card" id="shippingOrderCard"></div>
         <div class="hint" id="shippingSyncStatus">每筆宅配單號都會立即同步到 Supabase。</div>
         <div class="shipping-step" id="shippingShipmentStep">
           <div class="shipping-step-title"><span class="step-number">2</span>掃描宅配單號</div>
@@ -1069,8 +1068,6 @@ function resetShippingForm(focus=true){
   $('shippingShipmentInput').disabled = true;
   $('shippingShipmentCameraBtn').disabled = true;
   $('shippingShipmentAddBtn').disabled = true;
-  $('shippingOrderCard').classList.remove('show');
-  $('shippingOrderCard').textContent = '';
   $('shippingOrderStep').classList.add('active');
   $('shippingShipmentStep').classList.remove('active');
   $('shippingShipmentList').innerHTML = '';
@@ -1090,18 +1087,17 @@ function renderShippingRecord(){
 function selectShippingOrder(raw){
   const id = norm(raw);
   if(!id){ toast('請先掃描或輸入訂單號碼'); return; }
-  if(!state.orders[id]){ alertWrongQty(`找不到訂單：${id}`); $('shippingOrderInput').select(); return; }
   state.shippingOrderId = id;
   $('shippingOrderInput').value = id;
-  $('shippingOrderCard').textContent = `訂單號碼：${id}`;
-  $('shippingOrderCard').classList.add('show');
   $('shippingOrderStep').classList.remove('active');
   $('shippingShipmentStep').classList.add('active');
   $('shippingShipmentInput').disabled = false;
   $('shippingShipmentCameraBtn').disabled = false;
   $('shippingShipmentAddBtn').disabled = false;
   $('shippingShipmentInput').placeholder = '掃描或輸入宅配單號';
-  renderShippingRecord();
+  $('shippingShipmentList').innerHTML = '<div class="hint">尚未紀錄宅配單號，可連續掃描多筆。</div>';
+  $('shippingNextOrderBtn').style.display = 'none';
+  $('shippingSyncStatus').textContent = `訂單號碼 ${id} 已紀錄，請掃描宅配單號。`;
   speakText('請掃描宅配單號');
   $('shippingShipmentInput').focus();
 }
