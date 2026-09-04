@@ -1090,11 +1090,10 @@ function renderShippingRecord(){
 function selectShippingOrder(raw){
   const id = norm(raw);
   if(!id){ toast('請先掃描或輸入訂單號碼'); return; }
-  const order = state.orders[id];
-  if(!order){ alertWrongQty(`找不到訂單：${id}`); $('shippingOrderInput').select(); return; }
+  if(!state.orders[id]){ alertWrongQty(`找不到訂單：${id}`); $('shippingOrderInput').select(); return; }
   state.shippingOrderId = id;
   $('shippingOrderInput').value = id;
-  $('shippingOrderCard').innerHTML = `訂單：${escapeHtml(id)}<br>${escapeHtml(order.receiver || order.buyer || '未提供姓名')}`;
+  $('shippingOrderCard').textContent = `訂單號碼：${id}`;
   $('shippingOrderCard').classList.add('show');
   $('shippingOrderStep').classList.remove('active');
   $('shippingShipmentStep').classList.add('active');
