@@ -1106,11 +1106,8 @@ async function saveShippingNumbers(orderId, numbers){
   const value = numbers.join('\n');
   $('shippingSyncStatus').textContent = '正在同步到 Supabase…';
   const res = await getSupabaseClient().from('barcode_orders')
-    .update({shipment_no:value, updated_at:new Date().toISOString()})
-    .eq('id', orderId)
-    .select('id');
+    .upsert({id:orderId, shipment_no:value, updated_at:new Date().toISOString()},{onConflict:'id'});
   if(res.error) throw res.error;
-  if(!res.data?.length) throw new Error(`Supabase 找不到訂單 ${orderId}`);
   state.shipments[orderId] = value;
   saveLocal();
   $('shippingSyncStatus').textContent = `已同步 Supabase：${nowText()}`;
@@ -1122,7 +1119,6 @@ async function addShippingNumber(raw){
   if(!orderId){ toast('請先掃描訂單號碼'); return; }
   if(!number){ toast('請先掃描或輸入宅配單號'); return; }
   const numbers = shipmentNumbers(orderId);
-  if(numbers.includes(number)){ alertWrongQty('這筆宅配單號已經綁定'); $('shippingShipmentInput').select(); return; }
   $('shippingShipmentAddBtn').disabled = true;
   try{
     await saveShippingNumbers(orderId, [...numbers, number]);
