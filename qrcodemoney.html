@@ -125,6 +125,8 @@
     .menu-tile span{font-size:13px;color:#64748b;line-height:1.45}
     .menu-tile.primary{background:var(--brand);border-color:var(--brand);color:#fff}
     .menu-tile.primary span{color:#e0f2fe}
+    .menu-tile.shipping{grid-column:1/-1;background:#0f766e;border-color:#0f766e;color:#fff;min-height:108px}
+    .menu-tile.shipping span{color:#ccfbf1}
     .setup-panel{order:1;margin-top:0;background:#fff;border-top:1px solid var(--line)}
     .setup-panel .panel-body > div:not(.cloud-loader):not(.pick-order-panel):not(.order-status-panel){display:none}
     .cloud-loader{display:flex;gap:8px;align-items:center}
@@ -152,6 +154,20 @@
     .status-action{display:flex!important;flex-direction:column;align-items:flex-end;gap:5px}
     .start-pick{display:inline-flex!important;align-items:center;justify-content:center;background:var(--good);color:white!important;border-radius:7px;padding:6px 9px;font-size:12px;font-weight:900;white-space:nowrap}
     .work-panel{order:1;background:#fff;min-height:calc(100vh - 54px)}
+    .shipping-panel{display:none;order:1;background:#fff;min-height:calc(100vh - 54px)}
+    body.mode-shipping .shipping-panel{display:block}
+    body.mode-shipping .home-panel,body.mode-shipping .setup-panel,body.mode-shipping .work-panel{display:none}
+    .shipping-step{border:1.5px solid var(--line);border-radius:10px;padding:14px;background:#f8fafc}
+    .shipping-step.active{border-color:#0f766e;background:#f0fdfa}
+    .shipping-step-title{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:900;margin-bottom:10px}
+    .step-number{display:inline-flex;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;background:#0f766e;color:#fff}
+    .shipping-input{height:54px!important;font-size:21px!important;font-weight:900;text-align:center}
+    .shipping-order-card{display:none;border-radius:8px;background:#ecfdf5;color:#065f46;padding:12px;font-weight:900;line-height:1.55}
+    .shipping-order-card.show{display:block}
+    .shipment-list{display:grid;gap:7px;margin-top:10px}
+    .shipment-row{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:7px;padding:8px}
+    .shipment-row b{word-break:break-all}
+    .shipment-row span{display:flex;width:25px;height:25px;border-radius:50%;background:#d1fae5;color:#047857;align-items:center;justify-content:center;font-weight:900}
     body.mode-home .setup-panel,
     body.mode-home .work-panel{display:none}
     body.mode-overview .home-panel,
@@ -211,8 +227,12 @@
             <span>查看全部訂單、未開始、理貨中、完成與超量狀態</span>
           </button>
           <button class="menu-tile primary" id="pickingMenuBtn">
-            <b>商品理貨</b>
+            <b>團購理貨</b>
             <span>選擇訂單後進入掃碼核銷與寄件編號掃描</span>
+          </button>
+          <button class="menu-tile shipping" id="shippingMenuBtn">
+            <b>正洋理貨</b>
+            <span>掃描訂單號碼，再連續綁定一筆或多筆宅配單號</span>
           </button>
         </div>
       </div>
@@ -256,7 +276,7 @@
             <button class="status-tab" data-status-filter="over">超量</button>
           </div>
           <input type="text" id="statusSearch" placeholder="搜尋訂單、姓名、電話">
-          <div class="pick-hint">商品理貨可先掃訂單條碼，也可點訂單或右側「開始理貨」進入掃碼核銷頁</div>
+          <div class="pick-hint">團購理貨可先掃訂單條碼，也可點訂單或右側「開始理貨」進入掃碼核銷頁</div>
           <div class="all-order-list" id="allOrderStatus"></div>
         </div>
         <div class="hint">手機理貨建議直接從 Supabase 載入；Excel 匯入保留作為備用。</div>
@@ -324,6 +344,32 @@
             <div class="hint">核銷紀錄與條碼對照會暫存在這台手機或電腦的瀏覽器。多人同時理貨時，建議把 barcode_orders、barcode_order_items、barcode_scan_logs、barcode_map_items 放到 Supabase 做即時同步。</div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="panel shipping-panel">
+      <div class="panel-head"><h2>正洋理貨</h2></div>
+      <div class="panel-body stack">
+        <div class="shipping-step active" id="shippingOrderStep">
+          <div class="shipping-step-title"><span class="step-number">1</span>掃描訂單號碼</div>
+          <input class="shipping-input" type="text" id="shippingOrderInput" placeholder="掃描或輸入訂單號碼" autocomplete="off">
+          <div class="row" style="margin-top:8px">
+            <button class="btn primary grow" id="shippingOrderCameraBtn">開相機掃訂單</button>
+            <button class="btn good" id="shippingOrderConfirmBtn">確認</button>
+          </div>
+        </div>
+        <div class="shipping-order-card" id="shippingOrderCard"></div>
+        <div class="hint" id="shippingSyncStatus">每筆宅配單號都會立即同步到 Supabase。</div>
+        <div class="shipping-step" id="shippingShipmentStep">
+          <div class="shipping-step-title"><span class="step-number">2</span>掃描宅配單號</div>
+          <input class="shipping-input" type="text" id="shippingShipmentInput" placeholder="請先掃描訂單號碼" autocomplete="off" disabled>
+          <div class="row" style="margin-top:8px">
+            <button class="btn primary grow" id="shippingShipmentCameraBtn" disabled>開相機掃宅配單</button>
+            <button class="btn good" id="shippingShipmentAddBtn" disabled>加入</button>
+          </div>
+          <div class="shipment-list" id="shippingShipmentList"></div>
+        </div>
+        <button class="btn" id="shippingNextOrderBtn" style="display:none;height:50px">完成這張，掃下一張訂單</button>
       </div>
     </section>
 
@@ -425,7 +471,8 @@ const state = {
   remoteMode: false,
   sbClient: null,
   statusFilter: 'all',
-  pageMode: 'home'
+  pageMode: 'home',
+  shippingOrderId: ''
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1011,6 +1058,112 @@ function setShipmentNo(value){
   syncShipmentToSupabase().catch(err => alertWrongQty(`寄件編號同步失敗：${err.message}`));
 }
 
+function shipmentNumbers(orderId){
+  return String(state.shipments[orderId] || '').split(/[\n,，;；|]+/).map(norm).filter(Boolean);
+}
+
+function resetShippingForm(focus=true){
+  state.shippingOrderId = '';
+  $('shippingOrderInput').value = '';
+  $('shippingShipmentInput').value = '';
+  $('shippingShipmentInput').disabled = true;
+  $('shippingShipmentCameraBtn').disabled = true;
+  $('shippingShipmentAddBtn').disabled = true;
+  $('shippingOrderCard').classList.remove('show');
+  $('shippingOrderCard').textContent = '';
+  $('shippingOrderStep').classList.add('active');
+  $('shippingShipmentStep').classList.remove('active');
+  $('shippingShipmentList').innerHTML = '';
+  $('shippingNextOrderBtn').style.display = 'none';
+  $('shippingSyncStatus').textContent = '每筆宅配單號都會立即同步到 Supabase。';
+  if(focus) $('shippingOrderInput').focus();
+}
+
+function renderShippingRecord(){
+  const id = state.shippingOrderId;
+  const numbers = shipmentNumbers(id);
+  $('shippingShipmentList').innerHTML = numbers.map((number, index) => `<div class="shipment-row"><span>${index + 1}</span><b>${escapeHtml(number)}</b><button class="btn" style="height:32px;padding:0 9px" data-remove-shipment="${escapeHtml(number)}">刪除</button></div>`).join('') || '<div class="hint">尚未綁定宅配單號，可連續掃描多筆。</div>';
+  $('shippingShipmentList').querySelectorAll('[data-remove-shipment]').forEach(btn => btn.onclick = () => removeShippingNumber(btn.dataset.removeShipment));
+  $('shippingNextOrderBtn').style.display = numbers.length ? '' : 'none';
+}
+
+function selectShippingOrder(raw){
+  const id = norm(raw);
+  if(!id){ toast('請先掃描或輸入訂單號碼'); return; }
+  const order = state.orders[id];
+  if(!order){ alertWrongQty(`找不到訂單：${id}`); $('shippingOrderInput').select(); return; }
+  state.shippingOrderId = id;
+  $('shippingOrderInput').value = id;
+  $('shippingOrderCard').innerHTML = `訂單：${escapeHtml(id)}<br>${escapeHtml(order.receiver || order.buyer || '未提供姓名')}`;
+  $('shippingOrderCard').classList.add('show');
+  $('shippingOrderStep').classList.remove('active');
+  $('shippingShipmentStep').classList.add('active');
+  $('shippingShipmentInput').disabled = false;
+  $('shippingShipmentCameraBtn').disabled = false;
+  $('shippingShipmentAddBtn').disabled = false;
+  $('shippingShipmentInput').placeholder = '掃描或輸入宅配單號';
+  renderShippingRecord();
+  speakText('請掃描宅配單號');
+  $('shippingShipmentInput').focus();
+}
+
+async function saveShippingNumbers(orderId, numbers){
+  const value = numbers.join('\n');
+  $('shippingSyncStatus').textContent = '正在同步到 Supabase…';
+  const res = await getSupabaseClient().from('barcode_orders')
+    .update({shipment_no:value, updated_at:new Date().toISOString()})
+    .eq('id', orderId)
+    .select('id');
+  if(res.error) throw res.error;
+  if(!res.data?.length) throw new Error(`Supabase 找不到訂單 ${orderId}`);
+  state.shipments[orderId] = value;
+  saveLocal();
+  $('shippingSyncStatus').textContent = `已同步 Supabase：${nowText()}`;
+}
+
+async function addShippingNumber(raw){
+  const orderId = state.shippingOrderId;
+  const number = norm(raw || $('shippingShipmentInput').value);
+  if(!orderId){ toast('請先掃描訂單號碼'); return; }
+  if(!number){ toast('請先掃描或輸入宅配單號'); return; }
+  const numbers = shipmentNumbers(orderId);
+  if(numbers.includes(number)){ alertWrongQty('這筆宅配單號已經綁定'); $('shippingShipmentInput').select(); return; }
+  $('shippingShipmentAddBtn').disabled = true;
+  try{
+    await saveShippingNumbers(orderId, [...numbers, number]);
+    $('shippingShipmentInput').value = '';
+    renderShippingRecord();
+    speakText('已加入');
+    toast(`已加入第 ${numbers.length + 1} 筆，並同步 Supabase`);
+  }catch(err){
+    $('shippingSyncStatus').textContent = 'Supabase 同步失敗，資料未儲存';
+    alertWrongQty(`宅配單號儲存失敗：${err.message}`);
+  }finally{
+    $('shippingShipmentAddBtn').disabled = false;
+    $('shippingShipmentInput').focus();
+  }
+}
+
+async function removeShippingNumber(number){
+  const orderId = state.shippingOrderId;
+  try{
+    await saveShippingNumbers(orderId, shipmentNumbers(orderId).filter(x => x !== number));
+    renderShippingRecord();
+    toast('已刪除宅配單號，並同步 Supabase');
+  }catch(err){
+    $('shippingSyncStatus').textContent = 'Supabase 同步失敗，資料未變更';
+    alertWrongQty(`刪除失敗：${err.message}`);
+  }
+}
+
+function showShipping(){
+  closeCamera();
+  state.activeOrderId = '';
+  document.body.classList.remove('has-order');
+  setPageMode('shipping');
+  resetShippingForm();
+}
+
 function openShipmentModal(){
   $('shipmentModalInput').value = state.shipments[state.activeOrderId] || '';
   $('shipmentModal').classList.add('active');
@@ -1343,7 +1496,7 @@ async function openCamera(mode){
   try{
     closeCamera();
     state.scannerMode = mode;
-    cameraTitle.textContent = mode === 'order' ? '掃訂單編號' : mode === 'shipment' ? '掃寄件編號' : mode === 'map' ? '掃條碼建立對照' : '連續掃商品條碼';
+    cameraTitle.textContent = mode === 'order' || mode === 'shipping-order' ? '掃訂單編號' : mode === 'shipment' || mode === 'shipping-shipment' ? '掃宅配單號' : mode === 'map' ? '掃條碼建立對照' : '連續掃商品條碼';
     $('cameraHint').textContent = '請對準條碼，保持畫面明亮清楚';
     $('camera').classList.add('active');
     state.scanning = true;
@@ -1393,6 +1546,12 @@ function handleScannedValue(value){
     speakCompleted();
     toast('寄件編號已帶入');
     $('barcodeInput').focus();
+  }else if(state.scannerMode === 'shipping-order'){
+    $('shippingOrderInput').value = value;
+    selectShippingOrder(value);
+  }else if(state.scannerMode === 'shipping-shipment'){
+    $('shippingShipmentInput').value = value;
+    addShippingNumber(value);
   }else if(state.scannerMode === 'map'){
     $('mapBarcode').value = value;
     toast('已掃到條碼，請輸入對應產品名稱');
@@ -1534,6 +1693,7 @@ function setPageMode(mode){
   document.body.classList.toggle('mode-overview', mode === 'overview');
   document.body.classList.toggle('mode-picklist', mode === 'picklist');
   document.body.classList.toggle('mode-pick', mode === 'pick');
+  document.body.classList.toggle('mode-shipping', mode === 'shipping');
   renderOrderStatus();
 }
 
@@ -1573,6 +1733,18 @@ document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => switchTab(b
 $('homeBtn').onclick = showHome;
 $('overviewMenuBtn').onclick = showOverview;
 $('pickingMenuBtn').onclick = showPickingList;
+$('shippingMenuBtn').onclick = showShipping;
+$('shippingOrderCameraBtn').onclick = () => openCamera('shipping-order');
+$('shippingOrderConfirmBtn').onclick = () => selectShippingOrder($('shippingOrderInput').value);
+$('shippingOrderInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); selectShippingOrder(e.target.value); }
+});
+$('shippingShipmentCameraBtn').onclick = () => openCamera('shipping-shipment');
+$('shippingShipmentAddBtn').onclick = () => addShippingNumber();
+$('shippingShipmentInput').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); addShippingNumber(); }
+});
+$('shippingNextOrderBtn').onclick = () => resetShippingForm();
 $('quickScanOrderBtn').onclick = () => openCamera('order');
 $('quickSelectOrderBtn').onclick = () => selectOrder(norm($('quickOrderInput').value));
 $('quickOrderInput').addEventListener('keydown', e => {
