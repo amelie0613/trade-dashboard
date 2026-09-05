@@ -387,6 +387,7 @@ window.INVENTORY_CONFIG = {
   supabaseUrl: 'https://teqdawaolfihputzymtz.supabase.co',
   supabasePublishableKey: 'sb_publishable_vKonAQxjS3aYzbk2iA5lUw_PWa9gB1V',
   demoMode: false,
+  requireLogin: false,
   siteUrl: 'https://amelie0613.github.io/trade-dashboard/ogogindex.html',
 };
 
@@ -3661,7 +3662,10 @@ window.INVENTORY_CONFIG = {
     renderList();
     renderSelected();
     showOnly('app-content');
-    setTopActions({ exportVisible: true, signOutVisible: !state.demo });
+    setTopActions({
+      exportVisible: true,
+      signOutVisible: !state.demo && config.requireLogin !== false,
+    });
     setSync(state.demo ? '本機示範' : '已同步');
   }
 
@@ -3727,9 +3731,18 @@ window.INVENTORY_CONFIG = {
       showOnly('setup-screen');
       return;
     }
+    const requireLogin = config.requireLogin !== false;
     db = window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      auth: {
+        persistSession: requireLogin,
+        autoRefreshToken: requireLogin,
+        detectSessionInUrl: requireLogin,
+      },
     });
+    if (!requireLogin) {
+      await loadSupabaseData();
+      return;
+    }
     const { data, error } = await db.auth.getSession();
     if (error) {
       showOnly('auth-screen');
