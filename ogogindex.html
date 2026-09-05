@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#155f49">
+    <meta name="description" content="0831 庫存表的手機盤點工具，可搜尋產品、核對數量並同步至 Supabase。">
+    <meta property="og:title" content="現場盤點">
+    <meta property="og:description" content="快速搜尋、核對數量、跨裝置同步、匯出結果。">
+    <meta id="og-image" property="og:image" content="">
+    <title>現場盤點</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script defer src="./config.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-mark" aria-hidden="true">盤</div>
+        <div class="brand-copy">
+          <h1>現場盤點</h1>
+          <p>0831 庫存表</p>
+        </div>
+        <div class="top-actions">
+          <span id="sync-status" class="sync-status" hidden>已同步</span>
+          <button id="export-button" class="export-button" type="button" hidden>匯出結果</button>
+          <button id="sign-out-button" class="quiet-button" type="button" hidden>登出</button>
+        </div>
+      </header>
+
+      <section id="setup-screen" class="gate-card" hidden>
+        <span class="gate-kicker">需要設定</span>
+        <h2>尚未連接 Supabase</h2>
+        <p>請在 <code>config.js</code> 填入 Project URL 與 Publishable key，並將 <code>demoMode</code> 改為 <code>false</code>。</p>
+      </section>
+
+      <section id="auth-screen" class="gate-card" hidden>
+        <span class="gate-kicker">安全登入</span>
+        <h2>登入後開始盤點</h2>
+        <p>輸入已授權的電子郵件，我們會寄送一次性登入連結。</p>
+        <form id="login-form" class="login-form">
+          <label for="email">電子郵件</label>
+          <div>
+            <input id="email" name="email" type="email" autocomplete="email" placeholder="name@example.com" required>
+            <button type="submit">寄送登入連結</button>
+          </div>
+        </form>
+        <p id="login-message" class="form-message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="denied-screen" class="gate-card" hidden>
+        <span class="gate-kicker warning">無法存取</span>
+        <h2>這個帳號尚未加入盤點名單</h2>
+        <p>請由管理者在 Supabase 的 <code>inventory_allowed_emails</code> 加入你的電子郵件。</p>
+      </section>
+
+      <div id="app-content" hidden>
+        <div id="demo-banner" class="demo-banner" hidden>
+          目前為示範模式，資料只存在這台裝置。完成 Supabase 設定後即可跨裝置同步。
+        </div>
+
+        <section class="overview" aria-label="盤點進度">
+          <div class="progress-heading">
+            <div><span class="eyebrow">本次進度</span><strong id="progress-percent">0%</strong></div>
+            <span id="progress-detail">0 / 0 已盤</span>
+          </div>
+          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span id="progress-bar"></span>
+          </div>
+          <div class="stat-row">
+            <button type="button" data-status="pending"><span id="pending-count">0</span>待盤</button>
+            <button type="button" data-status="counted"><span id="counted-count">0</span>已盤</button>
+            <button type="button" data-status="different"><span id="different-count">0</span>有差異</button>
+            <button type="button" data-status="exact"><span id="exact-count">0</span>相符</button>
+          </div>
+        </section>
+
+        <div class="workspace">
+          <section class="product-browser" aria-label="產品清單">
+            <div class="browser-header">
+              <label class="search-field">
+                <span aria-hidden="true">⌕</span>
+                <input id="search-input" type="search" placeholder="搜尋產品、代碼、倉庫或效期" aria-label="搜尋產品">
+              </label>
+              <div class="filter-row">
+                <label>
+                  <span class="sr-only">產品類別</span>
+                  <select id="category-filter"><option>全部類別</option></select>
+                </label>
+                <label>
+                  <span class="sr-only">盤點狀態</span>
+                  <select id="status-filter">
+                    <option value="all">全部狀態</option>
+                    <option value="pending">待盤</option>
+                    <option value="counted">已盤</option>
+                    <option value="different">有差異</option>
+                    <option value="exact">相符</option>
+                  </select>
+                </label>
+                <label>
+                  <span class="sr-only">效期狀態</span>
+                  <select id="expiry-filter">
+                    <option value="all">全部效期</option>
+                    <option value="expired">已過期</option>
+                    <option value="active">效期內</option>
+                    <option value="missing">未填效期</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div class="result-count"><span>產品清單</span><small id="result-count">0 項</small></div>
+            <div id="product-list" class="product-list"></div>
+          </section>
+
+          <aside class="count-panel" aria-label="核對數量">
+            <div class="panel-label">正在盤點</div>
+            <div class="selected-heading">
+              <div>
+                <h2 id="selected-name">請選擇產品</h2>
+                <p id="selected-subtitle"></p>
+              </div>
+              <span id="selected-pill" class="pill pending">待盤</span>
+            </div>
+            <dl class="product-meta">
+              <div><dt>倉庫</dt><dd id="selected-warehouses">—</dd></div>
+              <div><dt>批號數</dt><dd id="selected-lots">—</dd></div>
+              <div><dt>效期</dt><dd id="selected-expiry" class="expiry-value">—</dd></div>
+              <div><dt>帳面數量</dt><dd id="selected-expected">—</dd></div>
+            </dl>
+            <label class="actual-field">
+              <span>實際盤點數量</span>
+              <div>
+                <input id="actual-input" type="number" min="0" step="any" inputmode="decimal" placeholder="輸入數量">
+                <span id="selected-unit"></span>
+              </div>
+            </label>
+            <label class="note-field" for="note-input">
+              <span>備註 <small>選填</small></span>
+              <textarea id="note-input" rows="3" maxlength="500" placeholder="例如：外箱破損、待複查、數量差異原因"></textarea>
+            </label>
+            <div id="difference-card" class="difference-card neutral">
+              <span>差異</span><strong id="difference-value">—</strong>
+              <small id="difference-note">輸入實盤數量後自動計算</small>
+            </div>
+            <button id="confirm-button" class="confirm-button" type="button">確認此項</button>
+            <button id="next-button" class="next-button" type="button">下一項待盤產品</button>
+            <button id="clear-item-button" class="clear-item" type="button" hidden>清除此項紀錄</button>
+          </aside>
+        </div>
+
+        <footer>
+          <p id="footer-note">盤點結果將同步至 Supabase。</p>
+          <button id="refresh-button" type="button">重新整理資料</button>
+        </footer>
+      </div>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>
