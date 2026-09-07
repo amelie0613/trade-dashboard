@@ -244,9 +244,11 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
 .opening-controls { margin-bottom: 14px; }
 .opening-controls label { display: block; font-size: 13px; margin-bottom: 8px; }
 .opening-controls > div { display: flex; gap: 8px; }
-.opening-controls input, #count-date { min-width: 0; width: 100%; border: 1px solid #bdcbc3; border-radius: 10px; padding: 10px; font: inherit; }
+.opening-controls input { min-width: 0; width: 100%; border: 1px solid #bdcbc3; border-radius: 10px; padding: 10px; font: inherit; }
 .opening-controls button { flex-shrink: 0; }
 .record-date { margin: 10px 0 14px; }
+.hide-exact-field { display: flex; align-items: center; gap: 8px; width: fit-content; padding: 8px 4px; font-size: 14px; cursor: pointer; }
+.hide-exact-field input { width: 18px; height: 18px; accent-color: var(--green); }
 
     </style>
     
@@ -331,6 +333,7 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
               </div>
             </div>
 
+        <label class="hide-exact-field"><input id="hide-exact" type="checkbox">相符不顯示</label>
         <section class="batch-controls" aria-label="盤點批次">
           <label for="batch-select">盤點批次</label>
           <select id="batch-select"></select>
@@ -380,7 +383,6 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
               <label for="expected-input">修正本批次期初數量</label>
               <div><input id="expected-input" type="number" step="0.001" inputmode="decimal"><button id="save-expected-button" type="button" class="quiet-button">儲存期初</button></div>
             </div>
-            <label class="note-field" for="count-date"><span>盤點日期</span><input id="count-date" type="date" required></label>
             <p id="record-date" class="record-date"></p>
             <label class="actual-field">
               <span>實際盤點數量</span>
@@ -3387,6 +3389,7 @@ window.INVENTORY_CONFIG = {
     search: '',
     category: '全部類別',
     status: 'all',
+    hideExact: false,
     expiry: 'all',
     demo: Boolean(config.demoMode),
     user: null,
@@ -3486,8 +3489,8 @@ window.INVENTORY_CONFIG = {
     if (draft) return draft;
     const record = state.records.get(product.id);
     return record
-      ? { actual: record.actual, note: record.note, countDate: record.countDate || (record.confirmed ? '' : todayIso()), dirty: false }
-      : { actual: '', note: '', countDate: todayIso(), dirty: false };
+      ? { actual: record.actual, note: record.note, dirty: false }
+      : { actual: '', note: '', dirty: false };
   }
 
   function getDifference(product, actualValue) {
@@ -3504,10 +3507,10 @@ window.INVENTORY_CONFIG = {
     return getDifference(product, record.actual) === 0 ? 'exact' : 'different';
   }
 
-  function setDraft(product, actual, note, countDate) {
+  function setDraft(product, actual, note) {
     const record = state.records.get(product.id);
-    const dirty = !record?.confirmed || record.actual !== actual || record.note !== note || record.countDate !== countDate;
-    if (dirty) state.drafts.set(product.id, { actual, note, countDate, dirty: true });
+    const dirty = !record?.confirmed || record.actual !== actual || record.note !== note;
+    if (dirty) state.drafts.set(product.id, { actual, note, dirty: true });
     else state.drafts.delete(product.id);
     setSync(dirty ? '尚未確認' : state.demo ? '已儲存' : '已同步', dirty ? 'saving' : '');
   }
@@ -3526,7 +3529,8 @@ window.INVENTORY_CONFIG = {
         state.status === productStatus ||
         (state.status === 'counted' && productStatus !== 'pending');
       const matchesExpiry = state.expiry === 'all' || state.expiry === getExpiryStatus(product);
-      return matchesQuery && matchesCategory && matchesStatus && matchesExpiry;
+      return matchesQuery && matchesCategory && matchesStatus && matchesExpiry &&
+        (!state.hideExact || productStatus !== 'exact');
     }).sort((left, right) => {
       const leftExpired = getExpiryStatus(left) === 'expired';
       const rightExpired = getExpiryStatus(right) === 'expired';
@@ -3652,7 +3656,7 @@ window.INVENTORY_CONFIG = {
     }
 
     const actualNumber = Number(draft.actual);
-    const invalid = draft.actual === '' || !Number.isFinite(actualNumber) || actualNumber < 0 || actualNumber >= 1e15 || !draft.countDate;
+    const invalid = draft.actual === '' || !Number.isFinite(actualNumber) || actualNumber < 0 || actualNumber >= 1e15;
     const unchanged = Boolean(record?.confirmed) && !draft.dirty;
     $('confirm-button').disabled = invalid || unchanged;
     $('confirm-button').textContent = unchanged ? '已確認' : record?.confirmed ? '更新確認' : '確認此項';
@@ -3676,11 +3680,10 @@ window.INVENTORY_CONFIG = {
     $('actual-input').value = draft.actual;
     $('note-input').value = draft.note;
     $('expected-input').value = openingFor(product);
-    $('count-date').value = draft.countDate;
     const saved = state.records.get(product.id);
     $('record-date').textContent = saved
       ? '盤點日期：' + (saved.countDate || '舊紀錄未提供') + '｜最後儲存：' + (saved.updatedAt ? new Date(saved.updatedAt).toLocaleString('zh-TW') : '舊紀錄未提供')
-      : '尚未儲存紀錄';
+      : '確認盤點時自動記錄當天日期與儲存時間';
     renderConfirmation(product);
     if (focus) window.setTimeout(() => $('actual-input').focus(), 30);
   }
@@ -3920,12 +3923,9 @@ window.INVENTORY_CONFIG = {
       return;
     }
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.countDate) || !$('count-date').validity.valid) {
-      showToast('請填寫盤點日期'); return;
-    }
     setSync('儲存中', 'saving');
     await persistRecord(product, { actual: String(Math.round(actual * 1000) / 1000), note: draft.note.trim(), confirmed: true,
-      expected: openingFor(product), countDate: draft.countDate, updatedAt: new Date().toISOString() });
+      expected: openingFor(product), countDate: todayIso(), updatedAt: new Date().toISOString() });
     state.drafts.delete(product.id);
     renderStats();
     renderList();
@@ -3953,7 +3953,7 @@ window.INVENTORY_CONFIG = {
   function updateCurrentDraft() {
     const product = selectedProduct();
     if (!product) return;
-    setDraft(product, $('actual-input').value, $('note-input').value, $('count-date').value);
+    setDraft(product, $('actual-input').value, $('note-input').value);
     renderConfirmation(product);
     renderStats();
     renderList();
@@ -4006,10 +4006,13 @@ window.INVENTORY_CONFIG = {
   }
 
   function bindEvents() {
+    $('hide-exact').addEventListener('change', (event) => {
+      state.hideExact = event.target.checked;
+      renderList();
+    });
     $('batch-select').addEventListener('change', event => runOperation(() => switchBatch(event.target.value)));
     $('new-batch-button').addEventListener('click', () => runOperation(newBatch));
     $('save-expected-button').addEventListener('click', () => runOperation(saveExpected));
-    $('count-date').addEventListener('input', updateCurrentDraft);
     $('search-input').addEventListener('input', (event) => {
       state.search = event.target.value;
       renderList();
