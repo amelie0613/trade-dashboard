@@ -219,11 +219,11 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
   .stat-row { grid-template-columns: repeat(4, minmax(0,1fr)); }
   .stat-row button, .stat-row div { display: block; padding: 8px; text-align: center; }
   .stat-row span { display: block; font-size: 16px; }
-  .workspace { display: flex; flex-direction: column-reverse; gap: 12px; margin-top: 12px; }
+  .workspace { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
   .product-browser, .count-panel { width: 100%; border-radius: 18px; }
   .count-panel { position: static; padding: 18px; }
   .browser-header { padding: 14px; }
-  .product-list { max-height: 520px; }
+  .product-list { max-height: 300px; }
   footer { align-items: flex-start; }
 }
 
@@ -234,6 +234,19 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
   .stat-row button, .stat-row div { padding: 7px 4px; font-size: 10px; }
   .product-row { padding-inline: 8px; }
 }
+
+#app-content > .browser-header { background: white; border: 1px solid var(--line); border-radius: 18px; margin-bottom: 12px; }
+.batch-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
+.batch-controls select { min-width: 0; flex: 1; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+#batch-name { min-width: 0; width: 210px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+@media (max-width: 760px) { .batch-controls select { flex-basis: calc(100% - 90px); } #batch-name { flex: 1; } }
+.batch-controls p, .record-date { width: 100%; margin: 0; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.opening-controls { margin-bottom: 14px; }
+.opening-controls label { display: block; font-size: 13px; margin-bottom: 8px; }
+.opening-controls > div { display: flex; gap: 8px; }
+.opening-controls input, #count-date { min-width: 0; width: 100%; border: 1px solid #bdcbc3; border-radius: 10px; padding: 10px; font: inherit; }
+.opening-controls button { flex-shrink: 0; }
+.record-date { margin: 10px 0 14px; }
 
     </style>
     
@@ -286,24 +299,6 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
           目前為示範模式，資料只存在這台裝置。完成 Supabase 設定後即可跨裝置同步。
         </div>
 
-        <section class="overview" aria-label="盤點進度">
-          <div class="progress-heading">
-            <div><span class="eyebrow">本次進度</span><strong id="progress-percent">0%</strong></div>
-            <span id="progress-detail">0 / 0 已盤</span>
-          </div>
-          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-            <span id="progress-bar"></span>
-          </div>
-          <div class="stat-row">
-            <button type="button" data-status="pending"><span id="pending-count">0</span>待盤</button>
-            <button type="button" data-status="counted"><span id="counted-count">0</span>已盤</button>
-            <button type="button" data-status="different"><span id="different-count">0</span>有差異</button>
-            <button type="button" data-status="exact"><span id="exact-count">0</span>相符</button>
-          </div>
-        </section>
-
-        <div class="workspace">
-          <section class="product-browser" aria-label="產品清單">
             <div class="browser-header">
               <label class="search-field">
                 <span aria-hidden="true">⌕</span>
@@ -335,6 +330,33 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
                 </label>
               </div>
             </div>
+
+        <section class="batch-controls" aria-label="盤點批次">
+          <label for="batch-select">盤點批次</label>
+          <select id="batch-select"></select>
+          <label class="sr-only" for="batch-name">新批次名稱</label>
+          <input id="batch-name" type="text" maxlength="100" placeholder="新批次名稱（可選填）">
+          <button id="new-batch-button" type="button" class="quiet-button">新增批次</button>
+          <p>各批次獨立保存，可隨時切換接續盤點。匯出結果為目前批次。</p>
+        </section>
+        <section class="overview" aria-label="盤點進度">
+          <div class="progress-heading">
+            <div><span class="eyebrow">本次進度</span><strong id="progress-percent">0%</strong></div>
+            <span id="progress-detail">0 / 0 已盤</span>
+          </div>
+          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span id="progress-bar"></span>
+          </div>
+          <div class="stat-row">
+            <button type="button" data-status="pending"><span id="pending-count">0</span>待盤</button>
+            <button type="button" data-status="counted"><span id="counted-count">0</span>已盤</button>
+            <button type="button" data-status="different"><span id="different-count">0</span>有差異</button>
+            <button type="button" data-status="exact"><span id="exact-count">0</span>相符</button>
+          </div>
+        </section>
+
+        <div class="workspace">
+          <section class="product-browser" aria-label="產品清單">
             <div class="result-count"><span>產品清單</span><small id="result-count">0 項</small></div>
             <div id="product-list" class="product-list"></div>
           </section>
@@ -352,8 +374,14 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
               <div><dt>倉庫</dt><dd id="selected-warehouses">—</dd></div>
               <div><dt>批號數</dt><dd id="selected-lots">—</dd></div>
               <div><dt>效期</dt><dd id="selected-expiry" class="expiry-value">—</dd></div>
-              <div><dt>帳面數量</dt><dd id="selected-expected">—</dd></div>
+              <div><dt>期初數量</dt><dd id="selected-expected">—</dd></div>
             </dl>
+            <div class="opening-controls">
+              <label for="expected-input">修正本批次期初數量</label>
+              <div><input id="expected-input" type="number" step="0.001" inputmode="decimal"><button id="save-expected-button" type="button" class="quiet-button">儲存期初</button></div>
+            </div>
+            <label class="note-field" for="count-date"><span>盤點日期</span><input id="count-date" type="date" required></label>
+            <p id="record-date" class="record-date"></p>
             <label class="actual-field">
               <span>實際盤點數量</span>
               <div>
@@ -3363,6 +3391,11 @@ window.INVENTORY_CONFIG = {
     demo: Boolean(config.demoMode),
     user: null,
   };
+  state.batches = [];
+  state.batchId = 'legacy';
+  state.demoBatches = {};
+  const batchStorageKey = 'inventory-batches-v3';
+  let busy = false;
   let db = null;
   let toastTimer = null;
 
@@ -3440,6 +3473,9 @@ window.INVENTORY_CONFIG = {
   function normalizeRecord(row) {
     return {
       actual: String(row.actual ?? ''),
+      expected: row.expected == null ? null : Number(row.expected),
+      countDate: row.count_date ?? row.countDate ?? '',
+      updatedAt: row.updated_at ?? row.updatedAt ?? '',
       note: String(row.note ?? ''),
       confirmed: row.confirmed !== false,
     };
@@ -3450,15 +3486,15 @@ window.INVENTORY_CONFIG = {
     if (draft) return draft;
     const record = state.records.get(product.id);
     return record
-      ? { actual: record.actual, note: record.note, dirty: false }
-      : { actual: '', note: '', dirty: false };
+      ? { actual: record.actual, note: record.note, countDate: record.countDate || (record.confirmed ? '' : todayIso()), dirty: false }
+      : { actual: '', note: '', countDate: todayIso(), dirty: false };
   }
 
   function getDifference(product, actualValue) {
     if (actualValue === undefined || String(actualValue).trim() === '') return null;
     const actual = Number(actualValue);
     if (!Number.isFinite(actual)) return null;
-    return Math.round((actual - Number(product.expected)) * 1000) / 1000;
+    return Math.round((actual - openingFor(product)) * 1000) / 1000;
   }
 
   function getStatus(product) {
@@ -3468,10 +3504,10 @@ window.INVENTORY_CONFIG = {
     return getDifference(product, record.actual) === 0 ? 'exact' : 'different';
   }
 
-  function setDraft(product, actual, note) {
+  function setDraft(product, actual, note, countDate) {
     const record = state.records.get(product.id);
-    const dirty = !record?.confirmed || record.actual !== actual || record.note !== note;
-    if (dirty) state.drafts.set(product.id, { actual, note, dirty: true });
+    const dirty = !record?.confirmed || record.actual !== actual || record.note !== note || record.countDate !== countDate;
+    if (dirty) state.drafts.set(product.id, { actual, note, countDate, dirty: true });
     else state.drafts.delete(product.id);
     setSync(dirty ? '尚未確認' : state.demo ? '已儲存' : '已同步', dirty ? 'saving' : '');
   }
@@ -3536,6 +3572,12 @@ window.INVENTORY_CONFIG = {
     const meta = document.createElement('small');
     meta.textContent = `${product.code || '無代碼'} · ${product.category}`;
     copy.append(name, meta);
+    const record = state.records.get(product.id);
+    if (record?.confirmed) {
+      const dateLabel = document.createElement('small');
+      dateLabel.textContent = `盤點日期：${record.countDate || '舊紀錄未提供'}`;
+      copy.append(dateLabel);
+    }
     const expired = expiredDates(product);
     if (expired.length) {
       const expiryLabel = document.createElement('small');
@@ -3547,7 +3589,7 @@ window.INVENTORY_CONFIG = {
     const quantity = document.createElement('span');
     quantity.className = 'product-quantity';
     const expected = document.createElement('strong');
-    expected.textContent = numberFormat.format(product.expected);
+    expected.textContent = numberFormat.format(openingFor(product));
     const unit = document.createElement('small');
     unit.textContent = product.unit;
     quantity.append(expected, unit);
@@ -3610,11 +3652,11 @@ window.INVENTORY_CONFIG = {
     }
 
     const actualNumber = Number(draft.actual);
-    const invalid = draft.actual === '' || !Number.isFinite(actualNumber) || actualNumber < 0;
+    const invalid = draft.actual === '' || !Number.isFinite(actualNumber) || actualNumber < 0 || actualNumber >= 1e15 || !draft.countDate;
     const unchanged = Boolean(record?.confirmed) && !draft.dirty;
     $('confirm-button').disabled = invalid || unchanged;
     $('confirm-button').textContent = unchanged ? '已確認' : record?.confirmed ? '更新確認' : '確認此項';
-    $('clear-item-button').hidden = !record && draft.actual === '' && draft.note === '';
+    $('clear-item-button').hidden = !record?.confirmed && draft.actual === '' && draft.note === '';
   }
 
   function renderSelected({ focus = false } = {}) {
@@ -3629,10 +3671,16 @@ window.INVENTORY_CONFIG = {
     const isExpired = getExpiryStatus(product) === 'expired';
     $('selected-expiry').textContent = `${isExpired ? '已過期\n' : ''}${formatExpiry(product)}`;
     $('selected-expiry').classList.toggle('expired', isExpired);
-    $('selected-expected').textContent = `${numberFormat.format(product.expected)} ${product.unit}`;
+    $('selected-expected').textContent = `${numberFormat.format(openingFor(product))} ${product.unit}`;
     $('selected-unit').textContent = product.unit;
     $('actual-input').value = draft.actual;
     $('note-input').value = draft.note;
+    $('expected-input').value = openingFor(product);
+    $('count-date').value = draft.countDate;
+    const saved = state.records.get(product.id);
+    $('record-date').textContent = saved
+      ? '盤點日期：' + (saved.countDate || '舊紀錄未提供') + '｜最後儲存：' + (saved.updatedAt ? new Date(saved.updatedAt).toLocaleString('zh-TW') : '舊紀錄未提供')
+      : '尚未儲存紀錄';
     renderConfirmation(product);
     if (focus) window.setTimeout(() => $('actual-input').focus(), 30);
   }
@@ -3657,7 +3705,9 @@ window.INVENTORY_CONFIG = {
     $('footer-note').textContent = state.demo
       ? '示範模式：按確認後，資料會保存在這台裝置。'
       : '按確認後，數量與備註將同步至 Supabase。';
+    renderBatches();
     populateCategories();
+    $('category-filter').value = state.category;
     renderStats();
     renderList();
     renderSelected();
@@ -3669,8 +3719,105 @@ window.INVENTORY_CONFIG = {
     setSync(state.demo ? '本機示範' : '已同步');
   }
 
+  function openingFor(product) {
+    return state.records.get(product.id)?.expected ?? currentBatch()?.opening?.[product.id] ?? product.expected;
+  }
+
+  function currentBatch() { return state.batches.find(batch => batch.id === state.batchId); }
+
+  function renderBatches() {
+    $('batch-select').replaceChildren(...state.batches.map(batch => {
+      const option = document.createElement('option');
+      option.value = batch.id;
+      option.textContent = batch.name;
+      return option;
+    }));
+    $('batch-select').value = state.batchId;
+  }
+
   function saveDemoRecords() {
-    window.localStorage.setItem(demoStorageKey, JSON.stringify(Object.fromEntries(state.records)));
+    const records = { ...state.demoBatches, [state.batchId]: Object.fromEntries(state.records) };
+    window.localStorage.setItem(batchStorageKey, JSON.stringify({ batches: state.batches, records, batchId: state.batchId }));
+    state.demoBatches = records;
+  }
+
+  async function runOperation(action) {
+    if (busy) return;
+    busy = true;
+    $('app-content').inert = true;
+    $('export-button').disabled = true;
+    try { await action(); }
+    catch (error) { setSync('儲存失敗', 'error'); showToast(error.message || '操作失敗，請重試'); }
+    finally { busy = false; $('app-content').inert = false; $('export-button').disabled = false; renderSelected(); }
+  }
+
+  async function switchBatch(id) {
+    if (state.drafts.size && !window.confirm('切換批次會捨棄尚未確認的內容，是否繼續？')) { renderBatches(); return; }
+    let records;
+    if (state.demo) records = new Map(Object.entries(state.demoBatches[id] || {}).map(([key,row]) => [key,normalizeRecord(row)]));
+    else {
+      const result = await db.from('inventory_counts').select('*').eq('batch_id', id);
+      if (result.error) { renderBatches(); throw result.error; }
+      records = new Map((result.data || []).map(row => [String(row.product_id),normalizeRecord(row)]));
+    }
+    state.batchId = id;
+    state.records = records;
+    state.drafts.clear();
+    if (state.demo) saveDemoRecords();
+    renderApp();
+  }
+
+  async function newBatch() {
+    const name = $('batch-name').value.trim() || `${todayIso()} 盤點 ${state.batches.length + 1}`;
+    if (state.drafts.size && !window.confirm('新增批次會捨棄尚未確認的內容，是否繼續？')) return;
+    const batch = { id: crypto.randomUUID(), name: name.trim(), created_at: new Date().toISOString(),
+      opening: Object.fromEntries(state.products.map(product => [product.id, openingFor(product)])) };
+    if (!state.demo) {
+      const result = await db.from('inventory_batches').insert(batch);
+      if (result.error) throw result.error;
+    }
+    const previousBatches = state.batches;
+    const previousId = state.batchId;
+    const previousRecords = state.records;
+    state.batches = [...state.batches, batch];
+    state.batchId = batch.id;
+    state.records = new Map();
+    try { if (state.demo) saveDemoRecords(); }
+    catch (error) { state.batches = previousBatches; state.batchId = previousId; state.records = previousRecords; throw error; }
+    state.drafts.clear();
+    $('batch-name').value = '';
+    renderApp();
+    showToast('已新增批次，期初數量沿用前一批次');
+  }
+
+  async function persistRecord(product, record) {
+    if (!state.demo) {
+      const result = await db.from('inventory_counts').upsert({
+        batch_id: state.batchId, product_id: product.id,
+        actual: record.actual === '' ? null : Number(record.actual), note: record.note,
+        confirmed: record.confirmed, expected: record.expected,
+        count_date: record.countDate || null,
+      }, { onConflict: 'batch_id,product_id' }).select('*').single();
+      if (result.error) throw result.error;
+      record = normalizeRecord(result.data);
+    }
+    const previous = state.records.get(product.id);
+    state.records.set(product.id, record);
+    try { if (state.demo) saveDemoRecords(); }
+    catch (error) { if (previous) state.records.set(product.id, previous); else state.records.delete(product.id); throw error; }
+  }
+
+  async function saveExpected() {
+    const product = selectedProduct();
+    const value = $('expected-input').value;
+    if (!product || value.trim() === '' || !Number.isFinite(Number(value)) || Math.abs(Number(value)) >= 1e15) {
+      showToast('請輸入有效的期初數量'); return;
+    }
+    const record = state.records.get(product.id) || { actual: '', note: '', confirmed: false, countDate: '' };
+    await persistRecord(product, { ...record, expected: Math.round(Number(value) * 1000) / 1000, updatedAt: new Date().toISOString() });
+    renderStats(); renderList(); renderSelected();
+    setSync(state.demo ? '已儲存' : '已同步');
+    showToast('本批次期初數量已修正');
   }
 
   async function loadDemo() {
@@ -3681,24 +3828,34 @@ window.INVENTORY_CONFIG = {
       products = await response.json();
     }
     state.products = products.map(normalizeProduct);
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(demoStorageKey) || '{}');
-      state.records = new Map(Object.entries(saved).map(([id, row]) => [id, normalizeRecord(row)]));
-    } catch {
-      state.records = new Map();
+    const stored = window.localStorage.getItem(batchStorageKey);
+    if (stored) {
+      const saved = JSON.parse(stored);
+      state.batches = saved.batches;
+      state.demoBatches = saved.records;
+      state.batchId = saved.batchId;
+    } else {
+      const old = JSON.parse(window.localStorage.getItem(demoStorageKey) || '{}');
+      state.batches = [{ id: 'legacy', name: '原有盤點', opening: Object.fromEntries(state.products.map(p => [p.id,p.expected])) }];
+      state.batchId = 'legacy';
+      state.demoBatches = { legacy: old };
     }
+    state.records = new Map(Object.entries(state.demoBatches[state.batchId] || {}).map(([id,row]) => [id,normalizeRecord(row)]));
     state.drafts = new Map();
     renderApp();
   }
 
   async function loadSupabaseData() {
     setSync('同步中', 'saving');
-    const [productsResult, countsResult] = await Promise.all([
+    const [productsResult, countsResult, batchesResult] = await Promise.all([
       db.from('inventory_products').select('*').order('name'),
-      db.from('inventory_counts').select('product_id, actual, note, confirmed'),
+      db.from('inventory_counts').select('*').eq('batch_id', state.batchId),
+      db.from('inventory_batches').select('*').order('created_at'),
     ]);
     if (productsResult.error) throw productsResult.error;
-    if (countsResult.error) throw countsResult.error;
+    if (countsResult.error) throw new Error('無法讀取盤點紀錄，請確認已執行 supabase-batches.sql：' + countsResult.error.message);
+    if (batchesResult.error) throw new Error('請先執行 supabase-batches.sql 升級盤點資料庫：' + batchesResult.error.message);
+    state.batches = batchesResult.data || [];
     state.products = (productsResult.data || []).map(normalizeProduct);
     state.records = new Map((countsResult.data || []).map((row) => [String(row.product_id), normalizeRecord(row)]));
     state.drafts = new Map();
@@ -3758,29 +3915,18 @@ window.INVENTORY_CONFIG = {
     if (!product) return;
     const draft = draftFor(product);
     const actual = Number(draft.actual);
-    if (draft.actual === '' || !Number.isFinite(actual) || actual < 0) {
+    if (draft.actual === '' || !Number.isFinite(actual) || actual < 0 || actual >= 1e15) {
       showToast('請先輸入有效的實盤數量');
       return;
     }
 
-    $('confirm-button').disabled = true;
-    setSync('儲存中', 'saving');
-    if (!state.demo) {
-      const { error } = await db.from('inventory_counts').upsert(
-        { product_id: product.id, actual, note: draft.note.trim(), confirmed: true },
-        { onConflict: 'product_id' },
-      );
-      if (error) {
-        setSync('儲存失敗', 'error');
-        showToast(`確認失敗：${error.message}`);
-        $('confirm-button').disabled = false;
-        return;
-      }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.countDate) || !$('count-date').validity.valid) {
+      showToast('請填寫盤點日期'); return;
     }
-
-    state.records.set(product.id, { actual: String(actual), note: draft.note.trim(), confirmed: true });
+    setSync('儲存中', 'saving');
+    await persistRecord(product, { actual: String(Math.round(actual * 1000) / 1000), note: draft.note.trim(), confirmed: true,
+      expected: openingFor(product), countDate: draft.countDate, updatedAt: new Date().toISOString() });
     state.drafts.delete(product.id);
-    if (state.demo) saveDemoRecords();
     renderStats();
     renderList();
     renderSelected();
@@ -3794,18 +3940,10 @@ window.INVENTORY_CONFIG = {
     const hasSavedRecord = state.records.has(product.id);
     if (hasSavedRecord && !window.confirm(`確定清除「${product.name}」的已確認紀錄與備註嗎？`)) return;
 
-    if (!state.demo && hasSavedRecord) {
-      setSync('清除中', 'saving');
-      const { error } = await db.from('inventory_counts').delete().eq('product_id', product.id);
-      if (error) {
-        setSync('清除失敗', 'error');
-        showToast(`清除失敗：${error.message}`);
-        return;
-      }
+    if (hasSavedRecord) {
+      await persistRecord(product, { actual: '', note: '', confirmed: false, expected: openingFor(product), countDate: '', updatedAt: new Date().toISOString() });
     }
-    state.records.delete(product.id);
     state.drafts.delete(product.id);
-    if (state.demo) saveDemoRecords();
     renderStats();
     renderList();
     renderSelected();
@@ -3815,7 +3953,7 @@ window.INVENTORY_CONFIG = {
   function updateCurrentDraft() {
     const product = selectedProduct();
     if (!product) return;
-    setDraft(product, $('actual-input').value, $('note-input').value);
+    setDraft(product, $('actual-input').value, $('note-input').value, $('count-date').value);
     renderConfirmation(product);
     renderStats();
     renderList();
@@ -3845,7 +3983,7 @@ window.INVENTORY_CONFIG = {
 
   function exportCsv() {
     const rows = [
-      ['產品類別', '產品代碼', '產品名稱', '倉庫', '效期分類', '效期', '未填效期批數', '帳面數量', '實盤數量', '差異', '單位', '確認狀態', '備註'],
+      ['盤點批次', '盤點日期', '最後儲存時間', '產品類別', '產品代碼', '產品名稱', '倉庫', '效期分類', '效期', '未填效期批數', '期初數量', '實盤數量', '差異', '單位', '確認狀態', '備註'],
       ...state.products.map((product) => {
         const record = state.records.get(product.id);
         const actual = record?.confirmed ? record.actual : '';
@@ -3853,8 +3991,8 @@ window.INVENTORY_CONFIG = {
         const status = !record?.confirmed ? '未確認' : difference === 0 ? '相符' : '有差異';
         const expiryStatus = getExpiryStatus(product);
         const expiryLabel = expiryStatus === 'expired' ? '已過期' : expiryStatus === 'active' ? '效期內' : '未填完整';
-        return [product.category, product.code, product.name, product.warehouses.join('、'), expiryLabel,
-          product.expiryDates.join('、'), product.expiryMissingCount, product.expected, actual,
+        return [currentBatch()?.name || '', record?.countDate || '', record?.updatedAt || '', product.category, product.code, product.name, product.warehouses.join('、'), expiryLabel,
+          product.expiryDates.join('、'), product.expiryMissingCount, openingFor(product), actual,
           difference ?? '', product.unit, status, record?.note ?? ''];
       }),
     ];
@@ -3862,12 +4000,16 @@ window.INVENTORY_CONFIG = {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `盤點結果-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.download = `盤點結果-${(currentBatch()?.name || '').replace(/[\\/:*?"<>|]/g, '_')}-${todayIso()}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
 
   function bindEvents() {
+    $('batch-select').addEventListener('change', event => runOperation(() => switchBatch(event.target.value)));
+    $('new-batch-button').addEventListener('click', () => runOperation(newBatch));
+    $('save-expected-button').addEventListener('click', () => runOperation(saveExpected));
+    $('count-date').addEventListener('input', updateCurrentDraft);
     $('search-input').addEventListener('input', (event) => {
       state.search = event.target.value;
       renderList();
@@ -3897,11 +4039,11 @@ window.INVENTORY_CONFIG = {
     });
     $('actual-input').addEventListener('input', updateCurrentDraft);
     $('note-input').addEventListener('input', updateCurrentDraft);
-    $('confirm-button').addEventListener('click', confirmCurrent);
-    $('clear-item-button').addEventListener('click', clearCurrent);
+    $('confirm-button').addEventListener('click', () => runOperation(confirmCurrent));
+    $('clear-item-button').addEventListener('click', () => runOperation(clearCurrent));
     $('next-button').addEventListener('click', goToNextPending);
     $('export-button').addEventListener('click', exportCsv);
-    $('refresh-button').addEventListener('click', async () => {
+    $('refresh-button').addEventListener('click', () => runOperation(async () => {
       if (state.drafts.size && !window.confirm('有尚未確認的內容，重新整理後會捨棄。是否繼續？')) return;
       try {
         if (state.demo) await loadDemo();
@@ -3910,7 +4052,7 @@ window.INVENTORY_CONFIG = {
       } catch (error) {
         showToast(error.message || '重新整理失敗');
       }
-    });
+    }));
     $('sign-out-button').addEventListener('click', async () => {
       if (db) await db.auth.signOut();
       window.location.reload();
