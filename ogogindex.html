@@ -249,6 +249,13 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
 .record-date { margin: 10px 0 14px; }
 .hide-exact-field { display: flex; align-items: center; gap: 8px; width: fit-content; padding: 8px 4px; font-size: 14px; cursor: pointer; }
 .hide-exact-field input { width: 18px; height: 18px; accent-color: var(--green); }
+.entry-section { margin: 18px 0; }
+.entry-total { display: flex; justify-content: space-between; gap: 12px; padding: 14px; border-radius: 12px; background: var(--green-soft); color: var(--green); }
+#entry-list { font-size: 13px; color: var(--muted); margin-top: 10px; max-height: 350px; overflow-y: auto; }
+.entry-row { border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 8px; color: var(--ink); }
+.entry-row small { display: block; margin-top: 5px; color: var(--muted); }
+.entry-row p { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.entry-row button { margin-right: 8px; padding: 6px 12px; }
 
     </style>
     
@@ -384,8 +391,12 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
               <div><input id="expected-input" type="number" step="0.001" inputmode="decimal"><button id="save-expected-button" type="button" class="quiet-button">儲存期初</button></div>
             </div>
             <p id="record-date" class="record-date"></p>
+            <section class="entry-section" aria-label="盤點紀錄">
+              <div class="entry-total"><span>實際盤點合計</span><strong id="count-total">尚無紀錄</strong></div>
+              <div id="entry-list"></div>
+            </section>
             <label class="actual-field">
-              <span>實際盤點數量</span>
+              <span>本筆盤點數量</span>
               <div>
                 <input id="actual-input" type="number" min="0" step="any" inputmode="decimal" placeholder="輸入數量">
                 <span id="selected-unit"></span>
@@ -399,9 +410,10 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
               <span>差異</span><strong id="difference-value">—</strong>
               <small id="difference-note">輸入實盤數量後自動計算</small>
             </div>
-            <button id="confirm-button" class="confirm-button" type="button">確認此項</button>
+            <button id="confirm-button" class="confirm-button" type="button">新增盤點紀錄</button>
+            <button id="cancel-entry-button" class="next-button" type="button" hidden>取消修正</button>
             <button id="next-button" class="next-button" type="button">下一項待盤產品</button>
-            <button id="clear-item-button" class="clear-item" type="button" hidden>清除此項紀錄</button>
+            <button id="clear-item-button" class="clear-item" type="button" hidden>清除此商品全部盤點紀錄</button>
           </aside>
         </div>
 
@@ -3474,7 +3486,11 @@ window.INVENTORY_CONFIG = {
   }
 
   function normalizeRecord(row) {
+    const entries = Array.isArray(row.entries) ? row.entries :
+      row.actual != null && row.actual !== '' && row.confirmed !== false
+        ? [{ id: 'legacy', actual: String(row.actual), note: String(row.note || ''), countDate: row.count_date ?? row.countDate ?? '', createdAt: row.updated_at ?? row.updatedAt ?? '', updatedAt: row.updated_at ?? row.updatedAt ?? '' }] : [];
     return {
+      entries,
       actual: String(row.actual ?? ''),
       expected: row.expected == null ? null : Number(row.expected),
       countDate: row.count_date ?? row.countDate ?? '',
@@ -3487,10 +3503,7 @@ window.INVENTORY_CONFIG = {
   function draftFor(product) {
     const draft = state.drafts.get(product.id);
     if (draft) return draft;
-    const record = state.records.get(product.id);
-    return record
-      ? { actual: record.actual, note: record.note, dirty: false }
-      : { actual: '', note: '', dirty: false };
+    return { actual: '', note: '', dirty: false };
   }
 
   function getDifference(product, actualValue) {
@@ -3508,9 +3521,9 @@ window.INVENTORY_CONFIG = {
   }
 
   function setDraft(product, actual, note) {
-    const record = state.records.get(product.id);
-    const dirty = !record?.confirmed || record.actual !== actual || record.note !== note;
-    if (dirty) state.drafts.set(product.id, { actual, note, dirty: true });
+    const entryId = state.drafts.get(product.id)?.entryId;
+    const dirty = Boolean(entryId) || actual !== '' || note !== '';
+    if (dirty) state.drafts.set(product.id, { actual, note, entryId, dirty: true });
     else state.drafts.delete(product.id);
     setSync(dirty ? '尚未確認' : state.demo ? '已儲存' : '已同步', dirty ? 'saving' : '');
   }
@@ -3636,7 +3649,7 @@ window.INVENTORY_CONFIG = {
   function renderConfirmation(product) {
     const draft = draftFor(product);
     const record = state.records.get(product.id);
-    const difference = getDifference(product, draft.actual);
+    const difference = getDifference(product, record?.confirmed ? record.actual : '');
     const status = getStatus(product);
     const card = $('difference-card');
     const pill = $('selected-pill');
@@ -3657,9 +3670,10 @@ window.INVENTORY_CONFIG = {
 
     const actualNumber = Number(draft.actual);
     const invalid = draft.actual === '' || !Number.isFinite(actualNumber) || actualNumber < 0 || actualNumber >= 1e15;
-    const unchanged = Boolean(record?.confirmed) && !draft.dirty;
-    $('confirm-button').disabled = invalid || unchanged;
-    $('confirm-button').textContent = unchanged ? '已確認' : record?.confirmed ? '更新確認' : '確認此項';
+    $('confirm-button').disabled = invalid;
+    $('confirm-button').textContent = draft.entryId ? '儲存修正' : '新增盤點紀錄';
+    $('cancel-entry-button').hidden = !draft.entryId;
+    $('count-total').textContent = record?.confirmed ? `${numberFormat.format(Number(record.actual))} ${product.unit}` : '尚無紀錄';
     $('clear-item-button').hidden = !record?.confirmed && draft.actual === '' && draft.note === '';
   }
 
@@ -3685,7 +3699,40 @@ window.INVENTORY_CONFIG = {
       ? '盤點日期：' + (saved.countDate || '舊紀錄未提供') + '｜最後儲存：' + (saved.updatedAt ? new Date(saved.updatedAt).toLocaleString('zh-TW') : '舊紀錄未提供')
       : '確認盤點時自動記錄當天日期與儲存時間';
     renderConfirmation(product);
+    renderEntries(product);
     if (focus) window.setTimeout(() => $('actual-input').focus(), 30);
+  }
+
+  async function saveEntries(product, entries) {
+    const total = entries.reduce((sum, entry) => sum + Math.round(Number(entry.actual) * 1000), 0) / 1000;
+    if (!Number.isFinite(total) || total >= 1e15) throw new Error('合計數量超出可儲存範圍');
+    await persistRecord(product, { entries, actual: entries.length ? String(total) : '',
+      confirmed: entries.length > 0, expected: openingFor(product),
+      note: entries.map(entry => entry.note).filter(Boolean).join('；'),
+      countDate: entries.map(entry => entry.countDate).filter(Boolean).sort().at(-1) || '',
+      updatedAt: new Date().toISOString() });
+  }
+
+  function renderEntries(product) {
+    const entries = state.records.get(product.id)?.entries || [];
+    const list = $('entry-list');
+    list.replaceChildren();
+    if (!entries.length) { list.textContent = '尚無盤點紀錄，請在下方新增。'; return; }
+    entries.forEach((entry, index) => {
+      const row = document.createElement('div'); row.className = 'entry-row';
+      const title = document.createElement('strong');
+      title.textContent = `第 ${index + 1} 筆 · ${numberFormat.format(Number(entry.actual))} ${product.unit}`;
+      const date = document.createElement('small');
+      date.textContent = `${entry.countDate || '舊紀錄日期未提供'}${entry.createdAt ? ' · ' + new Date(entry.createdAt).toLocaleTimeString('zh-TW') : ''}`;
+      const note = document.createElement('p'); note.textContent = entry.note || '無備註';
+      row.append(title, date, note);
+      for (const [action, label] of [['edit', '修正'], ['delete', '刪除']]) {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'quiet-button';
+        button.textContent = label; button.dataset.entryAction = action; button.dataset.entryId = entry.id;
+        row.append(button);
+      }
+      list.append(row);
+    });
   }
 
   function populateCategories() {
@@ -3795,13 +3842,19 @@ window.INVENTORY_CONFIG = {
 
   async function persistRecord(product, record) {
     if (!state.demo) {
-      const result = await db.from('inventory_counts').upsert({
+      const previous = state.records.get(product.id);
+      const payload = {
         batch_id: state.batchId, product_id: product.id,
         actual: record.actual === '' ? null : Number(record.actual), note: record.note,
         confirmed: record.confirmed, expected: record.expected,
         count_date: record.countDate || null,
-      }, { onConflict: 'batch_id,product_id' }).select('*').single();
-      if (result.error) throw result.error;
+        entries: record.entries || [],
+      };
+      const query = previous
+        ? db.from('inventory_counts').update(payload).eq('batch_id', state.batchId).eq('product_id', product.id).eq('updated_at', previous.updatedAt)
+        : db.from('inventory_counts').insert(payload);
+      const result = await query.select('*').single();
+      if (result.error) throw new Error(`儲存失敗，若其他裝置已更新此商品請先重新整理。${result.error.message}`);
       record = normalizeRecord(result.data);
     }
     const previous = state.records.get(product.id);
@@ -3924,14 +3977,21 @@ window.INVENTORY_CONFIG = {
     }
 
     setSync('儲存中', 'saving');
-    await persistRecord(product, { actual: String(Math.round(actual * 1000) / 1000), note: draft.note.trim(), confirmed: true,
-      expected: openingFor(product), countDate: todayIso(), updatedAt: new Date().toISOString() });
+    const entries = [...(state.records.get(product.id)?.entries || [])];
+    const timestamp = new Date().toISOString();
+    const index = draft.entryId ? entries.findIndex(entry => entry.id === draft.entryId) : -1;
+    if (draft.entryId && index < 0) throw new Error('此筆紀錄已不存在，請重新整理');
+    const entry = { id: draft.entryId || crypto.randomUUID(), actual: String(Math.round(actual * 1000) / 1000), note: draft.note.trim(),
+      countDate: index >= 0 ? entries[index].countDate : todayIso(), createdAt: index >= 0 ? entries[index].createdAt : timestamp, updatedAt: timestamp };
+    if (index >= 0) entries[index] = entry;
+    else entries.push(entry);
+    await saveEntries(product, entries);
     state.drafts.delete(product.id);
     renderStats();
     renderList();
     renderSelected();
     setSync(state.demo ? '已儲存' : '已同步');
-    showToast(`${product.name} 已確認`);
+    showToast(draft.entryId ? '紀錄已修正，合計已更新' : '已新增紀錄，合計已更新');
   }
 
   async function clearCurrent() {
@@ -3941,7 +4001,7 @@ window.INVENTORY_CONFIG = {
     if (hasSavedRecord && !window.confirm(`確定清除「${product.name}」的已確認紀錄與備註嗎？`)) return;
 
     if (hasSavedRecord) {
-      await persistRecord(product, { actual: '', note: '', confirmed: false, expected: openingFor(product), countDate: '', updatedAt: new Date().toISOString() });
+      await saveEntries(product, []);
     }
     state.drafts.delete(product.id);
     renderStats();
@@ -3983,7 +4043,7 @@ window.INVENTORY_CONFIG = {
 
   function exportCsv() {
     const rows = [
-      ['盤點批次', '盤點日期', '最後儲存時間', '產品類別', '產品代碼', '產品名稱', '倉庫', '效期分類', '效期', '未填效期批數', '期初數量', '實盤數量', '差異', '單位', '確認狀態', '備註'],
+      ['盤點批次', '盤點日期', '最後儲存時間', '產品類別', '產品代碼', '產品名稱', '倉庫', '效期分類', '效期', '未填效期批數', '期初數量', '實盤數量', '差異', '單位', '確認狀態', '備註', '逐筆盤點明細'],
       ...state.products.map((product) => {
         const record = state.records.get(product.id);
         const actual = record?.confirmed ? record.actual : '';
@@ -3993,7 +4053,8 @@ window.INVENTORY_CONFIG = {
         const expiryLabel = expiryStatus === 'expired' ? '已過期' : expiryStatus === 'active' ? '效期內' : '未填完整';
         return [currentBatch()?.name || '', record?.countDate || '', record?.updatedAt || '', product.category, product.code, product.name, product.warehouses.join('、'), expiryLabel,
           product.expiryDates.join('、'), product.expiryMissingCount, openingFor(product), actual,
-          difference ?? '', product.unit, status, record?.note ?? ''];
+          difference ?? '', product.unit, status, record?.note ?? '',
+          (record?.entries || []).map((entry, index) => `第${index + 1}筆：${entry.actual} ${product.unit}｜${entry.countDate || '舊紀錄日期未提供'}｜${entry.note || ''}`).join('\n')];
       }),
     ];
     const csv = `\uFEFF${rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n')}`;
@@ -4006,6 +4067,30 @@ window.INVENTORY_CONFIG = {
   }
 
   function bindEvents() {
+    $('entry-list').addEventListener('click', event => {
+      const button = event.target.closest('[data-entry-action]');
+      if (!button) return;
+      const product = selectedProduct();
+      const entries = state.records.get(product.id)?.entries || [];
+      const entry = entries.find(item => item.id === button.dataset.entryId);
+      if (!entry) return;
+      if (button.dataset.entryAction === 'edit') {
+        if (state.drafts.get(product.id)?.dirty && !window.confirm('捨棄尚未儲存的輸入並修正此筆紀錄？')) return;
+        state.drafts.set(product.id, { actual: entry.actual, note: entry.note, entryId: entry.id, dirty: true });
+        renderSelected({ focus: true });
+      } else {
+        runOperation(async () => {
+          if (!window.confirm('刪除此筆盤點紀錄？合計會自動重新計算。')) return;
+          await saveEntries(product, entries.filter(item => item.id !== entry.id));
+          if (state.drafts.get(product.id)?.entryId === entry.id) state.drafts.delete(product.id);
+          renderStats(); renderList(); renderSelected();
+          setSync(state.demo ? '已儲存' : '已同步');
+        });
+      }
+    });
+    $('cancel-entry-button').addEventListener('click', () => {
+      state.drafts.delete(state.selectedId); renderStats(); renderList(); renderSelected();
+    });
     $('hide-exact').addEventListener('change', (event) => {
       state.hideExact = event.target.checked;
       renderList();
