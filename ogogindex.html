@@ -256,6 +256,8 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
 .entry-row small { display: block; margin-top: 5px; color: var(--muted); }
 .entry-row p { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .entry-row button { margin-right: 8px; padding: 6px 12px; }
+#entry-expiry { width: 100%; min-width: 0; padding: 12px; border: 1px solid #bdcbc3; border-radius: 12px; background: white; margin-bottom: 7px; }
+.expiry-group-heading { padding: 12px 8px; background: var(--green-soft); color: var(--green); font-weight: 700; margin-bottom: 8px; border-radius: 8px; }
 
     </style>
     
@@ -395,6 +397,12 @@ footer button { border: 0; background: transparent; color: var(--red); cursor: p
               <div class="entry-total"><span>實際盤點合計</span><strong id="count-total">尚無紀錄</strong></div>
               <div id="entry-list"></div>
             </section>
+            <label class="note-field" for="entry-expiry">
+              <span>本筆商品效期</span>
+              <input id="entry-expiry" type="date" list="expiry-suggestions">
+              <datalist id="expiry-suggestions"></datalist>
+              <small>同品項不同效期請分筆新增；未填會獨立列為待確認。盤點日期仍自動記錄。</small>
+            </label>
             <label class="actual-field">
               <span>本筆盤點數量</span>
               <div>
@@ -3503,7 +3511,7 @@ window.INVENTORY_CONFIG = {
   function draftFor(product) {
     const draft = state.drafts.get(product.id);
     if (draft) return draft;
-    return { actual: '', note: '', dirty: false };
+    return { actual: '', note: '', expiryDate: '', dirty: false };
   }
 
   function getDifference(product, actualValue) {
@@ -3520,10 +3528,10 @@ window.INVENTORY_CONFIG = {
     return getDifference(product, record.actual) === 0 ? 'exact' : 'different';
   }
 
-  function setDraft(product, actual, note) {
+  function setDraft(product, actual, note, expiryDate = '') {
     const entryId = state.drafts.get(product.id)?.entryId;
-    const dirty = Boolean(entryId) || actual !== '' || note !== '';
-    if (dirty) state.drafts.set(product.id, { actual, note, entryId, dirty: true });
+    const dirty = Boolean(entryId) || actual !== '' || note !== '' || expiryDate !== '';
+    if (dirty) state.drafts.set(product.id, { actual, note, expiryDate, entryId, dirty: true });
     else state.drafts.delete(product.id);
     setSync(dirty ? '尚未確認' : state.demo ? '已儲存' : '已同步', dirty ? 'saving' : '');
   }
@@ -3693,6 +3701,10 @@ window.INVENTORY_CONFIG = {
     $('selected-unit').textContent = product.unit;
     $('actual-input').value = draft.actual;
     $('note-input').value = draft.note;
+    $('entry-expiry').value = draft.expiryDate || '';
+    $('expiry-suggestions').replaceChildren(...product.expiryDates.map(value => {
+      const option = document.createElement('option'); option.value = value; return option;
+    }));
     $('expected-input').value = openingFor(product);
     const saved = state.records.get(product.id);
     $('record-date').textContent = saved
@@ -3713,12 +3725,28 @@ window.INVENTORY_CONFIG = {
       updatedAt: new Date().toISOString() });
   }
 
+  function expiryGroups(entries) {
+    const groups = new Map();
+    entries.forEach((entry, index) => {
+      const key = entry.expiryDate || '';
+      if (!groups.has(key)) groups.set(key, { expiryDate: key, units: 0, items: [] });
+      const group = groups.get(key);
+      group.units += Math.round(Number(entry.actual) * 1000);
+      group.items.push({ entry, index });
+    });
+    return [...groups.values()].sort((a, b) => (a.expiryDate || '9999').localeCompare(b.expiryDate || '9999'));
+  }
+
   function renderEntries(product) {
     const entries = state.records.get(product.id)?.entries || [];
     const list = $('entry-list');
     list.replaceChildren();
     if (!entries.length) { list.textContent = '尚無盤點紀錄，請在下方新增。'; return; }
-    entries.forEach((entry, index) => {
+    expiryGroups(entries).forEach(group => {
+      const heading = document.createElement('div'); heading.className = 'expiry-group-heading';
+      heading.textContent = `效期：${group.expiryDate || '未填效期（待確認）'} · 小計 ${numberFormat.format(group.units / 1000)} ${product.unit}`;
+      list.append(heading);
+      group.items.forEach(({ entry, index }) => {
       const row = document.createElement('div'); row.className = 'entry-row';
       const title = document.createElement('strong');
       title.textContent = `第 ${index + 1} 筆 · ${numberFormat.format(Number(entry.actual))} ${product.unit}`;
@@ -3732,6 +3760,7 @@ window.INVENTORY_CONFIG = {
         row.append(button);
       }
       list.append(row);
+      });
     });
   }
 
@@ -3977,11 +4006,15 @@ window.INVENTORY_CONFIG = {
     }
 
     setSync('儲存中', 'saving');
+    const expiryDate = draft.expiryDate || '';
+    if (expiryDate && (!/^\d{4}-\d{2}-\d{2}$/.test(expiryDate) || Number.isNaN(Date.parse(expiryDate)) || new Date(expiryDate).toISOString().slice(0, 10) !== expiryDate)) {
+      throw new Error('請輸入有效的效期日期');
+    }
     const entries = [...(state.records.get(product.id)?.entries || [])];
     const timestamp = new Date().toISOString();
     const index = draft.entryId ? entries.findIndex(entry => entry.id === draft.entryId) : -1;
     if (draft.entryId && index < 0) throw new Error('此筆紀錄已不存在，請重新整理');
-    const entry = { id: draft.entryId || crypto.randomUUID(), actual: String(Math.round(actual * 1000) / 1000), note: draft.note.trim(),
+    const entry = { id: draft.entryId || crypto.randomUUID(), actual: String(Math.round(actual * 1000) / 1000), note: draft.note.trim(), expiryDate,
       countDate: index >= 0 ? entries[index].countDate : todayIso(), createdAt: index >= 0 ? entries[index].createdAt : timestamp, updatedAt: timestamp };
     if (index >= 0) entries[index] = entry;
     else entries.push(entry);
@@ -4013,7 +4046,7 @@ window.INVENTORY_CONFIG = {
   function updateCurrentDraft() {
     const product = selectedProduct();
     if (!product) return;
-    setDraft(product, $('actual-input').value, $('note-input').value);
+    setDraft(product, $('actual-input').value, $('note-input').value, $('entry-expiry').value);
     renderConfirmation(product);
     renderStats();
     renderList();
@@ -4054,7 +4087,7 @@ window.INVENTORY_CONFIG = {
         return [currentBatch()?.name || '', record?.countDate || '', record?.updatedAt || '', product.category, product.code, product.name, product.warehouses.join('、'), expiryLabel,
           product.expiryDates.join('、'), product.expiryMissingCount, openingFor(product), actual,
           difference ?? '', product.unit, status, record?.note ?? '',
-          (record?.entries || []).map((entry, index) => `第${index + 1}筆：${entry.actual} ${product.unit}｜${entry.countDate || '舊紀錄日期未提供'}｜${entry.note || ''}`).join('\n')];
+          (record?.entries || []).map((entry, index) => `第${index + 1}筆：${entry.actual} ${product.unit}｜效期：${entry.expiryDate || '未填效期'}｜盤點日：${entry.countDate || '舊紀錄日期未提供'}｜${entry.note || ''}`).join('\n')];
       }),
     ];
     const csv = `\uFEFF${rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n')}`;
@@ -4076,7 +4109,7 @@ window.INVENTORY_CONFIG = {
       if (!entry) return;
       if (button.dataset.entryAction === 'edit') {
         if (state.drafts.get(product.id)?.dirty && !window.confirm('捨棄尚未儲存的輸入並修正此筆紀錄？')) return;
-        state.drafts.set(product.id, { actual: entry.actual, note: entry.note, entryId: entry.id, dirty: true });
+        state.drafts.set(product.id, { actual: entry.actual, note: entry.note, expiryDate: entry.expiryDate || '', entryId: entry.id, dirty: true });
         renderSelected({ focus: true });
       } else {
         runOperation(async () => {
@@ -4127,6 +4160,7 @@ window.INVENTORY_CONFIG = {
     });
     $('actual-input').addEventListener('input', updateCurrentDraft);
     $('note-input').addEventListener('input', updateCurrentDraft);
+    $('entry-expiry').addEventListener('input', updateCurrentDraft);
     $('confirm-button').addEventListener('click', () => runOperation(confirmCurrent));
     $('clear-item-button').addEventListener('click', () => runOperation(clearCurrent));
     $('next-button').addEventListener('click', goToNextPending);
