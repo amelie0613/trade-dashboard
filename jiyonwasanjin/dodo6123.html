@@ -9426,6 +9426,7 @@ function _isProjectMatchedOutbound(r = {}) {
     return _isProfitSalesOutbound(r) ||
            warehouseType === '再途銷貨' ||
            source === '在途出庫' ||
+           source === '加工子件' || // 加工成品進入在途台帳後，必須能與利潤明細核銷
            source === '歷史匯入'; // 歷史 Excel 匯入的台帳列也要能參與核銷比對，不然舊資料永遠核銷不到
 }
 
@@ -15909,4 +15910,3 @@ window._runFullAnalysis = _runFullAnalysis;
 
 </body>
 </html>
-
