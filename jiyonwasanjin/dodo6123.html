@@ -2525,15 +2525,58 @@ function parseLotDate(lot){
 
 function parseExcelDate(v){
   if(!v) return null;
-  if(v instanceof Date && !isNaN(v)) return v;
+  if(v instanceof Date && !isNaN(v)){
+    const d = new Date(v); d.setHours(0,0,0,0); return d;
+  }
   if(typeof v === 'number'){ // Excel serial
     const d = new Date(Math.round((v - 25569)*86400*1000));
-    if(!isNaN(d)) return d;
+    if(!isNaN(d)){ d.setHours(0,0,0,0); return d; }
   }
   const s = String(v).trim();
+  if(!s) return null;
+
+  // 純數字可能是 Excel 序號或 YYYYMMDD。
+  if(/^\d+(?:\.\d+)?$/.test(s)){
+    if(/^\d{8}$/.test(s)){
+      const y=+s.slice(0,4), m=+s.slice(4,6), day=+s.slice(6,8);
+      const d = new Date(y,m-1,day);
+      if(d.getFullYear()===y && d.getMonth()===m-1 && d.getDate()===day) return d;
+    }
+    const serial = Number(s);
+    if(serial > 20000 && serial < 100000){
+      const d = new Date(Math.round((serial - 25569)*86400*1000));
+      if(!isNaN(d)){ d.setHours(0,0,0,0); return d; }
+    }
+  }
+
+  // 明確拆解常見日期格式，避免不同瀏覽器對字串日期的判讀不一致。
+  const m = s.match(/^(\d{4})[\/.\-年](\d{1,2})[\/.\-月](\d{1,2})(?:日|\s|T|$)/);
+  if(m){
+    const y=+m[1], mon=+m[2], day=+m[3];
+    const d = new Date(y,mon-1,day);
+    if(d.getFullYear()===y && d.getMonth()===mon-1 && d.getDate()===day) return d;
+  }
+
   const dt = new Date(s);
-  if(!isNaN(dt)) return dt;
+  if(!isNaN(dt)){ dt.setHours(0,0,0,0); return dt; }
   return null;
+}
+
+const EXPIRY_FIELD_ALIASES = ['有效期至','批號有效期至','有效日期','效期至','到期日','到期日期'];
+function getFirstRowValue(row, keys){
+  for(const key of keys){
+    const value = row?.[key];
+    if(value !== undefined && value !== null && String(value).trim() !== '') return value;
+  }
+  return '';
+}
+
+function inventoryIdentityKey(row){
+  const code = String(row?.['產品代碼'] || '').trim().replace(/^0+(?=\d)/,'');
+  const name = String(row?.['產品名稱'] || '').trim();
+  const lot  = String(row?.['批號'] || '').trim();
+  const wh   = String(row?.['倉庫名稱'] || '').trim();
+  return [code,name,lot,wh].join('__');
 }
 
 // ─── DERIVED ──────────────────────────────────────────────────
@@ -2560,12 +2603,27 @@ function classify(row){
       else if(left <= 180) flags.soonSeg = 'caution';
       else                 flags.soonSeg = 'track';
     }
+  } else {
+    // 從 Sheets／資料庫讀回的舊資料若沒有日期，仍保留已儲存的分類。
+    const storedStatus = String(row['庫存狀態'] || '').trim();
+    if(storedStatus.startsWith('過期品')) flags.expired = true;
+    else if(storedStatus.startsWith('即將到期')){
+      flags.soon = true;
+      const storedDays = Number(row['剩餘在庫天數']);
+      if(Number.isFinite(storedDays)){
+        flags.soonSeg = storedDays <= 30 ? 'urgent' : storedDays <= 90 ? 'warn' : storedDays <= 180 ? 'caution' : 'track';
+      } else {
+        flags.soonSeg = storedStatus.includes('緊急') ? 'urgent' : storedStatus.includes('警示') ? 'warn' : storedStatus.includes('注意') ? 'caution' : 'track';
+      }
+    }
   }
 
   if(lotDate){
     const cutoff = new Date(TODAY);
     cutoff.setFullYear(cutoff.getFullYear() - longYears);
     if(lotDate <= cutoff) flags.long = true;
+  } else if(String(row['庫存狀態'] || '').trim().startsWith('長期在庫')){
+    flags.long = true;
   }
 
   return flags;
@@ -2602,7 +2660,7 @@ function loadFile(input){
   const file = input.files[0]; if(!file) return;
   showLoader(true);
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     try{
       const wb = XLSX.read(e.target.result, {type:'binary', cellDates:true});
 
@@ -2613,9 +2671,6 @@ function loadFile(input){
         const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
         excelSheets[sheetName] = rows;
       });
-
-      // 【新】自動寫入 Google Sheets
-      saveToGoogleSheets(excelSheets);
 
       // 【舊】本地顯示（用第一個工作表的資料）
       const firstSheetName = wb.SheetNames[0];
@@ -2633,9 +2688,18 @@ function loadFile(input){
         return row;
       });
 
-      processData(processedData);
-
-      showToast(`✅ 成功載入 ${processedData.length} 筆資料`);
+      const stats = processData(processedData);
+      const restored = await restoreMissingExpiryFromSupabase();
+      const finalExpiryCount = allData.filter(r => r._expDate).length;
+      // 只有來源檔本身含有效期才同步原始工作表，避免空白欄覆蓋既有分析資料。
+      if(stats.expiryCount > 0) saveToGoogleSheets(excelSheets);
+      if(finalExpiryCount === 0){
+        showToast(`⚠️ 已載入 ${processedData.length} 筆，但來源檔缺少有效期，過期品無法分類`, 6000);
+      } else if(restored > 0){
+        showToast(`✅ 載入 ${processedData.length} 筆，並補回 ${restored} 筆既有有效期`);
+      } else {
+        showToast(`✅ 成功載入 ${processedData.length} 筆（含有效期 ${stats.expiryCount} 筆）`);
+      }
     }catch(err){
       showToast('❌ 讀取失敗：'+err.message, 4000);
     }
@@ -2655,6 +2719,12 @@ function toISODate(v){
 async function saveToSupabase(dataDate){
   if(!allData || !allData.length) return { ok: false, error: '尚無資料' };
   try{
+    await restoreMissingExpiryFromSupabase();
+    const hasExpirySource = allData.some(r => r._expDate);
+    if(!hasExpirySource){
+      return { ok: false, error: '來源資料沒有有效期，已停止覆寫，避免清空過期品分類' };
+    }
+
     // 排除未入庫資料，避免與 Supabase 的未入庫資料重複
     const mainData = allData.filter(r => r['倉庫名稱'] !== '未入庫');
     const records = mainData.map(r => {
@@ -2791,8 +2861,10 @@ function processData(raw){
   allData = raw.map(r => {
     const code = String(r['產品代碼'] || '');
     r['產品代碼'] = code ? code.padStart(4, '0') : '';
-    r._expDate = parseExcelDate(r['有效期至']);
-    r._lotDate = parseLotDate(r['批號']);
+    const expRaw = getFirstRowValue(r, EXPIRY_FIELD_ALIASES);
+    if(expRaw !== '') r['有效期至'] = expRaw;
+    r._expDate = parseExcelDate(expRaw);
+    r._lotDate = parseExcelDate(r['入庫日期']) || parseLotDate(r['批號']);
     return r;
   });
 
@@ -2806,6 +2878,60 @@ function processData(raw){
   recompute();
   renderPrices();
   const uz = document.getElementById('uploadZone'); if(uz) uz.style.display = 'none';
+
+  return {
+    total: allData.length,
+    expiryCount: allData.filter(r => r._expDate).length,
+  };
+}
+
+async function restoreMissingExpiryFromSupabase(){
+  if(!allData.length || !SUPABASE_URL || !SUPABASE_ANON_KEY) return 0;
+  const missingRows = allData.filter(r => !r._expDate);
+  if(!missingRows.length) return 0;
+
+  try{
+    const select = encodeURIComponent('產品代碼,產品名稱,批號,倉庫名稱,有效期至,庫存狀態,剩餘在庫天數');
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/inventory?select=${select}`, {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if(!resp.ok) return 0;
+
+    const savedRows = await resp.json();
+    const savedMap = new Map();
+    savedRows.forEach(r => {
+      const expDate = parseExcelDate(r['有效期至']);
+      const status = String(r['庫存狀態'] || '').trim();
+      if(expDate || status.startsWith('過期品') || status.startsWith('即將到期')){
+        savedMap.set(inventoryIdentityKey(r), r);
+      }
+    });
+
+    let restored = 0;
+    missingRows.forEach(r => {
+      const saved = savedMap.get(inventoryIdentityKey(r));
+      if(!saved) return;
+      const expDate = parseExcelDate(saved['有效期至']);
+      if(expDate){
+        r['有效期至'] = saved['有效期至'];
+        r._expDate = expDate;
+      }
+      if(!r['庫存狀態'] && saved['庫存狀態']) r['庫存狀態'] = saved['庫存狀態'];
+      if((r['剩餘在庫天數'] === undefined || r['剩餘在庫天數'] === null || r['剩餘在庫天數'] === '') && saved['剩餘在庫天數'] !== undefined){
+        r['剩餘在庫天數'] = saved['剩餘在庫天數'];
+      }
+      restored++;
+    });
+
+    if(restored){
+      recompute();
+      if(currentView === 'dashboard') updateDashboard();
+    }
+    return restored;
+  }catch(err){
+    console.warn('補回既有有效期失敗', err);
+    return 0;
+  }
 }
 
 
@@ -4929,6 +5055,13 @@ async function writeToSheets(){
   const statusEl = document.getElementById('sheetsStatus');
   const btn      = document.getElementById('sheetsSaveBtn');
   if(!url){ statusEl.textContent = '❌ Apps Script 網址未設定'; statusEl.style.color='var(--red)'; return; }
+  const hasExpirySource = allData.some(r => r._expDate);
+  if(allData.length && !hasExpirySource){
+    statusEl.textContent = '❌ 來源資料沒有「有效期至」，已停止寫入，避免清空過期品分類';
+    statusEl.style.color = 'var(--red)';
+    showToast('❌ 請改用含有效期欄位的原始庫存報表', 6000);
+    return;
+  }
 
   // ── 從 Supabase 補入未入庫資料（若 allData 中沒有）──────────────
   const hasPending = allData.some(r => r['倉庫名稱'] === '未入庫');
@@ -5449,7 +5582,8 @@ async function loadFromSheets(){
       '產品代碼':'產品代碼',     '產品名稱':'產品名稱',
       '產品規格':'產品規格',     '庫存數量':'庫存數量',
       '單位':'基本單位名稱',     '倉庫名稱':'倉庫名稱',
-      '批號':'批號',             '有效期至':'有效期至',
+      '批號':'批號',             '入庫日期':'入庫日期',
+      '庫存狀態':'庫存狀態',     '剩餘/在庫天數':'剩餘在庫天數',
     };
 
     const raw = result.rows.map(r => {
@@ -5457,6 +5591,7 @@ async function loadFromSheets(){
       Object.entries(COL).forEach(([sh, internal]) => {
         mapped[internal] = String(r[sh]||'').trim();
       });
+      mapped['有效期至'] = getFirstRowValue(r, EXPIRY_FIELD_ALIASES);
       mapped['庫存數量'] = parseFloat(String(r['庫存數量']||'').replace(/,/g,''))||0;
       // 只還原 scope，單價由匯入單價 xlsx 管理
       const scope = String(r['存貨核算範圍名稱']||'').trim();
@@ -5470,8 +5605,16 @@ async function loadFromSheets(){
       return mapped;
     });
 
-    processData(raw);
-    showToast(`✅ 從 Google Sheets 載入 ${raw.length} 筆資料`);
+    const stats = processData(raw);
+    const restored = await restoreMissingExpiryFromSupabase();
+    const finalExpiryCount = allData.filter(r => r._expDate).length;
+    if(finalExpiryCount === 0){
+      showToast(`⚠️ 已載入 ${raw.length} 筆，但 Sheets 沒有有效期，過期品無法分類`, 6000);
+    } else if(restored > 0){
+      showToast(`✅ 從 Sheets 載入 ${raw.length} 筆，並補回 ${restored} 筆既有有效期`);
+    } else {
+      showToast(`✅ 從 Google Sheets 載入 ${raw.length} 筆（含有效期 ${stats.expiryCount} 筆）`);
+    }
 
   }catch(err){
     console.error(err);
