@@ -471,7 +471,8 @@ const state = {
   sbClient: null,
   statusFilter: 'all',
   pageMode: 'home',
-  shippingOrderId: ''
+  shippingOrderId: '',
+  shippingRecords: []
 };
 
 const $ = (id) => document.getElementById(id);
@@ -572,6 +573,14 @@ function productMatches(mappedProduct, orderProduct){
   return productAliases(mappedProduct).some(alias =>
     alias === itemKey || alias.includes(itemKey) || itemKey.includes(alias)
   );
+}
+const NON_SCANNABLE_COMBOS = ['傳蒂魚樂', '傳蒂美味'];
+function isNonScannableCombo(productName){
+  const key = normProduct(productName);
+  return NON_SCANNABLE_COMBOS.some(name => key.includes(normProduct(name)));
+}
+function scannableItems(order){
+  return (order?.items || []).filter(item => !isNonScannableCombo(item.name));
 }
 const CARTON_CFG={friesVolume:1,stickGiftVolume:.5,companionGiftVolume:4,shrimpCakeVolume:1,xl:36,large:18,medium:11,small:5};
 function cartonForVolume(volume,forceLargeMin=false){
@@ -749,7 +758,8 @@ function formatSupabaseLoadError(error){
 async function syncPickedToSupabase(order, item, delta, barcode){
   if(!state.remoteMode) return;
   const sb = getSupabaseClient();
-  const status = order.items.some(i => i.picked > i.qty) ? '超量' : order.items.every(i => i.picked === i.qty) ? '完成' : order.items.some(i => i.picked > 0) ? '理貨中' : '未開始';
+  const scanItems = scannableItems(order);
+  const status = scanItems.some(i => i.picked > i.qty) ? '超量' : scanItems.length > 0 && scanItems.every(i => i.picked === i.qty) ? '完成' : scanItems.some(i => i.picked > 0) ? '理貨中' : '未開始';
   const itemRes = await sb.from('barcode_order_items')
     .update({picked_qty: item.picked, updated_at: new Date().toISOString()})
     .eq('order_id', order.id)
@@ -956,8 +966,9 @@ function renderOrders(){
     .filter(o => !q || o.id.toLowerCase().includes(q))
     .slice(0, 200);
   list.innerHTML = orders.map(o => {
-    const qty = o.items.reduce((s,i)=>s+i.qty,0);
-    const picked = o.items.reduce((s,i)=>s+i.picked,0);
+    const progress = orderProgress(o);
+    const qty = progress.qty;
+    const picked = progress.picked;
     const person = o.receiver || o.buyer || '';
     return `<button class="order-item ${o.id===state.activeOrderId?'active':''}" data-order="${escapeHtml(o.id)}">
       <span><span class="order-id">${escapeHtml(o.id)}</span><br><span class="order-meta">${escapeHtml(person || `${o.items.length} 品項`)}</span></span>
@@ -970,10 +981,11 @@ function renderOrders(){
 }
 
 function orderProgress(order){
-  const qty = order.items.reduce((s,i)=>s+i.qty,0);
-  const picked = order.items.reduce((s,i)=>s+i.picked,0);
-  const over = order.items.some(i => i.picked > i.qty);
-  const done = order.items.length > 0 && order.items.every(i => i.picked >= i.qty);
+  const scanItems = scannableItems(order);
+  const qty = scanItems.reduce((s,i)=>s+i.qty,0);
+  const picked = scanItems.reduce((s,i)=>s+i.picked,0);
+  const over = scanItems.some(i => i.picked > i.qty);
+  const done = scanItems.length > 0 && scanItems.every(i => i.picked >= i.qty);
   const key = over ? 'over' : done ? 'done' : picked > 0 ? 'working' : 'not-started';
   const label = over ? '超量' : done ? '完成' : picked > 0 ? '理貨中' : '未開始';
   return { qty, picked, done, over, key, label };
@@ -1063,6 +1075,7 @@ function shipmentNumbers(orderId){
 
 function resetShippingForm(focus=true){
   state.shippingOrderId = '';
+  state.shippingRecords = [];
   $('shippingOrderInput').value = '';
   $('shippingShipmentInput').value = '';
   $('shippingShipmentInput').disabled = true;
@@ -1077,17 +1090,17 @@ function resetShippingForm(focus=true){
 }
 
 function renderShippingRecord(){
-  const id = state.shippingOrderId;
-  const numbers = shipmentNumbers(id);
-  $('shippingShipmentList').innerHTML = numbers.map((number, index) => `<div class="shipment-row"><span>${index + 1}</span><b>${escapeHtml(number)}</b><button class="btn" style="height:32px;padding:0 9px" data-remove-shipment="${escapeHtml(number)}">刪除</button></div>`).join('') || '<div class="hint">尚未綁定宅配單號，可連續掃描多筆。</div>';
-  $('shippingShipmentList').querySelectorAll('[data-remove-shipment]').forEach(btn => btn.onclick = () => removeShippingNumber(btn.dataset.removeShipment));
-  $('shippingNextOrderBtn').style.display = numbers.length ? '' : 'none';
+  const records = state.shippingRecords;
+  $('shippingShipmentList').innerHTML = records.map((record, index) => `<div class="shipment-row"><span>${index + 1}</span><b>${escapeHtml(record.shipment_no)}</b><button class="btn" style="height:32px;padding:0 9px" data-remove-shipment="${record.id}">刪除</button></div>`).join('') || '<div class="hint">尚未紀錄宅配單號，可連續掃描多筆。</div>';
+  $('shippingShipmentList').querySelectorAll('[data-remove-shipment]').forEach(btn => btn.onclick = () => removeShippingRecord(Number(btn.dataset.removeShipment)));
+  $('shippingNextOrderBtn').style.display = records.length ? '' : 'none';
 }
 
 function selectShippingOrder(raw){
   const id = norm(raw);
   if(!id){ toast('請先掃描或輸入訂單號碼'); return; }
   state.shippingOrderId = id;
+  state.shippingRecords = [];
   $('shippingOrderInput').value = id;
   $('shippingOrderStep').classList.remove('active');
   $('shippingShipmentStep').classList.add('active');
@@ -1102,15 +1115,23 @@ function selectShippingOrder(raw){
   $('shippingShipmentInput').focus();
 }
 
-async function saveShippingNumbers(orderId, numbers){
-  const value = numbers.join('\n');
+function localDateText(){
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+
+async function saveShippingRecord(orderId, shipmentNo){
   $('shippingSyncStatus').textContent = '正在同步到 Supabase…';
-  const res = await getSupabaseClient().from('barcode_orders')
-    .upsert({id:orderId, shipment_no:value, updated_at:new Date().toISOString()},{onConflict:'id'});
-  if(res.error) throw res.error;
-  state.shipments[orderId] = value;
-  saveLocal();
+  const res = await getSupabaseClient().from('zhengyang_shipments')
+    .insert({order_no:orderId, shipment_no:shipmentNo, shipped_date:localDateText()})
+    .select('id,order_no,shipment_no,shipped_date,created_at')
+    .single();
+  if(res.error){
+    if(/zhengyang_shipments|schema cache|relation/i.test(res.error.message||'')) throw new Error('尚未建立正洋理貨資料表，請先執行 supabase-zhengyang-shipping-schema.sql');
+    throw res.error;
+  }
   $('shippingSyncStatus').textContent = `已同步 Supabase：${nowText()}`;
+  return res.data;
 }
 
 async function addShippingNumber(raw){
@@ -1118,14 +1139,14 @@ async function addShippingNumber(raw){
   const number = norm(raw || $('shippingShipmentInput').value);
   if(!orderId){ toast('請先掃描訂單號碼'); return; }
   if(!number){ toast('請先掃描或輸入宅配單號'); return; }
-  const numbers = shipmentNumbers(orderId);
   $('shippingShipmentAddBtn').disabled = true;
   try{
-    await saveShippingNumbers(orderId, [...numbers, number]);
+    const record = await saveShippingRecord(orderId, number);
+    state.shippingRecords.push(record);
     $('shippingShipmentInput').value = '';
     renderShippingRecord();
     speakText('已加入');
-    toast(`已加入第 ${numbers.length + 1} 筆，並同步 Supabase`);
+    toast(`已紀錄第 ${state.shippingRecords.length} 件，並同步 Supabase`);
   }catch(err){
     $('shippingSyncStatus').textContent = 'Supabase 同步失敗，資料未儲存';
     alertWrongQty(`宅配單號儲存失敗：${err.message}`);
@@ -1135,12 +1156,13 @@ async function addShippingNumber(raw){
   }
 }
 
-async function removeShippingNumber(number){
-  const orderId = state.shippingOrderId;
+async function removeShippingRecord(id){
   try{
-    await saveShippingNumbers(orderId, shipmentNumbers(orderId).filter(x => x !== number));
+    const res = await getSupabaseClient().from('zhengyang_shipments').delete().eq('id',id);
+    if(res.error) throw res.error;
+    state.shippingRecords = state.shippingRecords.filter(record => record.id !== id);
     renderShippingRecord();
-    toast('已刪除宅配單號，並同步 Supabase');
+    toast('已刪除這筆正洋理貨紀錄');
   }catch(err){
     $('shippingSyncStatus').textContent = 'Supabase 同步失敗，資料未變更';
     alertWrongQty(`刪除失敗：${err.message}`);
@@ -1188,7 +1210,8 @@ async function confirmShipmentModal(){
 async function saveCurrentStatus(){
   const order = state.orders[state.activeOrderId];
   if(!order){ toast('請先選擇訂單'); return; }
-  const wrongItems = order.items.filter(item => item.picked !== item.qty);
+  const scanItems = scannableItems(order);
+  const wrongItems = scanItems.filter(item => item.picked !== item.qty);
   if(wrongItems.length){
     const first = wrongItems[0];
     const msg = first.picked > first.qty
@@ -1198,7 +1221,7 @@ async function saveCurrentStatus(){
     return;
   }
   try{
-    const jobs = order.items.map(item => syncPickedToSupabase(order, item, 0, '手動儲存'));
+    const jobs = scanItems.map(item => syncPickedToSupabase(order, item, 0, '手動儲存'));
     await Promise.all(jobs);
     toast('品項已儲存，請掃描寄件編號');
     openShipmentModal();
@@ -1281,7 +1304,8 @@ function renderActive(){
     renderLog();
     return;
   }
-  const totalQty = order.items.reduce((s,i)=>s+i.qty,0);
+  const scanItems = scannableItems(order);
+  const totalQty = scanItems.reduce((s,i)=>s+i.qty,0);
   const locked = orderProgress(order).key === 'done';
   $('scanLabel').textContent = locked ? '此訂單已完成（鎖定，禁止再次掃描/編輯）' : '商品國際條碼';
   $('barcodeInput').placeholder = '掃描或輸入商品條碼';
@@ -1290,10 +1314,10 @@ function renderActive(){
   $('scanProductBtn').disabled = locked;
   $('manualPickBtn').textContent = '核銷';
   $('manualPickBtn').disabled = locked;
-  const pickedQty = order.items.reduce((s,i)=>s+i.picked,0);
-  const doneLines = order.items.filter(i => i.picked >= i.qty).length;
-  $('completePill').textContent = `${doneLines} / ${order.items.length}`;
-  $('sumLines').textContent = order.items.length;
+  const pickedQty = scanItems.reduce((s,i)=>s+i.picked,0);
+  const doneLines = scanItems.filter(i => i.picked >= i.qty).length;
+  $('completePill').textContent = `${doneLines} / ${scanItems.length}`;
+  $('sumLines').textContent = scanItems.length;
   $('sumQty').textContent = totalQty;
   $('sumPicked').textContent = pickedQty;
   $('sumCarton').textContent = cartonForOrder(order).label;
@@ -1305,18 +1329,19 @@ function renderActive(){
   const q = norm($('itemFilter').value).toLowerCase();
   const rows = order.items.filter(i => !q || i.name.toLowerCase().includes(q));
   $('items').innerHTML = rows.map(item => {
+    const noScan = isNonScannableCombo(item.name);
     const pct = item.qty ? Math.min(100, Math.round(item.picked / item.qty * 100)) : 0;
-    const cls = item.picked > item.qty ? 'over' : item.picked >= item.qty ? 'done' : '';
+    const cls = noScan ? 'done' : item.picked > item.qty ? 'over' : item.picked >= item.qty ? 'done' : '';
     const qtyCls = item.picked > item.qty ? 'bad' : item.picked >= item.qty ? 'good' : '';
     return `<div class="item ${cls}">
       <div>
         <div class="item-name">${escapeHtml(item.name)}</div>
-        <div class="item-sub">條碼：${escapeHtml(findBarcodeByProduct(item.name) || '尚未對照')}</div>
-        <div class="progress"><div class="bar" style="width:${pct}%"></div></div>
+        <div class="item-sub">${noScan ? '組合名稱：免掃描' : `條碼：${escapeHtml(findBarcodeByProduct(item.name) || '尚未對照')}`}</div>
+        <div class="progress"><div class="bar" style="width:${noScan ? 100 : pct}%"></div></div>
       </div>
-      <button class="qty-btn" data-adjust="${escapeHtml(item.name)}" data-delta="-1" ${locked?'disabled':''}>−</button>
-      <div class="qty ${qtyCls}">${item.picked} / ${item.qty}</div>
-      <button class="qty-btn" data-adjust="${escapeHtml(item.name)}" data-delta="1" ${locked?'disabled':''}>＋</button>
+      <button class="qty-btn" data-adjust="${escapeHtml(item.name)}" data-delta="-1" ${locked||noScan?'disabled':''}>−</button>
+      <div class="qty ${noScan?'good':qtyCls}">${noScan ? '免掃描' : `${item.picked} / ${item.qty}`}</div>
+      <button class="qty-btn" data-adjust="${escapeHtml(item.name)}" data-delta="1" ${locked||noScan?'disabled':''}>＋</button>
     </div>`;
   }).join('') || '<div class="hint" style="padding:16px">沒有符合的品項</div>';
   $('items').querySelectorAll('[data-adjust]').forEach(btn => {
@@ -1335,9 +1360,9 @@ function resolveBarcode(barcode){
   if(direct) return direct;
   const order = state.orders[state.activeOrderId];
   if(!order) return '';
-  const byCode = order.items.find(i => i.code && i.code === barcode);
+  const byCode = scannableItems(order).find(i => i.code && i.code === barcode);
   if(byCode) return byCode.name;
-  const byName = order.items.find(i => productIdentity(i.name) === productIdentity(barcode));
+  const byName = scannableItems(order).find(i => productIdentity(i.name) === productIdentity(barcode));
   if(byName) return byName.name;
   return '';
 }
@@ -1356,7 +1381,7 @@ function pickBarcode(raw){
     $('barcodeInput').value = '';
     return;
   }
-  const matchingItems = order.items.filter(i => {
+  const matchingItems = scannableItems(order).filter(i => {
     return productMatches(product, i.name);
   });
   // 同條碼對應多個訂單名稱時，先核銷仍有欠數的品項，再依訂單原順序接續。
@@ -1388,6 +1413,7 @@ function adjustItem(productName, delta){
   if(orderProgress(order).key === 'done'){ alertWrongQty('此訂單已完成，禁止再次編輯'); return; }
   const item = order.items.find(i => i.name === productName);
   if(!item) return;
+  if(isNonScannableCombo(item.name)){ toast('這是組合名稱，不需要掃描'); return; }
   if(delta < 0 && item.picked <= 0) return;
   item.picked += delta;
   const barcode = findBarcodeByProduct(item.name) || '手動調整';
@@ -1610,7 +1636,7 @@ function exportOrdersCsv(){
 
 function exportDoneOrdersCsv(){
   const doneOrders = Object.values(state.orders).filter(order =>
-    order.items.length > 0 && order.items.every(i => i.picked >= i.qty)
+    orderProgress(order).done
   );
   if(!doneOrders.length){ toast('目前沒有理貨完成的訂單'); return; }
   exportOrdersCsvRows(doneOrders, '理貨完成訂單');
@@ -1624,10 +1650,11 @@ function exportOrdersCsvRows(orders, prefix){
   }));
   const rows = [['訂單編號','訂購人','收件人','收件電話','收件地址','貨運單號','品項數','訂購數量','已核銷數量','理貨狀態','薯條材積','建議紙箱', ...productNames]];
   orders.forEach(order => {
-    const totalQty = order.items.reduce((s,i)=>s+i.qty,0);
-    const pickedQty = order.items.reduce((s,i)=>s+i.picked,0);
-    const done = order.items.length > 0 && order.items.every(i => i.picked >= i.qty);
-    const over = order.items.some(i => i.picked > i.qty);
+    const progress = orderProgress(order);
+    const totalQty = progress.qty;
+    const pickedQty = progress.picked;
+    const done = progress.done;
+    const over = progress.over;
     const productCols = productNames.map(name => {
       const item = order.items.find(i => i.name === name);
       return item ? `${item.picked}/${item.qty}` : '';
@@ -1640,7 +1667,7 @@ function exportOrdersCsvRows(orders, prefix){
       String(order.receiverPhone || ''),
       order.receiverAddress || '',
       String(state.shipments[order.id] || ''),
-      order.items.length,
+      scannableItems(order).length,
       totalQty,
       pickedQty,
       over ? '超量' : done ? '完成' : pickedQty > 0 ? '部分完成' : '未開始',
