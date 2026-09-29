@@ -1353,12 +1353,17 @@ function renderActive(){
 }
 
 function findBarcodeByProduct(product){
-  const hit = Object.entries(state.barcodeMap).find(([,p]) => productMatches(p, product));
-  return hit ? hit[0] : '';
+  const barcodes = new Set([...Object.keys(DEFAULT_BARCODE_MAP), ...Object.keys(state.barcodeMap)]);
+  for(const barcode of barcodes){
+    const names = [state.barcodeMap[barcode], DEFAULT_BARCODE_MAP[barcode]].filter(Boolean).join(' | ');
+    if(productMatches(names, product)) return barcode;
+  }
+  return '';
 }
 
 function resolveBarcode(barcode){
-  const direct = state.barcodeMap[barcode];
+  // 雲端或舊瀏覽器若存有舊名稱，仍合併新版預設別名，避免覆蓋後無法配對。
+  const direct = [state.barcodeMap[barcode], DEFAULT_BARCODE_MAP[barcode]].filter(Boolean).join(' | ');
   if(direct) return direct;
   const order = state.orders[state.activeOrderId];
   if(!order) return '';
