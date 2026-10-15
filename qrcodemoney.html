@@ -576,7 +576,7 @@ function productMatches(mappedProduct, orderProduct){
     alias === itemKey || alias.includes(itemKey) || itemKey.includes(alias)
   );
 }
-const NON_SCANNABLE_COMBOS = ['傳蒂魚樂', '傳蒂美味'];
+const NON_SCANNABLE_COMBOS = ['傳蒂魚樂', '傳蒂美味', 'DiDi 阿優鮪 專屬貼紙'];
 function isNonScannableCombo(productName){
   const key = normProduct(productName);
   return NON_SCANNABLE_COMBOS.some(name => key.includes(normProduct(name)));
