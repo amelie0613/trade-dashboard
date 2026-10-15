@@ -2563,6 +2563,7 @@ function parseExcelDate(v){
 }
 
 const EXPIRY_FIELD_ALIASES = ['有效期至','批號有效期至','有效日期','效期至','到期日','到期日期'];
+const WAREHOUSE_FIELD_ALIASES = ['倉庫名稱','倉庫','倉別名稱','庫別名稱','倉庫往來對象名稱'];
 function getFirstRowValue(row, keys){
   for(const key of keys){
     const value = row?.[key];
@@ -2577,6 +2578,13 @@ function inventoryIdentityKey(row){
   const lot  = String(row?.['批號'] || '').trim();
   const wh   = String(row?.['倉庫名稱'] || '').trim();
   return [code,name,lot,wh].join('__');
+}
+
+function inventoryBatchKey(row){
+  const code = String(row?.['產品代碼'] || '').trim().replace(/^0+(?=\d)/,'');
+  const name = String(row?.['產品名稱'] || '').trim();
+  const lot  = String(row?.['批號'] || '').trim();
+  return [code,name,lot].join('__');
 }
 
 // ─── DERIVED ──────────────────────────────────────────────────
@@ -2690,13 +2698,17 @@ function loadFile(input){
 
       const stats = processData(processedData);
       const restored = await restoreMissingExpiryFromSupabase();
+      const restoredWarehouses = await restoreMissingWarehouseFromSupabase();
       const finalExpiryCount = allData.filter(r => r._expDate).length;
+      const missingWarehouseCount = allData.filter(r => r['倉庫名稱'] !== '未入庫' && !String(r['倉庫名稱'] || '').trim()).length;
       // 只有來源檔本身含有效期才同步原始工作表，避免空白欄覆蓋既有分析資料。
       if(stats.expiryCount > 0) saveToGoogleSheets(excelSheets);
-      if(finalExpiryCount === 0){
+      if(missingWarehouseCount > 0){
+        showToast(`⚠️ 已載入 ${processedData.length} 筆，其中 ${missingWarehouseCount} 筆缺少倉庫；魚貨將列為「未分類」`, 7000);
+      } else if(finalExpiryCount === 0){
         showToast(`⚠️ 已載入 ${processedData.length} 筆，但來源檔缺少有效期，過期品無法分類`, 6000);
-      } else if(restored > 0){
-        showToast(`✅ 載入 ${processedData.length} 筆，並補回 ${restored} 筆既有有效期`);
+      } else if(restored > 0 || restoredWarehouses > 0){
+        showToast(`✅ 載入 ${processedData.length} 筆，補回有效期 ${restored} 筆、倉庫分類 ${restoredWarehouses} 筆`);
       } else {
         showToast(`✅ 成功載入 ${processedData.length} 筆（含有效期 ${stats.expiryCount} 筆）`);
       }
@@ -2720,6 +2732,7 @@ async function saveToSupabase(dataDate){
   if(!allData || !allData.length) return { ok: false, error: '尚無資料' };
   try{
     await restoreMissingExpiryFromSupabase();
+    await restoreMissingWarehouseFromSupabase();
     const hasExpirySource = allData.some(r => r._expDate);
     if(!hasExpirySource){
       return { ok: false, error: '來源資料沒有有效期，已停止覆寫，避免清空過期品分類' };
@@ -2863,6 +2876,8 @@ function processData(raw){
     r['產品代碼'] = code ? code.padStart(4, '0') : '';
     const expRaw = getFirstRowValue(r, EXPIRY_FIELD_ALIASES);
     if(expRaw !== '') r['有效期至'] = expRaw;
+    const warehouseRaw = getFirstRowValue(r, WAREHOUSE_FIELD_ALIASES);
+    if(warehouseRaw !== '') r['倉庫名稱'] = String(warehouseRaw).trim();
     r._expDate = parseExcelDate(expRaw);
     r._lotDate = parseExcelDate(r['入庫日期']) || parseLotDate(r['批號']);
     return r;
@@ -2930,6 +2945,50 @@ async function restoreMissingExpiryFromSupabase(){
     return restored;
   }catch(err){
     console.warn('補回既有有效期失敗', err);
+    return 0;
+  }
+}
+
+async function restoreMissingWarehouseFromSupabase(){
+  if(!allData.length || !SUPABASE_URL || !SUPABASE_ANON_KEY) return 0;
+  const missingRows = allData.filter(r => !String(r['倉庫名稱'] || '').trim());
+  if(!missingRows.length) return 0;
+
+  try{
+    const select = encodeURIComponent('產品代碼,產品名稱,批號,倉庫名稱');
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/inventory?select=${select}`, {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if(!resp.ok) return 0;
+
+    const savedRows = await resp.json();
+    const warehouseSets = new Map();
+    savedRows.forEach(r => {
+      const warehouse = String(r['倉庫名稱'] || '').trim();
+      if(!warehouse || warehouse === '未入庫') return;
+      const key = inventoryBatchKey(r);
+      if(!warehouseSets.has(key)) warehouseSets.set(key, new Set());
+      warehouseSets.get(key).add(warehouse);
+    });
+
+    let restored = 0;
+    missingRows.forEach(r => {
+      const candidates = [...(warehouseSets.get(inventoryBatchKey(r)) || [])];
+      // 只有唯一舊分類時才補回，避免把跨倉批號猜錯。
+      if(candidates.length === 1){
+        r['倉庫名稱'] = candidates[0];
+        restored++;
+      }
+    });
+
+    if(restored){
+      buildFilters();
+      recompute();
+      if(currentView === 'dashboard') updateDashboard();
+    }
+    return restored;
+  }catch(err){
+    console.warn('補回既有倉庫分類失敗', err);
     return 0;
   }
 }
@@ -4943,20 +5002,25 @@ function buildExportRows(scope){
   });
 }
 
-// 魚貨倉庫報表：倉庫 = -35度冷凍庫 或 -50度冷凍庫，分倉庫顯示
+// 魚貨倉庫報表：所有魚貨依倉庫分組；來源缺倉庫時仍列入未分類。
 // 未入庫數量填在冷凍庫行的未入庫欄位
 // 加工倉和在途倉各自以行方式顯示，庫存數量放在已出貨欄位
 function buildFishReport(){
-  const targetWarehouses = ['-35度冷凍庫', '-50度冷凍庫'];
   const shippingWarehouses = ['加工倉', '在途倉'];
+  const isFish = r => String(r['產品類別'] || '').trim() === '魚貨';
+  const cleanWarehouse = value => String(value || '').trim().replace(/[−–—]/g, '-');
+  const missingWarehouseLabel = '未分類（來源缺少倉庫）';
 
-  // 過濾出冷凍庫的魚貨，按「產品代碼 + 倉庫名稱」分組
+  // 排除未入庫、加工倉及在途倉，其餘魚貨按「產品代碼 + 倉庫名稱」分組。
   const mainItems = allData.filter(r =>
-    r['產品類別'] === '魚貨' && targetWarehouses.includes(r['倉庫名稱'])
+    isFish(r) &&
+    cleanWarehouse(r['倉庫名稱']) !== '未入庫' &&
+    !shippingWarehouses.includes(cleanWarehouse(r['倉庫名稱']))
   );
   const grouped = {};
   mainItems.forEach(r => {
-    const key = `${r['產品代碼']}|${r['倉庫名稱']}`;
+    const warehouse = cleanWarehouse(r['倉庫名稱']) || missingWarehouseLabel;
+    const key = `${r['產品代碼']}|${warehouse}`;
     if(!grouped[key]) grouped[key] = [];
     grouped[key].push(r);
   });
@@ -4969,10 +5033,10 @@ function buildFishReport(){
   Object.entries(grouped).forEach(([key, items]) => {
     const first = items[0];
     const code = pad4(first['產品代碼']);
-    const warehouse = first['倉庫名稱'] || '';
+    const warehouse = cleanWarehouse(first['倉庫名稱']) || missingWarehouseLabel;
     const qty = items.reduce((sum, r) => sum + (parseFloat(r['庫存數量']) || 0), 0);
     const pendingQty = allData
-      .filter(r => pad4(r['產品代碼']) === code && r['倉庫名稱'] === '未入庫')
+      .filter(r => pad4(r['產品代碼']) === code && cleanWarehouse(r['倉庫名稱']) === '未入庫')
       .reduce((sum, r) => sum + (parseFloat(r['庫存數量']) || 0), 0);
 
     result.push([
@@ -4993,8 +5057,8 @@ function buildFishReport(){
   // 2. 只有未入庫、沒有冷凍庫庫存的魚貨 → 補上一行（庫存數量=0）
   const coldCodes = new Set(mainItems.map(r => pad4(r['產品代碼'])));
   const pendingOnlyItems = allData.filter(r =>
-    r['產品類別'] === '魚貨' &&
-    r['倉庫名稱'] === '未入庫' &&
+    isFish(r) &&
+    cleanWarehouse(r['倉庫名稱']) === '未入庫' &&
     !coldCodes.has(pad4(r['產品代碼']))
   );
   const pendingOnlyGrouped = {};
@@ -5022,7 +5086,7 @@ function buildFishReport(){
   // 3. 加工倉 / 在途倉行 - 各自以行顯示，按產品名稱合併，庫存數量放在已出貨欄位
   shippingWarehouses.forEach(wh => {
     const whGrouped = {};
-    allData.filter(r => r['產品類別'] === '魚貨' && r['倉庫名稱'] === wh)
+    allData.filter(r => isFish(r) && cleanWarehouse(r['倉庫名稱']) === wh)
       .forEach(r => {
         const name = r['產品名稱'] || '';
         if(!whGrouped[name]) whGrouped[name] = { first: r, qty: 0 };
@@ -5607,11 +5671,15 @@ async function loadFromSheets(){
 
     const stats = processData(raw);
     const restored = await restoreMissingExpiryFromSupabase();
+    const restoredWarehouses = await restoreMissingWarehouseFromSupabase();
     const finalExpiryCount = allData.filter(r => r._expDate).length;
-    if(finalExpiryCount === 0){
+    const missingWarehouseCount = allData.filter(r => r['倉庫名稱'] !== '未入庫' && !String(r['倉庫名稱'] || '').trim()).length;
+    if(missingWarehouseCount > 0){
+      showToast(`⚠️ 已載入 ${raw.length} 筆，其中 ${missingWarehouseCount} 筆缺少倉庫；魚貨將列為「未分類」`, 7000);
+    } else if(finalExpiryCount === 0){
       showToast(`⚠️ 已載入 ${raw.length} 筆，但 Sheets 沒有有效期，過期品無法分類`, 6000);
-    } else if(restored > 0){
-      showToast(`✅ 從 Sheets 載入 ${raw.length} 筆，並補回 ${restored} 筆既有有效期`);
+    } else if(restored > 0 || restoredWarehouses > 0){
+      showToast(`✅ 從 Sheets 載入 ${raw.length} 筆，補回有效期 ${restored} 筆、倉庫分類 ${restoredWarehouses} 筆`);
     } else {
       showToast(`✅ 從 Google Sheets 載入 ${raw.length} 筆（含有效期 ${stats.expiryCount} 筆）`);
     }
