@@ -820,6 +820,68 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     doc_flags: ["合格"]
   };
 
+  // 常用連結曾有不同儲存鍵與欄位名稱；統一在讀取時轉成 [{ label, url }]。
+  var QUICK_LINKS_KEY = "otssals_quick_links_v1";
+  var QUICK_LINKS_LEGACY_KEYS = [
+    "quick_links_v1", "quick_links", "otssals_links_v1",
+    "otssals_common_links_v1", "common_links_v1", "frequent_links_v1"
+  ];
+
+  function normalizeQuickLinksData(data) {
+    var source = data;
+    if (source && !Array.isArray(source) && typeof source === "object") {
+      if (Array.isArray(source.links)) source = source.links;
+      else if (Array.isArray(source.items)) source = source.items;
+      else if (Array.isArray(source.value)) source = source.value;
+      else if (Array.isArray(source.data)) source = source.data;
+      else if (Array.isArray(source.quickLinks)) source = source.quickLinks;
+      else if (Array.isArray(source.quick_links)) source = source.quick_links;
+      else if (source.url || source.href || source.link) source = [source];
+      else {
+        var mapped = Object.keys(source).filter(function (label) {
+          return /^https?:\/\//i.test(String(source[label] || "").trim());
+        }).map(function (label) {
+          return { label: label, url: source[label] };
+        });
+        if (mapped.length) source = mapped;
+      }
+    }
+    if (!Array.isArray(source)) return [];
+    return source.map(function (row) {
+      row = (row && typeof row === "object") ? row : {};
+      return {
+        label: String(row.label || row.name || row.title || row.text || "").trim(),
+        url: String(row.url || row.href || row.link || "").trim()
+      };
+    });
+  }
+
+  function isQuickLinksCloudRow(row) {
+    if (!row) return false;
+    var key = String(row.key || "");
+    var isKnownKey = key === QUICK_LINKS_KEY || QUICK_LINKS_LEGACY_KEYS.indexOf(key) !== -1 || /(?:quick|common|frequent).*links?|links?.*(?:quick|common|frequent)/i.test(key);
+    var hasUsableLink = normalizeQuickLinksData(row.data).some(function (link) {
+      return !!link.label && /^https?:\/\//i.test(link.url);
+    });
+    return isKnownKey || hasUsableLink;
+  }
+
+  function findCloudQuickLinks(rows) {
+    var candidates = (rows || []).filter(isQuickLinksCloudRow).map(function (row) {
+      var key = String(row.key || "");
+      var priority = key === QUICK_LINKS_KEY ? 3 : (QUICK_LINKS_LEGACY_KEYS.indexOf(key) !== -1 ? 2 : 1);
+      var updatedAt = Date.parse(row.updated_at || "") || 0;
+      var data = normalizeQuickLinksData(row.data);
+      return { key: key, data: data, updatedAt: updatedAt, priority: priority };
+    });
+    candidates.sort(function (a, b) {
+      if (b.updatedAt !== a.updatedAt) return b.updatedAt - a.updatedAt;
+      if (!!b.data.length !== !!a.data.length) return b.data.length ? 1 : -1;
+      return b.priority - a.priority;
+    });
+    return candidates.length ? candidates[0] : null;
+  }
+
   // ---------- 雲端對照表同步（Supabase otssals_maps；離線時用 localStorage 快取） ----------
   var CloudSync = (function () {
     var registry = {};   // localStorage key -> apply(newData) 重新載入畫面
@@ -843,7 +905,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     async function flush() {
       timer = null;
       var keys = Object.keys(dirty);
-      if (!keys.length) return;
+      if (!keys.length) return true;
       var rows = keys.map(function (k) {
         return { key: k, data: dirty[k], updated_at: new Date().toISOString() };
       });
@@ -855,6 +917,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           body: JSON.stringify(rows)
         });
         setStatus("對照表已同步雲端（" + new Date().toLocaleTimeString() + "）", "#1e7e34");
+        return true;
       } catch (e) {
         rows.forEach(function (r) { dirty[r.key] = r.data; });
         var flushMessage = String((e && e.message) || e);
@@ -863,15 +926,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         } else {
           setStatus("上傳失敗，資料仍保存在本機；恢復連線後可再試一次", "#c0392b");
         }
+        return false;
       }
     }
 
     async function pullAll() {
       setStatus("正在載入雲端對照表…");
       try {
-        var rows = await supabaseFetch("otssals_maps?select=key,data");
+        var rows = await supabaseFetch("otssals_maps?select=key,data,updated_at");
         var cloudKeys = {};
         (rows || []).forEach(function (row) { cloudKeys[row.key] = row.data; });
+        var cloudQuickLinks = findCloudQuickLinks(rows);
 
         // 一般對照資料採本機優先：本機沒有時才採用雲端，本機已有差異則推上雲端。
         // 常用連結是跨設備共用設定，登入後改採雲端優先，避免新設備的空清單蓋掉既有連結。
@@ -880,9 +945,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           var localRaw = localStorage.getItem(k);
           var cloudHasKey = Object.prototype.hasOwnProperty.call(cloudKeys, k);
 
-          if (k === QUICK_LINKS_KEY && cloudHasKey) {
-            localStorage.setItem(k, JSON.stringify(cloudKeys[k]));
-            registry[k](cloudKeys[k]);
+          if (k === QUICK_LINKS_KEY && cloudQuickLinks) {
+            var normalizedLinks = cloudQuickLinks.data;
+            var normalizedRaw = JSON.stringify(normalizedLinks);
+            localStorage.setItem(k, normalizedRaw);
+            registry[k](normalizedLinks);
+            var canonicalCloudRaw = cloudHasKey ? JSON.stringify(normalizeQuickLinksData(cloudKeys[k])) : null;
+            if (cloudQuickLinks.key !== QUICK_LINKS_KEY || canonicalCloudRaw !== normalizedRaw) {
+              toPush.push([k, normalizedLinks]);
+            }
           } else if (localRaw === null) {
             if (cloudHasKey) {
               localStorage.setItem(k, JSON.stringify(cloudKeys[k]));
@@ -917,17 +988,37 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     async function pullFromCloud() {
       setStatus("正在從雲端載入設定…");
       try {
-        var rows = await supabaseFetch("otssals_maps?select=key,data");
+        var rows = await supabaseFetch("otssals_maps?select=key,data,updated_at");
         var cloudKeys = {};
         (rows || []).forEach(function (row) { cloudKeys[row.key] = row.data; });
+        var cloudQuickLinks = findCloudQuickLinks(rows);
         var loadedCount = 0;
+        var quickLinksNeedMigration = false;
         Object.keys(registry).forEach(function (k) {
+          if (k === QUICK_LINKS_KEY && cloudQuickLinks) {
+            var normalizedLinks = cloudQuickLinks.data;
+            localStorage.setItem(k, JSON.stringify(normalizedLinks));
+            registry[k](normalizedLinks);
+            loadedCount++;
+            var canonicalRaw = Object.prototype.hasOwnProperty.call(cloudKeys, k)
+              ? JSON.stringify(normalizeQuickLinksData(cloudKeys[k])) : null;
+            quickLinksNeedMigration = cloudQuickLinks.key !== QUICK_LINKS_KEY || canonicalRaw !== JSON.stringify(normalizedLinks);
+            return;
+          }
           if (!Object.prototype.hasOwnProperty.call(cloudKeys, k)) return;
           localStorage.setItem(k, JSON.stringify(cloudKeys[k]));
           registry[k](cloudKeys[k]);
           loadedCount++;
         });
-        setStatus("已從雲端載入 " + loadedCount + " 項設定（" + new Date().toLocaleTimeString() + "）", "#1e7e34");
+        var quickLinksText = cloudQuickLinks ? "，常用連結 " + cloudQuickLinks.data.length + " 筆" : "，雲端沒有常用連結資料";
+        if (quickLinksNeedMigration) {
+          dirty[QUICK_LINKS_KEY] = cloudQuickLinks.data;
+          if (await flush()) {
+            setStatus("已從雲端載入 " + loadedCount + " 項設定" + quickLinksText + "，並完成舊格式轉換（" + new Date().toLocaleTimeString() + "）", "#1e7e34");
+          }
+        } else {
+          setStatus("已從雲端載入 " + loadedCount + " 項設定" + quickLinksText + "（" + new Date().toLocaleTimeString() + "）", "#1e7e34");
+        }
       } catch (e) {
         var msg = String((e && e.message) || e);
         if (msg.indexOf("登入雲端帳號") !== -1) {
@@ -1240,13 +1331,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   });
 
   // ---------- 頁首常用連結 ----------
-  var QUICK_LINKS_KEY = "otssals_quick_links_v1";
   var quickLinks = loadQuickLinks();
 
   function loadQuickLinks() {
     try {
       var raw = localStorage.getItem(QUICK_LINKS_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) return normalizeQuickLinksData(JSON.parse(raw));
     } catch (e) {}
     return [];
   }
@@ -1333,7 +1423,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   renderQuickLinksTable();
   renderQuickLinksMenu();
   CloudSync.register(QUICK_LINKS_KEY, function (newData) {
-    quickLinks = Array.isArray(newData) ? newData : [];
+    quickLinks = normalizeQuickLinksData(newData);
     renderQuickLinksTable();
     renderQuickLinksMenu();
   });
