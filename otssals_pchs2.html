@@ -808,8 +808,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     customer: "台灣善商(股)有限公司",
     doc_flags: ["合格"]
   };
+  // 客戶編號規則：僅「承知助南港店」使用 1087，其餘門市（合點）一律使用 1056。
+  var NAPOLICE_CUSTOMER_NO_NANGANG = "1087";
+  var NAPOLICE_CUSTOMER_NO_OTHER = "1056";
+  function napoliceCustomerNo(storeName) {
+    var name = String(storeName || "").replace(/\s+/g, "");
+    return name.indexOf("承知助南港") !== -1 ? NAPOLICE_CUSTOMER_NO_NANGANG : NAPOLICE_CUSTOMER_NO_OTHER;
+  }
   var NAPOLICE_DEFAULTS = {
-    customer_no: "1087",
+    customer_no: NAPOLICE_CUSTOMER_NO_OTHER,
     currency: "TWD",
     tax_type: "1",
     invoice_channel: "1"
@@ -2408,7 +2415,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       meta: {
         order_date: orderDate, ship_date: shipDate,
         company_no: settings.company_no, staff_no: settings.staff_no, dept_no: settings.dept_no,
-        customer_no: NAPOLICE_DEFAULTS.customer_no,
+        customer_no: napoliceCustomerNo(storeName),
         contact_name: contact.recipient_name || napoliceStoreShortName(storeName),
         contact_phone: contact.phone || "", contact_address: contact.address || "",
         currency: NAPOLICE_DEFAULTS.currency, tax_type: NAPOLICE_DEFAULTS.tax_type,
