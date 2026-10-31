@@ -2756,8 +2756,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     function () { if (window.__lastYujunParsed) renderYujunGroups(window.__lastYujunParsed); }
   );
 
+  function yujunStoreContact(storeName) {
+    var found = yujunStoreMap.find(storeName, ["name", "short"]);
+    if (!found && storeName) {
+      found = storeName.endsWith("店")
+        ? yujunStoreMap.find(storeName.slice(0, -1), ["name", "short"])
+        : yujunStoreMap.find(storeName + "店", ["name", "short"]);
+    }
+    return found || {};
+  }
+
   function yujunStoreShortName(fullName) {
-    var found = yujunStoreMap.find(fullName);
+    var found = yujunStoreContact(fullName);
     return (found && found.short) ? found.short : fullName;
   }
 
@@ -2835,14 +2845,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   function yujunEntry(group, orderDate, shipDate) {
-    var contact = yujunStoreMap.find(group.store_name) || {};
+    var contact = yujunStoreContact(group.store_name);
+    var recipientName = contact.recipient_name || yujunStoreShortName(group.store_name);
+    var recipientPhone = contact.phone || "";
+    var recipientAddress = contact.address || "";
     return {
       meta: {
         order_date: orderDate, ship_date: shipDate,
         company_no: settings.company_no, staff_no: settings.staff_no, dept_no: settings.dept_no,
         customer_no: YUJUN_CUSTOMER_NO,
-        contact_name: contact.recipient_name || yujunStoreShortName(group.store_name),
-        contact_phone: contact.phone || "", contact_address: contact.address || "",
+        contact_name: recipientName, contact_phone: recipientPhone, contact_address: recipientAddress,
+        recipient_name: recipientName, recipient_phone: recipientPhone, recipient_address: recipientAddress,
         currency: NAPOLICE_DEFAULTS.currency, tax_type: NAPOLICE_DEFAULTS.tax_type,
         invoice_channel: NAPOLICE_DEFAULTS.invoice_channel
       },
