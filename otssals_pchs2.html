@@ -22,6 +22,7 @@
   .auth-card label { display:block; margin:18px 0 7px; color:var(--navy); font-size:13px; font-weight:700; }
   .auth-card input { padding:12px; }
   .auth-card button { width:100%; margin-top:12px; background:var(--green); }
+  .auth-card button.secondary { background:var(--navy); }
   .auth-message { min-height:20px; margin-top:12px; color:#c0392b; font-size:12px; }
   body.auth-locked > .app-header,body.auth-locked > main { visibility:hidden; }
   .auth-user { color:#d9e5ec; font-size:11px; }
@@ -39,6 +40,7 @@
   .section-title { margin:0 0 5px; font-size:18px; }
   .hint { margin:6px 0; color:var(--muted); font-size:12px; line-height:1.65; }
   .sync-strip { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:0 0 22px; padding:10px 14px; border:1px solid var(--line); border-radius:7px; background:#fff; }
+  .sync-actions { display:flex; flex-wrap:wrap; gap:8px; }
   .settings-card { margin:0 0 24px; padding:22px; border:1px solid var(--line); border-radius:9px; background:#fff; box-shadow:0 3px 12px rgba(34,53,72,.06); }
   .settings-card h2 { margin-bottom:4px; }
   .mobile-collapse-summary { display:none; list-style:none; cursor:pointer; color:var(--navy); font-size:17px; font-weight:700; }
@@ -132,6 +134,8 @@
     .quick-links-dropdown { position:fixed; top:126px; right:12px; left:12px; width:auto; }
     .container { padding:14px 12px 34px; }
     .sync-strip { align-items:flex-start; flex-direction:column; margin-bottom:14px; padding:9px 11px; font-size:12px; }
+    .sync-actions { width:100%; }
+    .sync-actions button { flex:1 1 140px; min-height:40px; }
     .settings-card { padding:15px 13px; overflow:visible; }
     .mobile-collapse-summary { display:flex; align-items:center; justify-content:space-between; min-height:40px; }
     .mobile-collapse-summary::after { content:"展開"; color:var(--muted); font-size:11px; font-weight:400; }
@@ -188,12 +192,13 @@
   <div class="auth-gate" id="authGate" hidden>
     <form class="auth-card" id="authForm">
       <h2>薪水小偷訂單整合登入</h2>
-      <p>此頁面僅限指定帳號使用。登入成功後會記住這台設備，下次開啟可直接使用。</p>
+      <p id="authDescription">此頁面僅限指定帳號使用。登入成功後會記住這台設備，下次開啟可直接使用。</p>
       <label for="authEmail">授權 Email</label>
       <input type="email" id="authEmail" autocomplete="email" placeholder="name@macroocean.org" required>
       <label for="authPassword">密碼</label>
       <input type="password" id="authPassword" autocomplete="current-password" placeholder="請輸入密碼" required>
       <button type="submit" id="authSendBtn">登入並記住此設備</button>
+      <button type="button" class="secondary" id="authOfflineBtn" hidden>先離線使用</button>
       <div class="auth-message" id="authMessage"></div>
     </form>
   </div>
@@ -204,6 +209,7 @@
       </div>
       <div class="header-actions">
         <span class="auth-user" id="authUser" hidden></span>
+        <button class="header-action" type="button" id="authLoginBtn" hidden>雲端登入</button>
         <button class="header-action" type="button" id="authLogoutBtn" hidden>登出</button>
         <details class="quick-links-menu" id="quickLinksMenu">
           <summary class="header-action">常用連結 ▾</summary>
@@ -218,7 +224,10 @@
   <main class="container">
     <div class="sync-strip">
       <span id="syncStatus">正在檢查雲端對照表…</span>
-      <button class="small" type="button" id="syncNowBtn">立即同步</button>
+      <div class="sync-actions">
+        <button class="small" type="button" id="pullCloudBtn">從雲端載入</button>
+        <button class="small" type="button" id="pushCloudBtn">上傳到雲端</button>
+      </div>
     </div>
 
     <details class="settings-card mobile-collapsible" id="settingsCollapse">
@@ -567,10 +576,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   var HEADER1 = [
     "匯入序號", "訂購日期", "預出貨日", "公司編號", "業務人員編號", "部門編號", "客戶編號", "聯絡人", "聯絡電話", "客戶地址",
-    "幣別代碼", "扣稅類別（1：稅外加、2：含稅）", "統一編號", "發票抬頭",
+    "幣別代碼", "扣稅類別（1：稅外加、2：含稅、3：免稅）", "統一編號", "發票抬頭",
     "開立管道（1：電子發票、2：載具、3：紙本、4：不開立發票）",
     "電子信箱/載具號碼/紙本聯式（紙本：1：二聯式、2：三聯式）",
-    "轉帳後5碼", "銀行名稱", "銀行帳戶名稱", "銀行帳戶號碼", "訂單備註", "出貨標記欄"
+    "轉帳後5碼", "銀行名稱", "銀行帳戶名稱", "銀行帳戶號碼", "訂單備註",
+    "檢查者", "出貨標籤", "理貨/加工備註", "收件人姓名", "收件人電話", "收件人地址", "出貨備註"
   ];
   var HEADER2 = ["匯入序號", "產品資料編號", "數量", "報價單位", "單價", "產品備註", "客單備註"];
 
@@ -579,12 +589,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     "order_date", "ship_date", "company_no", "staff_no", "dept_no", "customer_no",
     "contact_name", "contact_phone", "contact_address", "currency", "tax_type", "tax_id", "invoice_title",
     "invoice_channel", "invoice_carrier", "last5", "bank_name", "bank_account_name", "bank_account_no",
-    "order_note", "ship_mark"
+    "order_note", "checker", "shipping_label", "picking_note",
+    "recipient_name", "recipient_phone", "recipient_address", "shipping_note"
   ];
 
   function buildMetaRow(fields) {
     return META_FIELDS.map(function (key) {
       var v = fields[key];
+      // 相容既有訂單資料：舊版 ship_mark 對應新版「出貨標籤」。
+      if ((v === undefined || v === null) && key === "shipping_label") v = fields.ship_mark;
+      // 各客戶原本只維護聯絡資料；新版收件人欄位預設沿用同一組資料。
+      if ((v === undefined || v === null) && key === "recipient_name") v = fields.contact_name;
+      if ((v === undefined || v === null) && key === "recipient_phone") v = fields.contact_phone;
+      if ((v === undefined || v === null) && key === "recipient_address") v = fields.contact_address;
       return (v === undefined || v === null) ? "" : v;
     });
   }
@@ -624,6 +641,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       window.location.pathname === "/trade-dashboard/otssals_pchs2.html";
   }
 
+  function offersLocalCloudAuth() {
+    return window.location.protocol === "file:";
+  }
+
   function loadSupabaseAuthLibrary() {
     return new Promise(function (resolve, reject) {
       if (window.supabase && window.supabase.createClient) { resolve(); return; }
@@ -640,38 +661,68 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   async function initAuthGate() {
-    if (!requiresCloudAuth()) return true;
+    var mandatoryAuth = requiresCloudAuth();
+    var optionalLocalAuth = offersLocalCloudAuth();
+    if (!mandatoryAuth && !optionalLocalAuth) return true;
+
     var gate = document.getElementById("authGate");
     var form = document.getElementById("authForm");
+    var description = document.getElementById("authDescription");
     var emailInput = document.getElementById("authEmail");
     var passwordInput = document.getElementById("authPassword");
     var message = document.getElementById("authMessage");
     var sendBtn = document.getElementById("authSendBtn");
+    var offlineBtn = document.getElementById("authOfflineBtn");
+    var loginBtn = document.getElementById("authLoginBtn");
     var logoutBtn = document.getElementById("authLogoutBtn");
     var userBadge = document.getElementById("authUser");
-    document.body.classList.add("auth-locked");
-    gate.hidden = false;
+    var resolveLogin = null;
+    var loginResolved = false;
 
-    try {
+    if (optionalLocalAuth) {
+      description.textContent = "登入後可在這台設備同步雲端設定；沒有網路時仍可選擇離線使用。";
+      offlineBtn.hidden = false;
+      loginBtn.hidden = false;
+    }
+
+    function showGate() {
+      document.body.classList.add("auth-locked");
+      gate.hidden = false;
+    }
+
+    function hideGate() {
+      gate.hidden = true;
+      document.body.classList.remove("auth-locked");
+    }
+
+    async function ensureAuthClient() {
+      if (authClient) return authClient;
       await loadSupabaseAuthLibrary();
       authClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
       });
-    } catch (err) {
-      message.textContent = err.message;
-      return false;
+      return authClient;
     }
 
+    function setLocalOfflineStatus(text) {
+      var status = document.getElementById("syncStatus");
+      if (!status) return;
+      status.textContent = text;
+      status.style.color = "#d35400";
+    }
+
+    showGate();
+
     function unlock(user) {
-      gate.hidden = true;
-      document.body.classList.remove("auth-locked");
+      hideGate();
       userBadge.textContent = user.email;
       userBadge.hidden = false;
+      loginBtn.hidden = true;
       logoutBtn.hidden = false;
     }
 
     async function validateSession(session) {
-      if (!session) return false;
+      if (!session || !authClient) return false;
       var response = await authClient.auth.getUser();
       var user = response.data && response.data.user;
       if (!user || !isAuthorizedEmail(user.email)) {
@@ -682,6 +733,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       unlock(user);
       return true;
     }
+
+    loginBtn.addEventListener("click", function () {
+      message.textContent = "";
+      showGate();
+    });
+
+    offlineBtn.addEventListener("click", function () {
+      hideGate();
+      setLocalOfflineStatus("目前使用本機資料；需要同步時請按頁首「雲端登入」");
+    });
 
     form.addEventListener("submit", async function (event) {
       event.preventDefault();
@@ -698,15 +759,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       sendBtn.textContent = "登入中...";
       message.style.color = "#c0392b";
       try {
+        await ensureAuthClient();
         var result = await authClient.auth.signInWithPassword({
           email: email,
           password: passwordInput.value
         });
         if (result.error) throw result.error;
+        if (!(await validateSession(result.data && result.data.session))) return;
         message.style.color = "#167949";
         message.textContent = "登入成功，正在載入資料…";
+        if (!loginResolved && resolveLogin) {
+          loginResolved = true;
+          resolveLogin(true);
+        }
       } catch (err) {
-        message.textContent = "登入失敗，請確認 Email 與密碼是否正確。";
+        message.textContent = "登入失敗，請確認 Email、密碼與網路連線。";
       } finally {
         sendBtn.disabled = false;
         sendBtn.textContent = "登入並記住此設備";
@@ -714,24 +781,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
 
     logoutBtn.addEventListener("click", async function () {
-      await authClient.auth.signOut();
+      if (authClient) await authClient.auth.signOut();
       window.location.reload();
     });
 
-    var current = await authClient.auth.getSession();
-    if (await validateSession(current.data && current.data.session)) return true;
+    try {
+      await ensureAuthClient();
+    } catch (err) {
+      message.textContent = err.message;
+      if (optionalLocalAuth) {
+        setLocalOfflineStatus("本機離線模式；連上網路後可按「雲端登入」同步設定");
+      }
+    }
+
+    if (authClient) {
+      var current = await authClient.auth.getSession();
+      if (await validateSession(current.data && current.data.session)) return true;
+    }
 
     return new Promise(function (resolve) {
-      var resolved = false;
-      authClient.auth.onAuthStateChange(function (event, session) {
-        if (!session || resolved) return;
-        setTimeout(async function () {
-          if (await validateSession(session)) {
-            resolved = true;
-            resolve(true);
-          }
-        }, 0);
-      });
+      resolveLogin = resolve;
     });
   }
   var SUPABASE_FIXED = {
@@ -788,7 +857,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         setStatus("對照表已同步雲端（" + new Date().toLocaleTimeString() + "）", "#1e7e34");
       } catch (e) {
         rows.forEach(function (r) { dirty[r.key] = r.data; });
-        setStatus("雲端同步失敗，資料已存在本機；恢復連線後按「立即同步」", "#c0392b");
+        var flushMessage = String((e && e.message) || e);
+        if (flushMessage.indexOf("登入雲端帳號") !== -1) {
+          setStatus("請先按頁首「雲端登入」，再上傳設定", "#c0392b");
+        } else {
+          setStatus("上傳失敗，資料仍保存在本機；恢復連線後可再試一次", "#c0392b");
+        }
       }
     }
 
@@ -799,19 +873,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         var cloudKeys = {};
         (rows || []).forEach(function (row) { cloudKeys[row.key] = row.data; });
 
-        // 安全規則：本機「完全沒有」這個key時才採用雲端資料（換新電腦/新瀏覽器的情境）。
-        // 本機已經有資料（不管新舊）一律不覆蓋——避免任何一次雲端同步意外蓋掉正在編輯中的資料。
-        // 本機有、雲端沒有 or 不同 → 一律以本機為準，推上雲端。
+        // 一般對照資料採本機優先：本機沒有時才採用雲端，本機已有差異則推上雲端。
+        // 常用連結是跨設備共用設定，登入後改採雲端優先，避免新設備的空清單蓋掉既有連結。
         var toPush = [];
         Object.keys(registry).forEach(function (k) {
           var localRaw = localStorage.getItem(k);
-          if (localRaw === null) {
-            if (Object.prototype.hasOwnProperty.call(cloudKeys, k)) {
+          var cloudHasKey = Object.prototype.hasOwnProperty.call(cloudKeys, k);
+
+          if (k === QUICK_LINKS_KEY && cloudHasKey) {
+            localStorage.setItem(k, JSON.stringify(cloudKeys[k]));
+            registry[k](cloudKeys[k]);
+          } else if (localRaw === null) {
+            if (cloudHasKey) {
               localStorage.setItem(k, JSON.stringify(cloudKeys[k]));
               registry[k](cloudKeys[k]);
             }
           } else {
-            var cloudRaw = Object.prototype.hasOwnProperty.call(cloudKeys, k) ? JSON.stringify(cloudKeys[k]) : null;
+            var cloudRaw = cloudHasKey ? JSON.stringify(cloudKeys[k]) : null;
             if (cloudRaw !== localRaw) {
               try { toPush.push([k, JSON.parse(localRaw)]); } catch (e) {}
             }
@@ -826,7 +904,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
       } catch (e) {
         var msg = String((e && e.message) || e);
-        if (msg.indexOf("otssals_maps") !== -1 || msg.indexOf("does not exist") !== -1 || msg.indexOf("PGRST") !== -1) {
+        if (msg.indexOf("登入雲端帳號") !== -1) {
+          setStatus("目前使用本機資料；請先按頁首「雲端登入」再載入雲端設定", "#d35400");
+        } else if (msg.indexOf("otssals_maps") !== -1 || msg.indexOf("does not exist") !== -1 || msg.indexOf("PGRST") !== -1) {
           setStatus("雲端對照表尚未建立（請先在 Supabase 執行 supabase_setup.sql），目前使用本機資料", "#d35400");
         } else {
           setStatus("無法連上雲端（離線模式），使用本機對照表", "#d35400");
@@ -834,7 +914,31 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
     }
 
-    function syncNow() {
+    async function pullFromCloud() {
+      setStatus("正在從雲端載入設定…");
+      try {
+        var rows = await supabaseFetch("otssals_maps?select=key,data");
+        var cloudKeys = {};
+        (rows || []).forEach(function (row) { cloudKeys[row.key] = row.data; });
+        var loadedCount = 0;
+        Object.keys(registry).forEach(function (k) {
+          if (!Object.prototype.hasOwnProperty.call(cloudKeys, k)) return;
+          localStorage.setItem(k, JSON.stringify(cloudKeys[k]));
+          registry[k](cloudKeys[k]);
+          loadedCount++;
+        });
+        setStatus("已從雲端載入 " + loadedCount + " 項設定（" + new Date().toLocaleTimeString() + "）", "#1e7e34");
+      } catch (e) {
+        var msg = String((e && e.message) || e);
+        if (msg.indexOf("登入雲端帳號") !== -1) {
+          setStatus("請先按頁首「雲端登入」，再從雲端載入設定", "#c0392b");
+        } else {
+          setStatus("雲端載入失敗，目前保留本機資料", "#c0392b");
+        }
+      }
+    }
+
+    function pushAll() {
       Object.keys(registry).forEach(function (k) {
         var raw = localStorage.getItem(k);
         if (raw) { try { dirty[k] = JSON.parse(raw); } catch (e) {} }
@@ -842,7 +946,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       flush();
     }
 
-    return { register: register, save: save, pullAll: pullAll, syncNow: syncNow };
+    return { register: register, save: save, pullAll: pullAll, pullFromCloud: pullFromCloud, pushAll: pushAll };
   })();
 
   // ---------- tabs ----------
@@ -1579,10 +1683,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   async function supabaseFetch(path, options) {
     options = options || {};
     var bearerToken = SUPABASE_ANON_KEY;
-    if (authClient && requiresCloudAuth()) {
+    if (requiresCloudAuth() || offersLocalCloudAuth()) {
+      if (!authClient) throw new Error("請先登入雲端帳號");
       var sessionResult = await authClient.auth.getSession();
       var session = sessionResult.data && sessionResult.data.session;
-      if (!session) throw new Error("登入已失效，請重新登入");
+      if (!session) throw new Error("請先登入雲端帳號");
       bearerToken = session.access_token;
     }
     var response = await fetch(SUPABASE_URL + "/rest/v1/" + path, Object.assign({}, options, {
@@ -2952,8 +3057,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   updateBatchDownloadStatus();
 
   // ---------- 啟動時載入雲端對照表 ----------
-  document.getElementById("syncNowBtn").addEventListener("click", function () {
-    CloudSync.syncNow();
+  document.getElementById("pullCloudBtn").addEventListener("click", function () {
+    CloudSync.pullFromCloud();
+  });
+  document.getElementById("pushCloudBtn").addEventListener("click", function () {
+    CloudSync.pushAll();
   });
   initAuthGate().then(function (allowed) {
     if (allowed) CloudSync.pullAll();
