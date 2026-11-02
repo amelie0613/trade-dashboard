@@ -1727,6 +1727,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }, 60000);
   }
 
+  function confirmExportOrganization(exportName) {
+    var companyNo = String(settings.company_no || "").trim();
+    var deptNo = String(settings.dept_no || "").trim();
+    if (!companyNo || !deptNo) {
+      showError("匯出前請先在「訂單基本設定」填寫公司編號與部門編號。");
+      var settingsCollapse = document.getElementById("settingsCollapse");
+      if (settingsCollapse) settingsCollapse.open = true;
+      return false;
+    }
+    return window.confirm(
+      "請確認匯出資料\n\n" +
+      "匯出項目：" + exportName + "\n" +
+      "公司編號：" + companyNo + "\n" +
+      "部門編號：" + deptNo + "\n\n" +
+      "確認無誤後按「確定」開始匯出。"
+    );
+  }
+
   convertBtn.addEventListener("click", function () {
     showError(""); showOk("");
     var parsed = window.__lastParsed;
@@ -1746,6 +1764,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     var orderDate = orderDateInput.value.replaceAll("-", "/");
     var shipDate = shipDateInput.value ? shipDateInput.value.replaceAll("-", "/") : "";
+    if (!confirmExportOrganization("善商訂購單 Excel")) return;
 
     convertBtn.disabled = true;
     convertBtn.textContent = "轉換中...";
@@ -2454,6 +2473,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
 
     var orderDate = napoliceOrderDateInput.value.replaceAll("-", "/");
+    if (!confirmExportOrganization("那波麗士訂購單 Excel")) return;
 
     napoliceConvertBtn.disabled = true;
     napoliceConvertBtn.textContent = "轉換中...";
@@ -2750,6 +2770,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     var orderDate = qixinOrderDateInput.value.replaceAll("-", "/");
     var shipDate = qixinShipDateInput.value ? qixinShipDateInput.value.replaceAll("-", "/") : "";
     var shipmentNo = generateOrderId();
+    if (!confirmExportOrganization("啟新訂購單 Excel")) return;
 
     qixinConvertBtn.disabled = true;
     qixinConvertBtn.textContent = "轉換中...";
@@ -2981,6 +3002,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     var orderDate = yujunOrderDateInput.value.replaceAll("-", "/");
     var shipDate = yujunShipDateInput.value ? yujunShipDateInput.value.replaceAll("-", "/") : "";
+    if (!confirmExportOrganization("魚君訂購單 Excel")) return;
 
     yujunConvertBtn.disabled = true;
     yujunConvertBtn.textContent = "轉換中...";
@@ -3131,6 +3153,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       showError("以下產品尚未完成對照，請先至後台資料管理補齊：\n" + missingProducts.join("、"));
       return;
     }
+    if (!confirmExportOrganization("四客戶合併訂購單 Excel")) return;
 
     batchDownloadBtn.disabled = true;
     batchDownloadBtn.textContent = "正在整理 Excel...";
