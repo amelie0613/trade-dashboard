@@ -577,8 +577,12 @@ function exportPDF() { window.print(); }
 document.addEventListener('DOMContentLoaded', () => {
   let payload = null;
   try {
-    const raw = localStorage.getItem('inventoryReportPayload');
+    const reportToken = new URLSearchParams(window.location.search).get('report');
+    const reportKey = reportToken ? `inventoryReportPayload:${reportToken}` : 'inventoryReportPayload';
+    const raw = localStorage.getItem(reportKey) || localStorage.getItem('inventoryReportPayload');
     if (raw) payload = JSON.parse(raw);
+    // 本次專屬資料只需讀取一次，避免 localStorage 長期累積。
+    if (reportToken) localStorage.removeItem(reportKey);
   } catch(e) { console.warn(e); }
 
   if (!payload || !payload.reportRows) {

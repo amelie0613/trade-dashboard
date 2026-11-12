@@ -2562,7 +2562,7 @@ function parseExcelDate(v){
   return null;
 }
 
-const EXPIRY_FIELD_ALIASES = ['有效期至','批號有效期至','有效日期','效期至','到期日','到期日期'];
+const EXPIRY_FIELD_ALIASES = ['有效期至','有效期','批號有效期至','有效日期','效期至','到期日','到期日期'];
 const WAREHOUSE_FIELD_ALIASES = ['倉庫名稱','倉庫','倉別名稱','庫別名稱','倉庫往來對象名稱'];
 function getFirstRowValue(row, keys){
   for(const key of keys){
@@ -14694,7 +14694,7 @@ function exportInventoryReport(){
     };
   });
 
-  localStorage.setItem('inventoryReportPayload', JSON.stringify({
+  const reportPayload = {
     reportRows,
     generatedAt: new Date().toLocaleDateString('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
     filters: {
@@ -14703,8 +14703,21 @@ function exportInventoryReport(){
       search:    search   || '',
       total:     sourceData.length,
     },
-  }));
-  window.open('inventory_report.html', 'inventory_report', 'width=1500,height=900,resizable=yes,scrollbars=yes');
+  };
+
+  // 使用本次專屬 key，避免固定名稱的舊報表視窗沒有重新載入，仍顯示空白或舊資料。
+  const reportToken = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+  try {
+    localStorage.setItem(`inventoryReportPayload:${reportToken}`, JSON.stringify(reportPayload));
+    // 保留舊 key，讓舊版報表頁仍可正常使用。
+    localStorage.setItem('inventoryReportPayload', JSON.stringify(reportPayload));
+  } catch(err) {
+    console.error('報表資料儲存失敗', err);
+    showToast('❌ 無法建立報表：瀏覽器儲存空間不足', 5000);
+    return;
+  }
+
+  window.open(`inventory_report.html?report=${encodeURIComponent(reportToken)}`, '_blank', 'width=1500,height=900,resizable=yes,scrollbars=yes');
 }
 
 // ===== 計算公式右鍵顯示 =====
