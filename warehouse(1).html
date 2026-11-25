@@ -130,7 +130,9 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
     font-weight:700;
     line-height:1;
     text-align:center;
-    overflow-wrap:anywhere;
+    white-space:nowrap;
+    word-break:keep-all;
+    overflow:hidden;
   }
   #bucket-print-area .bucket-fish-cell:not(:last-child){border-bottom:2pt solid #000;}
   #bucket-print-area [data-bucket-value]{overflow-wrap:anywhere;min-width:0;text-align:center;}
@@ -210,6 +212,10 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
   </div>
   <div class="card">
     <div class="sec-title">選擇原魚桶魚種<span style="font-size:10px;font-weight:400;color:#aaa;margin-left:8px;">最多 4 種</span></div>
+    <div class="add-row" style="margin-top:0;margin-bottom:12px;">
+      <input type="text" id="bucket-custom-fish" placeholder="臨時輸入魚種（僅供本次列印，不儲存）" onkeydown="if(event.key==='Enter')addBucketCustomFish()"/>
+      <button class="add-btn" type="button" onclick="addBucketCustomFish()">加入本次列印</button>
+    </div>
     <div class="fish-tags" id="bucket-fish-tags"></div>
     <div class="divider"></div>
     <div id="bucket-selected-list" class="empty-hint">尚未選擇魚種</div>
@@ -796,8 +802,36 @@ function renderBucketFishTags() {
     `<div class="fish-tag-row fish-tag-row-blue">${blueFish.map(renderTag).join('')}</div>` +
     `<div class="fish-tag-row fish-tag-row-green">${greenFish.map(renderTag).join('')}</div>`;
   const list = document.getElementById('bucket-selected-list');
-  list.className = bucketSelected.length ? '' : 'empty-hint';
-  list.textContent = bucketSelected.length ? `已選：${bucketSelected.join('、')}` : '尚未選擇魚種';
+  list.replaceChildren();
+  if (!bucketSelected.length) {
+    list.className = 'empty-hint';
+    list.textContent = '尚未選擇魚種';
+  } else {
+    list.className = '';
+    const label = document.createElement('span');
+    label.textContent = '已選：';
+    label.style.cssText = 'font-size:12px;color:#666;margin-right:6px;';
+    list.append(label);
+    bucketSelected.forEach((name, index) => {
+      const item = document.createElement('span');
+      item.style.cssText = 'display:inline-flex;align-items:center;gap:5px;margin:2px 5px 2px 0;padding:4px 8px;border:1px solid #c8d8ff;border-radius:14px;background:#f5f8ff;font-size:12px;';
+      const text = document.createElement('span');
+      text.textContent = name;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = '×';
+      remove.title = '從本次列印移除';
+      remove.style.cssText = 'border:0;background:none;color:#999;cursor:pointer;font-size:15px;line-height:1;padding:0;';
+      remove.onclick = () => removeBucketFish(index);
+      item.append(text, remove);
+      list.append(item);
+    });
+  }
+}
+
+function removeBucketFish(index) {
+  bucketSelected.splice(index, 1);
+  renderBucketFishTags();
 }
 
 function toggleBucketFish(name) {
@@ -810,6 +844,23 @@ function toggleBucketFish(name) {
     }
     bucketSelected.push(name);
   }
+  renderBucketFishTags();
+}
+
+function addBucketCustomFish() {
+  const input = document.getElementById('bucket-custom-fish');
+  const name = input.value.trim();
+  if (!name) return;
+  if (bucketSelected.includes(name)) {
+    alert('此魚種已在本次列印清單中');
+    return;
+  }
+  if (bucketSelected.length >= 4) {
+    alert('原魚桶單最多選擇 4 種魚');
+    return;
+  }
+  bucketSelected.push(name);
+  input.value = '';
   renderBucketFishTags();
 }
 
@@ -1177,6 +1228,9 @@ function printBucketTemplate() {
       const cell = document.createElement('div');
       cell.className = 'bucket-fish-cell';
       cell.textContent = name;
+      const nameLength = Array.from(name).length;
+      cell.style.fontSize = nameLength <= 3 ? '48pt' : nameLength === 4 ? '36pt' : nameLength === 5 ? '28pt' : '23pt';
+      cell.title = name;
       fishList.append(cell);
     });
     sheet.querySelector('[data-bucket-value="ship"]').textContent = ship;
