@@ -206,7 +206,7 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
       <div class="field"><label>進貨日期</label><input type="date" id="bucket-date"/></div>
       <div class="field"><label>船名</label><input type="text" id="bucket-ship" placeholder="船名..." list="ships-dl"/></div>
     </div>
-    <div style="margin-top:8px;font-size:11px;color:#aaa;">第一次進入會從製單頁帶入，之後可在此獨立修改。</div>
+    <div id="bucket-source-hint" style="margin-top:8px;font-size:11px;color:#aaa;">優先使用製單頁資料；製單頁空白時可在此輸入。</div>
   </div>
   <div class="card">
     <div class="sec-title">選擇原魚桶魚種<span style="font-size:10px;font-weight:400;color:#aaa;margin-left:8px;">最多 4 種</span></div>
@@ -225,7 +225,10 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div class="sec-title" style="margin-bottom:0;">魚種清單管理</div>
-      <button onclick="sortFishAZ()" style="font-size:11px;padding:3px 10px;border:1px solid #dde1e7;border-radius:6px;background:#fafafa;color:#555;cursor:pointer;font-family:inherit;">A→Z 排序</button>
+      <div style="display:flex;gap:6px;">
+        <button onclick="sortFishByColor()" style="font-size:11px;padding:3px 10px;border:1px solid #dde1e7;border-radius:6px;background:#fafafa;color:#555;cursor:pointer;font-family:inherit;">依顏色排序</button>
+        <button onclick="sortFishAZ()" style="font-size:11px;padding:3px 10px;border:1px solid #dde1e7;border-radius:6px;background:#fafafa;color:#555;cursor:pointer;font-family:inherit;">A→Z 排序</button>
+      </div>
     </div>
     <div id="admin-fish-list"></div>
     <div class="add-row">
@@ -644,7 +647,6 @@ function applyMasterFsData(v) {
 
 let selected = [];
 let bucketSelected = [];
-let bucketInfoInitialized = false;
 let defaultCnt = 20;
 let settingsSaveTimer = null;
 
@@ -759,7 +761,7 @@ function showPage(p) {
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   document.getElementById('page-' + p).classList.add('active');
   document.querySelector(`.tab[data-page="${p}"]`).classList.add('active');
-  if (p === 'admin') renderAdmin();
+  if (p === 'admin') sortFishByColor();
   if (p === 'bucket') {
     initializeBucketInfo();
     renderBucketFishTags();
@@ -768,10 +770,18 @@ function showPage(p) {
 }
 
 function initializeBucketInfo() {
-  if (bucketInfoInitialized) return;
-  document.getElementById('bucket-date').value = document.getElementById('date').value;
-  document.getElementById('bucket-ship').value = document.getElementById('ship').value;
-  bucketInfoInitialized = true;
+  const mainDate = document.getElementById('date').value;
+  const mainShip = document.getElementById('ship').value.trim();
+  const bucketDate = document.getElementById('bucket-date');
+  const bucketShip = document.getElementById('bucket-ship');
+  if (mainDate) bucketDate.value = mainDate;
+  if (mainShip) bucketShip.value = mainShip;
+  bucketDate.readOnly = !!mainDate;
+  bucketShip.readOnly = !!mainShip;
+  document.getElementById('bucket-source-hint').textContent =
+    mainDate || mainShip
+      ? '已優先帶入製單頁資料；製單頁清空後才可在此自行輸入。'
+      : '製單頁目前沒有日期與船名，可在此自行輸入。';
 }
 
 function renderBucketFishTags() {
@@ -944,6 +954,7 @@ function renderAdmin() {
           <option value="green" ${fishColorMap[f]==='green'?'selected':''}>綠色</option>
         </select>
         <span style="color:#ccc;font-size:14px;cursor:grab;padding:0 6px;user-select:none;flex-shrink:0;" title="拖曳排序">⠿</span>
+        <button onclick="renameFish(${i})" style="height:26px;padding:0 9px;border:1px solid #c8d8ff;border-radius:5px;background:#fff;color:#1a56db;cursor:pointer;font-size:12px;font-family:inherit;">修改名稱</button>
         <button onclick="moveFish(${i},-1)" ${isFirst?'disabled':''} style="width:24px;height:24px;border:1px solid #dde1e7;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:${isFirst?'#ccc':'#555'};">↑</button>
         <button onclick="moveFish(${i},1)" ${isLast?'disabled':''} style="width:24px;height:24px;border:1px solid #dde1e7;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:${isLast?'#ccc':'#555'};">↓</button>
         <button class="rm" onclick="delFish(${i})">✕</button>
@@ -980,8 +991,36 @@ function renderAdmin() {
 function addFish() {
   const inp=document.getElementById('new-fish'), v=inp.value.trim();
   if(!v||fishList.includes(v)) return;
-  fishList.push(v); inp.value=''; save(); renderAdmin(); renderFishTags();
+  fishList.push(v); inp.value=''; save(); sortFishByColor();
 }
+
+function renameFish(i) {
+  const oldName = fishList[i];
+  if (oldName === undefined) return;
+  const newName = prompt('修改魚種名稱', oldName);
+  if (newName === null) return;
+  const name = newName.trim();
+  if (!name || name === oldName) return;
+  if (fishList.includes(name)) {
+    alert('此魚種名稱已存在');
+    return;
+  }
+  fishList[i] = name;
+  if (Object.prototype.hasOwnProperty.call(fishSpecMap, oldName)) {
+    fishSpecMap[name] = fishSpecMap[oldName];
+    delete fishSpecMap[oldName];
+  }
+  if (Object.prototype.hasOwnProperty.call(fishColorMap, oldName)) {
+    fishColorMap[name] = fishColorMap[oldName];
+    delete fishColorMap[oldName];
+  }
+  selected.forEach(item => { if (item.name === oldName) item.name = name; });
+  bucketSelected = bucketSelected.map(item => item === oldName ? name : item);
+  save();
+  sortFishByColor();
+  renderSelected();
+}
+
 function delFish(i) {
   const n=fishList[i]; fishList.splice(i,1); delete fishSpecMap[n]; delete fishColorMap[n];
   selected=selected.filter(s=>s.name!==n);
@@ -992,12 +1031,28 @@ function moveFish(i, dir) {
   const j = i + dir;
   if (j < 0 || j >= fishList.length) return;
   [fishList[i], fishList[j]] = [fishList[j], fishList[i]];
-  save(); renderAdmin(); renderFishTags();
+  save(); sortFishByColor();
 }
 
 function sortFishAZ() {
-  fishList.sort((a,b) => a.localeCompare(b, 'zh-TW'));
-  save(); renderAdmin(); renderFishTags();
+  fishList.sort((a,b) => {
+    const colorDiff = (fishColorMap[a] === 'green' ? 1 : 0) - (fishColorMap[b] === 'green' ? 1 : 0);
+    return colorDiff || a.localeCompare(b, 'zh-TW');
+  });
+  save(); renderAdmin(); renderFishTags(); renderBucketFishTags();
+}
+
+function sortFishByColor() {
+  const sorted = [
+    ...fishList.filter(f => fishColorMap[f] !== 'green'),
+    ...fishList.filter(f => fishColorMap[f] === 'green')
+  ];
+  const changed = sorted.some((name, index) => name !== fishList[index]);
+  fishList = sorted;
+  if (changed) save();
+  renderAdmin();
+  renderFishTags();
+  renderBucketFishTags();
 }
 
 // ── 拖曳排序 ──
@@ -1020,7 +1075,7 @@ function fishDrop(e, toIdx) {
   const moved = fishList.splice(_dragIdx, 1)[0];
   fishList.splice(toIdx, 0, moved);
   _dragIdx = null;
-  save(); renderAdmin(); renderFishTags();
+  save(); sortFishByColor();
 }
 function fishDragEnd(e) {
   _dragIdx = null;
@@ -1077,7 +1132,7 @@ function setFishColor(index, color) {
   if (color === 'green') fishColorMap[name] = 'green';
   else delete fishColorMap[name];
   save();
-  renderFishTags();
+  sortFishByColor();
 }
 function importData() {
   try {
@@ -1096,10 +1151,12 @@ function importData() {
 
 // ── 列印 ──
 function getBucketData() {
+  const mainShip = document.getElementById('ship').value.trim();
+  const mainDate = document.getElementById('date').value;
   return {
     names: [...bucketSelected],
-    ship: document.getElementById('bucket-ship').value.trim(),
-    date: document.getElementById('bucket-date').value.replaceAll('-', '/')
+    ship: mainShip || document.getElementById('bucket-ship').value.trim(),
+    date: (mainDate || document.getElementById('bucket-date').value).replaceAll('-', '/')
   };
 }
 
