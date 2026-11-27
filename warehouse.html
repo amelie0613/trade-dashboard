@@ -24,9 +24,17 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
 .spec-input{width:54px!important;text-align:center;padding:0 4px!important;}
 .divider{height:1px;background:#f0f2f5;margin:12px 0;}
 .fish-tags{display:flex;flex-wrap:wrap;gap:6px;}
+#fish-tags{flex-direction:column;flex-wrap:nowrap;}
+#bucket-fish-tags{flex-direction:column;flex-wrap:nowrap;}
+.fish-tag-row{display:flex;flex-wrap:wrap;gap:6px;min-height:32px;}
 .ftag{border:1px solid #dde1e7;border-radius:20px;padding:6px 15px;font-size:13px;cursor:pointer;background:#fafafa;color:#444;transition:all .15s;font-family:inherit;}
 .ftag:hover{border-color:#1a56db;color:#1a56db;}
 .ftag.active{background:#1a56db;color:#fff;border-color:#1a56db;}
+.ftag{background:#edf4ff;color:#1849a9;border-color:#9bb9f5;}
+.ftag.fish-green{background:#eaf7ee;color:#16643b;border-color:#9bccad;}
+.ftag.fish-green:hover{color:#0e4e2c;border-color:#23784b;}
+.ftag.fish-green.active{background:#17663d;color:#fff;border-color:#17663d;}
+.fish-color-select{height:34px;padding:0 4px;border:1px solid #dde1e7;border-radius:6px;background:#fff;font:inherit;font-size:13px;}
 .quick-tag{border:1px solid #1a56db;border-radius:20px;padding:6px 14px;font-size:13px;cursor:pointer;background:#f0f4ff;color:#1a56db;font-family:inherit;transition:all .15s;font-weight:500;}
 .quick-tag:hover{background:#1a56db;color:#fff;}
 .srow{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #eee;border-radius:8px;margin-bottom:5px;background:#fafafa;}
@@ -62,7 +70,91 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
   }
 }
 #print-area{display:none;}
+
+.bucket-summary{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:10px 16px;font-size:14px;}
+.bucket-summary dt{color:#666;}
+.bucket-summary dd{overflow-wrap:anywhere;}
+#bucket-print-area{display:none;}
+@media print{
+  body.print-bucket #print-area{display:none!important;}
+  body.print-bucket #bucket-print-area{display:block;}
+  #bucket-print-area .bucket-sheet{
+    display:grid;
+    width:100%;
+    height:194mm;
+    grid-template-columns:repeat(3,11.5fr) repeat(3,12.375fr) 11.625fr 9fr repeat(2,10.625fr) 19.875fr;
+    grid-template-rows:repeat(3,21fr) 32.25fr repeat(8,21fr) repeat(5,21.75fr) 11.45fr repeat(10,16.5fr) 4.15fr 22.15fr;
+    border-top:2pt solid #000;
+    border-left:2pt solid #000;
+    font-family:'DFKai-SB','標楷體','PingFang TC',serif;
+    color:#000;
+    break-inside:avoid;
+  }
+  .bucket-sheet + .bucket-sheet{break-before:page;}
+  .bucket-sheet > div{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-right:2pt solid #000;
+    border-bottom:2pt solid #000;
+    padding:0 1mm;
+    font-size:12pt;
+    font-weight:700;
+    line-height:1.05;
+    min-width:0;
+    min-height:0;
+    overflow:hidden;
+  }
+  #bucket-print-area .bucket-fish-list{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    padding:0;
+    width:100%;
+    height:100%;
+    min-width:0;
+    min-height:0;
+    align-items:stretch;
+    justify-items:stretch;
+    justify-content:stretch;
+  }
+  #bucket-print-area .bucket-fish-cell{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-width:0;
+    min-height:0;
+    width:100%;
+    height:100%;
+    padding:0 1mm;
+    font-size:48pt;
+    font-weight:700;
+    line-height:1;
+    text-align:center;
+    white-space:nowrap;
+    word-break:keep-all;
+    overflow:hidden;
+  }
+  #bucket-print-area .bucket-fish-cell:not(:last-child){border-bottom:2pt solid #000;}
+  #bucket-print-area [data-bucket-value]{overflow-wrap:anywhere;min-width:0;text-align:center;}
+  #bucket-print-area .bucket-inspection{font-size:28pt;}
+  #bucket-print-area .bucket-spec-label{flex-direction:row;gap:1mm;padding:0 .5mm;}
+  #bucket-print-area .bucket-spec-zh{font-size:42pt;writing-mode:vertical-rl;line-height:1;}
+  #bucket-print-area .bucket-spec-id{font-family:Arial,sans-serif;font-size:10pt;font-weight:700;writing-mode:vertical-rl;text-orientation:mixed;line-height:1;}
+  #bucket-print-area .bucket-status{font-size:32pt;justify-content:flex-start;gap:1.5mm;flex-wrap:wrap;align-content:center;}
+  #bucket-print-area .bucket-date{font-size:22pt;writing-mode:vertical-rl;}
+  #bucket-print-area .bucket-date-value{font-size:40pt;}
+  #bucket-print-area .bucket-major-label,
+  #bucket-print-area .bucket-ship-value{font-size:48pt;}
+  #bucket-print-area .bucket-ship-value{justify-content:flex-start;padding-left:4mm;}
+  #bucket-print-area .bucket-weight-label{flex-direction:column;gap:.5mm;line-height:1;}
+  #bucket-print-area .bucket-weight-zh{font-size:30pt;}
+  #bucket-print-area .bucket-weight-id{font-family:Arial,sans-serif;font-size:11pt;font-weight:700;letter-spacing:.01em;}
+  #bucket-print-area .bucket-eu{font-size:36pt;justify-content:flex-start;align-items:flex-start;gap:1.5mm;flex-wrap:wrap;align-content:center;}
+  #bucket-print-area .bucket-choices span{white-space:nowrap;}
+}
+
 </style>
+<style id="bucket-page-style"></style>
 </head>
 <body>
 
@@ -71,8 +163,9 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
 <p class="subtitle">原魚入庫紀錄表 — 離線版</p>
 
 <div class="tab-bar">
-  <button class="tab active" onclick="showPage('main')">📋 製單</button>
-  <button class="tab" onclick="showPage('admin')">⚙️ 後台管理</button>
+  <button class="tab active" data-page="main" onclick="showPage('main')">📋 製單</button>
+  <button class="tab" data-page="bucket" onclick="showPage('bucket')">原魚桶單</button>
+  <button class="tab" data-page="admin" onclick="showPage('admin')">⚙️ 後台管理</button>
 </div>
 
 <!-- 製單 -->
@@ -112,12 +205,40 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
   </div>
 </div>
 
+<div class="page" id="page-bucket">
+  <div class="card">
+    <div class="sec-title">原魚桶資料</div>
+    <div class="grid2">
+      <div class="field"><label>進貨日期</label><input type="date" id="bucket-date"/></div>
+      <div class="field"><label>船名</label><input type="text" id="bucket-ship" placeholder="船名..." list="ships-dl"/></div>
+    </div>
+    <div id="bucket-source-hint" style="margin-top:8px;font-size:11px;color:#aaa;">優先使用製單頁資料；製單頁空白時可在此輸入。</div>
+  </div>
+  <div class="card">
+    <div class="sec-title">選擇原魚桶魚種<span style="font-size:10px;font-weight:400;color:#aaa;margin-left:8px;">最多 4 種</span></div>
+    <div class="add-row" style="margin-top:0;margin-bottom:12px;">
+      <input type="text" id="bucket-custom-fish" placeholder="臨時輸入魚種（僅供本次列印，不儲存）" onkeydown="if(event.key==='Enter')addBucketCustomFish()"/>
+      <button class="add-btn" type="button" onclick="addBucketCustomFish()">加入本次列印</button>
+    </div>
+    <div class="fish-tags" id="bucket-fish-tags"></div>
+    <div class="divider"></div>
+    <div id="bucket-selected-list" class="empty-hint">尚未選擇魚種</div>
+  </div>
+  <button type="button" class="print-btn" onclick="printBucketTemplate()">列印原魚桶單</button>
+</div>
+
 <!-- 後台 -->
 <div class="page" id="page-admin">
+  <div class="card" style="padding:12px 18px;">
+    <div id="settings-sync-status" style="font-size:12px;color:#888;">Supabase 設定：準備連線...</div>
+  </div>
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div class="sec-title" style="margin-bottom:0;">魚種清單管理</div>
-      <button onclick="sortFishAZ()" style="font-size:11px;padding:3px 10px;border:1px solid #dde1e7;border-radius:6px;background:#fafafa;color:#555;cursor:pointer;font-family:inherit;">A→Z 排序</button>
+      <div style="display:flex;gap:6px;">
+        <button onclick="sortFishByColor()" style="font-size:11px;padding:3px 10px;border:1px solid #dde1e7;border-radius:6px;background:#fafafa;color:#555;cursor:pointer;font-family:inherit;">依顏色排序</button>
+        <button onclick="sortFishAZ()" style="font-size:11px;padding:3px 10px;border:1px solid #dde1e7;border-radius:6px;background:#fafafa;color:#555;cursor:pointer;font-family:inherit;">A→Z 排序</button>
+      </div>
     </div>
     <div id="admin-fish-list"></div>
     <div class="add-row">
@@ -382,12 +503,41 @@ h1{font-size:18px;font-weight:600;color:#1a1a2e;margin-bottom:4px;}
 
 <!-- 列印區域 -->
 <div id="print-area"></div>
+<div id="bucket-print-area"></div>
+<template id="bucket-template">
+<section class="bucket-sheet" aria-label="原魚桶單">
+  <div class="bucket-fish-list" data-bucket-fish-list style="grid-row:1 / 13;grid-column:1 / 4"></div>
+  <div class="bucket-inspection" style="grid-row:1 / 5;grid-column:4">驗收</div>
+  <div class="bucket-choices bucket-status" style="grid-row:1 / 5;grid-column:5 / 8"><span>□待驗</span><span>□合格</span><span>□不合格</span></div>
+  <div class="bucket-spec-label" style="grid-row:5 / 13;grid-column:4"><span class="bucket-spec-zh">規格</span><span class="bucket-spec-id">Spesifikasi</span></div>
+  <div style="grid-row:5 / 13;grid-column:5 / 8"></div>
+  <div class="bucket-date" style="grid-row:1 / 7;grid-column:8">包裝日期</div>
+  <div style="grid-row:1 / 7;grid-column:9 / 12"></div>
+  <div class="bucket-date" style="grid-row:7 / 13;grid-column:8">進貨日期</div>
+  <div class="bucket-date-value" data-bucket-value="date" style="grid-row:7 / 13;grid-column:9 / 12"></div>
+  <div class="bucket-major-label" style="grid-row:13 / 19;grid-column:1 / 3">船名</div>
+  <div class="bucket-ship-value" data-bucket-value="ship" style="grid-row:13 / 19;grid-column:3 / 8"></div>
+  <div class="bucket-choices bucket-eu" style="grid-row:13 / 19;grid-column:8 / 12"><span>□歐盟（粉紅色）</span><span>■非歐盟（白色紙）</span></div>
+  <div class="bucket-weight-label" style="grid-row:19 / 22;grid-column:1 / 4"><span class="bucket-weight-zh">籃重</span><span class="bucket-weight-id">Berat Keranjang</span></div>
+  <div class="bucket-weight-label" style="grid-row:19 / 22;grid-column:4 / 8"><span class="bucket-weight-zh">總重</span><span class="bucket-weight-id">Berat Total</span></div>
+  <div class="bucket-weight-label" style="grid-row:19 / 22;grid-column:8 / 12"><span class="bucket-weight-zh">魚重</span><span class="bucket-weight-id">Berat Ikan</span></div>
+  <div style="grid-row:22 / 31;grid-column:1 / 4"></div>
+  <div style="grid-row:22 / 31;grid-column:4 / 8"></div>
+  <div style="grid-row:22 / 31;grid-column:8 / 12"></div>
+</section>
+</template>
 
 <script>
+const SETTINGS_SUPABASE_URL = 'https://yeposcucdppwkjmmoidi.supabase.co';
+const SETTINGS_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InllcG9zY3VjZHBwd2tqbW1vaWRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMDE0NTYsImV4cCI6MjA5Mzg3NzQ1Nn0.rnagyapHvFrMFUXwNFLA_r0me8HuKceb68RKzDk7NlI';
+const SETTINGS_ROW_ID = 'default';
+const SETTINGS_REQUEST_TIMEOUT = 10000;
+
 let fishList = JSON.parse(localStorage.getItem('fishList') || '["石橋","黑旗","大目串","南方黑鮪魚","馬加鯊","劍旗","鬼頭刀","紅皮刀","馬加舅","旗魚","黃鰭鮪","長鰭鮪","煙仔虎","白北"]');
 let specList = JSON.parse(localStorage.getItem('specList') || '[{"label":"40 25 15 15 10 10","vals":["40","25","15","15","10","10"]},{"label":"80 15 15 10 10","vals":["80","15","15","10","10"]},{"label":"25 20 15 10 10","vals":["25","20","15","10","10"]},{"label":"30 120 150","vals":["30","120","150"]},{"label":"5↑ 5↓","vals":["5↑","5↓"]},{"label":"10↑ 10↓","vals":["10↑","10↓"]}]');
 let shipList = JSON.parse(localStorage.getItem('shipList') || '["新華豐","新華豐系列","宏洋輪","沅滿金","榮發回","上禽","穩弘668(穩勝)"]');
 let fishSpecMap = JSON.parse(localStorage.getItem('fishSpecMap') || '{}');
+let fishColorMap = Object.assign(Object.create(null), JSON.parse(localStorage.getItem('fishColorMap') || '{}'));
 
 // ── 版面設定預設值 ──
 const LAYOUT_DEFAULTS = {
@@ -440,7 +590,7 @@ function _readLayoutInputs() {
 
 function saveLayout() {
   layoutCfg = _readLayoutInputs();
-  localStorage.setItem('layoutCfg', JSON.stringify(layoutCfg));
+  save();
   const msg = document.getElementById('layout-saved-msg');
   msg.textContent='✓ 已儲存'; msg.style.display='inline';
   setTimeout(()=>msg.style.display='none', 2000);
@@ -450,8 +600,7 @@ function saveAsDefault() {
   if (!confirm('將目前輸入的數值儲存為預設值？\n之後「還原預設」會回到這組數值。')) return;
   userDefaults = _readLayoutInputs();
   layoutCfg = Object.assign({}, userDefaults);
-  localStorage.setItem('userDefaults', JSON.stringify(userDefaults));
-  localStorage.setItem('layoutCfg', JSON.stringify(layoutCfg));
+  save();
   const msg = document.getElementById('layout-saved-msg');
   msg.textContent='✓ 已設為預設值'; msg.style.display='inline';
   setTimeout(()=>{ msg.style.display='none'; msg.textContent='✓ 已儲存'; }, 2500);
@@ -460,7 +609,7 @@ function saveAsDefault() {
 function resetLayout() {
   if (!confirm('還原為預設值（你上次「儲存為設定值」的數值）？')) return;
   layoutCfg = Object.assign({}, userDefaults);
-  localStorage.setItem('layoutCfg', JSON.stringify(layoutCfg));
+  save();
   fillLayoutInputs();
   const msg = document.getElementById('layout-saved-msg');
   msg.textContent='✓ 已還原'; msg.style.display='inline';
@@ -507,22 +656,216 @@ function applyMasterFsData(v) {
 }
 
 let selected = [];
+let bucketSelected = [];
 let defaultCnt = 20;
+let settingsSaveTimer = null;
 
-function save() {
+function getSettingsData() {
+  return { fishList, specList, shipList, fishSpecMap, fishColorMap, layoutCfg, userDefaults };
+}
+
+function setSyncStatus(message, isError = false) {
+  const el = document.getElementById('settings-sync-status');
+  if (!el) return;
+  el.textContent = `Supabase 設定：${message}`;
+  el.style.color = isError ? '#c62828' : '#2e7d32';
+}
+
+function saveLocalCache() {
   localStorage.setItem('fishList', JSON.stringify(fishList));
   localStorage.setItem('specList', JSON.stringify(specList));
   localStorage.setItem('shipList', JSON.stringify(shipList));
   localStorage.setItem('fishSpecMap', JSON.stringify(fishSpecMap));
+  localStorage.setItem('fishColorMap', JSON.stringify(fishColorMap));
+  localStorage.setItem('layoutCfg', JSON.stringify(layoutCfg));
+  localStorage.setItem('userDefaults', JSON.stringify(userDefaults));
+}
+
+async function settingsSupabaseFetch(path, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SETTINGS_REQUEST_TIMEOUT);
+  try {
+    const response = await fetch(`${SETTINGS_SUPABASE_URL}/rest/v1/${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        apikey: SETTINGS_SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SETTINGS_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+    });
+    if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function saveSettingsToSupabase() {
+  setSyncStatus('儲存中...');
+  try {
+    await settingsSupabaseFetch('warehouse_settings?on_conflict=id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify({
+        id: SETTINGS_ROW_ID,
+        data: getSettingsData(),
+        updated_at: new Date().toISOString()
+      })
+    });
+    setSyncStatus(`已同步（${new Date().toLocaleTimeString('zh-TW')}）`);
+  } catch (error) {
+    console.error('Supabase 設定儲存失敗', error);
+    setSyncStatus('儲存失敗，請先執行 warehouse_settings.sql', true);
+  }
+}
+
+function queueSettingsSave() {
+  clearTimeout(settingsSaveTimer);
+  settingsSaveTimer = setTimeout(saveSettingsToSupabase, 350);
+}
+
+function save() {
+  saveLocalCache();
+  queueSettingsSave();
+}
+
+function applyRemoteSettings(data) {
+  if (Array.isArray(data.fishList)) fishList = data.fishList;
+  if (Array.isArray(data.specList)) specList = data.specList;
+  if (Array.isArray(data.shipList)) shipList = data.shipList;
+  if (data.fishSpecMap && typeof data.fishSpecMap === 'object') fishSpecMap = data.fishSpecMap;
+  if (data.fishColorMap && typeof data.fishColorMap === 'object') fishColorMap = Object.assign(Object.create(null), data.fishColorMap);
+  if (data.userDefaults && typeof data.userDefaults === 'object') userDefaults = Object.assign({}, LAYOUT_DEFAULTS, data.userDefaults);
+  if (data.layoutCfg && typeof data.layoutCfg === 'object') layoutCfg = Object.assign({}, userDefaults, data.layoutCfg);
+  saveLocalCache();
+  renderFishTags();
+  renderBucketFishTags();
+  renderSpecQuick();
+  renderShipDl();
+  renderAdmin();
+  fillLayoutInputs();
+}
+
+async function loadSettingsFromSupabase() {
+  setSyncStatus('載入中...');
+  try {
+    const rows = await settingsSupabaseFetch(`warehouse_settings?id=eq.${encodeURIComponent(SETTINGS_ROW_ID)}&select=data&limit=1`);
+    if (rows && rows.length) {
+      applyRemoteSettings(rows[0].data || {});
+      setSyncStatus('已載入雲端設定');
+    } else {
+      await saveSettingsToSupabase();
+      setSyncStatus('已將本機設定首次上傳');
+    }
+  } catch (error) {
+    console.error('Supabase 設定載入失敗', error);
+    setSyncStatus('連線失敗，暫用本機快取；請先執行 warehouse_settings.sql', true);
+  }
 }
 
 function showPage(p) {
   document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
   document.getElementById('page-' + p).classList.add('active');
-  document.querySelectorAll('.tab')[p === 'main' ? 0 : 1].classList.add('active');
-  if (p === 'admin') renderAdmin();
+  document.querySelector(`.tab[data-page="${p}"]`).classList.add('active');
+  if (p === 'admin') sortFishByColor();
+  if (p === 'bucket') {
+    initializeBucketInfo();
+    renderBucketFishTags();
+  }
   if (p === 'main') { renderFishTags(); renderSpecQuick(); }
+}
+
+function initializeBucketInfo() {
+  const mainDate = document.getElementById('date').value;
+  const mainShip = document.getElementById('ship').value.trim();
+  const bucketDate = document.getElementById('bucket-date');
+  const bucketShip = document.getElementById('bucket-ship');
+  if (mainDate) bucketDate.value = mainDate;
+  if (mainShip) bucketShip.value = mainShip;
+  bucketDate.readOnly = !!mainDate;
+  bucketShip.readOnly = !!mainShip;
+  document.getElementById('bucket-source-hint').textContent =
+    mainDate || mainShip
+      ? '已優先帶入製單頁資料；製單頁清空後才可在此自行輸入。'
+      : '製單頁目前沒有日期與船名，可在此自行輸入。';
+}
+
+function renderBucketFishTags() {
+  const renderTag = f => {
+    const on = bucketSelected.includes(f);
+    const esc = f.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<button class="ftag${fishColorMap[f]==='green'?' fish-green':''}${on?' active':''}" aria-pressed="${on}" onclick="toggleBucketFish('${esc}')">${f}</button>`;
+  };
+  const blueFish = fishList.filter(f => fishColorMap[f] !== 'green');
+  const greenFish = fishList.filter(f => fishColorMap[f] === 'green');
+  document.getElementById('bucket-fish-tags').innerHTML =
+    `<div class="fish-tag-row fish-tag-row-blue">${blueFish.map(renderTag).join('')}</div>` +
+    `<div class="fish-tag-row fish-tag-row-green">${greenFish.map(renderTag).join('')}</div>`;
+  const list = document.getElementById('bucket-selected-list');
+  list.replaceChildren();
+  if (!bucketSelected.length) {
+    list.className = 'empty-hint';
+    list.textContent = '尚未選擇魚種';
+  } else {
+    list.className = '';
+    const label = document.createElement('span');
+    label.textContent = '已選：';
+    label.style.cssText = 'font-size:12px;color:#666;margin-right:6px;';
+    list.append(label);
+    bucketSelected.forEach((name, index) => {
+      const item = document.createElement('span');
+      item.style.cssText = 'display:inline-flex;align-items:center;gap:5px;margin:2px 5px 2px 0;padding:4px 8px;border:1px solid #c8d8ff;border-radius:14px;background:#f5f8ff;font-size:12px;';
+      const text = document.createElement('span');
+      text.textContent = name;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = '×';
+      remove.title = '從本次列印移除';
+      remove.style.cssText = 'border:0;background:none;color:#999;cursor:pointer;font-size:15px;line-height:1;padding:0;';
+      remove.onclick = () => removeBucketFish(index);
+      item.append(text, remove);
+      list.append(item);
+    });
+  }
+}
+
+function removeBucketFish(index) {
+  bucketSelected.splice(index, 1);
+  renderBucketFishTags();
+}
+
+function toggleBucketFish(name) {
+  const index = bucketSelected.indexOf(name);
+  if (index >= 0) bucketSelected.splice(index, 1);
+  else {
+    if (bucketSelected.length >= 4) {
+      alert('原魚桶單最多選擇 4 種魚');
+      return;
+    }
+    bucketSelected.push(name);
+  }
+  renderBucketFishTags();
+}
+
+function addBucketCustomFish() {
+  const input = document.getElementById('bucket-custom-fish');
+  const name = input.value.trim();
+  if (!name) return;
+  if (bucketSelected.includes(name)) {
+    alert('此魚種已在本次列印清單中');
+    return;
+  }
+  if (bucketSelected.length >= 4) {
+    alert('原魚桶單最多選擇 4 種魚');
+    return;
+  }
+  bucketSelected.push(name);
+  input.value = '';
+  renderBucketFishTags();
 }
 
 
@@ -563,12 +906,17 @@ function addFishSpecVal(i) {
 }
 
 function renderFishTags() {
-  document.getElementById('fish-tags').innerHTML = fishList.map(f => {
+  const renderTag = f => {
     const on = !!selected.find(s => s.name === f);
     const star = fishSpecMap[f] ? '<span style="font-size:9px;margin-left:2px;vertical-align:super;">★</span>' : '';
     const esc = f.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return `<button class="ftag${on?' active':''}" onclick="toggleFish('${esc}')">${f}${star}</button>`;
-  }).join('');
+    return `<button class="ftag${fishColorMap[f]==='green'?' fish-green':''}${on?' active':''}" aria-pressed="${on}" onclick="toggleFish('${esc}')">${f}${star}</button>`;
+  };
+  const blueFish = fishList.filter(f => fishColorMap[f] !== 'green');
+  const greenFish = fishList.filter(f => fishColorMap[f] === 'green');
+  document.getElementById('fish-tags').innerHTML =
+    `<div class="fish-tag-row fish-tag-row-blue">${blueFish.map(renderTag).join('')}</div>` +
+    `<div class="fish-tag-row fish-tag-row-green">${greenFish.map(renderTag).join('')}</div>`;
 }
 
 function renderSpecQuick() {
@@ -656,7 +1004,12 @@ function renderAdmin() {
         ondrop="fishDrop(event,${i})"
         ondragend="fishDragEnd(event)">
         <span style="flex:1;text-align:left;font-size:13px;color:#1a1a1a;">${f}</span>
+        <select class="fish-color-select" aria-label="魚種按鍵顏色" onchange="setFishColor(${i},this.value)">
+          <option value="blue">藍色</option>
+          <option value="green" ${fishColorMap[f]==='green'?'selected':''}>綠色</option>
+        </select>
         <span style="color:#ccc;font-size:14px;cursor:grab;padding:0 6px;user-select:none;flex-shrink:0;" title="拖曳排序">⠿</span>
+        <button onclick="renameFish(${i})" style="height:26px;padding:0 9px;border:1px solid #c8d8ff;border-radius:5px;background:#fff;color:#1a56db;cursor:pointer;font-size:12px;font-family:inherit;">修改名稱</button>
         <button onclick="moveFish(${i},-1)" ${isFirst?'disabled':''} style="width:24px;height:24px;border:1px solid #dde1e7;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:${isFirst?'#ccc':'#555'};">↑</button>
         <button onclick="moveFish(${i},1)" ${isLast?'disabled':''} style="width:24px;height:24px;border:1px solid #dde1e7;border-radius:5px;background:#fff;cursor:pointer;font-size:12px;color:${isLast?'#ccc':'#555'};">↓</button>
         <button class="rm" onclick="delFish(${i})">✕</button>
@@ -693,10 +1046,38 @@ function renderAdmin() {
 function addFish() {
   const inp=document.getElementById('new-fish'), v=inp.value.trim();
   if(!v||fishList.includes(v)) return;
-  fishList.push(v); inp.value=''; save(); renderAdmin(); renderFishTags();
+  fishList.push(v); inp.value=''; save(); sortFishByColor();
 }
+
+function renameFish(i) {
+  const oldName = fishList[i];
+  if (oldName === undefined) return;
+  const newName = prompt('修改魚種名稱', oldName);
+  if (newName === null) return;
+  const name = newName.trim();
+  if (!name || name === oldName) return;
+  if (fishList.includes(name)) {
+    alert('此魚種名稱已存在');
+    return;
+  }
+  fishList[i] = name;
+  if (Object.prototype.hasOwnProperty.call(fishSpecMap, oldName)) {
+    fishSpecMap[name] = fishSpecMap[oldName];
+    delete fishSpecMap[oldName];
+  }
+  if (Object.prototype.hasOwnProperty.call(fishColorMap, oldName)) {
+    fishColorMap[name] = fishColorMap[oldName];
+    delete fishColorMap[oldName];
+  }
+  selected.forEach(item => { if (item.name === oldName) item.name = name; });
+  bucketSelected = bucketSelected.map(item => item === oldName ? name : item);
+  save();
+  sortFishByColor();
+  renderSelected();
+}
+
 function delFish(i) {
-  const n=fishList[i]; fishList.splice(i,1); delete fishSpecMap[n];
+  const n=fishList[i]; fishList.splice(i,1); delete fishSpecMap[n]; delete fishColorMap[n];
   selected=selected.filter(s=>s.name!==n);
   save(); renderAdmin(); renderFishTags(); renderSelected();
 }
@@ -705,12 +1086,28 @@ function moveFish(i, dir) {
   const j = i + dir;
   if (j < 0 || j >= fishList.length) return;
   [fishList[i], fishList[j]] = [fishList[j], fishList[i]];
-  save(); renderAdmin(); renderFishTags();
+  save(); sortFishByColor();
 }
 
 function sortFishAZ() {
-  fishList.sort((a,b) => a.localeCompare(b, 'zh-TW'));
-  save(); renderAdmin(); renderFishTags();
+  fishList.sort((a,b) => {
+    const colorDiff = (fishColorMap[a] === 'green' ? 1 : 0) - (fishColorMap[b] === 'green' ? 1 : 0);
+    return colorDiff || a.localeCompare(b, 'zh-TW');
+  });
+  save(); renderAdmin(); renderFishTags(); renderBucketFishTags();
+}
+
+function sortFishByColor() {
+  const sorted = [
+    ...fishList.filter(f => fishColorMap[f] !== 'green'),
+    ...fishList.filter(f => fishColorMap[f] === 'green')
+  ];
+  const changed = sorted.some((name, index) => name !== fishList[index]);
+  fishList = sorted;
+  if (changed) save();
+  renderAdmin();
+  renderFishTags();
+  renderBucketFishTags();
 }
 
 // ── 拖曳排序 ──
@@ -733,7 +1130,7 @@ function fishDrop(e, toIdx) {
   const moved = fishList.splice(_dragIdx, 1)[0];
   fishList.splice(toIdx, 0, moved);
   _dragIdx = null;
-  save(); renderAdmin(); renderFishTags();
+  save(); sortFishByColor();
 }
 function fishDragEnd(e) {
   _dragIdx = null;
@@ -782,7 +1179,15 @@ function addShip() {
 function delShip(i) { shipList.splice(i,1); save(); renderAdmin(); renderShipDl(); }
 
 function exportData() {
-  document.getElementById('backup-area').value=JSON.stringify({fishList,specList,shipList,fishSpecMap,layoutCfg,userDefaults},null,2);
+  document.getElementById('backup-area').value=JSON.stringify({fishList,specList,shipList,fishSpecMap,fishColorMap,layoutCfg,userDefaults},null,2);
+}
+function setFishColor(index, color) {
+  const name = fishList[index];
+  if (name === undefined) return;
+  if (color === 'green') fishColorMap[name] = 'green';
+  else delete fishColorMap[name];
+  save();
+  sortFishByColor();
 }
 function importData() {
   try {
@@ -791,6 +1196,7 @@ function importData() {
     if(d.specList) specList=d.specList;
     if(d.shipList) shipList=d.shipList;
     if(d.fishSpecMap) fishSpecMap=d.fishSpecMap;
+    if(d.fishColorMap) fishColorMap=Object.assign(Object.create(null),d.fishColorMap);
     if(d.userDefaults){ userDefaults=Object.assign({},LAYOUT_DEFAULTS,d.userDefaults); localStorage.setItem('userDefaults',JSON.stringify(userDefaults)); }
     if(d.layoutCfg){ layoutCfg=Object.assign({},userDefaults,d.layoutCfg); localStorage.setItem('layoutCfg',JSON.stringify(layoutCfg)); fillLayoutInputs(); }
     save(); renderAdmin(); renderFishTags(); renderSpecQuick(); renderShipDl();
@@ -799,7 +1205,75 @@ function importData() {
 }
 
 // ── 列印 ──
+function getBucketData() {
+  const mainShip = document.getElementById('ship').value.trim();
+  const mainDate = document.getElementById('date').value;
+  return {
+    names: [...bucketSelected],
+    ship: mainShip || document.getElementById('bucket-ship').value.trim(),
+    date: (mainDate || document.getElementById('bucket-date').value).replaceAll('-', '/')
+  };
+}
+
+function printBucketTemplate() {
+  const { names, ship, date } = getBucketData();
+  const template = document.getElementById('bucket-template');
+  const printArea = document.getElementById('bucket-print-area');
+  const namesPerPage = 4;
+  printArea.replaceChildren();
+  const pageCount = Math.max(1, Math.ceil(names.length / namesPerPage));
+  for (let page = 0; page < pageCount; page++) {
+    const sheet = template.content.cloneNode(true);
+    const pageNames = names.slice(page * namesPerPage, (page + 1) * namesPerPage);
+    const fishList = sheet.querySelector('[data-bucket-fish-list]');
+    const printNames = [...pageNames];
+    while (printNames.length < namesPerPage) printNames.push('');
+    fishList.style.gridTemplateRows = `repeat(${namesPerPage}, minmax(0, 1fr))`;
+    printNames.forEach(name => {
+      const cell = document.createElement('div');
+      cell.className = 'bucket-fish-cell';
+      const nameLength = Array.from(name).length;
+      const text = document.createElement('span');
+      text.textContent = name;
+      text.style.whiteSpace = 'nowrap';
+      if (nameLength <= 3) text.style.fontSize = '48pt';
+      else if (nameLength === 4) {
+        text.style.fontSize = '40pt';
+        text.style.transform = 'scaleX(.88)';
+      } else if (nameLength === 5) {
+        text.style.fontSize = '56pt';
+        text.style.transform = 'scaleX(.48)';
+        text.style.display = 'inline-block';
+        text.style.width = '208%';
+        text.style.flexShrink = '0';
+        text.style.textAlign = 'center';
+      } else {
+        text.style.fontSize = '30pt';
+        text.style.transform = 'scaleX(.68)';
+      }
+      text.style.transformOrigin = 'center';
+      cell.append(text);
+      cell.title = name;
+      fishList.append(cell);
+    });
+    sheet.querySelector('[data-bucket-value="ship"]').textContent = ship;
+    sheet.querySelector('[data-bucket-value="date"]').textContent = date;
+    printArea.append(sheet);
+  }
+  document.getElementById('bucket-page-style').textContent = '@page{size:A4 landscape;margin:8mm;}';
+  document.body.classList.add('print-bucket');
+  window.print();
+}
+
+function resetBucketPrint() {
+  document.body.classList.remove('print-bucket');
+  document.getElementById('bucket-page-style').textContent = '';
+}
+
+window.addEventListener('afterprint', resetBucketPrint);
+
 function doPrint() {
+  resetBucketPrint();
   const date=document.getElementById('date').value;
   const ship=document.getElementById('ship').value;
   const zone=document.getElementById('zone').value;
@@ -922,6 +1396,7 @@ function doPrint() {
 // 初始化
 document.getElementById('date').valueAsDate=new Date();
 renderFishTags(); renderSpecQuick(); renderShipDl(); fillLayoutInputs();
+loadSettingsFromSupabase();
 </script>
 </body>
 </html>
